@@ -371,8 +371,6 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <div id="adminUpsellList"></div>
         <div class="add-item-form">
           <h4>➕ Nouvelle suggestion</h4>
-          <label class="admin-label">Afficher sur la catégorie</label>
-          <select class="cat-select" id="newUpsellCat"></select>
           <label class="admin-label">Titre</label>
           <input class="admin-input" id="newUpsellTitle" placeholder="Ex: 🍰 Envie d'un dessert ?">
           <label class="admin-label">Message</label>
@@ -809,7 +807,7 @@ function renderMenu() {
     const topItems = catItems.filter(it=>!it.subcat);
     
     // Upsell banner for this cat
-    const upsell = upsells.find(u=>u.cat===c.id && u.active);
+    const upsell = upsells.find(u=>u.active && (u.cats ? u.cats.includes(c.id) : u.cat===c.id));
     
     let html = `<div class="section ${i===0?'active':''}" id="sec_${c.id}">`;
     html += `<div class="section-title">${c.name[l]||c.name.fr}</div>`;
@@ -976,7 +974,7 @@ function renderAdminContent(){
   if(currentAdminTab==='social') initSocialPanel();
   // Fill cat selects
   const opts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
-  ['newItemCat','newUpsellCat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  ['newItemCat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
 }
 
 function renderAdminItems(list){
@@ -1034,10 +1032,7 @@ function renderAdminCats(){
           <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Sous-catégories déroulantes</span>
           <label class="toggle"><input type="checkbox" id="catcoll_${c.id}" ${c.collapsible?'checked':''} onchange="toggleCatCollapsible('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
         </div>
-        <div class="toggle-row" style="margin-top:0.4rem">
-          <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Afficher les suppléments</span>
-          <label class="toggle"><input type="checkbox" id="catsupp_${c.id}" ${(c.extras&&c.extras.includes('supplements'))?'checked':''} onchange="toggleCatExtras('${c.id}','supplements',this.checked)"><span class="toggle-slider"></span></label>
-        </div>
+
         ${c.archived?'<span class="archived-badge">archivée</span>':''}
       </div>
       <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
@@ -1049,21 +1044,29 @@ function renderAdminCats(){
 }
 
 function renderAdminUpsell(){
-  const catOpts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
-  document.getElementById('adminUpsellList').innerHTML = upsells.map(u=>`
-    <div class="upsell-card">
+  const activeCats = cats.filter(c=>!c.archived);
+  document.getElementById('adminUpsellList').innerHTML = upsells.map(u=>{
+    const uCats = Array.isArray(u.cats) ? u.cats : (u.cat ? [u.cat] : []);
+    return `<div class="upsell-card">
       <div class="toggle-row">
         <div class="toggle-label" style="font-size:0.75rem;color:#888">Activer cette suggestion</div>
         <label class="toggle"><input type="checkbox" ${u.active?'checked':''} onchange="toggleUpsell('${u.id}',this.checked)"><span class="toggle-slider"></span></label>
       </div>
-      <label class="admin-label">Catégorie concernée</label>
-      <select class="cat-select" id="ucat_${u.id}">${catOpts.replace(`value="${u.cat}"`,`value="${u.cat}" selected`)}</select>
       <label class="admin-label">Titre</label>
       <input class="admin-input" id="utitle_${u.id}" value="${u.title}">
       <label class="admin-label">Message</label>
       <input class="admin-input" id="umsg_${u.id}" value="${u.message}" style="margin-bottom:0.5rem">
-      <button class="aic-btn delete" onclick="deleteUpsell('${u.id}')">Supprimer</button>
-    </div>`).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucune suggestion</p>';
+      <label class="admin-label">Afficher sur ces catégories</label>
+      <div class="allergen-checks" id="ucats_${u.id}">
+        ${activeCats.map(c=>`
+          <div class="allergen-check-item">
+            <input type="checkbox" id="ucat_${u.id}_${c.id}" ${uCats.includes(c.id)?'checked':''}>
+            <label for="ucat_${u.id}_${c.id}">${c.name.fr}</label>
+          </div>`).join('')}
+      </div>
+      <button class="aic-btn delete" style="margin-top:0.6rem" onclick="deleteUpsell('${u.id}')">Supprimer</button>
+    </div>`;
+  }).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucune suggestion</p>';
 }
 
 function renderAdminArchives(){
@@ -1154,11 +1157,10 @@ function addNewCat(){
 }
 
 function addUpsell(){
-  const cat=document.getElementById('newUpsellCat').value;
   const title=document.getElementById('newUpsellTitle').value.trim();
   const message=document.getElementById('newUpsellMsg').value.trim();
   if(!title||!message)return alert('Titre et message requis');
-  upsells.push({id:'u'+Date.now(),cat,title,message,active:true});
+  upsells.push({id:'u'+Date.now(),cat:'',cats:[],title,message,active:true});
   document.getElementById('newUpsellTitle').value='';
   document.getElementById('newUpsellMsg').value='';
   renderAdminUpsell();
@@ -1169,10 +1171,15 @@ function collectUpsellEdits(){
   upsells.forEach(u=>{
     const t=document.getElementById('utitle_'+u.id);
     const m=document.getElementById('umsg_'+u.id);
-    const c=document.getElementById('ucat_'+u.id);
     if(t) u.title=t.value;
     if(m) u.message=m.value;
-    if(c) u.cat=c.value;
+    // Collect multiple categories
+    const activeCats = cats.filter(c=>!c.archived);
+    u.cats = activeCats.filter(c=>{
+      const cb=document.getElementById('ucat_'+u.id+'_'+c.id);
+      return cb && cb.checked;
+    }).map(c=>c.id);
+    u.cat = u.cats[0] || '';
   });
 }
 
