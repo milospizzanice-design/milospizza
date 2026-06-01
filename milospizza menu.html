@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milo's Pizza — Carte</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rouge: #9B1C1C;
+    --rouge-clair: #C0392B;
+    --creme: #F5F0E8;
+    --creme-fonce: #EDE6D8;
+    --vert: #6B7E5A;
+    --brun: #3D2B1F;
+    --texte: #2C2010;
+    --gris: #888;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--creme);
+    font-family: 'Montserrat', sans-serif;
+    color: var(--texte);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--creme);
+    text-align: center;
+    padding: 2.5rem 1rem 1.5rem;
+    border-bottom: 2px solid var(--rouge);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 20px rgba(155,28,28,0.08);
+  }
+
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: clamp(2.2rem, 6vw, 3.2rem);
+    color: var(--rouge);
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  .logo-sub {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    letter-spacing: 0.45em;
+    font-size: 0.72rem;
+    color: var(--brun);
+    text-transform: uppercase;
+    margin-top: 0.2rem;
+  }
+
+  /* ── NAV TABS ── */
+  nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 0;
+    background: var(--brun);
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+
+  nav button {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.85rem 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+  }
+
+  nav button.active, nav button:hover {
+    color: #fff;
+    border-bottom-color: var(--rouge-clair);
+    background: rgba(155,28,28,0.15);
+  }
+
+  /* ── SECTIONS ── */
+  .section { display: none; padding: 1.5rem 1rem 4rem; max-width: 700px; margin: 0 auto; }
+  .section.active { display: block; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.8rem, 5vw, 2.4rem);
+    font-weight: 300;
+    color: var(--vert);
+    text-align: center;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+
+  .section-subtitle {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--rouge);
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1.8rem;
+  }
+
+  .divider {
+    width: 40px;
+    height: 2px;
+    background: var(--rouge);
+    margin: 0.6rem auto 1.8rem;
+  }
+
+  /* ── SOUS-CATÉGORIE ── */
+  .sub-cat {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--rouge);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin: 2rem 0 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--creme-fonce);
+  }
+
+  /* ── ITEM ── */
+  .item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(61,43,31,0.08);
+  }
+  .item:last-child { border-bottom: none; }
+
+  .item-info { flex: 1; }
+
+  .item-name {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--rouge);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+
+  .item-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.95rem;
+    color: #5A4535;
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .item-option {
+    font-size: 0.75rem;
+    color: var(--vert);
+    font-style: normal;
+    margin-top: 0.2rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+  }
+
+  .item-price {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--brun);
+    white-space: nowrap;
+    min-width: 48px;
+    text-align: right;
+  }
+
+  /* ── MENU ENFANT ── */
+  .menu-enfant {
+    background: var(--creme-fonce);
+    border: 1px solid var(--rouge);
+    border-radius: 8px;
+    padding: 1.2rem;
+    text-align: center;
+    margin: 1.5rem 0;
+  }
+  .menu-enfant .e-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.3rem;
+    color: var(--vert);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .menu-enfant p {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.95rem;
+    color: var(--rouge);
+    font-weight: 600;
+    line-height: 1.7;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .menu-enfant .e-price {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--brun);
+    margin-top: 0.5rem;
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  /* ── SUPPLEMENTS ── */
+  .supplements-box {
+    background: var(--brun);
+    color: #fff;
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin-top: 2rem;
+    text-align: center;
+  }
+  .supplements-box h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--creme);
+    margin-bottom: 0.4rem;
+  }
+  .supplements-box p {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 0.8rem;
+    font-family: 'Montserrat', sans-serif;
+  }
+  .sup-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
+  .sup-tag {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.7rem;
+    font-family: 'Montserrat', sans-serif;
+    color: rgba(255,255,255,0.85);
+  }
+  .sup-price {
+    margin-top: 0.8rem;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    color: var(--creme);
+  }
+
+  /* ── VIN ITEM ── */
+  .vin-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(61,43,31,0.08);
+  }
+  .vin-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--texte);
+  }
+  .vin-price {
+    font-size: 0.78rem;
+    color: var(--gris);
+    font-family: 'Montserrat', sans-serif;
+    text-align: right;
+  }
+
+  /* ── ADMIN BUTTON ── */
+  .admin-fab {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--rouge);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 52px;
+    height: 52px;
+    font-size: 1.3rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(155,28,28,0.4);
+    z-index: 200;
+    transition: transform 0.2s;
+  }
+  .admin-fab:hover { transform: scale(1.1); }
+
+  /* ── ADMIN PANEL ── */
+  .admin-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 300;
+    align-items: flex-end;
+  }
+  .admin-overlay.open { display: flex; }
+
+  .admin-panel {
+    background: #fff;
+    width: 100%;
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+    overflow-y: auto;
+    padding: 1.5rem;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: none; } }
+
+  .admin-panel h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    color: var(--rouge);
+    margin-bottom: 0.3rem;
+  }
+  .admin-panel p.admin-sub {
+    font-size: 0.75rem;
+    color: var(--gris);
+    margin-bottom: 1.2rem;
+  }
+
+  .admin-close {
+    float: right;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--gris);
+    margin-top: -0.3rem;
+  }
+
+  .admin-search {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    outline: none;
+  }
+  .admin-search:focus { border-color: var(--rouge); }
+
+  .admin-item {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 0.9rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .admin-item-name {
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--rouge);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+
+  .admin-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .admin-input {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.8rem;
+    outline: none;
+  }
+  .admin-input:focus { border-color: var(--rouge); }
+  .admin-input.price { max-width: 90px; }
+
+  .admin-label {
+    font-size: 0.68rem;
+    color: var(--gris);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .admin-save-btn {
+    width: 100%;
+    background: var(--rouge);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.9rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: background 0.2s;
+  }
+  .admin-save-btn:hover { background: #7a1515; }
+
+  .save-toast {
+    display: none;
+    position: fixed;
+    bottom: 5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--brun);
+    color: #fff;
+    padding: 0.7rem 1.5rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-family: 'Montserrat', sans-serif;
+    z-index: 400;
+  }
+
+  .footer {
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.65rem;
+    color: var(--gris);
+    font-family: 'Montserrat', sans-serif;
+    letter-spacing: 0.05em;
+    border-top: 1px solid var(--creme-fonce);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-text">Milo's Pizza</div>
+  <div class="logo-sub">9 rue Bavastro · Nice</div>
+</header>
+
+<nav id="nav"></nav>
+
+<main id="main"></main>
+
+<div class="footer">Prix nets service compris · Liste des allergènes disponible sur demande</div>
+
+<button class="admin-fab" onclick="openAdmin()" title="Modifier la carte">✎</button>
+
+<div class="admin-overlay" id="adminOverlay" onclick="closeAdminIfOutside(event)">
+  <div class="admin-panel">
+    <button class="admin-close" onclick="closeAdmin()">×</button>
+    <h2>Modifier la carte</h2>
+    <p class="admin-sub">Modifiez un plat, son prix ou sa description, puis cliquez sur Enregistrer.</p>
+    <input class="admin-search" type="text" placeholder="Rechercher un plat..." oninput="filterAdmin(this.value)" id="adminSearch">
+    <div id="adminList"></div>
+    <button class="admin-save-btn" onclick="saveChanges()">✓ Enregistrer les modifications</button>
+  </div>
+</div>
+
+<div class="save-toast" id="toast">✓ Modifications enregistrées !</div>
+
+<script>
+// ══════════════════════════════════════════
+// DONNÉES DU MENU — Modifier ici si besoin
+// ══════════════════════════════════════════
+const MENU = {
+  tabs: [
+    { id: "commencer", label: "Pour commencer" },
+    { id: "camembert", label: "Camemberts Rôtis" },
+    { id: "veggie", label: "Pizza Veggie" },
+    { id: "charcuterie", label: "Pizza Charcuterie" },
+    { id: "viandes", label: "Viandes & Poissons" },
+    { id: "desserts", label: "Desserts" },
+    { id: "boissons", label: "Boissons" },
+    { id: "vins", label: "Vins & Alcools" },
+  ],
+  sections: {
+    commencer: {
+      title: "Pour Commencer",
+      subtitle: "À partager ou pas !",
+      items: [
+        { name: "Foccacia au choix", desc: "Parmesan et romarin, fleur de sel, persillade, ou pesto", price: "6€" },
+        { name: "Straciatella", desc: "Straciatella (burrata crémeuse), ciboulette, accompagnée d'un pain maison", price: "12€" },
+        { name: "Bresaola & Parmigiano", desc: "Bresaola, copeaux de Parmesan, câpres, brins de roquette, huile d'olive vierge extra", price: "15€" },
+        { name: "Assiette de charcuterie", desc: "Sélection parmi nos produits selon disponibilité", price: "17€" },
+      ],
+      subcats: [
+        {
+          name: "Salade Bowl",
+          note: "Servi dans un bol réalisé en pâte à pizza",
+          items: [
+            { name: "Burrata", desc: "Tomates cerise, Burrata, copeaux de parmesan, pesto, huile d'olive vierge extra, roquette, basilic", price: "17€" },
+            { name: "Italienne", desc: "Roquette, Straciatella, tomates cerise, olives, copeaux de parmesan, jambon cru, origan, crème de balsamique", price: "17€" },
+            { name: "Tonno", desc: "Roquette, straciatella, tomates cerise, poivrons marinés, thon, câpres", price: "17€" },
+          ]
+        }
+      ],
+      extras: ["menu_enfant"]
+    },
+    camembert: {
+      title: "Nos Camemberts Rôtis",
+      subtitle: "Un savoureux camembert rôti, coulant et fondant, entouré de sa pâte à pizza",
+      items: [
+        { name: "Camembert Rôti", desc: "Camembert coulant au miel, thym et romarin, éclats de noix", price: "15€" },
+        { name: "Camembert Rôti & Lardons", desc: "Camembert coulant au miel et thym, oignons cuisinés, lardons fumés, éclat de noix", price: "17€" },
+        { name: "Camembert Rôti à la Truffe", desc: "Huile d'olive à la truffe, thym et romarin, lamelles de truffe, éclats de noisette", price: "18€" },
+      ]
+    },
+    veggie: {
+      title: "Pizza Veggie",
+      items: [
+        { name: "Marguerite", desc: "Sauce tomate, mozzarella Fior di latte, huile d'olive vierge extra, Parmesan, basilic", price: "12€" },
+        { name: "Chèvre & Miel", desc: "Sauce tomate, mozzarella Fior di latte, fromage de chèvre pur, tomates cerise, miel, éclats de noix", price: "15€" },
+        { name: "4 Fromages", desc: "Sauce tomate, mozzarella Fior di latte, gorgonzola, fromage de chèvre pur, Parmesan", price: "15€" },
+        { name: "Parmigiana", desc: "Sauce tomate, mozzarella Fior di latte, aubergines cuisinées, copeaux de Parmesan, persillade maison, origan, basilic", price: "16€" },
+        { name: "Milo's Pizza", desc: "Crème de poires rôties au miel et romarin, mozzarella Fior di latte, gorgonzola, parmesan, poires, éclats de noix torréfiés, ciboulette", price: "17€" },
+        { name: "La Marceau", desc: "Pesto de courgette et basilic, mozzarella Fior di latte, straciatella, tomates rôties au sucre, amandes effilées et grillées", price: "17€" },
+        { name: "Burrata", desc: "Sauce tomate, roquette, burrata DOP, tomates cerise, huile d'olive à la truffe, copeaux de Parmesan, origan", price: "18€" },
+        { name: "Veggie On Fire", desc: "Crème de poivrons, mozzarella Fior di latte, champignons, poivrons, courgettes, tomates cerise, origan, ciboulette", price: "18€" },
+        { name: "Tartuffa", desc: "Crème de truffe et champignons, mozzarella Fior di latte, lamelles de truffe, huile d'olive à la truffe", price: "20€" },
+      ]
+    },
+    charcuterie: {
+      title: "Pizza Charcuterie",
+      items: [
+        { name: "Calzone", desc: "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, œuf, origan", price: "15€" },
+        { name: "Reine", desc: "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, origan", price: "15€" },
+        { name: "Piccante", desc: "Sauce tomate, mozzarella Fior di latte, spianata piquante, oignons cuisinés, origan, basilic", price: "15€" },
+        { name: "4 Saisons", desc: "Sauce tomate, mozzarella Fior di latte, cœurs d'artichaut, champignons de paris, jambon cuit, olives, origan", price: "16€" },
+        { name: "Royale", desc: "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, œuf, ciboulette", price: "16,5€" },
+        { name: "Fiacola", desc: "Crème de poivrons, mozzarella Fior di latte, chèvre, spianata piquante, poivrons marinés, amandes effilées grillées, origan, basilic", price: "17,5€" },
+        { name: "Tartiflette", desc: "Crème, mozzarella Fior di latte, pommes de terre à l'ail et au romarin, reblochon de Savoie, lardons fumés, oignons cuisinés", price: "17,5€" },
+        { name: "Palerme", desc: "Sauce tomate, mozzarella Fior di latte, mortadelle à la pistache, stracciatella, tomates cerise, pistaches, basilic, origan, huile d'olive vierge extra", price: "18€" },
+        { name: "Autunno", desc: "Sauce tomate, roquette, jambon cru, straciatella, tomates cerise, amandes effilées grillées, poivre, huile d'olive vierge extra", price: "18€" },
+        { name: "L'Audacieuse", desc: "Crème de poires rôties au miel et romarin, mozzarella Fior di latte, jambon cru, poires, tomates cerise, ciboulette, origan, basilic", price: "18,5€" },
+        { name: "Bresaola", desc: "Sauce tomate, roquette, bresaola, burrata DOP, tomates séchées, copeaux de Parmesan, huile d'olive à la truffe, origan", price: "19€" },
+        { name: "Deliciosa", desc: "Crème de truffe et champignons, mozzarella Fior di latte, chiffonnade de jambon cuit, straciatella, champignons de Paris, éclats de noisettes, huile d'olive à la truffe, ciboulette", price: "20€" },
+      ],
+      extras: ["supplements"]
+    },
+    viandes: {
+      title: "Pizza Viandes & Poissons",
+      items: [
+        { name: "Neptune", desc: "Sauce tomate, mozzarella Fior di latte, thon, oignons cuisinés, olives noires, persillade maison, câpres", price: "15€" },
+        { name: "Cannibale", desc: "Sauce tomate, mozzarella Fior di latte, viande hachée, oignons cuisinés, œuf, origan, persillade maison", price: "15€" },
+        { name: "Poulet", desc: "Sauce tomate, mozzarella Fior di latte, poulet mariné à l'ail et au romarin, poivrons et oignons cuisinés, basilic, origan", price: "15€" },
+        { name: "À l'Ancienne", desc: "Crème de moutarde à l'ancienne & miel, mozzarella Fior di latte, champignons de paris, poulet mariné à l'ail et au romarin, brins de roquette, ciboulette, copeaux de Parmesan", price: "17€" },
+        { name: "La Saumon", desc: "Pesto de courgettes et basilic, mozzarella Fior di latte, saumon fumé mariné, courgette, ciboulette, citrons verts", price: "20€" },
+      ]
+    },
+    desserts: {
+      title: "Les Desserts",
+      items: [
+        { name: "Affogato", desc: "Glace Vanille, expresso, chantilly", price: "8€" },
+        { name: "Tiramisu Maison Classique", desc: "", price: "8€" },
+        { name: "Calzone Sucrée au Nutella", desc: "Saupoudrée de sucre glace ou de coco râpée", price: "8€", option: "Option poires : +1€" },
+        { name: "Glace", desc: "Vanille, Chocolat, Pistache, Fraise, Café, Citron, Caramel Beurre Salé", price: "3€ / 6€ / 8€" },
+        { name: "Tiramisu Maison Nutella", desc: "", price: "9€" },
+        { name: "Café/Déca Gourmand", desc: "", price: "9,5€" },
+        { name: "Thé Gourmand", desc: "", price: "10,5€" },
+      ]
+    },
+    boissons: {
+      title: "Boissons",
+      subcats: [
+        {
+          name: "Chaud",
+          items: [
+            { name: "Expresso / Décaféiné", desc: "", price: "2,5€" },
+            { name: "Américain", desc: "", price: "2,8€" },
+            { name: "Noisette", desc: "", price: "3€" },
+            { name: "Cappuccino", desc: "", price: "4,5€" },
+            { name: "Thé bio Malongo", desc: "Earl Grey, thé vert menthe, thé rouge Rooibos, infusion verveine", price: "4,5€" },
+          ]
+        },
+        {
+          name: "Softs",
+          items: [
+            { name: "Sirop", desc: "Menthe, Orgeat, Fraise, Grenadine, Pêche", price: "3€" },
+            { name: "Jus 25cl", desc: "Pomme, orange, ACE", price: "4€" },
+            { name: "Limonade 25cl", desc: "", price: "4€" },
+            { name: "Coca-Cola, Coca-Zéro 33cl", desc: "", price: "4,5€" },
+            { name: "Orangina 25cl", desc: "", price: "4,5€" },
+            { name: "Fuze Tea 33cl", desc: "", price: "4,5€" },
+            { name: "Perrier 33cl", desc: "", price: "4,5€" },
+            { name: "Eau plate 1L", desc: "", price: "6€" },
+            { name: "San Pellegrino 1L", desc: "", price: "6€" },
+          ]
+        },
+        {
+          name: "Bières",
+          items: [
+            { name: "Pression blonde Moretti", desc: "", price: "25cl 4,5€ · 50cl 8€" },
+            { name: "Monaco / Demi pêche 25cl", desc: "", price: "5€" },
+            { name: "Bière sans alcool 25cl", desc: "", price: "5€" },
+            { name: "À la fut — Blonde, Blanche, IPA 33cl", desc: "", price: "6,5€" },
+            { name: "Corona 33cl", desc: "", price: "7€" },
+          ]
+        },
+        {
+          name: "Cocktails",
+          items: [
+            { name: "Aperol Spritz", desc: "Aperol, Prosecco, eau gazeuse", price: "10€" },
+            { name: "Floral Spritz", desc: "Liqueur de fleur de sureau, Prosecco, eau gazeuse", price: "11€" },
+            { name: "Caïpirinha", desc: "Cachaça, citron vert, cassonade, sucre de canne", price: "12€" },
+            { name: "Exotic Milo's", desc: "Vodka vanillée, purée de passion, jus de fruits de la passion, jus de citron vert, sucre de canne", price: "12€" },
+            { name: "Carribean Milo's", desc: "Rhum vanillé, purée de passion, jus de fruits de la passion, jus de citron vert, sucre de canne", price: "12€" },
+          ]
+        },
+        {
+          name: "Mocktails sans alcool",
+          items: [
+            { name: "Virgin Milo's", desc: "Purée et jus de fruits de la passion, jus de citron vert, sucre de canne", price: "9€" },
+          ]
+        }
+      ]
+    },
+    vins: {
+      title: "Vins & Alcools",
+      subcats: [
+        {
+          name: "Vins Blancs",
+          items: [
+            { name: "Vin de pays du Var, Bastide Saint-Antoine", desc: "", price: "Verre 7€ · Btl 26€" },
+            { name: '"Chardonnay" Cour des Dames', desc: "", price: "Verre 8€ · Btl 32€" },
+            { name: "Côtes de Provence, Bailli", desc: "", price: "Btl 35€" },
+          ]
+        },
+        {
+          name: "Vins Rosés",
+          items: [
+            { name: "Vin de pays du Var, Bastide Saint-Antoine", desc: "", price: "Verre 7€ · Btl 26€" },
+            { name: "Côtes de Provence, Bailli", desc: "", price: "Verre 8€ · Btl 32€" },
+          ]
+        },
+        {
+          name: "Vins Rouges",
+          items: [
+            { name: "Vin de pays du Var, Bastide Saint-Antoine", desc: "", price: "Verre 7€ · Btl 26€" },
+            { name: "Côtes du Rhône, Maison Arnoux « Vieux Clocher »", desc: "", price: "Verre 8€ · Btl 32€" },
+            { name: "Côtes de Provence, Bailli", desc: "", price: "Btl 35€" },
+            { name: "Valpolicella Ripasso", desc: "", price: "Btl 45€" },
+          ]
+        },
+        {
+          name: "Les Bulles",
+          items: [
+            { name: "Lambrusco Rosso", desc: "", price: "Verre 7€ · Btl 24€" },
+            { name: "Prosecco Frizzante", desc: "", price: "Verre 8€ · Btl 35€" },
+            { name: "Champagne", desc: "", price: "Btl 80€" },
+          ]
+        },
+        {
+          name: "Alcools",
+          items: [
+            { name: "Martini blanc et rouge", desc: "", price: "5€" },
+            { name: "Ricard 4cl", desc: "", price: "4,5€" },
+            { name: "Amaretto 6cl", desc: "", price: "8€" },
+            { name: "Limoncello 6cl", desc: "", price: "8€" },
+            { name: "Liqueur de menthe 6cl", desc: "", price: "8€" },
+            { name: "Gin Tonic 4cl", desc: "", price: "10€" },
+            { name: "Hendrick's Tonic 4cl", desc: "", price: "12€" },
+            { name: "Vodka + soft 4cl", desc: "", price: "10€" },
+            { name: "Jack Daniel / Honey Jack 4cl", desc: "", price: "10€" },
+            { name: "Glenfiddich 12 ans 4cl", desc: "", price: "12€" },
+            { name: "Rhum épicé Captain Morgan 4cl", desc: "", price: "10€" },
+            { name: "Diplomatico 4cl", desc: "", price: "12€" },
+          ]
+        }
+      ]
+    }
+  }
+};
+
+// ── Load from localStorage if available ──
+function loadData() {
+  try {
+    const saved = localStorage.getItem('milos_menu');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Merge saved items back
+      parsed.forEach(({sectionId, index, subcatIndex, name, desc, price}) => {
+        const s = MENU.sections[sectionId];
+        if (!s) return;
+        const arr = subcatIndex !== undefined
+          ? s.subcats[subcatIndex].items
+          : s.items;
+        if (arr && arr[index]) {
+          if (name !== undefined) arr[index].name = name;
+          if (desc !== undefined) arr[index].desc = desc;
+          if (price !== undefined) arr[index].price = price;
+        }
+      });
+    }
+  } catch(e) {}
+}
+
+// ── Render ──
+function renderAll() {
+  renderNav();
+  renderSections();
+}
+
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = MENU.tabs.map((t, i) =>
+    `<button onclick="showTab('${t.id}')" id="tab_${t.id}" class="${i===0?'active':''}">${t.label}</button>`
+  ).join('');
+}
+
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('sec_' + id);
+  if (el) el.classList.add('active');
+  const btn = document.getElementById('tab_' + id);
+  if (btn) {
+    btn.classList.add('active');
+    btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+}
+
+function renderSections() {
+  const main = document.getElementById('main');
+  main.innerHTML = MENU.tabs.map((t, i) => {
+    const s = MENU.sections[t.id];
+    if (!s) return '';
+    return `<div class="section ${i===0?'active':''}" id="sec_${t.id}">${renderSection(s, t.id)}</div>`;
+  }).join('');
+}
+
+function renderSection(s, id) {
+  let html = `<div class="section-title">${s.title}</div>`;
+  if (s.subtitle) {
+    html += `<div class="section-subtitle">${s.subtitle}</div>`;
+  }
+  html += `<div class="divider"></div>`;
+
+  if (s.items) {
+    html += s.items.map(item => renderItem(item)).join('');
+  }
+
+  if (s.subcats) {
+    s.subcats.forEach(sub => {
+      html += `<div class="sub-cat">${sub.name}${sub.note ? `<span style="font-size:0.75rem;font-weight:300;display:block;color:#888;text-transform:none;font-family:'Cormorant Garamond',serif;font-style:italic;letter-spacing:0">${sub.note}</span>` : ''}</div>`;
+      html += sub.items.map(item => renderItem(item)).join('');
+    });
+  }
+
+  if (s.extras) {
+    s.extras.forEach(e => {
+      if (e === 'menu_enfant') html += renderMenuEnfant();
+      if (e === 'supplements') html += renderSupplements();
+    });
+  }
+
+  return html;
+}
+
+function renderItem(item) {
+  return `<div class="item">
+    <div class="item-info">
+      <div class="item-name">${item.name}</div>
+      ${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}
+      ${item.option ? `<div class="item-option">+ ${item.option}</div>` : ''}
+    </div>
+    <div class="item-price">${item.price}</div>
+  </div>`;
+}
+
+function renderMenuEnfant() {
+  return `<div class="menu-enfant">
+    <div class="e-title">Menu Enfant</div>
+    <p>1 Mini Pizza (Reine ou Marguerite)<br>+ 1 Sirop à l'eau<br>+ 1 Boule de glace au choix</p>
+    <div class="e-price">12€</div>
+  </div>`;
+}
+
+function renderSupplements() {
+  const tags = ['Fromage','Charcuterie','Légumes','Œuf','Burrata','Mozzarella','Jambon cuit','Bresaola','Artichauts','Poivrons','Champignons'];
+  return `<div class="supplements-box">
+    <h3>Ajoutez une touche gourmande</h3>
+    <p>Personnalisez votre pizza selon vos envies</p>
+    <div class="sup-tags">${tags.map(t=>`<span class="sup-tag">${t}</span>`).join('')}</div>
+    <div class="sup-price">À partir de <strong>1,5€</strong> seulement</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════════
+let allAdminItems = [];
+
+function buildAdminItems() {
+  allAdminItems = [];
+  Object.entries(MENU.sections).forEach(([sectionId, s]) => {
+    if (s.items) {
+      s.items.forEach((item, index) => {
+        allAdminItems.push({ sectionId, index, subcatIndex: undefined, item });
+      });
+    }
+    if (s.subcats) {
+      s.subcats.forEach((sub, subcatIndex) => {
+        sub.items.forEach((item, index) => {
+          allAdminItems.push({ sectionId, index, subcatIndex, item, subName: sub.name });
+        });
+      });
+    }
+  });
+}
+
+function openAdmin() {
+  buildAdminItems();
+  renderAdminList(allAdminItems);
+  document.getElementById('adminOverlay').classList.add('open');
+  document.getElementById('adminSearch').value = '';
+}
+
+function closeAdmin() {
+  document.getElementById('adminOverlay').classList.remove('open');
+}
+
+function closeAdminIfOutside(e) {
+  if (e.target === document.getElementById('adminOverlay')) closeAdmin();
+}
+
+function filterAdmin(query) {
+  const q = query.toLowerCase();
+  const filtered = allAdminItems.filter(({item, subName}) =>
+    item.name.toLowerCase().includes(q) ||
+    (item.desc && item.desc.toLowerCase().includes(q)) ||
+    (subName && subName.toLowerCase().includes(q))
+  );
+  renderAdminList(filtered);
+}
+
+function renderAdminList(items) {
+  const sectionNames = {
+    commencer: 'Pour Commencer', camembert: 'Camemberts Rôtis',
+    veggie: 'Pizza Veggie', charcuterie: 'Pizza Charcuterie',
+    viandes: 'Viandes & Poissons', desserts: 'Desserts',
+    boissons: 'Boissons', vins: 'Vins & Alcools'
+  };
+  document.getElementById('adminList').innerHTML = items.map(({sectionId, index, subcatIndex, item, subName}) => {
+    const uid = `${sectionId}_${subcatIndex !== undefined ? subcatIndex + '_' : ''}${index}`;
+    const cat = subName ? `${sectionNames[sectionId]} › ${subName}` : sectionNames[sectionId];
+    return `<div class="admin-item">
+      <div class="admin-item-name">${item.name} <span style="color:#aaa;font-weight:300;text-transform:none;font-size:0.7rem">— ${cat}</span></div>
+      <label class="admin-label">Prix</label>
+      <input class="admin-input price" id="price_${uid}" value="${item.price}" placeholder="ex: 15€">
+      <label class="admin-label" style="margin-top:0.4rem">Description</label>
+      <input class="admin-input" id="desc_${uid}" value="${item.desc}" placeholder="Description du plat">
+      <input type="hidden" id="sid_${uid}" value="${sectionId}">
+      <input type="hidden" id="idx_${uid}" value="${index}">
+      <input type="hidden" id="sub_${uid}" value="${subcatIndex !== undefined ? subcatIndex : ''}">
+    </div>`;
+  }).join('') || '<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun plat trouvé</p>';
+}
+
+function saveChanges() {
+  const saved = [];
+  allAdminItems.forEach(({sectionId, index, subcatIndex, item}) => {
+    const uid = `${sectionId}_${subcatIndex !== undefined ? subcatIndex + '_' : ''}${index}`;
+    const priceEl = document.getElementById(`price_${uid}`);
+    const descEl = document.getElementById(`desc_${uid}`);
+    if (!priceEl) return;
+    item.price = priceEl.value;
+    item.desc = descEl.value;
+    saved.push({ sectionId, index, subcatIndex, name: item.name, desc: item.desc, price: item.price });
+  });
+
+  try { localStorage.setItem('milos_menu', JSON.stringify(saved)); } catch(e) {}
+
+  renderSections();
+  closeAdmin();
+  const toast = document.getElementById('toast');
+  toast.style.display = 'block';
+  setTimeout(() => toast.style.display = 'none', 2500);
+}
+
+// ── Init ──
+loadData();
+renderAll();
+</script>
+</body>
+</html>
