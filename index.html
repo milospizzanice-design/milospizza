@@ -904,8 +904,12 @@ let tapCount=0,tapTimer=null;
 function handleLogoTap(){
   tapCount++;
   clearTimeout(tapTimer);
-  tapTimer=setTimeout(()=>tapCount=0,2000);
+  tapTimer=setTimeout(()=>{ 
+    if(tapCount===1) goHome();
+    tapCount=0;
+  },300);
   if(tapCount>=10){
+    clearTimeout(tapTimer);
     tapCount=0;
     const f=document.getElementById('adminFab');
     f.style.display='block';
