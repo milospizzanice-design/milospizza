@@ -136,7 +136,45 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:var(--rouge-cl
 .sup-price{margin-top:0.8rem;font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--creme);}
 .footer{text-align:center;padding:1rem;font-size:0.65rem;color:var(--gris);letter-spacing:0.05em;border-top:1px solid var(--creme-fonce);max-width:700px;margin:0 auto;}
 
+/* SOCIAL */
+.social-hero{text-align:center;padding:2rem 1rem 1rem;}
+.social-hero-title{font-family:'Playfair Display',serif;font-style:italic;font-size:1.8rem;color:var(--rouge);margin-bottom:0.3rem;}
+.social-hero-sub{font-family:'Montserrat',sans-serif;font-size:0.75rem;color:var(--gris);letter-spacing:0.1em;text-transform:uppercase;}
+.social-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;padding:0 1rem;margin-top:1.2rem;}
+.social-card{border-radius:12px;padding:1.2rem 1rem;text-align:center;text-decoration:none;display:block;transition:transform 0.15s,box-shadow 0.15s;}
+.social-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,0.12);}
+.social-card .s-icon{font-size:2rem;margin-bottom:0.4rem;display:block;}
+.social-card .s-name{font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;}
+.social-card .s-handle{font-family:'Montserrat',sans-serif;font-size:0.68rem;opacity:0.8;margin-top:0.15rem;}
+.social-card.instagram{background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;}
+.social-card.facebook{background:#1877F2;color:#fff;}
+.social-card.google{background:#fff;color:#555;border:1px solid #ddd;}
+.social-card.tripadvisor{background:#34e0a1;color:#fff;}
+.review-box{margin:1.5rem 1rem;background:var(--brun);border-radius:12px;padding:1.5rem;text-align:center;}
+.review-box .r-title{font-family:'Playfair Display',serif;font-style:italic;font-size:1.2rem;color:#fff;margin-bottom:0.5rem;}
+.review-box .r-sub{font-family:'Montserrat',sans-serif;font-size:0.72rem;color:rgba(255,255,255,0.7);margin-bottom:1rem;line-height:1.5;}
+.review-stars{font-size:1.5rem;margin-bottom:1rem;}
+.review-btns{display:flex;gap:0.5rem;}
+.review-btn{flex:1;border:none;border-radius:8px;padding:0.8rem 0.5rem;font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;text-decoration:none;display:block;text-align:center;}
+.review-btn.google-btn{background:#fff;color:#555;}
+.review-btn.trip-btn{background:#34e0a1;color:#fff;}
+
 .archived-badge{display:inline-block;background:#e0e0e0;color:#888;font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border-radius:4px;padding:0.15rem 0.4rem;margin-left:0.4rem;vertical-align:middle;}
+
+/* POPUP DU MOMENT */
+.popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:600;align-items:center;justify-content:center;padding:1rem;}
+.popup-overlay.open{display:flex;animation:fadeIn 0.3s ease;}
+.popup-box{background:var(--creme);border-radius:16px;max-width:360px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);}
+.popup-img{width:100%;height:200px;object-fit:cover;display:block;}
+.popup-img.hidden{display:none;}
+.popup-badge{background:var(--rouge);color:#fff;font-family:'Montserrat',sans-serif;font-size:0.65rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;padding:0.5rem 1rem;text-align:center;}
+.popup-body{padding:1.2rem 1.2rem 0.8rem;}
+.popup-title{font-family:'Playfair Display',serif;font-style:italic;font-size:1.4rem;color:var(--rouge);margin-bottom:0.4rem;line-height:1.2;}
+.popup-desc{font-family:'Montserrat',sans-serif;font-size:0.78rem;color:var(--texte);line-height:1.6;margin-bottom:0.8rem;}
+.popup-price{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:600;color:var(--brun);}
+.popup-footer{display:flex;gap:0;border-top:1px solid var(--creme-fonce);}
+.popup-btn-close{flex:1;background:none;border:none;padding:0.9rem;font-family:'Montserrat',sans-serif;font-size:0.75rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--gris);cursor:pointer;}
+.popup-btn-voir{flex:1;background:var(--rouge);color:#fff;border:none;padding:0.9rem;font-family:'Montserrat',sans-serif;font-size:0.75rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -170,6 +208,23 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:var(--rouge-cl
   </div>
 </div>
 
+<!-- POPUP DU MOMENT -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-box">
+    <img id="popupImg" src="" alt="" class="popup-img hidden">
+    <div class="popup-badge" id="popupBadge">🍕 Pizza du moment</div>
+    <div class="popup-body">
+      <div class="popup-title" id="popupTitle"></div>
+      <div class="popup-desc" id="popupDesc"></div>
+      <div class="popup-price" id="popupPrice"></div>
+    </div>
+    <div class="popup-footer">
+      <button class="popup-btn-close" onclick="closePopup()">Fermer</button>
+      <button class="popup-btn-voir" onclick="closePopup()">Voir la carte →</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADMIN -->
 <div class="admin-overlay" id="adminOverlay" onclick="closeAdminIfOutside(event)">
   <div class="admin-panel">
@@ -182,6 +237,9 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:var(--rouge-cl
       <button class="admin-tab" onclick="switchAdminTab('categories')">📂 Catégories</button>
       <button class="admin-tab" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
       <button class="admin-tab" onclick="switchAdminTab('archives')">🌙 Archives</button>
+      <button class="admin-tab" onclick="switchAdminTab('design')">🎨 Design</button>
+      <button class="admin-tab" onclick="switchAdminTab('popup')">✨ Pop-up</button>
+      <button class="admin-tab" onclick="switchAdminTab('social')">❤️ Réseaux</button>
     </div>
     <div class="admin-content">
 
@@ -233,10 +291,142 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:var(--rouge-cl
         <button class="admin-save-btn" onclick="saveAll()">✓ Enregistrer</button>
       </div>
 
+      <!-- DESIGN -->
+      <div class="admin-section" id="as-design">
+        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Personnalisez l'apparence de la carte. Les changements sont visibles en temps réel.</p>
+
+        <div class="upsell-card">
+          <h4 style="font-size:0.78rem;font-weight:600;color:#3D2B1F;margin-bottom:0.8rem;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:0.05em">🎨 Couleurs</h4>
+          <label class="admin-label">Couleur principale (titres, boutons)</label>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.6rem">
+            <input type="color" id="ds_rouge" value="#9B1C1C" oninput="applyDesign()" style="width:48px;height:36px;border:1px solid #ddd;border-radius:6px;cursor:pointer;padding:2px">
+            <input class="admin-input" id="ds_rouge_hex" value="#9B1C1C" oninput="syncColor('ds_rouge','ds_rouge_hex')" style="max-width:100px">
+          </div>
+          <label class="admin-label">Couleur de fond</label>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.6rem">
+            <input type="color" id="ds_creme" value="#F5F0E8" oninput="applyDesign()" style="width:48px;height:36px;border:1px solid #ddd;border-radius:6px;cursor:pointer;padding:2px">
+            <input class="admin-input" id="ds_creme_hex" value="#F5F0E8" oninput="syncColor('ds_creme','ds_creme_hex')" style="max-width:100px">
+          </div>
+          <label class="admin-label">Couleur du texte des descriptions</label>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.6rem">
+            <input type="color" id="ds_texte" value="#2C2010" oninput="applyDesign()" style="width:48px;height:36px;border:1px solid #ddd;border-radius:6px;cursor:pointer;padding:2px">
+            <input class="admin-input" id="ds_texte_hex" value="#2C2010" oninput="syncColor('ds_texte','ds_texte_hex')" style="max-width:100px">
+          </div>
+          <label class="admin-label">Couleur de la barre de navigation</label>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.6rem">
+            <input type="color" id="ds_brun" value="#3D2B1F" oninput="applyDesign()" style="width:48px;height:36px;border:1px solid #ddd;border-radius:6px;cursor:pointer;padding:2px">
+            <input class="admin-input" id="ds_brun_hex" value="#3D2B1F" oninput="syncColor('ds_brun','ds_brun_hex')" style="max-width:100px">
+          </div>
+          <label class="admin-label">Couleur des catégories (titres de section)</label>
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <input type="color" id="ds_vert" value="#6B7E5A" oninput="applyDesign()" style="width:48px;height:36px;border:1px solid #ddd;border-radius:6px;cursor:pointer;padding:2px">
+            <input class="admin-input" id="ds_vert_hex" value="#6B7E5A" oninput="syncColor('ds_vert','ds_vert_hex')" style="max-width:100px">
+          </div>
+        </div>
+
+        <div class="upsell-card" style="margin-top:0.8rem">
+          <h4 style="font-size:0.78rem;font-weight:600;color:#3D2B1F;margin-bottom:0.8rem;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:0.05em">✍️ Polices</h4>
+          <label class="admin-label">Police des titres de section</label>
+          <select class="cat-select" id="ds_font_title" onchange="applyDesign()">
+            <option value="'Cormorant Garamond', serif">Cormorant Garamond (actuel)</option>
+            <option value="'Playfair Display', serif">Playfair Display</option>
+            <option value="'Georgia', serif">Georgia</option>
+            <option value="'Times New Roman', serif">Times New Roman</option>
+            <option value="'Montserrat', sans-serif">Montserrat</option>
+            <option value="'Arial', sans-serif">Arial</option>
+          </select>
+          <label class="admin-label">Police des noms de plats</label>
+          <select class="cat-select" id="ds_font_items" onchange="applyDesign()">
+            <option value="'Montserrat', sans-serif">Montserrat (actuel)</option>
+            <option value="'Cormorant Garamond', serif">Cormorant Garamond</option>
+            <option value="'Playfair Display', serif">Playfair Display</option>
+            <option value="'Georgia', serif">Georgia</option>
+            <option value="'Arial', sans-serif">Arial</option>
+          </select>
+          <label class="admin-label">Taille du texte des descriptions</label>
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <input type="range" id="ds_desc_size" min="11" max="18" value="15" oninput="applyDesign();document.getElementById('ds_desc_size_val').textContent=this.value+'px'" style="flex:1">
+            <span id="ds_desc_size_val" style="font-size:0.8rem;color:#555;min-width:35px">15px</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:0.5rem;margin-top:1rem">
+          <button class="admin-save-btn" onclick="saveDesign()" style="flex:1">✓ Sauvegarder le design</button>
+          <button class="admin-save-btn" onclick="resetDesign()" style="flex:0.4;background:#888">↺ Reset</button>
+        </div>
+      </div>
+
       <!-- ARCHIVES -->
       <div class="admin-section" id="as-archives">
         <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Plats archivés — réactivez-les en un clic.</p>
         <div id="adminArchiveList"></div>
+      </div>
+
+      <!-- SOCIAL -->
+      <div class="admin-section" id="as-social">
+        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Configurez vos liens réseaux sociaux.</p>
+        <div class="upsell-card">
+          <h4 style="font-size:0.78rem;font-weight:600;color:#3D2B1F;margin-bottom:0.8rem;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:0.05em">📸 Instagram</h4>
+          <label class="admin-label">Nom affiché</label>
+          <input class="admin-input" id="sc_instagram_handle" placeholder="@milospizza.nice">
+          <label class="admin-label">Lien URL</label>
+          <input class="admin-input" id="sc_instagram_url" placeholder="https://instagram.com/...">
+        </div>
+        <div class="upsell-card" style="margin-top:0.6rem">
+          <h4 style="font-size:0.78rem;font-weight:600;color:#3D2B1F;margin-bottom:0.8rem;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:0.05em">👍 Facebook</h4>
+          <label class="admin-label">Nom affiché</label>
+          <input class="admin-input" id="sc_facebook_handle" placeholder="Milo's Pizza">
+          <label class="admin-label">Lien URL</label>
+          <input class="admin-input" id="sc_facebook_url" placeholder="https://facebook.com/...">
+        </div>
+        <div class="upsell-card" style="margin-top:0.6rem">
+          <h4 style="font-size:0.78rem;font-weight:600;color:#3D2B1F;margin-bottom:0.8rem;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:0.05em">🌐 Google</h4>
+          <label class="admin-label">Nom affiché</label>
+          <input class="admin-input" id="sc_google_handle" placeholder="Laisser un avis">
+          <label class="admin-label">Lien vers votre fiche Google</label>
+          <input class="admin-input" id="sc_google_url" placeholder="https://g.page/r/...">
+        </div>
+        <div class="upsell-card" style="margin-top:0.6rem">
+          <h4 style="font-size:0.78rem;font-weight:600;color:#3D2B1F;margin-bottom:0.8rem;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:0.05em">🦉 TripAdvisor</h4>
+          <label class="admin-label">Nom affiché</label>
+          <input class="admin-input" id="sc_tripadvisor_handle" placeholder="Milo's Pizza Nice">
+          <label class="admin-label">Lien URL</label>
+          <input class="admin-input" id="sc_tripadvisor_url" placeholder="https://tripadvisor.fr/...">
+        </div>
+        <button class="admin-save-btn" onclick="saveSocialConfig()">✓ Sauvegarder les liens</button>
+      </div>
+
+      <!-- POPUP -->
+      <div class="admin-section" id="as-popup">
+        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Configurez le pop-up qui s'affiche à l'ouverture de la carte.</p>
+        <div class="upsell-card">
+          <div class="toggle-row" style="margin-bottom:0.8rem">
+            <div class="toggle-label"><strong>Activer le pop-up</strong></div>
+            <label class="toggle"><input type="checkbox" id="popup_active" onchange="previewPopup()"><span class="toggle-slider"></span></label>
+          </div>
+          <label class="admin-label">Badge (ex: 🍕 Pizza du moment !)</label>
+          <input class="admin-input" id="popup_badge" placeholder="🍕 Pizza du moment !" oninput="previewPopup()">
+          <label class="admin-label">Titre du plat</label>
+          <input class="admin-input" id="popup_title" placeholder="Ex: La Tartuffa" oninput="previewPopup()">
+          <label class="admin-label">Description</label>
+          <input class="admin-input" id="popup_desc" placeholder="Ex: Crème de truffe, mozzarella..." oninput="previewPopup()">
+          <label class="admin-label">Prix</label>
+          <input class="admin-input" id="popup_price" placeholder="Ex: 20€" style="max-width:100px" oninput="previewPopup()">
+          <label class="admin-label">Photo</label>
+          <div class="photo-upload-row">
+            <button class="photo-upload-btn" onclick="triggerPopupUpload()">📷 Uploader</button>
+            <input class="admin-input" id="popup_photo" placeholder="ou coller un lien URL" style="flex:1" oninput="previewPopup()">
+            <img id="popup_prev" class="photo-preview" onerror="this.className='photo-preview'">
+          </div>
+          <label class="admin-label" style="margin-top:0.8rem">Afficher le pop-up</label>
+          <select class="cat-select" id="popup_timing">
+            <option value="always">À chaque ouverture</option>
+            <option value="once_day">Une fois par jour seulement</option>
+            <option value="once_ever">Une seule fois</option>
+          </select>
+          <button class="add-btn" onclick="previewPopup();document.getElementById('popupOverlay').classList.add('open')" style="margin-top:0.8rem;background:var(--vert)">👁 Prévisualiser</button>
+        </div>
+        <button class="admin-save-btn" onclick="savePopupConfig()">✓ Sauvegarder le pop-up</button>
       </div>
 
     </div>
@@ -450,9 +640,12 @@ function renderMenu() {
   const activeCats = cats.filter(c=>!c.archived);
   
   // Nav
+  const socialLabel = {fr:'Nous suivre',en:'Follow us',it:'Seguici',de:'Folgen Sie uns',zh:'关注我们',ru:'Следите за нами'};
   document.getElementById('nav').innerHTML = activeCats.map((c,i)=>
     `<button onclick="showTab('${c.id}')" id="tab_${c.id}" class="${i===0?'active':''}">${c.name[l]||c.name.fr}</button>`
-  ).join('');
+  ).join('') + `<button onclick="showTab('social')" id="tab_social">❤️ ${socialLabel[l]||socialLabel.fr}</button>`;
+  // Add or update social section in main
+
 
   // Sections
   document.getElementById('main').innerHTML = activeCats.map((c,i)=>{
@@ -487,7 +680,8 @@ function renderMenu() {
     
     html += '</div>';
     return html;
-  }).join('');
+  }).join('') + '<div class="section" id="sec_social"></div>';
+  renderSocialSection(l);
 }
 
 function renderItem(it, l) {
@@ -504,7 +698,8 @@ function renderItem(it, l) {
 function showTab(id) {
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-  document.getElementById('sec_'+id)?.classList.add('active');
+  const sec = document.getElementById('sec_'+id);
+  if(sec) sec.classList.add('active');
   const btn=document.getElementById('tab_'+id);
   if(btn){btn.classList.add('active');btn.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});}
 }
@@ -555,6 +750,9 @@ function renderAdminContent(){
   if(currentAdminTab==='categories') renderAdminCats();
   if(currentAdminTab==='upsell') renderAdminUpsell();
   if(currentAdminTab==='archives') renderAdminArchives();
+  if(currentAdminTab==='design') initDesignPanel();
+  if(currentAdminTab==='popup') initPopupPanel();
+  if(currentAdminTab==='social') initSocialPanel();
   // Fill cat selects
   const opts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
   ['newItemCat','newUpsellCat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
@@ -573,6 +771,8 @@ function renderAdminItems(list){
           <button class="aic-btn delete" onclick="deleteItem('${it.id}')">✕</button>
         </div>
       </div>
+      <label class="admin-label">Nom (FR)</label>
+      <input class="admin-input" id="n_${it.id}" value="${it.name.fr||''}">
       <label class="admin-label">Prix</label>
       <input class="admin-input" style="max-width:100px" id="p_${it.id}" value="${it.price}">
       <label class="admin-label">Description (FR)</label>
@@ -596,8 +796,12 @@ function filterAdminItems(q){
 function renderAdminCats(){
   document.getElementById('adminCatList').innerHTML = cats.map((c,idx)=>`
     <div class="cat-card ${c.archived?'archived':''}">
-      <div class="cat-name">${c.name.fr}${c.archived?'<span class="archived-badge">archivée</span>':''}</div>
-      <div class="cat-actions">
+      <div style="flex:1">
+        <div style="font-size:0.68rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem">Nom de la catégorie</div>
+        <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom FR" style="margin-bottom:0.3rem">
+        ${c.archived?'<span class="archived-badge">archivée</span>':''}
+      </div>
+      <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
         <button class="aic-btn up" onclick="moveCat(${idx},-1)">↑</button>
         <button class="aic-btn down" onclick="moveCat(${idx},1)">↓</button>
         <button class="aic-btn archive" onclick="toggleArchiveCat('${c.id}')">${c.archived?'↩':'🌙'}</button>
@@ -606,13 +810,19 @@ function renderAdminCats(){
 }
 
 function renderAdminUpsell(){
+  const catOpts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
   document.getElementById('adminUpsellList').innerHTML = upsells.map(u=>`
     <div class="upsell-card">
       <div class="toggle-row">
-        <div class="toggle-label"><strong>${u.title}</strong></div>
+        <div class="toggle-label" style="font-size:0.75rem;color:#888">Activer cette suggestion</div>
         <label class="toggle"><input type="checkbox" ${u.active?'checked':''} onchange="toggleUpsell('${u.id}',this.checked)"><span class="toggle-slider"></span></label>
       </div>
-      <div style="font-size:0.75rem;color:#888;margin-bottom:0.5rem">${u.message}</div>
+      <label class="admin-label">Catégorie concernée</label>
+      <select class="cat-select" id="ucat_${u.id}">${catOpts.replace(`value="${u.cat}"`,`value="${u.cat}" selected`)}</select>
+      <label class="admin-label">Titre</label>
+      <input class="admin-input" id="utitle_${u.id}" value="${u.title}">
+      <label class="admin-label">Message</label>
+      <input class="admin-input" id="umsg_${u.id}" value="${u.message}" style="margin-bottom:0.5rem">
       <button class="aic-btn delete" onclick="deleteUpsell('${u.id}')">Supprimer</button>
     </div>`).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucune suggestion</p>';
 }
@@ -702,11 +912,36 @@ function addUpsell(){
 }
 
 // Save changes from item cards
+function collectUpsellEdits(){
+  upsells.forEach(u=>{
+    const t=document.getElementById('utitle_'+u.id);
+    const m=document.getElementById('umsg_'+u.id);
+    const c=document.getElementById('ucat_'+u.id);
+    if(t) u.title=t.value;
+    if(m) u.message=m.value;
+    if(c) u.cat=c.value;
+  });
+}
+
+function collectCatEdits(){
+  cats.forEach(c=>{
+    const el=document.getElementById('catname_'+c.id);
+    if(el && el.value.trim()){
+      const val=el.value.trim();
+      c.name.fr=val;
+      // Also update other langs if they were same as fr
+      ['en','it','de','zh','ru'].forEach(l=>{ if(!c.name[l]||c.name[l]===c.name.fr) c.name[l]=val; });
+    }
+  });
+}
+
 function collectItemEdits(){
   items.forEach(it=>{
+    const n=document.getElementById('n_'+it.id);
     const p=document.getElementById('p_'+it.id);
     const d=document.getElementById('d_'+it.id);
     const ph=document.getElementById('ph_'+it.id);
+    if(n && n.value.trim()) it.name.fr=n.value.trim();
     if(p)it.price=p.value;
     if(d)it.desc.fr=d.value;
     if(ph)it.photo=ph.value;
@@ -715,6 +950,8 @@ function collectItemEdits(){
 
 async function saveAll(){
   collectItemEdits();
+  collectCatEdits();
+  collectUpsellEdits();
   const btn=document.querySelector('.admin-save-btn');
   if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
   await saveToGithub();
@@ -746,10 +983,17 @@ async function handleFileUpload(e){
     const res=await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,{method:'POST',body:fd});
     const data=await res.json();
     const url=data.secure_url;
-    const input=document.getElementById('ph_'+id);
-    const prev=document.getElementById('prev_'+id);
-    if(input)input.value=url;
-    if(prev){prev.src=url;prev.className='photo-preview visible';}
+    if(id==='__popup__'){
+      const inp=document.getElementById('popup_photo');
+      const prv=document.getElementById('popup_prev');
+      if(inp){inp.value=url;previewPopup();}
+      if(prv){prv.src=url;prv.className='photo-preview visible';}
+    } else {
+      const input=document.getElementById('ph_'+id);
+      const prev=document.getElementById('prev_'+id);
+      if(input)input.value=url;
+      if(prev){prev.src=url;prev.className='photo-preview visible';}
+    }
     if(prog)prog.style.display='none';
     showToast('📷 Photo uploadée !');
   }catch(err){if(prog){prog.textContent='Erreur';prog.style.display='inline';}}
@@ -757,11 +1001,301 @@ async function handleFileUpload(e){
 }
 
 // ═══════════════════════════════════════
+// SOCIAL
+// ═══════════════════════════════════════
+let socialConfig = {
+  instagram: { handle:'@milospizza.nice', url:'https://www.instagram.com/milospizza.nice' },
+  facebook: { handle:"Milo's Pizza", url:'https://www.facebook.com' },
+  google: { handle:'Laisser un avis Google', url:'https://g.page/r/CXDRE-2yxZbDEBE/review' },
+  tripadvisor: { handle:"Milo's Pizza Nice", url:'https://www.tripadvisor.fr/Restaurant_Review-g187234-d33013526-Reviews-Milo_s_Pizza-Nice_French_Riviera_Cote_d_Azur_-Provence_Alpes_Cote_d_Azur.html' },
+};
+
+function loadSocialConfig() {
+  try {
+    const s = localStorage.getItem('milos_social');
+    if(s) socialConfig = {...socialConfig, ...JSON.parse(s)};
+  } catch(e){}
+}
+
+function initSocialPanel() {
+  ['instagram','facebook','google','tripadvisor'].forEach(k=>{
+    const h=document.getElementById('sc_'+k+'_handle');
+    const u=document.getElementById('sc_'+k+'_url');
+    if(h) h.value = socialConfig[k]?.handle || '';
+    if(u) u.value = socialConfig[k]?.url || '';
+  });
+}
+
+function saveSocialConfig() {
+  ['instagram','facebook','google','tripadvisor'].forEach(k=>{
+    const h=document.getElementById('sc_'+k+'_handle');
+    const u=document.getElementById('sc_'+k+'_url');
+    if(h) socialConfig[k].handle = h.value;
+    if(u) socialConfig[k].url = u.value;
+  });
+  try { localStorage.setItem('milos_social', JSON.stringify(socialConfig)); } catch(e){}
+  renderSocialSection(currentLang);
+  showToast('❤️ Réseaux sociaux sauvegardés !');
+}
+
+const SOCIAL_TEXTS = {
+  fr:{ title:"Suivez-nous !", sub:"Rejoignez notre communauté", review_title:"Vous avez aimé votre expérience ?", review_sub:"Votre avis compte énormément pour nous et aide d'autres gourmands à nous découvrir !", review_cta_g:"Avis Google", review_cta_t:"Avis TripAdvisor" },
+  en:{ title:"Follow us!", sub:"Join our community", review_title:"Did you enjoy your experience?", review_sub:"Your review means a lot to us and helps others discover us!", review_cta_g:"Google Review", review_cta_t:"TripAdvisor Review" },
+  it:{ title:"Seguici!", sub:"Unisciti alla nostra comunità", review_title:"Ti è piaciuta la tua esperienza?", review_sub:"La tua recensione è molto importante per noi!", review_cta_g:"Recensione Google", review_cta_t:"Recensione TripAdvisor" },
+  de:{ title:"Folgen Sie uns!", sub:"Werden Sie Teil unserer Community", review_title:"Hat Ihnen Ihr Erlebnis gefallen?", review_sub:"Ihre Bewertung bedeutet uns sehr viel!", review_cta_g:"Google-Bewertung", review_cta_t:"TripAdvisor-Bewertung" },
+  zh:{ title:"关注我们！", sub:"加入我们的社区", review_title:"您喜欢这次体验吗？", review_sub:"您的评价对我们非常重要！", review_cta_g:"谷歌评价", review_cta_t:"猫途鹰评价" },
+  ru:{ title:"Следите за нами!", sub:"Присоединяйтесь к нашему сообществу", review_title:"Вам понравился ваш опыт?", review_sub:"Ваш отзыв очень важен для нас!", review_cta_g:"Отзыв в Google", review_cta_t:"Отзыв на TripAdvisor" },
+};
+
+function renderSocialSection(l) {
+  const t = SOCIAL_TEXTS[l] || SOCIAL_TEXTS.fr;
+  const sc = socialConfig;
+  const el = document.getElementById('sec_social');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="social-hero">
+      <div class="section-title">${t.title}</div>
+      <div class="divider"></div>
+      <div class="social-hero-sub">${t.sub}</div>
+    </div>
+    <div class="social-grid">
+      <a href="${sc.instagram.url}" target="_blank" class="social-card instagram">
+        <span class="s-icon">📸</span>
+        <div class="s-name">Instagram</div>
+        <div class="s-handle">${sc.instagram.handle}</div>
+      </a>
+      <a href="${sc.facebook.url}" target="_blank" class="social-card facebook">
+        <span class="s-icon">👍</span>
+        <div class="s-name">Facebook</div>
+        <div class="s-handle">${sc.facebook.handle}</div>
+      </a>
+      <a href="${sc.google.url}" target="_blank" class="social-card google">
+        <span class="s-icon">🌐</span>
+        <div class="s-name">Google</div>
+        <div class="s-handle">${sc.google.handle}</div>
+      </a>
+      <a href="${sc.tripadvisor.url}" target="_blank" class="social-card tripadvisor">
+        <span class="s-icon">🦉</span>
+        <div class="s-name">TripAdvisor</div>
+        <div class="s-handle">${sc.tripadvisor.handle}</div>
+      </a>
+    </div>
+    <div class="review-box">
+      <div class="review-stars">⭐⭐⭐⭐⭐</div>
+      <div class="r-title">${t.review_title}</div>
+      <div class="r-sub">${t.review_sub}</div>
+      <div class="review-btns">
+        <a href="${sc.google.url}" target="_blank" class="review-btn google-btn">🌐 ${t.review_cta_g}</a>
+        <a href="${sc.tripadvisor.url}" target="_blank" class="review-btn trip-btn">🦉 ${t.review_cta_t}</a>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════
+// POPUP DU MOMENT
+// ═══════════════════════════════════════
+let popupConfig = { active:false, badge:'🍕 Pizza du moment !', title:'', desc:'', price:'', photo:'', timing:'always' };
+
+function loadPopupConfig() {
+  try {
+    const s = localStorage.getItem('milos_popup');
+    if (s) popupConfig = {...popupConfig, ...JSON.parse(s)};
+  } catch(e){}
+}
+
+function savePopupConfig() {
+  popupConfig = {
+    active: document.getElementById('popup_active')?.checked || false,
+    badge: document.getElementById('popup_badge')?.value || '🍕 Pizza du moment !',
+    title: document.getElementById('popup_title')?.value || '',
+    desc: document.getElementById('popup_desc')?.value || '',
+    price: document.getElementById('popup_price')?.value || '',
+    photo: document.getElementById('popup_photo')?.value || '',
+    timing: document.getElementById('popup_timing')?.value || 'always',
+  };
+  try { localStorage.setItem('milos_popup', JSON.stringify(popupConfig)); } catch(e){}
+  showToast('✨ Pop-up sauvegardé !');
+}
+
+function initPopupPanel() {
+  const p = popupConfig;
+  const el = (id) => document.getElementById(id);
+  if(el('popup_active')) el('popup_active').checked = p.active;
+  if(el('popup_badge')) el('popup_badge').value = p.badge;
+  if(el('popup_title')) el('popup_title').value = p.title;
+  if(el('popup_desc')) el('popup_desc').value = p.desc;
+  if(el('popup_price')) el('popup_price').value = p.price;
+  if(el('popup_photo')) el('popup_photo').value = p.photo;
+  if(el('popup_timing')) el('popup_timing').value = p.timing;
+  const prev = el('popup_prev');
+  if(prev && p.photo) { prev.src = p.photo; prev.className = 'photo-preview visible'; }
+}
+
+function previewPopup() {
+  const badge = document.getElementById('popup_badge')?.value || '';
+  const title = document.getElementById('popup_title')?.value || '';
+  const desc = document.getElementById('popup_desc')?.value || '';
+  const price = document.getElementById('popup_price')?.value || '';
+  const photo = document.getElementById('popup_photo')?.value || '';
+  document.getElementById('popupBadge').textContent = badge;
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupDesc').textContent = desc;
+  document.getElementById('popupPrice').textContent = price;
+  const img = document.getElementById('popupImg');
+  if(photo) { img.src=photo; img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
+  else { img.src=''; img.className='popup-img hidden'; }
+  const prev = document.getElementById('popup_prev');
+  if(prev && photo) { prev.src=photo; prev.className='photo-preview visible'; }
+}
+
+function closePopup() {
+  document.getElementById('popupOverlay').classList.remove('open');
+  const t = popupConfig.timing;
+  if(t==='once_day') { try { localStorage.setItem('milos_popup_seen', new Date().toDateString()); } catch(e){} }
+  if(t==='once_ever') { try { localStorage.setItem('milos_popup_seen_ever', '1'); } catch(e){} }
+}
+
+function showPopupIfNeeded() {
+  if (!popupConfig.active || !popupConfig.title) return;
+  const t = popupConfig.timing;
+  if(t==='once_day') {
+    try { if(localStorage.getItem('milos_popup_seen')===new Date().toDateString()) return; } catch(e){}
+  }
+  if(t==='once_ever') {
+    try { if(localStorage.getItem('milos_popup_seen_ever')) return; } catch(e){}
+  }
+  // Show after 1.5s
+  setTimeout(() => {
+    document.getElementById('popupBadge').textContent = popupConfig.badge;
+    document.getElementById('popupTitle').textContent = popupConfig.title;
+    document.getElementById('popupDesc').textContent = popupConfig.desc;
+    document.getElementById('popupPrice').textContent = popupConfig.price;
+    const img = document.getElementById('popupImg');
+    if(popupConfig.photo) { img.src=popupConfig.photo; img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
+    else { img.src=''; img.className='popup-img hidden'; }
+    document.getElementById('popupOverlay').classList.add('open');
+  }, 1500);
+}
+
+let popupUploadResolver = null;
+function triggerPopupUpload() { currentUploadItemId = '__popup__'; document.getElementById('fileInput').click(); }
+
+// ═══════════════════════════════════════
+// DESIGN
+// ═══════════════════════════════════════
+const DESIGN_DEFAULTS = {
+  rouge:'#9B1C1C', creme:'#F5F0E8', texte:'#2C2010',
+  brun:'#3D2B1F', vert:'#6B7E5A',
+  font_title:"'Cormorant Garamond', serif",
+  font_items:"'Montserrat', sans-serif",
+  desc_size:15
+};
+let currentDesign = {...DESIGN_DEFAULTS};
+
+function loadDesign() {
+  try {
+    const saved = localStorage.getItem('milos_design');
+    if (saved) currentDesign = {...DESIGN_DEFAULTS, ...JSON.parse(saved)};
+  } catch(e){}
+  applyDesignVars(currentDesign);
+}
+
+function applyDesignVars(d) {
+  const r = document.documentElement.style;
+  r.setProperty('--rouge', d.rouge);
+  r.setProperty('--rouge-clair', d.rouge);
+  r.setProperty('--creme', d.creme);
+  r.setProperty('--creme-fonce', d.creme+'cc');
+  r.setProperty('--texte', d.texte);
+  r.setProperty('--brun', d.brun);
+  r.setProperty('--vert', d.vert);
+  document.querySelectorAll('.section-title').forEach(el=>el.style.fontFamily=d.font_title);
+  document.querySelectorAll('.item-name').forEach(el=>el.style.fontFamily=d.font_items);
+  document.querySelectorAll('.item-desc').forEach(el=>el.style.fontSize=d.desc_size+'px');
+}
+
+function applyDesign() {
+  const d = {
+    rouge: document.getElementById('ds_rouge')?.value || currentDesign.rouge,
+    creme: document.getElementById('ds_creme')?.value || currentDesign.creme,
+    texte: document.getElementById('ds_texte')?.value || currentDesign.texte,
+    brun: document.getElementById('ds_brun')?.value || currentDesign.brun,
+    vert: document.getElementById('ds_vert')?.value || currentDesign.vert,
+    font_title: document.getElementById('ds_font_title')?.value || currentDesign.font_title,
+    font_items: document.getElementById('ds_font_items')?.value || currentDesign.font_items,
+    desc_size: parseInt(document.getElementById('ds_desc_size')?.value) || currentDesign.desc_size,
+  };
+  // Sync hex inputs
+  ['rouge','creme','texte','brun','vert'].forEach(k=>{
+    const hex = document.getElementById('ds_'+k+'_hex');
+    if(hex) hex.value = d[k];
+  });
+  currentDesign = d;
+  applyDesignVars(d);
+}
+
+function syncColor(colorId, hexId) {
+  const hex = document.getElementById(hexId)?.value;
+  if(hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+    const picker = document.getElementById(colorId);
+    if(picker) picker.value = hex;
+    applyDesign();
+  }
+}
+
+function saveDesign() {
+  try { localStorage.setItem('milos_design', JSON.stringify(currentDesign)); } catch(e){}
+  showToast('🎨 Design sauvegardé !');
+}
+
+function resetDesign() {
+  currentDesign = {...DESIGN_DEFAULTS};
+  applyDesignVars(currentDesign);
+  // Reset UI inputs
+  ['rouge','creme','texte','brun','vert'].forEach(k=>{
+    const p=document.getElementById('ds_'+k);
+    const h=document.getElementById('ds_'+k+'_hex');
+    if(p) p.value = DESIGN_DEFAULTS[k];
+    if(h) h.value = DESIGN_DEFAULTS[k];
+  });
+  const ft=document.getElementById('ds_font_title');
+  const fi=document.getElementById('ds_font_items');
+  const fs=document.getElementById('ds_desc_size');
+  const fsv=document.getElementById('ds_desc_size_val');
+  if(ft) ft.value = DESIGN_DEFAULTS.font_title;
+  if(fi) fi.value = DESIGN_DEFAULTS.font_items;
+  if(fs) { fs.value = DESIGN_DEFAULTS.desc_size; if(fsv) fsv.textContent = DESIGN_DEFAULTS.desc_size+'px'; }
+  try { localStorage.removeItem('milos_design'); } catch(e){}
+  showToast('↺ Design réinitialisé');
+}
+
+function initDesignPanel() {
+  const d = currentDesign;
+  ['rouge','creme','texte','brun','vert'].forEach(k=>{
+    const p=document.getElementById('ds_'+k);
+    const h=document.getElementById('ds_'+k+'_hex');
+    if(p) p.value = d[k];
+    if(h) h.value = d[k];
+  });
+  const ft=document.getElementById('ds_font_title');
+  const fi=document.getElementById('ds_font_items');
+  const fs=document.getElementById('ds_desc_size');
+  const fsv=document.getElementById('ds_desc_size_val');
+  if(ft) ft.value = d.font_title;
+  if(fi) fi.value = d.font_items;
+  if(fs) { fs.value = d.desc_size; if(fsv) fsv.textContent = d.desc_size+'px'; }
+}
+
+// ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
 async function init(){
+  loadDesign();
+  loadPopupConfig();
+  loadSocialConfig();
   await loadFromGithub();
   renderMenu();
+  showPopupIfNeeded();
 }
 init();
 </script>
