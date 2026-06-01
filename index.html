@@ -2,6 +2,14 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-59M96TBFL8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-59M96TBFL8');
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Milo's Pizza — Carte</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -126,6 +134,9 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .toggle input:checked+.toggle-slider:before{transform:translateX(18px);}
 
 .admin-save-btn{width:100%;background:var(--rouge);color:#fff;border:none;border-radius:8px;padding:0.9rem;font-family:'Montserrat',sans-serif;font-weight:600;font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-top:1rem;}
+.floating-save{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--rouge);color:#fff;border:none;border-radius:30px;padding:0.85rem 2rem;font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 20px rgba(155,28,28,0.45);z-index:350;display:none;white-space:nowrap;transition:transform 0.2s,box-shadow 0.2s;}
+.floating-save:hover{transform:translateX(-50%) scale(1.04);box-shadow:0 6px 25px rgba(155,28,28,0.55);}
+.floating-save.draft-save{background:#E67E22;box-shadow:0 4px 20px rgba(230,126,34,0.45);}
 
 .toast{display:none;position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:var(--brun);color:#fff;padding:0.7rem 1.5rem;border-radius:20px;font-size:0.82rem;font-family:'Montserrat',sans-serif;z-index:400;white-space:nowrap;}
 
@@ -304,6 +315,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
 <!-- ADMIN -->
 <div class="admin-overlay" id="adminOverlay" onclick="closeAdminIfOutside(event)">
+  <button class="floating-save" id="floatingSaveBtn" onclick="saveAll()">✓ Enregistrer tout</button>
   <div class="admin-panel">
     <div class="admin-header">
       <button class="admin-close" onclick="closeAdmin()">×</button>
@@ -898,8 +910,8 @@ function handleLogoTap(){
   }
 }
 
-function openAdmin(){renderAdminContent();document.getElementById('adminOverlay').classList.add('open');}
-function closeAdmin(){document.getElementById('adminOverlay').classList.remove('open');}
+function openAdmin(){renderAdminContent();document.getElementById('adminOverlay').classList.add('open');updateFloatingSaveBtn();}
+function closeAdmin(){document.getElementById('adminOverlay').classList.remove('open');const btn=document.getElementById('floatingSaveBtn');if(btn)btn.style.display='none';}
 function closeAdminIfOutside(e){if(e.target===document.getElementById('adminOverlay'))closeAdmin();}
 
 function switchAdminTab(tab){
@@ -909,6 +921,39 @@ function switchAdminTab(tab){
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('as-'+tab).classList.add('active');
   renderAdminContent();
+  updateFloatingSaveBtn();
+}
+
+function updateFloatingSaveBtn(){
+  const btn = document.getElementById('floatingSaveBtn');
+  if (!btn) return;
+  const showTabs = ['plats','categories','upsell','design','home','popup','social'];
+  const actionMap = {
+    plats: '✓ Enregistrer les plats',
+    categories: '✓ Enregistrer les catégories',
+    upsell: '✓ Enregistrer les suggestions',
+    design: '🎨 Sauvegarder le design',
+    home: "🏠 Sauvegarder accueil",
+    popup: '✨ Sauvegarder le pop-up',
+    social: '❤️ Sauvegarder les liens',
+  };
+  const actionFnMap = {
+    plats: 'saveAll()',
+    categories: 'saveAll()',
+    upsell: 'saveAll()',
+    design: 'saveDesign()',
+    home: 'saveHomeConfig()',
+    popup: 'savePopupConfig()',
+    social: 'saveSocialConfig()',
+  };
+  if (showTabs.includes(currentAdminTab)) {
+    btn.style.display = 'block';
+    btn.textContent = (isDraftMode ? '✏️ ' : '') + (actionMap[currentAdminTab] || 'Enregistrer');
+    btn.onclick = new Function(actionFnMap[currentAdminTab] || 'saveAll()');
+    btn.className = 'floating-save' + (isDraftMode ? ' draft-save' : '');
+  } else {
+    btn.style.display = 'none';
+  }
 }
 
 function renderAdminContent(){
