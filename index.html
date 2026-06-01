@@ -144,12 +144,12 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .menu-enfant .e-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--vert);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.5rem;}
 .menu-enfant p{font-family:'Cormorant Garamond',serif;font-size:0.95rem;color:var(--rouge);font-weight:600;line-height:1.7;letter-spacing:0.05em;text-transform:uppercase;}
 .menu-enfant .e-price{font-size:1.3rem;font-weight:700;color:var(--brun);margin-top:0.5rem;font-family:'Cormorant Garamond',serif;}
-.supplements-box{background:var(--brun);color:#fff;border-radius:8px;padding:1.2rem;margin-top:2rem;text-align:center;}
-.supplements-box h3{font-family:'Cormorant Garamond',serif;font-size:1.1rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--creme);margin-bottom:0.4rem;}
-.supplements-box p{font-size:0.75rem;color:rgba(255,255,255,0.7);margin-bottom:0.8rem;}
+.supplements-box{background:var(--creme-fonce);border:1px solid rgba(155,28,28,0.15);border-radius:10px;padding:1.2rem;margin-top:2rem;text-align:center;}
+.supplements-box h3{font-family:'Cormorant Garamond',serif;font-size:1.1rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--rouge);margin-bottom:0.4rem;}
+.supplements-box p{font-size:0.75rem;color:var(--texte);opacity:0.7;margin-bottom:0.8rem;}
 .sup-tags{display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;}
-.sup-tag{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:0.25rem 0.7rem;font-size:0.7rem;color:rgba(255,255,255,0.85);}
-.sup-price{margin-top:0.8rem;font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--creme);}
+.sup-tag{background:#fff;border:1px solid rgba(155,28,28,0.2);border-radius:20px;padding:0.25rem 0.7rem;font-size:0.7rem;color:var(--rouge);font-weight:500;}
+.sup-price{margin-top:0.8rem;font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--brun);}
 /* HOME PAGE */
 .home-page{display:none;position:fixed;inset:0;z-index:50;overflow-y:auto;background:var(--creme);}
 .home-page.active{display:block;}
@@ -837,7 +837,11 @@ function renderMenu() {
     if (c.extras) c.extras.forEach(e => {
       const t = T[l];
       if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${t.childMenu}</div><p>${t.childDesc}</p><div class="e-price">12€</div></div>`;
-      if (e==='supplements') html += `<div class="supplements-box"><h3>${t.supplements}</h3><p>${t.supplementsDesc}</p><div class="sup-tags">${['Fromage','Charcuterie','Légumes','Œuf','Burrata','Mozzarella','Jambon cuit','Bresaola','Artichauts','Poivrons','Champignons'].map(x=>`<span class="sup-tag">${x}</span>`).join('')}</div><div class="sup-price">${t.from} <strong>1,5€</strong></div></div>`;
+      if (e==='supplements') {
+  // Show supplements for all charcuterie-type cats
+  const supCats = cats.filter(c => c.extras && c.extras.includes('supplements') && !c.archived);
+  html += `<div class="supplements-box"><h3>${t.supplements}</h3><p>${t.supplementsDesc}</p><div class="sup-tags">${['Fromage','Charcuterie','Légumes','Œuf','Burrata','Mozzarella','Jambon cuit','Bresaola','Artichauts','Poivrons','Champignons'].map(x=>`<span class="sup-tag">${x}</span>`).join('')}</div><div class="sup-price">${t.from} <strong>1,5€</strong></div></div>`;
+}
     });
     
     html += '</div>';
@@ -1026,6 +1030,10 @@ function renderAdminCats(){
           <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Sous-catégories déroulantes</span>
           <label class="toggle"><input type="checkbox" id="catcoll_${c.id}" ${c.collapsible?'checked':''} onchange="toggleCatCollapsible('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
         </div>
+        <div class="toggle-row" style="margin-top:0.4rem">
+          <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Afficher les suppléments</span>
+          <label class="toggle"><input type="checkbox" id="catsupp_${c.id}" ${(c.extras&&c.extras.includes('supplements'))?'checked':''} onchange="toggleCatExtras('${c.id}','supplements',this.checked)"><span class="toggle-slider"></span></label>
+        </div>
         ${c.archived?'<span class="archived-badge">archivée</span>':''}
       </div>
       <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
@@ -1097,6 +1105,15 @@ function toggleArchiveCat(id){
 function toggleCatCollapsible(id, val){
   const c=cats.find(c=>c.id===id);
   if(c){ c.collapsible=val; renderMenu(); }
+}
+
+function toggleCatExtras(id, extra, val){
+  const c=cats.find(c=>c.id===id);
+  if(!c) return;
+  if(!c.extras) c.extras=[];
+  if(val && !c.extras.includes(extra)) c.extras.push(extra);
+  if(!val) c.extras=c.extras.filter(e=>e!==extra);
+  renderMenu();
 }
 function toggleUpsell(id,val){
   const u=upsells.find(u=>u.id===id);
@@ -1239,11 +1256,21 @@ async function handleFileUpload(e){
     } else {
       const input=document.getElementById('ph_'+id);
       const prev=document.getElementById('prev_'+id);
-      if(input)input.value=url;
+      if(input) input.value=url;
       if(prev){prev.src=url;prev.className='photo-preview visible';}
+      // Auto-save photo immediately to the item
+      const it = items.find(i=>i.id===id);
+      if(it) {
+        it.photo = url;
+        // Save to GitHub immediately
+        const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
+        saveKeyToGithub(targetFile, {cats, items, upsells}).then(()=>{
+          showToast('📷 Photo sauvegardée automatiquement !');
+        });
+      }
     }
     if(prog)prog.style.display='none';
-    showToast('📷 Photo uploadée !');
+    if(id==='__home__'||id==='__popup__') showToast('📷 Photo uploadée !');
   }catch(err){if(prog){prog.textContent='Erreur';prog.style.display='inline';}}
   e.target.value='';
 }
