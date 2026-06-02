@@ -375,7 +375,10 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
   <div class="admin-panel">
     <div class="admin-header">
       <h2>⚙️ Administration</h2>
-      <button class="admin-close" onclick="closeAdmin()">×</button>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button onclick="saveAllAndClose()" style="background:#7D9B76;color:#fff;border:none;border-radius:8px;padding:0.4rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;cursor:pointer;">✓ Enregistrer</button>
+        <button class="admin-close" onclick="closeAdmin()">×</button>
+      </div>
     </div>
     <div class="admin-body">
       <div class="admin-sidebar" id="adminSidebar">
@@ -1016,6 +1019,11 @@ function openAdmin(){
   if(hs) hs.classList.add('active');
 }
 function closeAdmin(){document.getElementById('adminOverlay').classList.remove('open');const btn=document.getElementById('floatingSaveBtn');if(btn)btn.style.display='none';}
+
+async function saveAllAndClose(){
+  await saveAll();
+  closeAdmin();
+}
 function closeAdminIfOutside(e){if(e.target===document.getElementById('adminOverlay'))closeAdmin();}
 
 function switchAdminTab(tab){
@@ -2200,7 +2208,7 @@ const HOME_GROUPS = {
   about: {
     title: {fr:'Notre Histoire', en:'Our Story', it:'La Nostra Storia', de:'Unsere Geschichte', zh:'关于我们', ru:'О нас',es:'Notre Histoire', es:'Nuestra Historia'},
     subtitle: {fr:'Suivez-nous & laissez un avis', en:'Follow us & leave a review', it:'Seguici & lascia una recensione', de:'Folgen Sie uns & bewerten Sie uns', zh:'关注我们并留下评价', ru:'Следите за нами и оставьте отзыв', es:'Síguenos & deja una reseña'},
-    photoKey: 'commencer',
+    photoKey: 'about',
     isAbout: true,
   },
 };
@@ -2277,7 +2285,7 @@ function renderAboutPage(l) {
 
   let html = `
   <div style="padding:0.5rem 0 2rem;">
-    <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1rem;color:#7D9B76;text-align:center;margin-bottom:1.5rem;letter-spacing:0.05em;">Pizza napoletana · Nice depuis 2022</div>
+    ${aboutText ? `<div style="font-family:'Cormorant Garamond',serif;font-size:0.88rem;color:#5A4535;text-align:center;margin-bottom:1.5rem;line-height:1.6;padding:0 0.5rem;">${aboutText}</div>` : ''}
 
     <!-- RÉSEAUX SOCIAUX -->
     <div style="background:#fff;border-radius:14px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
@@ -2551,16 +2559,20 @@ function renderAdminSections(){
     html += "<label class='admin-label'>Titre IT</label><input class='admin-input' id='sec_title_it_"+key+"' value='"+(group.title.it||'')+"' style='margin-top:0.3rem;'>";
     html += "<label class='admin-label'>Titre DE</label><input class='admin-input' id='sec_title_de_"+key+"' value='"+(group.title.de||'')+"' style='margin-top:0.3rem;'>";
     
+    var subFr = (!group.isAbout && group.subtitle && group.subtitle.fr) ? group.subtitle.fr : '';
     if(!group.isAbout){
-      var subFr = (group.subtitle && group.subtitle.fr) ? group.subtitle.fr : '';
       html += "<label class='admin-label' style='margin-top:0.5rem;'>Sous-titre FR</label>";
       html += "<input class='admin-input' id='sec_sub_fr_"+key+"' value='"+subFr+"'>";
-      html += "<label class='admin-label' style='margin-top:0.5rem;'>Photo de banni\u00e8re</label>";
-      html += "<div class='photo-upload-row'>";
-      html += "<button class='photo-upload-btn' onclick=\"triggerSectionPhotoUpload('"+key+"')\">\ud83d\udcf7 Changer</button>";
-      var ph = (HOME_PHOTOS && HOME_PHOTOS[group.photoKey]) ? HOME_PHOTOS[group.photoKey] : '';
-      html += "<img id='sec_prev_"+key+"' src='"+ph+"' class='photo-preview "+(ph?'visible':'')+"' style='width:80px;height:50px;object-fit:cover;border-radius:6px;'>";
-      html += "</div>";
+    }
+    html += "<label class='admin-label' style='margin-top:0.5rem;'>Photo de banni\u00e8re</label>";
+    html += "<div class='photo-upload-row'>";
+    html += "<button class='photo-upload-btn' onclick=\"triggerSectionPhotoUpload('"+key+"')\">\ud83d\udcf7 Changer</button>";
+    var ph = (HOME_PHOTOS && HOME_PHOTOS[group.photoKey]) ? HOME_PHOTOS[group.photoKey] : '';
+    html += "<img id='sec_prev_"+key+"' src='"+ph+"' class='photo-preview "+(ph?'visible':'')+"' style='width:80px;height:50px;object-fit:cover;border-radius:6px;'>";
+    html += "</div>";
+    if(group.isAbout){
+      html += "<label class='admin-label' style='margin-top:0.5rem;'>Paragraphe \"Notre Histoire\"</label>";
+      html += "<textarea class='admin-input' id='sec_about_text_"+key+"' rows='4' style='resize:vertical;min-height:80px;'>"+(group.aboutText||'')+"</textarea>";
     }
     html += "</div>";
   }
@@ -2586,6 +2598,8 @@ function saveSections(){
       var subInp = document.getElementById('sec_sub_fr_'+key);
       if(subInp && group.subtitle && subInp.value.trim()) group.subtitle.fr = subInp.value.trim();
     }
+    var aboutInp = document.getElementById('sec_about_text_'+key);
+    if(aboutInp) group.aboutText = aboutInp.value;
   }
   renderMenu();
   renderHomePage(currentLang);
