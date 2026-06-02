@@ -751,7 +751,7 @@ async function loadFromGithub() {
         if (!res2.ok) return;
         const data2 = await res2.json();
         githubSha = data2.sha;
-        const content2 = JSON.parse(atob(data2.content.replace(/\n/g,'')));
+        const content2 = JSON.parse(new TextDecoder('utf-8').decode((s=>{const b=atob(s.replace(/\\n/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;})(data2.content.replace(/\n/g,''))));
         if (content2.cats) cats = content2.cats;
         if (content2.items) items = content2.items;
         if (content2.upsells) upsells = content2.upsells;
@@ -760,7 +760,7 @@ async function loadFromGithub() {
     }
     const data = await res.json();
     githubSha = data.sha;
-    const content = JSON.parse(atob(data.content.replace(/\n/g,'')));
+    const content = JSON.parse(new TextDecoder('utf-8').decode((s=>{const b=atob(s.replace(/\\n/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;})(data.content.replace(/\n/g,''))));
     if (content.cats) cats = content.cats;
     if (content.items) items = content.items;
     if (content.upsells) upsells = content.upsells;
@@ -813,7 +813,7 @@ async function loadKeyFromGithub(filename) {
     if (!res.ok) return null;
     const data = await res.json();
     githubShas[filename] = data.sha;
-    return JSON.parse(atob(data.content.replace(/\n/g,'')));
+    return JSON.parse(new TextDecoder('utf-8').decode((s=>{const b=atob(s.replace(/\\n/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;})(data.content.replace(/\n/g,''))));
   } catch(e){ return null; }
 }
 
@@ -2428,7 +2428,22 @@ function showSectionCat(catId) {
   
   const sc = document.getElementById('sectionContent');
   if(sc){ 
-    sc.innerHTML = html || '<p style="text-align:center;color:#aaa;padding:2rem">Aucun plat</p>';
+    // Build quick nav if multiple subcats
+    let quickNav = '';
+    if(subcats.length > 1){
+      quickNav = '<div style="display:flex;overflow-x:auto;gap:0.4rem;padding:0 0 0.8rem;scrollbar-width:none;-webkit-overflow-scrolling:touch;">';
+      quickNav += subcats.map(sub => 
+        `<button onclick="document.getElementById('anchor_${sub.replace(/[^a-z0-9]/gi,'_')}').scrollIntoView({behavior:'smooth',block:'start'})" 
+         style="flex-shrink:0;background:rgba(155,28,28,0.08);border:1px solid rgba(155,28,28,0.2);border-radius:20px;padding:0.3rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.68rem;font-weight:600;color:#9B1C1C;cursor:pointer;white-space:nowrap;">${sub}</button>`
+      ).join('');
+      quickNav += '</div>';
+      // Add anchor IDs to subcats in html
+      subcats.forEach(sub => {
+        const anchorId = 'anchor_'+sub.replace(/[^a-z0-9]/gi,'_');
+        html = html.replace(`<div class="sub-cat">${sub}`, `<div class="sub-cat" id="${anchorId}">${sub}`);
+      });
+    }
+    sc.innerHTML = quickNav + (html || '<p style="text-align:center;color:#aaa;padding:2rem">Aucun plat</p>');
     sc.scrollTop = 0;
   }
 }
