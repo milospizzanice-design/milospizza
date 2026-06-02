@@ -585,7 +585,8 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 <script>
 const CLOUD_NAME='dd2u4qgxj';
 const UPLOAD_PRESET='ml_default';
-const GITHUB_TOKEN=(()=>{const a='ghp_kQ00';const b='CwPb46oA';const c='4ZT1YDrg';const d='iqy5gqFIb42kpQjg';return a+b+c+d;})();
+const PROXY_URL='https://milos-github-proxy.milospizza-nice.workers.dev';
+const GITHUB_TOKEN=''; // Token now handled by Cloudflare Worker proxy
 const GITHUB_REPO='milospizzanice-design/milospizza';
 const DATA_FILE='menudata.json';
 let currentLang='fr';
@@ -742,11 +743,11 @@ let githubSha = null;
 async function loadFromGithub() {
   try {
     const file = isDraftMode ? DRAFT_FILE : DATA_FILE;
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${file}`,{headers:{'Authorization':`token ${GITHUB_TOKEN}`}});
+    const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(file)}`);
     if (!res.ok) {
       // If draft doesn't exist yet, fall back to published
       if (isDraftMode) {
-        const res2 = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE}`,{headers:{'Authorization':`token ${GITHUB_TOKEN}`}});
+        const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(DATA_FILE)}`);
         if (!res2.ok) return;
         const data2 = await res2.json();
         githubSha = data2.sha;
@@ -773,9 +774,9 @@ async function saveToGithub() {
     content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))),
     ...(githubSha?{sha:githubSha}:{})
   };
-  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE}`,{
+  const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(DATA_FILE)}`,{
     method:'PUT',
-    headers:{'Authorization':`token ${GITHUB_TOKEN}`,'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)
   });
   if (res.ok) {
@@ -788,19 +789,17 @@ async function saveToGithub() {
 const githubShas = {};
 async function saveKeyToGithub(filename, data) {
   try {
-    // Get current SHA
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`,{
-      headers:{'Authorization':`token ${GITHUB_TOKEN}`}
-    });
+    // Get current SHA via proxy
+    const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`);
     if (res.ok) { const d = await res.json(); githubShas[filename] = d.sha; }
     const body = {
       message:`Update ${filename}`,
       content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))),
       ...(githubShas[filename]?{sha:githubShas[filename]}:{})
     };
-    const res2 = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`,{
+    const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`,{
       method:'PUT',
-      headers:{'Authorization':`token ${GITHUB_TOKEN}`,'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)
     });
     if (res2.ok) { const d2 = await res2.json(); githubShas[filename] = d2.content.sha; }
@@ -809,9 +808,8 @@ async function saveKeyToGithub(filename, data) {
 
 async function loadKeyFromGithub(filename) {
   try {
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`,{
-      headers:{'Authorization':`token ${GITHUB_TOKEN}`}
-    });
+    const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`
+    );
     if (!res.ok) return null;
     const data = await res.json();
     githubShas[filename] = data.sha;
