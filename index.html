@@ -2067,13 +2067,23 @@ function enterDraftMode() {
 
 function exitDraftMode() {
   isDraftMode = false;
+  // Hide draft bar
   document.getElementById('draftBar').classList.remove('visible');
+  // Reset header
   const _lh = document.querySelector('header');
   if(_lh) _lh.style.top = '0';
+  // Reset save buttons
   document.querySelectorAll('.admin-save-btn').forEach(b => {
     b.classList.remove('draft-save');
     b.textContent = b.textContent.replace('✏️', '✓');
   });
+  // Hide admin fab
+  const fab = document.getElementById('adminFab');
+  if(fab) fab.style.display = 'none';
+  // Close admin if open
+  closeAdmin();
+  // Reset tap counter
+  tapCount = 0;
   // Reload published data
   init();
 }
@@ -2102,7 +2112,11 @@ async function publishDraft() {
     
     showToast('🚀 Publié ! Les clients voient la nouvelle version.');
     if (btn) { btn.textContent = '✅ Publié !'; }
-    setTimeout(() => { if (btn) { btn.textContent = '🚀 Publier'; btn.disabled = false; } }, 3000);
+    setTimeout(() => {
+      if (btn) { btn.textContent = '🚀 Publier'; btn.disabled = false; }
+      // Auto-exit draft mode after publish
+      exitDraftMode();
+    }, 2000);
   } catch(e) {
     showToast('❌ Erreur lors de la publication');
     if (btn) { btn.textContent = '🚀 Publier'; btn.disabled = false; }
