@@ -586,7 +586,6 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 const CLOUD_NAME='dd2u4qgxj';
 const UPLOAD_PRESET='ml_default';
 const PROXY_URL='https://milos-github-proxy.milospizza-nice.workers.dev';
-const GITHUB_TOKEN=''; // Token now handled by Cloudflare Worker proxy
 const GITHUB_REPO='milospizzanice-design/milospizza';
 const DATA_FILE='menudata.json';
 let currentLang='fr';
@@ -791,20 +790,37 @@ async function saveKeyToGithub(filename, data) {
   try {
     // Get current SHA via proxy
     const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`);
-    if (res.ok) { const d = await res.json(); githubShas[filename] = d.sha; }
+    if (res.ok) {
+      const d = await res.json();
+      if (d.sha) githubShas[filename] = d.sha;
+    }
+  } catch(e){}
+  try {
+    const jsonStr = JSON.stringify(data, null, 2);
+    // Properly encode UTF-8 to base64
+    const bytes = new TextEncoder().encode(jsonStr);
+    let binary = '';
+    bytes.forEach(b => binary += String.fromCharCode(b));
+    const b64 = btoa(binary);
     const body = {
-      message:`Update ${filename}`,
-      content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))),
-      ...(githubShas[filename]?{sha:githubShas[filename]}:{})
+      message: 'Update ' + filename,
+      content: b64,
+      ...(githubShas[filename] ? {sha: githubShas[filename]} : {})
     };
-    const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
+    const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
     });
-    if (res2.ok) { const d2 = await res2.json(); githubShas[filename] = d2.content.sha; }
-  } catch(e){ console.log('saveKeyToGithub error', filename, e); }
+    const d2 = await res2.json();
+    if (d2.content && d2.content.sha) githubShas[filename] = d2.content.sha;
+    return d2;
+  } catch(e) {
+    console.error('saveKeyToGithub error', filename, e);
+    return null;
+  }
 }
+
 
 async function loadKeyFromGithub(filename) {
   try {
