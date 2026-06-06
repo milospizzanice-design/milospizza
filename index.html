@@ -740,6 +740,12 @@ let githubSha = null;
 // GITHUB PERSISTENCE
 // ═══════════════════════════════════════
 async function loadFromGithub() {
+  function decodeB64UTF8(b64) {
+    const bin = atob(b64.replace(/\n/g,''));
+    const bytes = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+  }
   try {
     const file = isDraftMode ? DRAFT_FILE : DATA_FILE;
     const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(file)}`);
@@ -749,20 +755,24 @@ async function loadFromGithub() {
         if (!res2.ok) return;
         const d2 = await res2.json();
         if (d2.sha) githubSha = d2.sha;
-        const p2 = d2.decoded ? JSON.parse(d2.decoded) : null;
-        if (p2 && p2.cats) cats = p2.cats;
-        if (p2 && p2.items) items = p2.items;
-        if (p2 && p2.upsells) upsells = p2.upsells;
+        if (d2.content) {
+          const p2 = decodeB64UTF8(d2.content);
+          if (p2.cats) cats = p2.cats;
+          if (p2.items) items = p2.items;
+          if (p2.upsells) upsells = p2.upsells;
+        }
       }
       return;
     }
     const d = await res.json();
     if (d.sha) githubSha = d.sha;
-    const parsed = d.decoded ? JSON.parse(d.decoded) : null;
-    if (parsed && parsed.cats) cats = parsed.cats;
-    if (parsed && parsed.items) items = parsed.items;
-    if (parsed && parsed.upsells) upsells = parsed.upsells;
-    renderMenu();
+    if (d.content) {
+      const parsed = decodeB64UTF8(d.content);
+      if (parsed.cats) cats = parsed.cats;
+      if (parsed.items) items = parsed.items;
+      if (parsed.upsells) upsells = parsed.upsells;
+      renderMenu();
+    }
   } catch(e){ console.error('loadFromGithub:', e); }
 }
 
