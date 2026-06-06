@@ -744,26 +744,26 @@ async function loadFromGithub() {
     const file = isDraftMode ? DRAFT_FILE : DATA_FILE;
     const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(file)}`);
     if (!res.ok) {
-      // If draft doesn't exist yet, fall back to published
       if (isDraftMode) {
         const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(DATA_FILE)}`);
         if (!res2.ok) return;
-        const data2 = await res2.json();
-        githubSha = data2.sha;
-        const content2 = JSON.parse(new TextDecoder('utf-8').decode((s=>{const b=atob(s.replace(/\\n/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;})(data2.content.replace(/\n/g,''))));
-        if (content2.cats) cats = content2.cats;
-        if (content2.items) items = content2.items;
-        if (content2.upsells) upsells = content2.upsells;
+        const d2 = await res2.json();
+        if (d2.sha) githubSha = d2.sha;
+        const p2 = d2.decoded ? JSON.parse(d2.decoded) : null;
+        if (p2 && p2.cats) cats = p2.cats;
+        if (p2 && p2.items) items = p2.items;
+        if (p2 && p2.upsells) upsells = p2.upsells;
       }
       return;
     }
-    const data = await res.json();
-    githubSha = data.sha;
-    const content = JSON.parse(new TextDecoder('utf-8').decode((s=>{const b=atob(s.replace(/\\n/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;})(data.content.replace(/\n/g,''))));
-    if (content.cats) cats = content.cats;
-    if (content.items) items = content.items;
-    if (content.upsells) upsells = content.upsells;
-  } catch(e){}
+    const d = await res.json();
+    if (d.sha) githubSha = d.sha;
+    const parsed = d.decoded ? JSON.parse(d.decoded) : null;
+    if (parsed && parsed.cats) cats = parsed.cats;
+    if (parsed && parsed.items) items = parsed.items;
+    if (parsed && parsed.upsells) upsells = parsed.upsells;
+    renderMenu();
+  } catch(e){ console.error('loadFromGithub:', e); }
 }
 
 async function saveToGithub() {
