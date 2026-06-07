@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Admin — Milo's</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --red: #C8202A;
+    --red-dark: #9e181f;
+    --red-light: #fef2f2;
+    --cream: #FAF7F2;
+    --dark: #1a1208;
+    --gold: #C9A84C;
+    --gray: #8a7e6e;
+    --gray-light: #f5f0eb;
+    --border: #e8e0d4;
+    --green: #16a34a;
+    --green-light: #f0fdf4;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    min-height: 100vh;
+    color: var(--dark);
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: white;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 12px rgba(26,18,8,0.06);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-dot {
+    width: 36px; height: 36px;
+    background: var(--red);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-dot svg { width: 20px; height: 20px; fill: white; }
+
+  .header-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--dark);
+  }
+  .header-title span { color: var(--red); }
+
+  .header-badge {
+    background: var(--red);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .user-info {
+    font-size: 13px;
+    color: var(--gray);
+    display: none;
+  }
+
+  @media (min-width: 480px) { .user-info { display: block; } }
+
+  .btn-logout {
+    padding: 8px 16px;
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--gray);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+
+  /* ── STATS ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    color: var(--dark);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--gray);
+    margin-top: 6px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── SECTION ── */
+  .section {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .section-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--dark);
+  }
+
+  .section-count {
+    font-size: 12px;
+    color: var(--gray);
+    background: var(--gray-light);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  /* ── ADD USER FORM ── */
+  .add-form {
+    padding: 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--gray-light);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr; }
+  }
+
+  .form-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--gray);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .form-field input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    background: white;
+    color: var(--dark);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .form-field input:focus {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px rgba(200,32,42,0.08);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .btn-add {
+    padding: 11px 20px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    box-shadow: 0 3px 12px rgba(200,32,42,0.2);
+  }
+
+  .btn-add:hover { background: var(--red-dark); transform: translateY(-1px); }
+
+  .btn-generate {
+    padding: 11px 16px;
+    background: white;
+    color: var(--gray);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-generate:hover { border-color: var(--gold); color: var(--dark); }
+
+  /* ── USERS TABLE ── */
+  .users-list { padding: 0; }
+
+  .user-row {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    transition: background 0.15s;
+  }
+
+  .user-row:last-child { border-bottom: none; }
+  .user-row:hover { background: var(--gray-light); }
+
+  .user-avatar {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--red-light);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--red);
+    flex-shrink: 0;
+  }
+
+  .user-avatar.superadmin-avatar {
+    background: #fef9ee;
+    color: var(--gold);
+  }
+
+  .user-info-row { flex: 1; min-width: 0; }
+
+  .user-email {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .user-restaurant {
+    font-size: 12px;
+    color: var(--gray);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .user-role {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .role-superadmin { background: #fef9ee; color: var(--gold); }
+  .role-client { background: var(--green-light); color: var(--green); }
+
+  .btn-delete {
+    width: 32px; height: 32px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--gray);
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .btn-delete:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--dark);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: transform 0.3s ease;
+    z-index: 999;
+    white-space: nowrap;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+
+  /* ── EMPTY ── */
+  .empty {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--gray);
+    font-size: 14px;
+  }
+
+  /* ── LOADING ── */
+  .loading-row {
+    padding: 32px;
+    text-align: center;
+    color: var(--gray);
+    font-size: 14px;
+  }
+
+  /* ── CONFIRM ── */
+  .confirm-overlay {
+    position: fixed; inset: 0;
+    background: rgba(26,18,8,0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .confirm-overlay.show { opacity: 1; pointer-events: all; }
+
+  .confirm-box {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 320px;
+    width: 90%;
+    text-align: center;
+    transform: scale(0.95);
+    transition: transform 0.2s;
+    box-shadow: 0 20px 60px rgba(26,18,8,0.2);
+  }
+
+  .confirm-overlay.show .confirm-box { transform: scale(1); }
+
+  .confirm-box h3 { font-size: 17px; margin-bottom: 8px; }
+  .confirm-box p { font-size: 13px; color: var(--gray); margin-bottom: 24px; }
+
+  .confirm-actions { display: flex; gap: 10px; }
+
+  .btn-cancel {
+    flex: 1; padding: 12px;
+    background: var(--gray-light);
+    border: none; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; cursor: pointer;
+    color: var(--dark);
+    transition: background 0.2s;
+  }
+  .btn-cancel:hover { background: var(--border); }
+
+  .btn-confirm-delete {
+    flex: 1; padding: 12px;
+    background: var(--red);
+    color: white; border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-confirm-delete:hover { background: var(--red-dark); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-dot">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+    </div>
+    <span class="header-title">Milo's <span>Admin</span></span>
+    <span class="header-badge">Super Admin</span>
+  </div>
+  <div class="header-right">
+    <span class="user-info" id="userEmail">—</span>
+    <button class="btn-logout" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-value" id="statTotal">—</div>
+      <div class="stat-label">Clients</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statActive">—</div>
+      <div class="stat-label">Actifs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statAdmins">—</div>
+      <div class="stat-label">Admins</div>
+    </div>
+  </div>
+
+  <!-- Ajouter un client -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">➕ Ajouter un client</span>
+    </div>
+    <div class="add-form">
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Email</label>
+          <input type="email" id="newEmail" placeholder="client@restaurant.fr" />
+        </div>
+        <div class="form-field">
+          <label>Nom du restaurant</label>
+          <input type="text" id="newRestaurant" placeholder="Pizzeria Roma" />
+        </div>
+        <div class="form-field">
+          <label>Mot de passe</label>
+          <input type="text" id="newPassword" placeholder="Générer automatiquement..." />
+        </div>
+        <div class="form-field">
+          <label>Rôle</label>
+          <input type="text" id="newRole" value="client" placeholder="client" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-add" onclick="addUser()">Créer le compte</button>
+        <button class="btn-generate" onclick="generatePassword()">🎲 Générer mot de passe</button>
+      </div>
+    </div>
+
+    <!-- Liste des users -->
+    <div class="users-list" id="usersList">
+      <div class="loading-row">Chargement...</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Confirm delete -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <h3>Supprimer ce compte ?</h3>
+    <p id="confirmText">Cette action est irréversible.</p>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirm()">Annuler</button>
+      <button class="btn-confirm-delete" onclick="confirmDelete()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const WORKER = 'https://milos-github-proxy.milospizza-nice.workers.dev';
+  let token = localStorage.getItem('milos_token');
+  let deleteTarget = null;
+  let allUsers = [];
+
+  // ── INIT ──
+  window.addEventListener('load', async () => {
+    if (!token) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    // Verify session
+    try {
+      const res = await fetch(`${WORKER}/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const data = await res.json();
+      if (!data.valid || data.role !== 'superadmin') {
+        localStorage.clear();
+        window.location.href = 'login.html';
+        return;
+      }
+      document.getElementById('userEmail').textContent = data.email;
+    } catch(e) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    loadUsers();
+  });
+
+  // ── LOAD USERS ──
+  async function loadUsers() {
+    try {
+      const res = await fetch(`${WORKER}/admin/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      allUsers = data.users || [];
+      renderUsers();
+      updateStats();
+    } catch(e) {
+      document.getElementById('usersList').innerHTML = '<div class="loading-row">Erreur de chargement</div>';
+    }
+  }
+
+  function updateStats() {
+    const clients = allUsers.filter(u => u.role === 'client').length;
+    const admins = allUsers.filter(u => u.role === 'superadmin').length;
+    document.getElementById('statTotal').textContent = clients;
+    document.getElementById('statActive').textContent = clients;
+    document.getElementById('statAdmins').textContent = admins;
+  }
+
+  function renderUsers() {
+    const list = document.getElementById('usersList');
+    if (allUsers.length === 0) {
+      list.innerHTML = '<div class="empty">Aucun utilisateur pour l\'instant</div>';
+      return;
+    }
+
+    list.innerHTML = allUsers.map(u => {
+      const initials = u.email.substring(0, 2).toUpperCase();
+      const isSuperAdmin = u.role === 'superadmin';
+      return `
+        <div class="user-row">
+          <div class="user-avatar ${isSuperAdmin ? 'superadmin-avatar' : ''}">${initials}</div>
+          <div class="user-info-row">
+            <div class="user-email">${u.email}</div>
+            <div class="user-restaurant">${u.restaurant || 'Pas de restaurant défini'}</div>
+          </div>
+          <span class="user-role ${isSuperAdmin ? 'role-superadmin' : 'role-client'}">${isSuperAdmin ? 'Super Admin' : 'Client'}</span>
+          ${!isSuperAdmin ? `<button class="btn-delete" onclick="askDelete('${u.email}')" title="Supprimer">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>` : '<div style="width:32px"></div>'}
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── ADD USER ──
+  async function addUser() {
+    const email = document.getElementById('newEmail').value.trim();
+    const restaurant = document.getElementById('newRestaurant').value.trim();
+    const password = document.getElementById('newPassword').value.trim();
+    const role = document.getElementById('newRole').value.trim() || 'client';
+
+    if (!email || !password) {
+      showToast('Email et mot de passe requis', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${WORKER}/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ email, password, restaurant, role })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        showToast(`✅ Compte créé : ${email}`, 'success');
+        document.getElementById('newEmail').value = '';
+        document.getElementById('newRestaurant').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('newRole').value = 'client';
+        loadUsers();
+      } else {
+        showToast(data.error || 'Erreur lors de la création', 'error');
+      }
+    } catch(e) {
+      showToast('Erreur réseau', 'error');
+    }
+  }
+
+  // ── DELETE USER ──
+  function askDelete(email) {
+    deleteTarget = email;
+    document.getElementById('confirmText').textContent = `Supprimer le compte ${email} ? Cette action est irréversible.`;
+    document.getElementById('confirmOverlay').classList.add('show');
+  }
+
+  function closeConfirm() {
+    document.getElementById('confirmOverlay').classList.remove('show');
+    deleteTarget = null;
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    closeConfirm();
+
+    try {
+      const res = await fetch(`${WORKER}/admin/users`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ email: deleteTarget })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        showToast('Compte supprimé', 'success');
+        loadUsers();
+      } else {
+        showToast(data.error || 'Erreur', 'error');
+      }
+    } catch(e) {
+      showToast('Erreur réseau', 'error');
+    }
+  }
+
+  // ── GENERATE PASSWORD ──
+  function generatePassword() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
+    let pwd = '';
+    for (let i = 0; i < 12; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)];
+    }
+    document.getElementById('newPassword').value = pwd;
+  }
+
+  // ── LOGOUT ──
+  async function logout() {
+    try {
+      await fetch(`${WORKER}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+    } catch(e) {}
+    localStorage.clear();
+    window.location.href = 'login.html';
+  }
+
+  // ── TOAST ──
+  function showToast(msg, type = '') {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = `toast ${type} show`;
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+
+  // Close confirm on overlay click
+  document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirm();
+  });
+</script>
+</body>
+</html>
