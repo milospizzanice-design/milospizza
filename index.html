@@ -1010,24 +1010,10 @@ function openModal(id) {
 }
 function closeModalIfOutside(e){if(e.target===document.getElementById('modalOverlay'))document.getElementById('modalOverlay').classList.remove('open');}
 
-// ═══════════════════════════════════════
 // ADMIN
 // ═══════════════════════════════════════
-let tapCount=0,tapTimer=null;
 function handleLogoTap(){
-  tapCount++;
-  clearTimeout(tapTimer);
-  if(tapCount >= 10){
-    tapCount = 0;
-    document.getElementById('adminFab').style.display = 'block';
-    setTimeout(()=>{ document.getElementById('adminFab').style.display='none'; }, 60000);
-    if(!isDraftMode) enterDraftMode();
-    showToast('🔐 Mode administration activé');
-    return;
-  }
-  tapTimer = setTimeout(()=>{
-    tapCount = 0;
-  }, 1500);
+  window.location.href = 'login.html';
 }
 
 function openAdmin(){
