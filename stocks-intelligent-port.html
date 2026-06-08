@@ -141,6 +141,31 @@ header h1{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
 </div>
 <div class="container" id="container"></div>
 
+<!-- ÉCRAN ADMIN -->
+<div id="admin-screen" style="position:fixed;inset:0;background:var(--cream);z-index:500;display:none;flex-direction:column;overflow-y:auto;">
+  <div style="background:var(--dark);color:white;padding:14px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;flex:1;">⚙️ Admin · Milo's Pizza</span>
+    <button onclick="closeAdmin()" style="background:rgba(255,255,255,.15);border:none;color:white;font-size:12px;padding:5px 12px;border-radius:20px;cursor:pointer;">✕ Fermer</button>
+  </div>
+  <div style="padding:16px;">
+    <!-- PINs rôles -->
+    <div style="background:white;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1.5px;color:var(--dark);margin-bottom:12px;">🔐 Codes PIN des rôles</div>
+      <div id="admin-pin-list"></div>
+    </div>
+    <!-- Seuils produits -->
+    <div style="background:white;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1.5px;color:var(--dark);margin-bottom:4px;">📦 Seuils & Cibles par produit</div>
+      <div style="font-size:11px;color:var(--mid);margin-bottom:12px;">Modifiez les valeurs — sauvegarde automatique</div>
+      <div id="admin-prod-list"></div>
+    </div>
+    <!-- Reset -->
+    <button onclick="resetConfig()" style="width:100%;background:#FDEDEC;color:#C0392B;border:1.5px solid #C0392B;border-radius:12px;padding:12px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;">
+      ↺ Remettre les valeurs par défaut
+    </button>
+  </div>
+</div>
+
 <!-- ÉCRAN PIN -->
 <div id="pin-screen" style="position:fixed;inset:0;background:var(--cream);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;">
   <div style="text-align:center;margin-bottom:28px;">
@@ -829,54 +854,55 @@ function setDay(d){
 }
 
 // ══════════════════════════════════════
-// RÔLES & PIN
+// RÔLES & PIN + ADMIN
 // ══════════════════════════════════════
-const ROLES = {
+const ADMIN_PIN = '1704';
+const STORAGE_CONFIG = 'milos_config';
+
+function loadConfig() {
+  try { const s=localStorage.getItem(STORAGE_CONFIG); if(s)return JSON.parse(s); } catch(e){}
+  return null;
+}
+function saveConfig(cfg){ localStorage.setItem(STORAGE_CONFIG,JSON.stringify(cfg)); }
+
+let ROLES_CONFIG = loadConfig()?.roles || {
   '1734': { name:'Responsable Bar',    icon:'🍷', color:'#1A5276', cats:['boissons-emporter','boissons-place','glaces'] },
   '3553': { name:'Chef de Cuisine',    icon:'👨‍🍳', color:'#1E8449', cats:['epicerie','fromages','charcuterie'] },
   '6934': { name:'Tout le Restaurant', icon:'🏠', color:'#1A1008', cats:['boissons-emporter','boissons-place','epicerie','fromages','charcuterie','glaces','hygiene'] },
 };
+let OVERRIDES = loadConfig()?.overrides || {};
 
 let currentRole = null;
 let pinBuffer = '';
 
 function pinKey(k) {
   if (pinBuffer.length >= 4) return;
-  pinBuffer += k;
-  updatePinDots();
+  pinBuffer += k; updatePinDots();
   if (pinBuffer.length === 4) setTimeout(checkPin, 150);
 }
-function pinDel() { pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); document.getElementById('pin-error').textContent=''; }
-function pinClear() { pinBuffer=''; updatePinDots(); document.getElementById('pin-error').textContent=''; }
-
-function updatePinDots() {
-  for (let i=1;i<=4;i++) {
-    document.getElementById('pd'+i).classList.toggle('filled', i<=pinBuffer.length);
-  }
+function pinDel(){ pinBuffer=pinBuffer.slice(0,-1); updatePinDots(); document.getElementById('pin-error').textContent=''; }
+function pinClear(){ pinBuffer=''; updatePinDots(); document.getElementById('pin-error').textContent=''; }
+function updatePinDots(){
+  for(let i=1;i<=4;i++) document.getElementById('pd'+i).classList.toggle('filled',i<=pinBuffer.length);
 }
 
-function checkPin() {
-  const role = ROLES[pinBuffer];
-  if (role) {
-    currentRole = role;
+function checkPin(){
+  if(pinBuffer===ADMIN_PIN){ pinBuffer=''; updatePinDots(); document.getElementById('pin-screen').style.display='none'; openAdmin(); return; }
+  const role=ROLES_CONFIG[pinBuffer];
+  if(role){
+    currentRole=role;
     document.getElementById('pin-screen').style.display='none';
-    // Afficher badge rôle
-    const badge = document.getElementById('role-badge');
-    badge.textContent = role.icon+' '+role.name;
-    badge.style.background = role.color;
-    badge.style.color = 'white';
-    badge.style.display = 'inline-block';
+    const badge=document.getElementById('role-badge');
+    badge.textContent=role.icon+' '+role.name; badge.style.background=role.color; badge.style.color='white'; badge.style.display='inline-block';
     setDay(currentDay);
   } else {
-    document.getElementById('pin-error').textContent = 'Code incorrect — réessayez';
-    pinBuffer='';
-    updatePinDots();
+    document.getElementById('pin-error').textContent='Code incorrect — réessayez';
+    pinBuffer=''; updatePinDots();
   }
 }
 
-function logout() {
-  currentRole=null; pinBuffer='';
-  updatePinDots();
+function logout(){
+  currentRole=null; pinBuffer=''; updatePinDots();
   document.getElementById('pin-error').textContent='';
   document.getElementById('role-badge').style.display='none';
   document.getElementById('pin-screen').style.display='flex';
@@ -884,10 +910,107 @@ function logout() {
   document.getElementById('dispatch-grid').innerHTML='';
 }
 
-// Filtrer les catégories selon le rôle
-function catAllowed(catId) {
-  if (!currentRole) return false;
-  return currentRole.cats.includes(catId);
+function catAllowed(catId){ if(!currentRole)return false; return currentRole.cats.includes(catId); }
+
+// Surcharges seuils
+function getSOvr(p){ return OVERRIDES[p.id]?.sDefault ?? p.sDefault; }
+function getCOvr(p){ return OVERRIDES[p.id]?.cDefault ?? p.cDefault; }
+
+// ══════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════
+function openAdmin(){
+  document.getElementById('admin-screen').style.display='flex';
+  renderAdminProds();
+  renderAdminPins();
+}
+
+function renderAdminProds(){
+  const list=document.getElementById('admin-prod-list');
+  list.innerHTML='';
+  CATS.forEach(cat=>{
+    const catDiv=document.createElement('div');
+    catDiv.style.cssText='margin-bottom:18px;';
+    catDiv.innerHTML=`<div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1.5px;color:var(--mid);padding:6px 0 3px;border-bottom:1px solid var(--border);margin-bottom:6px;">${cat.label}</div>`;
+    cat.products.forEach(p=>{
+      if(p.type!=='qty')return;
+      const o=OVERRIDES[p.id]||{};
+      const sVal=o.sDefault??p.sDefault??1;
+      const cVal=o.cDefault??p.cDefault??1;
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(217,201,176,.25);';
+      row.innerHTML=`
+        <div style="flex:1;font-size:12px;font-weight:500;">${p.name}<br><span style="font-size:10px;color:var(--mid);">${SUPS[p.sup]?.name||p.sup}</span></div>
+        <div style="text-align:center;">
+          <div style="font-size:9px;color:var(--mid);text-transform:uppercase;margin-bottom:2px;">Seuil</div>
+          <input type="number" value="${sVal}" min="0" style="width:52px;border:1.5px solid var(--border);border-radius:8px;padding:5px;text-align:center;font-size:13px;font-weight:700;background:var(--cream);"
+            onchange="saveOverride('${p.id}','s',this.value)">
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:9px;color:var(--mid);text-transform:uppercase;margin-bottom:2px;">Cible</div>
+          <input type="number" value="${cVal}" min="0" style="width:52px;border:1.5px solid var(--border);border-radius:8px;padding:5px;text-align:center;font-size:13px;font-weight:700;background:var(--cream);"
+            onchange="saveOverride('${p.id}','c',this.value)">
+        </div>`;
+      catDiv.appendChild(row);
+    });
+    list.appendChild(catDiv);
+  });
+}
+
+function renderAdminPins(){
+  const list=document.getElementById('admin-pin-list');
+  list.innerHTML='';
+  Object.entries(ROLES_CONFIG).forEach(([pin,role])=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(217,201,176,.3);';
+    row.innerHTML=`
+      <div style="flex:1;font-size:13px;font-weight:600;">${role.icon} ${role.name}</div>
+      <div style="text-align:center;">
+        <div style="font-size:9px;color:var(--mid);text-transform:uppercase;margin-bottom:2px;">PIN</div>
+        <input type="text" value="${pin}" maxlength="4" inputmode="numeric"
+          style="width:72px;border:1.5px solid var(--border);border-radius:8px;padding:6px;text-align:center;font-size:18px;font-weight:700;letter-spacing:4px;background:var(--cream);"
+          onchange="savePin('${pin}',this.value)">
+      </div>`;
+    list.appendChild(row);
+  });
+}
+
+function saveOverride(id,type,val){
+  if(!OVERRIDES[id])OVERRIDES[id]={};
+  if(type==='s')OVERRIDES[id].sDefault=parseInt(val);
+  if(type==='c')OVERRIDES[id].cDefault=parseInt(val);
+  persistConfig();
+}
+
+function savePin(oldPin,newPin){
+  if(!/^\d{4}$/.test(newPin)){alert('Le PIN doit être 4 chiffres.');renderAdminPins();return;}
+  if(newPin===ADMIN_PIN){alert('Ce PIN est réservé à l\'admin.');renderAdminPins();return;}
+  if(ROLES_CONFIG[newPin]&&newPin!==oldPin){alert('Ce PIN est déjà utilisé.');renderAdminPins();return;}
+  const role=ROLES_CONFIG[oldPin];
+  delete ROLES_CONFIG[oldPin];
+  ROLES_CONFIG[newPin]=role;
+  persistConfig();
+  renderAdminPins();
+}
+
+function persistConfig(){ saveConfig({roles:ROLES_CONFIG,overrides:OVERRIDES}); }
+
+function closeAdmin(){
+  document.getElementById('admin-screen').style.display='none';
+  document.getElementById('pin-screen').style.display='flex';
+}
+
+function resetConfig(){
+  if(!confirm('Remettre tous les seuils et PINs par défaut ?'))return;
+  localStorage.removeItem(STORAGE_CONFIG);
+  OVERRIDES={};
+  ROLES_CONFIG={
+    '1734':{name:'Responsable Bar',icon:'🍷',color:'#1A5276',cats:['boissons-emporter','boissons-place','glaces']},
+    '3553':{name:'Chef de Cuisine',icon:'👨‍🍳',color:'#1E8449',cats:['epicerie','fromages','charcuterie']},
+    '6934':{name:'Tout le Restaurant',icon:'🏠',color:'#1A1008',cats:['boissons-emporter','boissons-place','epicerie','fromages','charcuterie','glaces','hygiene']},
+  };
+  alert('Configuration réinitialisée.');
+  openAdmin();
 }
 
 setDay(currentDay);
