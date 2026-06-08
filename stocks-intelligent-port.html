@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Stocks · Port Milo's Pizza</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FDF6EC;--dark:#1A1008;--mid:#5C4A32;--light:#EDE0CC;--border:#D9C9B0;
+  --mamma:#7D3C98;--masto:#1E8449;--mauro:#1A5276;--metro:#2C3E50;
+  --carrefour:#8E44AD;--pelleor:#C0392B;--cash:#E67E22;--idpro:#2980B9;
+  --truffe:#6D4C41;--dabray:#922B21;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--cream);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--dark);min-height:100vh;}
+header{background:var(--dark);color:white;padding:13px 18px 9px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3);}
+header h1{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;}
+.header-sub{display:flex;align-items:center;gap:10px;margin-top:3px;}
+.day-badge{font-family:'Bebas Neue',sans-serif;font-size:12px;background:rgba(255,255,255,.15);padding:2px 10px;border-radius:20px;}
+.header-sub input{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:white;padding:4px 9px;font-family:'DM Sans',sans-serif;font-size:13px;width:130px;}
+.header-sub input::placeholder{color:rgba(255,255,255,.4);}
+.day-selector{background:#2C2010;padding:7px 14px;display:flex;gap:5px;overflow-x:auto;}
+.day-btn{font-family:'Bebas Neue',sans-serif;font-size:12px;padding:4px 10px;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);background:none;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.day-btn.active{background:white;color:var(--dark);border-color:white;}
+.container{padding:0 0 200px;}
+/* SECTION */
+.section{border-bottom:2px solid var(--border);}
+.section-header{display:flex;align-items:center;gap:10px;padding:11px 15px;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);position:sticky;top:82px;z-index:10;}
+.section-header h2{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1.5px;flex:1;color:white;}
+.s-count{font-size:11px;background:rgba(255,255,255,.25);color:white;border-radius:20px;padding:2px 7px;display:none;font-weight:600;}
+.s-count.visible{display:inline-block;}
+.chevron{font-size:11px;color:rgba(255,255,255,.7);transition:transform .2s;}
+.section-header.collapsed .chevron{transform:rotate(-90deg);}
+.section-body.collapsed{display:none;}
+.subsection-label{padding:5px 15px 3px;font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--mid);background:#F5EFE6;font-weight:600;border-bottom:1px solid var(--border);}
+/* PRODUCT ROW */
+.product-row{background:white;border-bottom:1px solid rgba(217,201,176,.4);padding:9px 13px;display:flex;align-items:center;gap:8px;transition:background .15s;}
+.product-row.s-warn{background:#FFFBF0;}
+.product-row.s-order{background:#FFF4F3;}
+.sup-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.prod-info{flex:1;min-width:0;}
+.prod-name{font-size:13px;font-weight:500;line-height:1.2;}
+.prod-meta{font-size:10px;color:var(--mid);margin-top:1px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.sup-tag{font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:10px;color:white;letter-spacing:.3px;}
+.stock-wrap{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.qty-ctrl{display:flex;align-items:center;background:var(--cream);border:1.5px solid var(--border);border-radius:9px;overflow:hidden;}
+.qty-btn{width:29px;height:30px;background:none;border:none;font-size:16px;color:var(--mid);cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
+.qty-btn:active{background:var(--light);}
+.qty-in{width:32px;text-align:center;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--dark);-moz-appearance:textfield;padding:0;}
+.qty-in::-webkit-outer-spin-button,.qty-in::-webkit-inner-spin-button{-webkit-appearance:none;}
+.pill{font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;min-width:52px;text-align:center;}
+.p-ok{background:#E8F5E9;color:#1E8449;}
+.p-warn{background:#FEF9E7;color:#D68910;}
+.p-order{background:#FDEDEC;color:#C0392B;}
+.p-rupture{background:#922B21;color:white;}
+/* 2-toggle */
+.two-tog{display:flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;flex-shrink:0;}
+.t-btn{padding:6px 10px;background:var(--cream);border:none;font-size:11px;font-weight:600;cursor:pointer;color:var(--mid);-webkit-tap-highlight-color:transparent;}
+.t-btn:first-child{border-right:1px solid var(--border);}
+.t-ok{background:#E8F5E9;color:#1E8449;}
+.t-cmd{background:#FDEDEC;color:#C0392B;}
+/* 3-level */
+.lvl-tog{display:flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;flex-shrink:0;}
+.lvl-btn{padding:5px 8px;background:var(--cream);border:none;font-size:10px;font-weight:600;cursor:pointer;color:var(--mid);border-right:1px solid var(--border);-webkit-tap-highlight-color:transparent;}
+.lvl-btn:last-child{border-right:none;}
+.lv-ok{background:#E8F5E9;color:#1E8449;}
+.lv-low{background:#FEF9E7;color:#D68910;}
+.lv-out{background:#FDEDEC;color:#C0392B;}
+/* YN */
+.yn-tog{display:flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;flex-shrink:0;}
+.yn-btn{padding:6px 10px;background:var(--cream);border:none;font-size:11px;font-weight:600;cursor:pointer;color:var(--mid);-webkit-tap-highlight-color:transparent;}
+.yn-btn:first-child{border-right:1px solid var(--border);}
+.yn-ok{background:#E8F5E9;color:#1E8449;}
+.yn-cmd{background:#FDEDEC;color:#C0392B;}
+/* Rupture toggle pour Dabray */
+.rup-tog{display:flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;flex-shrink:0;}
+.rup-btn{padding:5px 8px;background:var(--cream);border:none;font-size:10px;font-weight:600;cursor:pointer;color:var(--mid);border-right:1px solid var(--border);-webkit-tap-highlight-color:transparent;}
+.rup-btn:last-child{border-right:none;}
+.r-ok{background:#E8F5E9;color:#1E8449;}
+.r-low{background:#FEF9E7;color:#D68910;}
+.r-rup{background:#922B21;color:white;}
+/* Footer */
+.sticky-footer{position:fixed;bottom:0;left:0;right:0;background:white;border-top:2px solid var(--border);box-shadow:0 -4px 20px rgba(0,0,0,.12);padding:8px 13px 11px;}
+.footer-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--mid);font-weight:600;margin-bottom:5px;}
+.dispatch-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.dbtn{border:none;border-radius:8px;padding:7px 3px 5px;font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:.8px;color:white;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.3;transition:opacity .2s,transform .1s;-webkit-tap-highlight-color:transparent;}
+.dbtn.active{opacity:1;}
+.dbtn:active{transform:scale(.95);}
+.dc{font-family:'DM Sans',sans-serif;font-size:9px;font-weight:700;background:rgba(255,255,255,.3);border-radius:20px;padding:1px 5px;}
+.dbtn-all{background:#25D366;grid-column:span 4;flex-direction:row;justify-content:center;gap:8px;font-size:13px;padding:9px;}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:white;border-radius:20px 20px 0 0;padding:20px 17px 30px;width:100%;max-width:520px;animation:slideUp .25s ease;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal-top{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+.modal-bar{width:5px;height:22px;border-radius:4px;}
+.modal h3{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1.5px;}
+.modal-sub{font-size:11px;color:var(--mid);margin-bottom:9px;}
+.modal-recap{background:var(--cream);border-radius:11px;padding:9px 12px;font-size:12px;line-height:1.9;max-height:220px;overflow-y:auto;margin-bottom:9px;border:1px solid var(--border);}
+.rsup{font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-top:3px;}
+.rorder{color:#C0392B;}
+.rwarn{color:#D68910;}
+.rrup{color:#922B21;font-weight:700;}
+.wa-tip{background:#E8F5E9;border:1px solid #A5D6A7;border-radius:9px;padding:7px 11px;font-size:11px;color:#2E7D32;margin-bottom:9px;line-height:1.5;}
+.modal-actions{display:flex;gap:8px;}
+.btn-cancel{flex:1;background:var(--light);color:var(--mid);border:none;border-radius:11px;padding:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-wa{flex:2;background:#25D366;color:white;border:none;border-radius:11px;padding:10px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;cursor:pointer;}
+.hidden{display:none!important;}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:var(--cream);transition:background .15s;}
+.pin-dot.filled{background:var(--dark);border-color:var(--dark);}
+.pin-key{background:var(--cream);border:1.5px solid var(--border);border-radius:12px;padding:16px;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;color:var(--dark);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .1s;}
+.pin-key:active{background:var(--light);}
+.pin-clear{color:#C0392B;font-size:14px;}
+.pin-del{font-size:16px;}
+.role-badge{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:20px;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:white;}
+.info-note{padding:7px 14px;font-size:11px;border-bottom:1px solid var(--border);}
+.info-blue{background:#EBF5FB;color:#1A5276;}
+.info-orange{background:#FEF9E7;color:#7D6608;}
+</style>
+</head>
+<body>
+<header>
+  <h1>📋 Stocks Intelligents · Port</h1>
+  <div class="header-sub">
+    <span class="day-badge" id="day-badge">—</span>
+    <span id="role-badge" style="font-size:11px;padding:2px 10px;border-radius:20px;font-weight:600;display:none;"></span>
+    <input type="text" id="employe" placeholder="Votre prénom">
+    <button onclick="logout()" style="background:rgba(255,255,255,0.15);border:none;color:white;font-size:11px;padding:4px 10px;border-radius:20px;cursor:pointer;flex-shrink:0;">⏻ Quitter</button>
+  </div>
+</header>
+<div class="day-selector">
+  <button class="day-btn" onclick="setDay(1)">Lundi</button>
+  <button class="day-btn" onclick="setDay(2)">Mardi</button>
+  <button class="day-btn" onclick="setDay(3)">Mercredi</button>
+  <button class="day-btn" onclick="setDay(4)">Jeudi</button>
+  <button class="day-btn" onclick="setDay(5)">Vendredi</button>
+  <button class="day-btn" onclick="setDay(6)">Samedi</button>
+  <button class="day-btn" onclick="setDay(0)">Dimanche</button>
+</div>
+<div class="container" id="container"></div>
+
+<!-- ÉCRAN PIN -->
+<div id="pin-screen" style="position:fixed;inset:0;background:var(--cream);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;color:var(--dark)">🍕 MILO'S PIZZA</div>
+    <div style="font-size:13px;color:var(--mid);margin-top:4px;text-transform:uppercase;letter-spacing:1px">Gestion des stocks · Port</div>
+  </div>
+  <div style="background:white;border-radius:18px;padding:24px 22px;width:100%;max-width:340px;box-shadow:0 4px 24px rgba(0,0,0,0.1);">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1.5px;color:var(--mid);text-align:center;margin-bottom:16px;">ENTREZ VOTRE CODE PIN</div>
+    <!-- Affichage PIN -->
+    <div style="display:flex;justify-content:center;gap:10px;margin-bottom:20px;">
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+      <div class="pin-dot" id="pd4"></div>
+    </div>
+    <!-- Clavier -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key pin-clear" onclick="pinClear()">✕</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key pin-del" onclick="pinDel()">⌫</button>
+    </div>
+    <div id="pin-error" style="text-align:center;color:#C0392B;font-size:12px;font-weight:600;margin-top:12px;height:18px;"></div>
+  </div>
+  <!-- Rôles en bas -->
+  <div style="margin-top:24px;text-align:center;">
+    <div style="font-size:11px;color:var(--mid);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Accès disponibles</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <span style="background:var(--mauro);color:white;font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;">🍷 Bar</span>
+      <span style="background:var(--masto);color:white;font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;">👨‍🍳 Cuisine</span>
+      <span style="background:var(--dark);color:white;font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;">🏠 Restaurant</span>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="sticky-footer">
+  <div class="footer-title">📤 Dispatcher les commandes</div>
+  <div class="dispatch-grid" id="dispatch-grid"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeOut(event)">
+  <div class="modal">
+    <div class="modal-top"><div class="modal-bar" id="mbar"></div><h3 id="mtitle">—</h3></div>
+    <div class="modal-sub" id="msub"></div>
+    <div class="modal-recap" id="mrecap"></div>
+    <div class="wa-tip">📱 Dans WhatsApp : sélectionne <strong id="wtarget">—</strong> et envoie.</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="btn-wa" onclick="sendCurrent()">📤 OUVRIR WHATSAPP</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// CONFIG FOURNISSEURS
+// ══════════════════════════════════════
+const SUPS = {
+  dabray:    {name:'Dabray',              color:'#922B21', wa:'Dabray (labo)',             days:[0]},
+  mauro:     {name:'Mauro',              color:'#1A5276', wa:'Mauro',                     days:[1]},
+  carrefour: {name:'Carrefour → Dabray', color:'#8E44AD', wa:'Dabray (Carrefour)',        days:[1]},
+  masto:     {name:'Masto Pizza',        color:'#1E8449', wa:'Masto Pizza',               days:[1,2,3,4,5,6]},
+  mamma:     {name:'Mammafiore',         color:'#7D3C98', wa:'Mammafiore',                days:[1,4]},
+  pelleor:   {name:"Pelle d'Or → Dabray",color:'#C0392B', wa:"Dabray (Pelle d'Or)",      days:[0]},
+  cash:      {name:'Cash Alim. → Dabray',color:'#E67E22', wa:'Dabray (Cash Alimentaire)',days:[0]},
+  idpro:     {name:'ID Pro → Dabray',    color:'#2980B9', wa:'Dabray (ID Pro)',           days:[0]},
+  truffe:    {name:'Terres de Truffe → Dabray',color:'#6D4C41',wa:'Dabray (Terres de Truffe)',days:[0]},
+  prod:      {name:'Producteurs Réunis', color:'#B7950B', wa:'Producteurs Réunis',        days:[0,1,2,3,4,5,6]},
+  metro:     {name:'Metro',              color:'#2C3E50', wa:'Metro (achat mardi)',        days:[1]},
+};
+
+// Fournisseurs qui passent via Dabray → si rupture Dabray, bascule vers metro
+const VIA_DABRAY = ['dabray','pelleor','cash','truffe'];
+// Si rupture Dabray sur un produit → ce produit s'ajoute à metro
+
+// ══════════════════════════════════════
+// PRODUITS
+// ══════════════════════════════════════
+// type: qty|two|level|yn|rupture
+// levelType: half|third|twothird|threequarter
+// rupture: produit Dabray avec toggle ok/stock bas/rupture → si rupture → bascule metro
+// fallback: id du produit Metro de remplacement (si différent)
+// s/c par jour: si absent → sDefault/cDefault
+// carton: nb unités par carton (Mauro)
+
+const CATS = [
+  {
+    id:'boissons-emporter', label:'🥤 Boissons à emporter',
+    // visible si au moins un fournisseur de la catégorie actif ce jour
+    products:[
+      // Eaux
+      {id:'eau-plate-50',   sup:'metro', name:'Eau plate 50cl',      unit:'bouteille', type:'qty', sDefault:24, cDefault:48, subcat:'Eaux'},
+      {id:'eau-pet-50',     sup:'metro', name:'Eau pétillante 50cl', unit:'bouteille', type:'qty', sDefault:12, cDefault:24, subcat:'Eaux'},
+      {id:'vittel',         sup:'metro', name:'Vittel 1L',           unit:'bouteille', type:'qty', sDefault:12, cDefault:12, subcat:'Eaux'},
+      {id:'pellegrino',     sup:'metro', name:'San Pellegrino 1L',   unit:'bouteille', type:'qty', sDefault:18, cDefault:24, subcat:'Eaux'},
+      // Sodas emporter
+      {id:'coca-vc',        sup:'metro', name:'Coca Cola VC',        unit:'bouteille', type:'qty', sDefault:36, cDefault:48, subcat:'Sodas'},
+      {id:'coca-zero-vc',   sup:'metro', name:'Coca Zero VC',        unit:'bouteille', type:'qty', sDefault:36, cDefault:48, subcat:'Sodas'},
+      {id:'fuze-tea',       sup:'metro', name:'Fuze Tea VC',         unit:'bouteille', type:'qty', sDefault:12, cDefault:24, subcat:'Sodas'},
+      {id:'limonade-vc',    sup:'metro', name:'Limonade VC',         unit:'bouteille', type:'qty', sDefault:12, cDefault:12, subcat:'Sodas'},
+      {id:'orangina-vp',    sup:'metro', name:'Orangina VP',         unit:'bouteille', type:'qty', sDefault:8,  cDefault:10, subcat:'Sodas'},
+      {id:'jus-pomme',      sup:'metro', name:'Jus pomme VP',        unit:'bouteille', type:'qty', sDefault:6,  cDefault:10, subcat:'Jus'},
+      {id:'jus-ace',        sup:'metro', name:'Jus ACE VP',          unit:'bouteille', type:'qty', sDefault:4,  cDefault:8,  subcat:'Jus'},
+      {id:'jus-orange',     sup:'metro', name:'Jus orange VP',       unit:'bouteille', type:'qty', sDefault:4,  cDefault:8,  subcat:'Jus'},
+      {id:'coca-33',        sup:'pelleor',name:'Coca 33cl',          unit:'canette',   type:'qty', sDefault:15, cDefault:18, subcat:'Canettes'},
+      {id:'icetea-33',      sup:'pelleor',name:'Ice Tea 33cl',       unit:'canette',   type:'qty', sDefault:10, cDefault:12, subcat:'Canettes'},
+      {id:'coca-15',        sup:'cash',  name:'Coca 1,5L',           unit:'bouteille', type:'qty', sDefault:5,  cDefault:6,  subcat:'Grands formats'},
+    ]
+  },
+  {
+    id:'boissons-place', label:'🍷 Boissons sur place',
+    products:[
+      // Vins Mauro
+      {id:'bastide-blanc',  sup:'mauro', name:'Bastide Blanc',    unit:'btl', type:'qty', sDefault:4, cDefault:6, carton:6, subcat:'Vins Bastide'},
+      {id:'bastide-rose',   sup:'mauro', name:'Bastide Rosé',     unit:'btl', type:'qty', sDefault:4, cDefault:6, carton:6, subcat:'Vins Bastide'},
+      {id:'bastide-rouge',  sup:'mauro', name:'Bastide Rouge',    unit:'btl', type:'qty', sDefault:3, cDefault:6, carton:6, subcat:'Vins Bastide'},
+      {id:'bailli-blanc',   sup:'mauro', name:'Bailli Blanc',     unit:'btl', type:'qty', sDefault:4, cDefault:6, carton:6, subcat:'Vins Bailli'},
+      {id:'bailli-rose',    sup:'mauro', name:'Bailli Rosé',      unit:'btl', type:'qty', sDefault:4, cDefault:6, carton:6, subcat:'Vins Bailli'},
+      {id:'bailli-rouge',   sup:'mauro', name:'Bailli Rouge',     unit:'btl', type:'qty', sDefault:3, cDefault:6, carton:6, subcat:'Vins Bailli'},
+      {id:'chardonnay',     sup:'mauro', name:'Chardonnay',       unit:'btl', type:'qty', sDefault:3, cDefault:4, carton:6, subcat:'Autres vins'},
+      {id:'cdr',            sup:'mauro', name:'Côte du Rhône',    unit:'btl', type:'qty', sDefault:3, cDefault:4, carton:6, subcat:'Autres vins'},
+      {id:'valpolicella',   sup:'mauro', name:'Valpolicella',     unit:'btl', type:'qty', sDefault:2, cDefault:2, carton:6, subcat:'Autres vins'},
+      // Bulles Carrefour
+      {id:'prosecco',       sup:'carrefour', name:'Prosecco',     unit:'btl', type:'qty', sDefault:4, cDefault:4, subcat:'Bulles'},
+      {id:'millesimato',    sup:'carrefour', name:'Millesimato',  unit:'btl', type:'qty', sDefault:4, cDefault:4, subcat:'Bulles'},
+      // Bières fût Mauro
+      {id:'moretti',        sup:'mauro', name:'Fûts Moretti',     unit:'fût', type:'qty', sDefault:3, cDefault:4, subcat:'Bières fût'},
+      {id:'fut-ipa',        sup:'mauro', name:'À la Fut IPA',     unit:'btl', type:'qty', sDefault:8, cDefault:8, carton:24, subcat:'Bières bouteilles'},
+      {id:'fut-blonde',     sup:'mauro', name:'À la Fut Blonde',  unit:'btl', type:'qty', sDefault:8, cDefault:8, carton:24, subcat:'Bières bouteilles'},
+      {id:'fut-blanche',    sup:'mauro', name:'À la Fut Blanche', unit:'btl', type:'qty', sDefault:4, cDefault:4, carton:24, subcat:'Bières bouteilles'},
+      // Softs bar
+      {id:'perrier',        sup:'carrefour', name:'Perrier 1L',   unit:'btl', type:'qty', sDefault:3, cDefault:3, subcat:'Softs bar'},
+      {id:'limonade-15',    sup:'metro', name:'Limonade 1,5L',    unit:'btl', type:'qty', sDefault:2, cDefault:2, subcat:'Softs bar'},
+      // Café
+      {id:'cafe',           sup:'mauro', name:'Café',             unit:'sac 1kg', type:'qty', sDefault:2, cDefault:2, subcat:'Café'},
+      {id:'deca',           sup:'mauro', name:'Décaféiné',        unit:'boîte',   type:'qty', sDefault:1, cDefault:1, subcat:'Café'},
+      // Spiritueux & cocktails
+      {id:'aperol',         sup:'carrefour', name:'Aperol',       unit:'btl', type:'qty', sDefault:2, cDefault:2, subcat:'Spiritueux'},
+      {id:'zubrowka',       sup:'carrefour', name:'Doka Zubrowka',unit:'btl', type:'qty', sDefault:1, cDefault:1, subcat:'Spiritueux'},
+      {id:'limoncello',     sup:'mauro', name:'Limoncello',       unit:'btl', type:'qty', sDefault:1, cDefault:1, subcat:'Spiritueux'},
+      {id:'sureau',         sup:'metro', name:'Liqueur sureau',   unit:'btl', type:'qty', sDefault:2, cDefault:2, subcat:'Spiritueux'},
+      {id:'captain',        sup:'metro', name:'Captain Morgan',   unit:'btl', type:'qty', sDefault:1, cDefault:1, subcat:'Spiritueux'},
+      {id:'cachaca',        sup:'metro', name:'Cachaça',          unit:'btl', type:'two', levelType:'half', subcat:'Spiritueux'},
+      {id:'passion-puree',  sup:'mauro', name:'Purée de passion', unit:'btl', type:'two', levelType:'half', subcat:'Spiritueux'},
+      // Sirops
+      {id:'grenadine',      sup:'metro', name:'Grenadine',        unit:'btl', type:'qty', sDefault:1, cDefault:1, subcat:'Sirops'},
+      {id:'sirop-citron',   sup:'metro', name:'Sirop Citron',     unit:'btl', type:'level', levelType:'third',    subcat:'Sirops'},
+      {id:'sirop-orgeat',   sup:'metro', name:'Sirop Orgeat',     unit:'btl', type:'level', levelType:'third',    subcat:'Sirops'},
+      {id:'sirop-fraise',   sup:'metro', name:'Sirop Fraise',     unit:'btl', type:'level', levelType:'third',    subcat:'Sirops'},
+      {id:'sirop-menthe',   sup:'metro', name:'Sirop Menthe',     unit:'btl', type:'level', levelType:'third',    subcat:'Sirops'},
+      {id:'sirop-peche',    sup:'metro', name:'Sirop Pêche',      unit:'btl', type:'level', levelType:'twothird', subcat:'Sirops'},
+    ]
+  },
+  {
+    id:'epicerie', label:'🍽 Épicerie',
+    products:[
+      // Huiles
+      {id:'huile-olive',    sup:'pelleor', name:'Huile olive 5L',     unit:'bidon', type:'level', levelType:'threequarter', subcat:'Huiles'},
+      {id:'huile-tournesol',sup:'pelleor', name:'Huile tournesol',    unit:'btl',   type:'level', levelType:'half',         subcat:'Huiles'},
+      {id:'huile-pim',      sup:'metro',   name:'Huile pimentée',     unit:'btl',   type:'qty', sDefault:3, cDefault:3,    subcat:'Huiles'},
+      {id:'huile-truffe',   sup:'truffe',  name:'Huile de truffe',    unit:'btl',   type:'qty', sDefault:3, cDefault:3,    subcat:'Huiles'},
+      // Condiments
+      {id:'moutarde-c',     sup:'carrefour',name:'Moutarde ancienne', unit:'pot',   type:'qty', sDefault:2, cDefault:2,    subcat:'Condiments'},
+      {id:'pesto',          sup:'masto',   name:'Pesto',              unit:'boîte', type:'qty', sDefault:1, cDefault:1,    subcat:'Condiments'},
+      {id:'balsamique',     sup:'masto',   name:'Crème de balsamique',unit:'btl',   type:'qty', sDefault:1, cDefault:1,    subcat:'Condiments'},
+      {id:'carpaccio-truffe',sup:'truffe', name:'Carpaccio de truffe 500g',unit:'bocal',type:'qty',sDefault:1,cDefault:1,  subcat:'Truffes'},
+      // Conserves
+      {id:'mutti',          sup:'pelleor', name:'Sauce tomate Mutti', unit:'boîte', type:'qty', sDefault:17, cDefault:17,  subcat:'Conserves'},
+      {id:'artichauts',     sup:'carrefour',name:'Artichauts',        unit:'boîte', type:'qty', sDefault:6,  cDefault:6,   subcat:'Conserves'},
+      {id:'thon-c',         sup:'carrefour',name:'Thon',              unit:'boîte', type:'qty', sDefault:5,  cDefault:5,   subcat:'Conserves'},
+      {id:'anchois',        sup:'metro',   name:'Anchois',            unit:'boîte', type:'qty', sDefault:1,  cDefault:1,   subcat:'Conserves'},
+      {id:'secret-aromes',  sup:'carrefour',name:"Secret d'arômes",   unit:'boîte', type:'qty', sDefault:1,  cDefault:1,   subcat:'Conserves'},
+      {id:'ciboulette',     sup:'metro',   name:'Ciboulette',         unit:'boîte', type:'level', levelType:'threequarter', subcat:'Condiments'},
+      // Sec
+      {id:'nutella-p',      sup:'pelleor', name:'Nutella',            unit:'pot',   type:'qty', sDefault:7,  cDefault:7,   subcat:'Sec'},
+      {id:'miel',           sup:'cash',    name:'Miel',               unit:'btl',   type:'qty', sDefault:4,  cDefault:4,   subcat:'Sec'},
+      {id:'sucre-c',        sup:'carrefour',name:'Sucre blanc',       unit:'boîte', type:'yn',                             subcat:'Sec'},
+      {id:'cheddar',        sup:'metro',   name:'Cheddar',            unit:'sachet',type:'qty', sDefault:2,  cDefault:2,   subcat:'Sec'},
+      {id:'farine',         sup:'masto',   name:'Farine de semoule',  unit:'sac',   type:'qty', sDefault:1,  cDefault:1, s:{5:2}, c:{5:2}, subcat:'Sec'},
+      // Fruits secs
+      {id:'noix',           sup:'pelleor', name:'Noix',               unit:'sac',   type:'level', levelType:'threequarter', subcat:'Fruits secs'},
+      {id:'pistache',       sup:'pelleor', name:'Pistache',           unit:'sac',   type:'level', levelType:'half',         subcat:'Fruits secs'},
+      {id:'amandes',        sup:'pelleor', name:'Amandes',            unit:'sac',   type:'level', levelType:'half',         subcat:'Fruits secs'},
+      {id:'noisettes',      sup:'cash',    name:'Noisettes',          unit:'sachet',type:'level', levelType:'half',         subcat:'Fruits secs'},
+      // Épices
+      {id:'origan',         sup:'pelleor', name:'Origan',             unit:'sac',   type:'level', levelType:'third',        subcat:'Épices'},
+      // Herbes fraîches
+      {id:'basilic',        sup:'prod',    name:'Basilic frais',      unit:'sachet',type:'qty', sDefault:3,  cDefault:3,   subcat:'Herbes fraîches'},
+      {id:'roquette',       sup:'prod',    name:'Roquette',           unit:'sac',   type:'qty', sDefault:1,  cDefault:1,   subcat:'Herbes fraîches'},
+      {id:'croquant',       sup:'prod',    name:'Mélange croquant',   unit:'sac',   type:'qty', sDefault:1,  cDefault:1,   subcat:'Herbes fraîches'},
+      {id:'romarin',        sup:'prod',    name:'Romarin',            unit:'botte', type:'yn',                             subcat:'Herbes fraîches'},
+      {id:'ail',            sup:'prod',    name:'Ail décortiqué',     unit:'sachet',type:'yn',                             subcat:'Herbes fraîches'},
+      // Sel mensuel
+      {id:'sel',            sup:'pelleor', name:'Sel (rappel mensuel)',unit:'sac',  type:'yn', monthlyOnly:true,           subcat:'Épices'},
+    ]
+  },
+  {
+    id:'fromages', label:'🧀 Fromages & Frais',
+    products:[
+      // Mammafiore
+      {id:'mozza',          sup:'mamma',  name:'Mozzarella',          unit:'bac 3kg', type:'qty',
+       s:{0:5,4:18}, c:{0:16,4:18}, sDefault:5, cDefault:16, subcat:'Mammafiore'},
+      {id:'burrata-mamma',  sup:'mamma',  name:'Burrata à Stracciatella', unit:'boîte', note:'Commander: Burrata simple',
+       type:'qty', s:{0:2,4:6}, c:{0:6,4:6}, sDefault:2, cDefault:6, subcat:'Mammafiore'},
+      {id:'truffe-mamma',   sup:'mamma',  name:'Crème de truffe',     unit:'pot',    type:'qty',
+       s:{0:2,4:3}, c:{0:2,4:3}, sDefault:2, cDefault:2, subcat:'Mammafiore'},
+      {id:'olives',         sup:'mamma',  name:'Olives',              unit:'boîte',  type:'qty',
+       s:{0:1,4:2}, c:{0:1,4:2}, sDefault:1, cDefault:1, subcat:'Mammafiore'},
+      // Masto
+      {id:'burrata-masto',  sup:'masto',  name:'Burrata',             unit:'boîte',  type:'qty',
+       s:{5:20}, c:{5:20}, sDefault:8, cDefault:16, subcat:'Masto Pizza'},
+      {id:'straccia',       sup:'masto',  name:'Stracciatella',       unit:'boîte',  type:'qty',
+       sDefault:8, cDefault:8, subcat:'Masto Pizza'},
+      {id:'parmesan',       sup:'masto',  name:'Parmesan râpé',       unit:'sachet', type:'qty',
+       s:{5:2}, c:{5:2}, sDefault:1, cDefault:1, subcat:'Masto Pizza'},
+      {id:'gorgonzola',     sup:'masto',  name:'Gorgonzola',          unit:'bloc',   type:'qty',
+       s:{5:2}, c:{5:2}, sDefault:1, cDefault:1, subcat:'Masto Pizza'},
+      // Carrefour
+      {id:'chevre',         sup:'carrefour', name:'Chèvre bûche',     unit:'pièce',  type:'qty',
+       sDefault:15, cDefault:18, subcat:'Carrefour'},
+      {id:'creme-fraiche',  sup:'carrefour', name:'Crème fraîche',    unit:'pot',    type:'qty',
+       sDefault:12, cDefault:12, subcat:'Carrefour'},
+    ]
+  },
+  {
+    id:'charcuterie', label:'🥩 Charcuterie & Cuissons',
+    products:[
+      {id:'jambon-cru',     sup:'dabray', name:'Jambon cru',          unit:'—', type:'rupture', subcat:'Charcuterie'},
+      {id:'bresaola',       sup:'dabray', name:'Bresaola',            unit:'—', type:'rupture', subcat:'Charcuterie'},
+      {id:'jambon-blanc',   sup:'dabray', name:'Jambon blanc',        unit:'—', type:'rupture', subcat:'Charcuterie'},
+      {id:'spianata',       sup:'dabray', name:'Spianata',            unit:'—', type:'rupture', subcat:'Charcuterie'},
+      {id:'mortadelle',     sup:'dabray', name:'Mortadelle',          unit:'—', type:'rupture', subcat:'Charcuterie'},
+      {id:'lardons',        sup:'dabray', name:'Lardons',             unit:'—', type:'rupture', subcat:'Charcuterie'},
+      {id:'pancetta',       sup:'dabray', name:'Pancetta',            unit:'—', type:'rupture', subcat:'Charcuterie'},
+      {id:'poulet',         sup:'dabray', name:'Poulet rôti',         unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'aubergines',     sup:'dabray', name:'Aubergines rôties',   unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'oignons',        sup:'dabray', name:'Oignons rôtis',       unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'poivrons',       sup:'dabray', name:'Poivrons rôtis',      unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'poires-r',       sup:'dabray', name:'Poires rôties',       unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'creme-poire',    sup:'dabray', name:'Crème de poire',      unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'courgettes',     sup:'dabray', name:'Courgettes',          unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'pdterre',        sup:'dabray', name:'Pommes de terre',     unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'creme-poivrons', sup:'dabray', name:'Crème de poivrons',   unit:'—', type:'rupture', subcat:'Cuissons'},
+      {id:'pesto-courgettes',sup:'dabray',name:'Pesto de courgettes', unit:'—', type:'rupture', subcat:'Cuissons'},
+      // Emballages Dabray → si rupture → Metro
+      {id:'carton-29',      sup:'dabray', name:'Cartons 29cm',        unit:'paquet', type:'rupture', metroFallback:true, sDefault:4, cDefault:4, subcat:'Emballages'},
+      {id:'carton-calzone', sup:'dabray', name:'Carton calzone',      unit:'unité',  type:'rupture', metroFallback:true, sDefault:30, cDefault:30, subcat:'Emballages'},
+      {id:'carton-nutella', sup:'dabray', name:'Carton nutella',      unit:'unité',  type:'rupture', metroFallback:true, sDefault:30, cDefault:30, subcat:'Emballages'},
+    ]
+  },
+  {
+    id:'glaces', label:'🍦 Glaces',
+    products:[
+      {id:'glace-vanille',  sup:'metro', name:'Glace Vanille',  unit:'bac', type:'qty',  sDefault:1, cDefault:1},
+      {id:'glace-fraise',   sup:'metro', name:'Glace Fraise',   unit:'bac', type:'two',  levelType:'half'},
+      {id:'glace-caramel',  sup:'metro', name:'Glace Caramel beurre salé', unit:'bac', type:'two', levelType:'half'},
+      {id:'glace-citron',   sup:'metro', name:'Glace Citron',   unit:'bac', type:'two',  levelType:'half'},
+      {id:'glace-choco',    sup:'metro', name:'Glace Chocolat', unit:'bac', type:'two',  levelType:'half'},
+      {id:'glace-pistache', sup:'metro', name:'Glace Pistache', unit:'bac', type:'two',  levelType:'half'},
+    ]
+  },
+  {
+    id:'hygiene', label:'🧴 Hygiène',
+    products:[
+      {id:'sol-pin',        sup:'idpro', name:'Nettoyant sol pin 5L',    unit:'bidon', type:'level', levelType:'half'},
+      {id:'creme-main',     sup:'idpro', name:'Crème lavante main 5L',   unit:'bidon', type:'level', levelType:'half'},
+      {id:'plonge',         sup:'idpro', name:'Liquide plonge 5L',       unit:'bidon', type:'level', levelType:'full'},
+      {id:'lavage-machine', sup:'idpro', name:'Liquide lavage machine 5L',unit:'bidon',type:'level', levelType:'half'},
+      {id:'rincage-machine',sup:'idpro', name:'Liquide rinçage machine 5L',unit:'bidon',type:'level',levelType:'half'},
+      {id:'lave-verre',     sup:'idpro', name:'Liquide lave-verre 1L',   unit:'bidon', type:'level', levelType:'full'},
+      {id:'rincage-verre',  sup:'idpro', name:'Liquide rinçage lave-verre 5L',unit:'bidon',type:'level',levelType:'half'},
+      {id:'paille-fer',     sup:'idpro', name:'Paille de fer',           unit:'boule', type:'qty', sDefault:3, cDefault:5},
+      {id:'eponges',        sup:'idpro', name:'Éponges',                 unit:'unité', type:'qty', sDefault:6, cDefault:10},
+      {id:'essuie-bobine',  sup:'idpro', name:'Essuie-main bobine',      unit:'bobine',type:'qty', sDefault:4, cDefault:6},
+      {id:'faf-main',       sup:'idpro', name:'Feuille à feuille main',  unit:'paquet',type:'qty', sDefault:6, cDefault:10},
+      {id:'faf-pq',         sup:'idpro', name:'Feuille à feuille WC',    unit:'paquet',type:'qty', sDefault:6, cDefault:10},
+      {id:'cellophane',     sup:'idpro', name:'Feuille cellophat beige', unit:'paquet',type:'qty', sDefault:7, cDefault:10},
+      {id:'lavette',        sup:'idpro', name:'Lavette bleue',           unit:'paquet',type:'qty', sDefault:1, cDefault:1},
+    ]
+  },
+];
+
+// ══════════════════════════════════════
+// ÉTAT
+// ══════════════════════════════════════
+let currentDay = new Date().getDay();
+let currentSup = null;
+const STATE = {}; // id → valeur
+
+const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const DAY_ORDER = [1,2,3,4,5,6,0];
+
+// ══════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════
+function supActive(supId) {
+  return SUPS[supId]?.days.includes(currentDay) ?? false;
+}
+function getS(p) {
+  if (p.s && p.s[currentDay] !== undefined) return p.s[currentDay];
+  return p.sDefault ?? 1;
+}
+function getC(p) {
+  if (p.c && p.c[currentDay] !== undefined) return p.c[currentDay];
+  return p.cDefault ?? p.sDefault ?? 1;
+}
+function catVisible(cat) {
+  return cat.products.some(p => {
+    if (p.monthlyOnly && !isLastSunday()) return false;
+    return supActive(p.sup);
+  });
+}
+function isLastSunday() {
+  const now = new Date();
+  return now.getDay()===0 && (new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate())<7;
+}
+
+// ══════════════════════════════════════
+// RENDU
+// ══════════════════════════════════════
+function buildControls(p) {
+  const v = STATE[p.id];
+  if (p.type==='qty') {
+    const s=getS(p), c=getC(p);
+    const meta = `Seuil:${s} · Cible:${c}${p.carton?' · <em>Carton de '+p.carton+'</em>':''}${p.note?' · <em>'+p.note+'</em>':''}`;
+    return {
+      meta,
+      html:`<div class="qty-ctrl"><button class="qty-btn" onclick="adjP('${p.id}',-1)">−</button><input class="qty-in" id="si-${p.id}" type="number" value="${v??0}" min="0" oninput="onIn('${p.id}')"><button class="qty-btn" onclick="adjP('${p.id}',1)">+</button></div><span class="pill" id="pi-${p.id}">—</span>`
+    };
+  }
+  if (p.type==='two') {
+    const cur = v??'ok';
+    const thresh = p.levelType==='half'?'½':p.levelType==='third'?'⅓':p.levelType==='twothird'?'⅔':'¾';
+    return {
+      meta:`Commander si moins de ${thresh}`,
+      html:`<div class="two-tog"><button class="t-btn${cur==='ok'?' t-ok':''}" onclick="setTwo('${p.id}','ok')">≥${thresh} OK</button><button class="t-btn${cur==='cmd'?' t-cmd':''}" onclick="setTwo('${p.id}','cmd')">< ${thresh} Cmd</button></div><span class="pill" id="pi-${p.id}">—</span>`
+    };
+  }
+  if (p.type==='level') {
+    const cur = v??'ok';
+    const lt=p.levelType;
+    const thresh = lt==='half'?'½':lt==='third'?'⅓':lt==='twothird'?'⅔':'¾';
+    return {
+      meta:`Commander si moins de ${thresh}`,
+      html:`<div class="lvl-tog"><button class="lvl-btn${cur==='ok'?' lv-ok':''}" onclick="setLvl('${p.id}','ok')">OK</button><button class="lvl-btn${cur==='low'?' lv-low':''}" onclick="setLvl('${p.id}','low')">≤${thresh}</button><button class="lvl-btn${cur==='out'?' lv-out':''}" onclick="setLvl('${p.id}','out')">Vide</button></div><span class="pill" id="pi-${p.id}">—</span>`
+    };
+  }
+  if (p.type==='yn') {
+    const cur = v??'oui';
+    return {
+      meta: p.note??'Commander si absent',
+      html:`<div class="yn-tog"><button class="yn-btn${cur==='oui'?' yn-ok':''}" onclick="setYN('${p.id}','oui')">✓ OK</button><button class="yn-btn${cur==='non'?' yn-cmd':''}" onclick="setYN('${p.id}','non')">✗ Cmd</button></div>`
+    };
+  }
+  if (p.type==='rupture') {
+    const cur = v??'ok';
+    return {
+      meta:'Dabray · Signaler si stock bas ou rupture',
+      html:`<div class="rup-tog"><button class="rup-btn${cur==='ok'?' r-ok':''}" onclick="setRup('${p.id}','ok')">✓ OK</button><button class="rup-btn${cur==='low'?' r-low':''}" onclick="setRup('${p.id}','low')">Stock bas</button><button class="rup-btn${cur==='rup'?' r-rup':''}" onclick="setRup('${p.id}','rup')">🔴 Rupture</button></div>`
+    };
+  }
+  return {meta:'', html:''};
+}
+
+function renderAll() {
+  const container = document.getElementById('container');
+  container.innerHTML='';
+
+  CATS.forEach(cat => {
+    if (!catVisible(cat)) return;
+    if (!catAllowed(cat.id)) return;
+    const sec = document.createElement('div');
+    sec.className='section';
+    sec.id='sec-'+cat.id;
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className='section-header';
+    hdr.style.background='#444';
+    hdr.onclick = ()=>toggleSection(hdr);
+    hdr.innerHTML=`<h2>${cat.label}</h2><span class="s-count" id="sc-${cat.id}">0</span><span class="chevron">▼</span>`;
+    sec.appendChild(hdr);
+
+    const body = document.createElement('div');
+    body.className='section-body';
+    body.id='sb-'+cat.id;
+
+    // Regrouper par subcat
+    const subcats = {};
+    cat.products.forEach(p => {
+      if (p.monthlyOnly && !isLastSunday()) return;
+      if (!supActive(p.sup)) return;
+      const sc = p.subcat||'';
+      if (!subcats[sc]) subcats[sc]=[];
+      subcats[sc].push(p);
+    });
+
+    const hasManySubcats = Object.keys(subcats).filter(s=>s).length > 1;
+
+    Object.entries(subcats).forEach(([sc, prods]) => {
+      if (hasManySubcats && sc) {
+        const lbl = document.createElement('div');
+        lbl.className='subsection-label';
+        lbl.textContent=sc;
+        body.appendChild(lbl);
+      }
+      prods.forEach(p => {
+        const sup = SUPS[p.sup];
+        const ctrl = buildControls(p);
+        const row = document.createElement('div');
+        row.className='product-row';
+        row.id='row-'+p.id;
+        row.dataset.id=p.id;
+        row.dataset.sup=p.sup;
+        row.innerHTML=`
+          <div class="sup-dot" style="background:${sup.color}"></div>
+          <div class="prod-info">
+            <div class="prod-name">${p.name}</div>
+            <div class="prod-meta">
+              <span class="sup-tag" style="background:${sup.color}">${sup.name.split(' ')[0]}</span>
+              ${p.unit!=='—'?p.unit:''}${ctrl.meta?' · '+ctrl.meta:''}
+            </div>
+          </div>
+          <div class="stock-wrap">${ctrl.html}</div>`;
+        body.appendChild(row);
+      });
+    });
+
+    sec.appendChild(body);
+    container.appendChild(sec);
+  });
+
+  renderDispatch();
+  recalc();
+}
+
+function renderDispatch() {
+  const grid = document.getElementById('dispatch-grid');
+  grid.innerHTML='';
+  Object.entries(SUPS).forEach(([id,sup]) => {
+    if (!supActive(id) && id!=='metro') return; // metro peut recevoir ruptures dabray
+    // On affiche quand même metro si dimanche (pour ruptures dabray)
+    if (!supActive(id) && id==='metro' && !supActive('dabray')) return;
+    const btn = document.createElement('button');
+    btn.className=`dbtn`;
+    btn.id='dbtn-'+id;
+    btn.style.background=sup.color;
+    btn.onclick=()=>openModal(id);
+    btn.innerHTML=`${sup.name.split('→')[0].trim().split(' ')[0].toUpperCase()}<div class="dc" id="dc-${id}">0</div>`;
+    grid.appendChild(btn);
+  });
+  // Bouton tout envoyer
+  const all = document.createElement('button');
+  all.className='dbtn dbtn-all';
+  all.id='dbtn-all';
+  all.onclick=()=>openModal('all');
+  all.innerHTML='📤 TOUT ENVOYER <div class="dc" id="dc-all">0 art.</div>';
+  grid.appendChild(all);
+}
+
+// ══════════════════════════════════════
+// CONTRÔLES
+// ══════════════════════════════════════
+function adjP(id,d){const el=document.getElementById('si-'+id);if(!el)return;el.value=Math.max(0,parseInt(el.value||0)+d);STATE[id]=parseInt(el.value);recalc();}
+function onIn(id){const el=document.getElementById('si-'+id);if(el)STATE[id]=parseInt(el.value||0);recalc();}
+function setTwo(id,v){STATE[id]=v;const r=document.getElementById('row-'+id);if(!r)return;r.querySelectorAll('.t-btn').forEach(b=>{b.className='t-btn'+(b.textContent.includes('OK')&&v==='ok'?' t-ok':b.textContent.includes('Cmd')&&v==='cmd'?' t-cmd':'');});recalc();}
+function setLvl(id,v){STATE[id]=v;const r=document.getElementById('row-'+id);if(!r)return;const bs=r.querySelectorAll('.lvl-btn');bs[0].className='lvl-btn'+(v==='ok'?' lv-ok':'');bs[1].className='lvl-btn'+(v==='low'?' lv-low':'');bs[2].className='lvl-btn'+(v==='out'?' lv-out':'');recalc();}
+function setYN(id,v){STATE[id]=v;const r=document.getElementById('row-'+id);if(!r)return;const bs=r.querySelectorAll('.yn-btn');bs[0].className='yn-btn'+(v==='oui'?' yn-ok':'');bs[1].className='yn-btn'+(v==='non'?' yn-cmd':'');recalc();}
+function setRup(id,v){STATE[id]=v;const r=document.getElementById('row-'+id);if(!r)return;const bs=r.querySelectorAll('.rup-btn');bs[0].className='rup-btn'+(v==='ok'?' r-ok':'');bs[1].className='rup-btn'+(v==='low'?' r-low':'');bs[2].className='rup-btn'+(v==='rup'?' r-rup':'');recalc();}
+
+// ══════════════════════════════════════
+// STATUT
+// ══════════════════════════════════════
+function getStatus(p) {
+  const v = STATE[p.id];
+  if (p.type==='qty') {
+    const stock=parseInt(v??0), s=getS(p), c=getC(p);
+    if (stock<s){const diff=c-stock;if(p.carton){const n=Math.ceil(diff/p.carton);return{order:true,label:`${n} carton${n>1?'s':''} de ${p.carton}`};}return{order:true,label:`Cmd ${diff}`};}
+    if (stock<=s*1.3) return{warn:true,label:'Stock bas'};
+    return{ok:true,label:'✓ OK'};
+  }
+  if (p.type==='two') { const cur=v??'ok'; return cur==='cmd'?{order:true,label:'Commander'}:{ok:true,label:'✓ OK'}; }
+  if (p.type==='level') { const cur=v??'ok'; if(cur==='out'||cur==='low')return{order:true,label:'Commander'}; return{ok:true,label:'✓ OK'}; }
+  if (p.type==='yn') { return (v??'oui')==='non'?{order:true,label:'Commander'}:{ok:true,label:'✓ OK'}; }
+  if (p.type==='rupture') {
+    const cur=v??'ok';
+    if(cur==='rup') return{rupture:true,label:'🔴 RUPTURE'};
+    if(cur==='low') return{warn:true,label:'Stock bas'};
+    return{ok:true,label:'✓ OK'};
+  }
+  return{ok:true,label:'✓ OK'};
+}
+
+// ══════════════════════════════════════
+// RECALCUL
+// ══════════════════════════════════════
+function recalc() {
+  const counts = {};
+  Object.keys(SUPS).forEach(s=>counts[s]=0);
+  const triggered = {};
+  Object.keys(SUPS).forEach(s=>triggered[s]=false);
+
+  // Tous les produits
+  const allProds = CATS.flatMap(c=>c.products);
+
+  // Pass 1 — triggers naturels
+  allProds.forEach(p => {
+    const row = document.getElementById('row-'+p.id);
+    if (!row) return;
+    const st = getStatus(p);
+    if (st.order || st.rupture) triggered[p.sup]=true;
+  });
+
+  // Pass 2 — UI + comptes
+  allProds.forEach(p => {
+    const row = document.getElementById('row-'+p.id);
+    if (!row) return;
+    let st = getStatus(p);
+
+    // Groupage fournisseur : si fournisseur déclenché et produit sous cible
+    if (triggered[p.sup] && !st.order && !st.rupture && p.type==='qty') {
+      const stock=parseInt(STATE[p.id]??0), c=getC(p);
+      if (stock<c){const diff=c-stock;if(p.carton){const n=Math.ceil(diff/p.carton);st={order:true,label:`${n} carton${n>1?'s':''} de ${p.carton}`};}else{st={order:true,label:`Cmd ${diff}`};}}
+    }
+
+    // UI
+    row.className='product-row'+(st.order?' s-order':st.rupture?' s-order':st.warn?' s-warn':'');
+    const pill=document.getElementById('pi-'+p.id);
+    if (pill){pill.textContent=st.label||'✓ OK';pill.className='pill '+(st.rupture?'p-rupture':st.order?'p-order':st.warn?'p-warn':'p-ok');}
+
+    if (st.order) counts[p.sup]++;
+    if (st.rupture) {
+      counts[p.sup]++;
+      // Bascule Metro si rupture Dabray
+      if (p.sup==='dabray') counts['metro']++;
+    }
+  });
+
+  // Section counts
+  CATS.forEach(cat=>{
+    const sc=document.getElementById('sc-'+cat.id);
+    if(!sc)return;
+    let n=0;
+    cat.products.forEach(p=>{const r=document.getElementById('row-'+p.id);if(!r)return;const pill=document.getElementById('pi-'+p.id);if(pill&&(pill.classList.contains('p-order')||pill.classList.contains('p-rupture')))n++;});
+    sc.textContent=n;sc.classList.toggle('visible',n>0);
+  });
+
+  // Dispatch counts
+  let total=0;
+  Object.keys(SUPS).forEach(sup=>{
+    const dc=document.getElementById('dc-'+sup);
+    if(dc)dc.textContent=counts[sup]||0;
+    const dbtn=document.getElementById('dbtn-'+sup);
+    if(dbtn)dbtn.classList.toggle('active',(counts[sup]||0)>0);
+    total+=counts[sup]||0;
+  });
+  const dcAll=document.getElementById('dc-all');
+  if(dcAll)dcAll.textContent=total+' art.';
+  const dAll=document.getElementById('dbtn-all');
+  if(dAll)dAll.classList.toggle('active',total>0);
+}
+
+// ══════════════════════════════════════
+// MODAL & ENVOI
+// ══════════════════════════════════════
+function buildRecap(sup) {
+  const allProds=CATS.flatMap(c=>c.products);
+  let html='';
+  const ruptures=[]; // produits Dabray en rupture à afficher dans Metro aussi
+
+  // Dabray ruptures → Metro
+  if(sup==='metro'||sup==='all'){
+    allProds.filter(p=>p.sup==='dabray').forEach(p=>{
+      const v=STATE[p.id]??'ok';
+      if(v==='rup') ruptures.push(p);
+    });
+  }
+
+  const prods = sup==='all' ? allProds : allProds.filter(p=>p.sup===sup);
+  let lastSup='';
+  prods.forEach(p=>{
+    const row=document.getElementById('row-'+p.id);
+    if(!row)return;
+    const pill=document.getElementById('pi-'+p.id);
+    if(!pill||((!pill.classList.contains('p-order'))&&!pill.classList.contains('p-rupture')))return;
+    if(sup==='all'&&p.sup!==lastSup){html+=`<div class="rsup" style="color:${SUPS[p.sup].color}">${SUPS[p.sup].name}</div>`;lastSup=p.sup;}
+    const cls=pill.classList.contains('p-rupture')?'rrup':'rorder';
+    html+=`<span class="${cls}">● ${p.name}</span> → <strong>${pill.textContent}</strong><br>`;
+  });
+
+  // Ajouter ruptures Dabray dans le recap Metro
+  if((sup==='metro')&&ruptures.length>0){
+    html+=`<div class="rsup" style="color:#922B21">⚡ Ruptures Dabray → à prévoir chez Metro</div>`;
+    ruptures.forEach(p=>{ html+=`<span class="rrup">● ${p.name}</span> → prévoir remplacement<br>`; });
+  }
+
+  return html||'<em style="color:#999">Aucune commande à passer</em>';
+}
+
+function buildWA(sup) {
+  const emp=document.getElementById('employe').value.trim()||'—';
+  const date=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const allProds=CATS.flatMap(c=>c.products);
+  const viaDebray=['carrefour','pelleor','cash','idpro','truffe'];
+  const isVia=viaDebray.includes(sup);
+
+  let msg=isVia
+    ?`🛒 COMMANDE ${SUPS[sup]?.name.split('→')[0].trim().toUpperCase()}\n👤 ${emp} · 📅 ${date}\nDabray, merci de prévoir :\n─────────────────────\n`
+    :`📋 COMMANDE ${SUPS[sup]?.name.toUpperCase()||'TOUS'}\n👤 ${emp} · 📅 ${date}\n─────────────────────\n`;
+
+  const prods=sup==='all'?allProds:allProds.filter(p=>p.sup===sup);
+  let lastSup='';
+  let hasLines=false;
+  prods.forEach(p=>{
+    const row=document.getElementById('row-'+p.id);if(!row)return;
+    const pill=document.getElementById('pi-'+p.id);
+    if(!pill||((!pill.classList.contains('p-order'))&&!pill.classList.contains('p-rupture')))return;
+    if(sup==='all'&&p.sup!==lastSup){msg+=`\n▶ ${SUPS[p.sup].name.toUpperCase()}\n`;lastSup=p.sup;}
+    msg+=`  • ${p.name} → ${pill.textContent}\n`;
+    hasLines=true;
+  });
+
+  // Ruptures Dabray dans message Metro
+  if(sup==='metro'||sup==='all'){
+    const rups=allProds.filter(p=>p.sup==='dabray'&&(STATE[p.id]??'ok')==='rup');
+    if(rups.length>0){
+      if(sup==='all')msg+=`\n▶ METRO (ruptures Dabray)\n`;
+      else msg+=`\n⚡ RUPTURES DABRAY → à prévoir chez Metro :\n`;
+      rups.forEach(p=>{msg+=`  • ${p.name} → prévoir remplacement\n`;hasLines=true;});
+    }
+  }
+
+  if(!hasLines)msg+='  Aucune commande\n';
+  msg+=`─────────────────────\nMilo's Pizza Port`;
+  return msg;
+}
+
+function openModal(sup){
+  if(!document.getElementById('employe').value.trim()){alert('Merci de renseigner votre prénom.');return;}
+  currentSup=sup;
+  const info=sup==='all'?{name:'Résumé global',color:'#25D366'}:SUPS[sup];
+  document.getElementById('mtitle').textContent=sup==='all'?'Toutes les commandes':info.name;
+  document.getElementById('mbar').style.background=info?.color||'#25D366';
+  document.getElementById('msub').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('mrecap').innerHTML=buildRecap(sup);
+  document.getElementById('wtarget').textContent=sup==='all'?'chaque fournisseur':(info?.wa||info?.name);
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function closeOut(e){if(e.target.id==='modal')closeModal();}
+
+function sendCurrent(){
+  if(currentSup==='all'){
+    const sups=Object.keys(SUPS).filter(s=>supActive(s)||(s==='metro'&&supActive('dabray')));
+    sups.forEach((s,i)=>{
+      const txt=buildWA(s);
+      if(txt.includes('●')||txt.includes('→ prévoir')){setTimeout(()=>window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank'),i*700);}
+    });
+  } else {
+    window.open(`https://wa.me/?text=${encodeURIComponent(buildWA(currentSup))}`, '_blank');
+  }
+  closeModal();
+}
+
+function toggleSection(h){h.classList.toggle('collapsed');h.nextElementSibling.classList.toggle('collapsed');}
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+function setDay(d){
+  currentDay=d;
+  document.querySelectorAll('.day-btn').forEach((b,i)=>b.classList.toggle('active',DAY_ORDER[i]===d));
+  document.getElementById('day-badge').textContent=DAYS_FR[d];
+  if (!currentRole) return;
+  renderAll();
+}
+
+// ══════════════════════════════════════
+// RÔLES & PIN
+// ══════════════════════════════════════
+const ROLES = {
+  '1734': { name:'Responsable Bar',    icon:'🍷', color:'#1A5276', cats:['boissons-emporter','boissons-place','glaces'] },
+  '3553': { name:'Chef de Cuisine',    icon:'👨‍🍳', color:'#1E8449', cats:['epicerie','fromages','charcuterie'] },
+  '6934': { name:'Tout le Restaurant', icon:'🏠', color:'#1A1008', cats:['boissons-emporter','boissons-place','epicerie','fromages','charcuterie','glaces','hygiene'] },
+};
+
+let currentRole = null;
+let pinBuffer = '';
+
+function pinKey(k) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += k;
+  updatePinDots();
+  if (pinBuffer.length === 4) setTimeout(checkPin, 150);
+}
+function pinDel() { pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); document.getElementById('pin-error').textContent=''; }
+function pinClear() { pinBuffer=''; updatePinDots(); document.getElementById('pin-error').textContent=''; }
+
+function updatePinDots() {
+  for (let i=1;i<=4;i++) {
+    document.getElementById('pd'+i).classList.toggle('filled', i<=pinBuffer.length);
+  }
+}
+
+function checkPin() {
+  const role = ROLES[pinBuffer];
+  if (role) {
+    currentRole = role;
+    document.getElementById('pin-screen').style.display='none';
+    // Afficher badge rôle
+    const badge = document.getElementById('role-badge');
+    badge.textContent = role.icon+' '+role.name;
+    badge.style.background = role.color;
+    badge.style.color = 'white';
+    badge.style.display = 'inline-block';
+    setDay(currentDay);
+  } else {
+    document.getElementById('pin-error').textContent = 'Code incorrect — réessayez';
+    pinBuffer='';
+    updatePinDots();
+  }
+}
+
+function logout() {
+  currentRole=null; pinBuffer='';
+  updatePinDots();
+  document.getElementById('pin-error').textContent='';
+  document.getElementById('role-badge').style.display='none';
+  document.getElementById('pin-screen').style.display='flex';
+  document.getElementById('container').innerHTML='';
+  document.getElementById('dispatch-grid').innerHTML='';
+}
+
+// Filtrer les catégories selon le rôle
+function catAllowed(catId) {
+  if (!currentRole) return false;
+  return currentRole.cats.includes(catId);
+}
+
+setDay(currentDay);
+</script>
+</body>
+</html>

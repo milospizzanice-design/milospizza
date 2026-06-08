@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Commande Salle/Bar · Port → Dabray</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #C0392B;
+    --red-dark: #96281B;
+    --cream: #FDF6EC;
+    --dark: #1A1008;
+    --mid: #5C4A32;
+    --light: #EDE0CC;
+    --green: #27AE60;
+    --border: #D9C9B0;
+    --accent: #1A5276;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--cream); color: var(--dark); font-family: 'DM Sans', sans-serif; font-size: 15px; min-height: 100vh; }
+  header { background: var(--accent); color: white; padding: 18px 20px 14px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.25); }
+  header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 2px; line-height: 1; }
+  header p { font-size: 11px; opacity: 0.85; margin-top: 3px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .meta-bar { background: var(--dark); padding: 12px 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .meta-bar input { flex: 1; min-width: 140px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; }
+  .meta-bar input::placeholder { color: rgba(255,255,255,0.45); }
+  .container { padding: 0 0 120px; }
+  .section { margin: 0; border-bottom: 1px solid var(--border); }
+  .section-header { display: flex; align-items: center; gap: 10px; padding: 14px 20px; background: var(--light); cursor: pointer; user-select: none; border-bottom: 1px solid var(--border); position: sticky; top: 85px; z-index: 10; }
+  .section-header .emoji { font-size: 18px; }
+  .section-header h2 { font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 1.5px; color: var(--mid); flex: 1; }
+  .section-header .count { font-size: 11px; background: var(--accent); color: white; border-radius: 20px; padding: 2px 8px; display: none; font-weight: 600; }
+  .section-header .count.visible { display: inline-block; }
+  .section-header .chevron { font-size: 12px; color: var(--mid); transition: transform 0.2s; }
+  .section-header.collapsed .chevron { transform: rotate(-90deg); }
+  .subsection-label { padding: 8px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--mid); background: var(--cream); font-weight: 600; border-bottom: 1px solid var(--border); }
+  .product-row { display: flex; align-items: center; padding: 10px 20px; border-bottom: 1px solid rgba(217,201,176,0.5); background: white; gap: 10px; transition: background 0.15s; }
+  .product-row:active { background: #FEF9F4; }
+  .product-name { flex: 1; font-size: 14px; color: var(--dark); line-height: 1.3; }
+  .qty-control { display: flex; align-items: center; background: var(--cream); border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; flex-shrink: 0; }
+  .qty-btn { width: 36px; height: 36px; background: none; border: none; font-size: 18px; color: var(--mid); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; -webkit-tap-highlight-color: transparent; }
+  .qty-btn:active { background: var(--light); }
+  .qty-btn.plus { color: var(--accent); }
+  .qty-input { width: 42px; text-align: center; border: none; background: none; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; color: var(--dark); -moz-appearance: textfield; padding: 0; }
+  .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .qty-input:focus { outline: none; }
+  .product-row.has-qty { background: #F0F4FF; }
+  .product-row.has-qty .qty-control { border-color: var(--accent); background: #EAF0FF; }
+  .note-section { padding: 16px 20px; background: white; border-bottom: 1px solid var(--border); }
+  .note-section label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--mid); margin-bottom: 8px; font-weight: 600; }
+  .note-section textarea { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--dark); background: var(--cream); resize: none; min-height: 80px; }
+  .note-section textarea:focus { outline: none; border-color: var(--accent); }
+  .sticky-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 14px 20px; background: white; border-top: 1.5px solid var(--border); box-shadow: 0 -4px 20px rgba(0,0,0,0.1); display: flex; gap: 10px; align-items: center; }
+  .summary-pill { flex: 1; background: var(--cream); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--mid); line-height: 1.3; }
+  .summary-pill strong { color: var(--accent); font-size: 16px; }
+  .btn-send { background: var(--accent); color: white; border: none; border-radius: 12px; padding: 14px 22px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1.5px; cursor: pointer; -webkit-tap-highlight-color: transparent; white-space: nowrap; }
+  .btn-send:active { opacity: 0.85; transform: scale(0.97); }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: 20px 20px 0 0; padding: 30px 24px 40px; width: 100%; max-width: 520px; animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal h3 { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; margin-bottom: 6px; color: var(--dark); }
+  .modal p { font-size: 13px; color: var(--mid); margin-bottom: 16px; }
+  .modal-recap { background: var(--cream); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 1.8; max-height: 220px; overflow-y: auto; margin-bottom: 18px; color: var(--dark); border: 1px solid var(--border); }
+  .modal-recap .recap-section { font-weight: 600; color: var(--accent); margin-top: 6px; }
+  .wa-tip { background: #E8F5E9; border: 1px solid #A5D6A7; border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #2E7D32; margin-bottom: 14px; line-height: 1.5; }
+  .wa-tip strong { display: block; margin-bottom: 2px; }
+  .modal-actions { display: flex; gap: 10px; }
+  .btn-cancel { flex: 1; background: var(--light); color: var(--mid); border: none; border-radius: 12px; padding: 14px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .btn-confirm { flex: 2; background: #25D366; color: white; border: none; border-radius: 12px; padding: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px; cursor: pointer; }
+  .success-screen { display: none; position: fixed; inset: 0; background: white; z-index: 300; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px; }
+  .success-screen.open { display: flex; }
+  .success-icon { font-size: 64px; margin-bottom: 20px; animation: pop 0.4s ease; }
+  @keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+  .success-screen h2 { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; color: var(--green); margin-bottom: 8px; }
+  .success-screen p { color: var(--mid); font-size: 15px; margin-bottom: 30px; }
+  .btn-new { background: var(--accent); color: white; border: none; border-radius: 14px; padding: 16px 32px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1.5px; cursor: pointer; }
+  .section-body.collapsed { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🍷 Commande Salle / Bar</h1>
+  <p>Milo's Pizza Port → Dabray</p>
+</header>
+<div class="meta-bar">
+  <input type="text" id="employe" placeholder="Votre prénom" autocomplete="off">
+  <input type="date" id="livraison">
+</div>
+<div class="container">
+
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="emoji">🍺</span>
+      <h2>Boissons à emporter</h2>
+      <span class="count" id="cnt-1">0</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body" id="body-1">
+      <div class="subsection-label">Eaux</div>
+      <div class="product-row"><span class="product-name">Eau plate 50cl</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Eau pétillante 50cl</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Eau plate 1,5L</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Eau pétillante 1,5L</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="subsection-label">Sodas</div>
+      <div class="product-row"><span class="product-name">Coca-Cola 33cl</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Coca Zero 33cl</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Ice Tea 33cl</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Coca-Cola 1,5L</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Coca Zero 1,5L</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Oasis 33cl</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Orangina 33cl</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="subsection-label">Bières</div>
+      <div class="product-row"><span class="product-name">Heineken</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Corona</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="emoji">🍷</span>
+      <h2>Vins sur place</h2>
+      <span class="count" id="cnt-2">0</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body" id="body-2">
+      <div class="subsection-label">Bastide</div>
+      <div class="product-row"><span class="product-name">Bastide Blanc</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Bastide Rosé</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Bastide Rouge</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="subsection-label">Bailli</div>
+      <div class="product-row"><span class="product-name">Bailli Blanc</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Bailli Rosé</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Bailli Rouge</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="subsection-label">Autres vins & bulles</div>
+      <div class="product-row"><span class="product-name">Côte du Rhône</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Prosecco</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Millesimato</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Lambrusco</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="emoji">☕</span>
+      <h2>Softs & cocktails</h2>
+      <span class="count" id="cnt-3">0</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body" id="body-3">
+      <div class="subsection-label">Softs</div>
+      <div class="product-row"><span class="product-name">Orangina (sur place)</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Café</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Décaféiné</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="subsection-label">Cocktails (ingrédients)</div>
+      <div class="product-row"><span class="product-name">Jus fruits de la passion</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Pulco</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Sucre de canne</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="emoji">🧂</span>
+      <h2>Épicerie salle</h2>
+      <span class="count" id="cnt-4">0</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body" id="body-4">
+      <div class="product-row"><span class="product-name">Buchettes de sucre</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Gâteaux café</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="emoji">🧴</span>
+      <h2>Hygiène salle</h2>
+      <span class="count" id="cnt-5">0</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body" id="body-5">
+      <div class="product-row"><span class="product-name">Lavette</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Liquide lave-verre</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Liquide rinçage lave-verre</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Petites pailles</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Grandes pailles</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Serviettes</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Couverts à emporter</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Vinaigre blanc</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Canard WC</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Feuille à feuille WC</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Feuille à feuille main</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+      <div class="product-row"><span class="product-name">Bidon sol pin</span><div class="qty-control"><button class="qty-btn minus" onclick="adj(this,-1)">−</button><input class="qty-input" type="number" value="0" min="0"><button class="qty-btn plus" onclick="adj(this,1)">+</button></div></div>
+    </div>
+  </div>
+
+  <div class="note-section">
+    <label>📝 Note / demande particulière</label>
+    <textarea id="note-libre" placeholder="Ex : urgent, produit manquant, quantité inhabituelle..."></textarea>
+  </div>
+</div>
+
+<div class="sticky-footer">
+  <div class="summary-pill">
+    <strong id="total-count">0</strong> article(s)<br>
+    <span id="footer-employe" style="font-size:11px">—</span>
+  </div>
+  <button class="btn-send" onclick="openModal()">ENVOYER ▶</button>
+</div>
+
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h3>📋 Récapitulatif Salle / Bar</h3>
+    <p>Vérifiez avant d'envoyer</p>
+    <div class="modal-recap" id="modal-recap"></div>
+    <div class="wa-tip">
+      <strong>📱 Étape suivante dans WhatsApp :</strong>
+      Sélectionne le groupe <strong>« 📦 Commandes Port → Dabray »</strong> et appuie sur Envoyer.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Corriger</button>
+      <button class="btn-confirm" onclick="sendOrder()">📤 OUVRIR WHATSAPP</button>
+    </div>
+  </div>
+</div>
+
+<div class="success-screen" id="success">
+  <div class="success-icon">✅</div>
+  <h2>COMMANDE ENVOYÉE !</h2>
+  <p>La commande Salle/Bar a été transmise à Dabray.</p>
+  <button class="btn-new" onclick="resetForm()">Nouvelle commande</button>
+</div>
+
+<script>
+const sections = [
+  { cnt: 'cnt-1', body: 'body-1', label: '🍺 BOISSONS À EMPORTER' },
+  { cnt: 'cnt-2', body: 'body-2', label: '🍷 VINS SUR PLACE' },
+  { cnt: 'cnt-3', body: 'body-3', label: '☕ SOFTS & COCKTAILS' },
+  { cnt: 'cnt-4', body: 'body-4', label: '🧂 ÉPICERIE SALLE' },
+  { cnt: 'cnt-5', body: 'body-5', label: '🧴 HYGIÈNE SALLE' },
+];
+
+function toggleSection(header) {
+  header.classList.toggle('collapsed');
+  header.nextElementSibling.classList.toggle('collapsed');
+}
+
+function adj(btn, delta) {
+  const input = btn.parentElement.querySelector('.qty-input');
+  input.value = Math.max(0, parseInt(input.value || 0) + delta);
+  btn.closest('.product-row').classList.toggle('has-qty', parseInt(input.value) > 0);
+  updateCounts();
+}
+
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('qty-input')) {
+    e.target.closest('.product-row').classList.toggle('has-qty', parseInt(e.target.value || 0) > 0);
+    updateCounts();
+  }
+});
+
+function updateCounts() {
+  let total = 0;
+  sections.forEach(s => {
+    const inputs = document.getElementById(s.body).querySelectorAll('.qty-input');
+    let n = 0;
+    inputs.forEach(i => { if (parseInt(i.value || 0) > 0) n++; });
+    total += n;
+    const el = document.getElementById(s.cnt);
+    el.textContent = n;
+    el.classList.toggle('visible', n > 0);
+  });
+  document.getElementById('total-count').textContent = total;
+  const emp = document.getElementById('employe').value.trim();
+  document.getElementById('footer-employe').textContent = emp || 'Prénom non renseigné';
+}
+
+document.getElementById('employe').addEventListener('input', updateCounts);
+
+function buildRecap() {
+  const emp = document.getElementById('employe').value.trim() || '—';
+  const liv = document.getElementById('livraison').value;
+  const livStr = liv ? new Date(liv).toLocaleDateString('fr-FR', {weekday:'long',day:'numeric',month:'long'}) : 'Non précisée';
+  const note = document.getElementById('note-libre').value.trim();
+  let html = `<strong>👤 ${emp}</strong> · <strong>📅 ${livStr}</strong><br><br>`;
+  let hasAny = false;
+  sections.forEach(s => {
+    const rows = document.getElementById(s.body).querySelectorAll('.product-row');
+    const lines = [];
+    rows.forEach(row => {
+      const qty = parseInt(row.querySelector('.qty-input').value || 0);
+      if (qty > 0) lines.push(`&nbsp;&nbsp;• ${row.querySelector('.product-name').textContent} × <strong>${qty}</strong>`);
+    });
+    if (lines.length) { hasAny = true; html += `<div class="recap-section">${s.label}</div>${lines.join('<br>')}<br>`; }
+  });
+  if (!hasAny) html += '<em style="color:#999">Aucun article sélectionné</em>';
+  if (note) html += `<div class="recap-section">📝 NOTE</div>${note}`;
+  return html;
+}
+
+function buildText() {
+  const emp = document.getElementById('employe').value.trim();
+  const liv = document.getElementById('livraison').value;
+  const livStr = liv ? new Date(liv).toLocaleDateString('fr-FR', {weekday:'long',day:'numeric',month:'long'}) : 'Non précisée';
+  const note = document.getElementById('note-libre').value.trim();
+  let msg = `🍷 COMMANDE SALLE / BAR — PORT → DABRAY\n👤 ${emp} · 📅 ${livStr}\n─────────────────────\n`;
+  sections.forEach(s => {
+    const rows = document.getElementById(s.body).querySelectorAll('.product-row');
+    const lines = [];
+    rows.forEach(row => {
+      const qty = parseInt(row.querySelector('.qty-input').value || 0);
+      if (qty > 0) lines.push(`  • ${row.querySelector('.product-name').textContent} × ${qty}`);
+    });
+    if (lines.length) msg += `\n${s.label}\n${lines.join('\n')}\n`;
+  });
+  if (note) msg += `\n📝 NOTE : ${note}`;
+  msg += `\n─────────────────────\nMilo's Pizza Port`;
+  return msg;
+}
+
+function openModal() {
+  if (!document.getElementById('employe').value.trim()) { alert('Merci de renseigner votre prénom.'); return; }
+  document.getElementById('modal-recap').innerHTML = buildRecap();
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function closeModalOutside(e) { if (e.target.id === 'modal') closeModal(); }
+
+function sendOrder() {
+  window.open(`https://wa.me/?text=${encodeURIComponent(buildText())}`, '_blank');
+  closeModal();
+  document.getElementById('success').classList.add('open');
+}
+
+function resetForm() {
+  document.querySelectorAll('.qty-input').forEach(i => i.value = 0);
+  document.querySelectorAll('.product-row').forEach(r => r.classList.remove('has-qty'));
+  document.getElementById('note-libre').value = '';
+  document.getElementById('employe').value = '';
+  document.getElementById('success').classList.remove('open');
+  updateCounts();
+}
+
+document.getElementById('livraison').value = new Date().toISOString().split('T')[0];
+updateCounts();
+</script>
+</body>
+</html>

@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Retour Dabray · Milo's Pizza</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FDF6EC;--dark:#1A1008;--mid:#5C4A32;--light:#EDE0CC;--border:#D9C9B0;
+  --dabray:#922B21;--ok:#27AE60;--warn:#F39C12;--alert:#E74C3C;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--cream);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--dark);min-height:100vh;}
+header{background:var(--dabray);color:white;padding:14px 18px 10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3);}
+header h1{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;}
+header p{font-size:11px;opacity:.8;margin-top:3px;text-transform:uppercase;letter-spacing:.5px;}
+.meta-bar{background:#2C2010;padding:10px 18px;display:flex;gap:10px;flex-wrap:wrap;}
+.meta-bar input{flex:1;min-width:130px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:white;padding:8px 11px;font-family:'DM Sans',sans-serif;font-size:13px;}
+.meta-bar input::placeholder{color:rgba(255,255,255,.4);}
+.container{padding:0 0 200px;}
+
+/* Section */
+.section{border-bottom:2px solid var(--border);}
+.section-header{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);position:sticky;top:82px;z-index:10;}
+.section-header h2{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1.5px;flex:1;color:white;}
+.s-count{font-size:11px;background:rgba(255,255,255,.25);color:white;border-radius:20px;padding:2px 7px;display:none;font-weight:600;}
+.s-count.visible{display:inline-block;}
+.chevron{font-size:11px;color:rgba(255,255,255,.7);transition:transform .2s;}
+.section-header.collapsed .chevron{transform:rotate(-90deg);}
+.section-body.collapsed{display:none;}
+.subsection-label{padding:6px 16px 3px;font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--mid);background:#F5EFE6;font-weight:600;border-bottom:1px solid var(--border);}
+
+/* Rows */
+.prod-row{background:white;border-bottom:1px solid rgba(217,201,176,.4);padding:10px 14px;display:flex;align-items:center;gap:10px;transition:background .15s;}
+.prod-row.r-ok{background:#F0FFF4;}
+.prod-row.r-partial{background:#FFFBF0;}
+.prod-row.r-rupture{background:#FFF4F3;}
+.prod-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--dabray);}
+.prod-info{flex:1;min-width:0;}
+.prod-name{font-size:13px;font-weight:500;}
+.prod-meta{font-size:10px;color:var(--mid);margin-top:1px;}
+.prod-meta .cmd-qty{font-weight:700;color:var(--dark);}
+.reliquat-badge{font-size:10px;background:#FEF9E7;color:#D68910;border:1px solid #F39C12;border-radius:10px;padding:1px 7px;font-weight:600;}
+
+/* Toggle envoyé/rupture */
+.two-tog{display:flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;flex-shrink:0;}
+.t-btn{padding:7px 12px;background:var(--cream);border:none;font-size:11px;font-weight:600;cursor:pointer;color:var(--mid);-webkit-tap-highlight-color:transparent;}
+.t-btn:first-child{border-right:1px solid var(--border);}
+.t-ok{background:#E8F5E9;color:#1E8449;}
+.t-rup{background:#FDEDEC;color:#C0392B;}
+
+/* Saisie quantité envoyée */
+.qty-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;}
+.qty-label{font-size:9px;color:var(--mid);text-align:center;}
+.qty-ctrl{display:flex;align-items:center;background:var(--cream);border:1.5px solid var(--border);border-radius:9px;overflow:hidden;}
+.qty-btn{width:28px;height:30px;background:none;border:none;font-size:15px;color:var(--mid);cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
+.qty-btn:active{background:var(--light);}
+.qty-in{width:34px;text-align:center;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--dark);-moz-appearance:textfield;padding:0;}
+.qty-in::-webkit-outer-spin-button,.qty-in::-webkit-inner-spin-button{-webkit-appearance:none;}
+.qty-status{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;text-align:center;}
+.qs-ok{background:#E8F5E9;color:#1E8449;}
+.qs-partial{background:#FEF9E7;color:#D68910;}
+.qs-rup{background:#FDEDEC;color:#C0392B;}
+
+/* Reliquats banner */
+.reliquat-banner{background:#FEF9E7;border-bottom:1px solid #F39C12;padding:10px 16px;}
+.reliquat-banner h3{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:#D68910;margin-bottom:6px;}
+.reliquat-item{font-size:12px;color:var(--dark);padding:3px 0;border-bottom:1px solid rgba(243,156,18,.2);}
+.reliquat-item:last-child{border:none;}
+
+/* Footer */
+.sticky-footer{position:fixed;bottom:0;left:0;right:0;background:white;border-top:2px solid var(--border);box-shadow:0 -4px 20px rgba(0,0,0,.12);padding:10px 16px 14px;}
+.footer-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.footer-summary{flex:1;background:var(--cream);border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--mid);line-height:1.5;}
+.footer-summary strong{color:var(--dabray);font-size:14px;}
+.btn-valider{background:var(--dabray);color:white;border:none;border-radius:12px;padding:13px 20px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1.5px;cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap;}
+.btn-valider:active{opacity:.85;}
+.btn-wa-port{width:100%;background:#25D366;color:white;border:none;border-radius:12px;padding:12px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;cursor:pointer;display:none;}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:white;border-radius:20px 20px 0 0;padding:22px 18px 32px;width:100%;max-width:520px;animation:slideUp .25s ease;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal h3{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.5px;margin-bottom:6px;color:var(--dark);}
+.modal-recap{background:var(--cream);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.9;max-height:260px;overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);}
+.recap-ok{color:#1E8449;}
+.recap-partial{color:#D68910;}
+.recap-rup{color:#C0392B;font-weight:700;}
+.recap-section{font-weight:700;font-size:11px;text-transform:uppercase;margin-top:6px;letter-spacing:.5px;}
+.modal-note{font-size:12px;color:var(--mid);margin-bottom:12px;background:#FEF9E7;border-radius:10px;padding:9px 12px;border:1px solid #F39C12;}
+.modal-actions{display:flex;gap:10px;}
+.btn-cancel{flex:1;background:var(--light);color:var(--mid);border:none;border-radius:12px;padding:12px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;}
+.btn-confirm{flex:2;background:#25D366;color:white;border:none;border-radius:12px;padding:12px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;cursor:pointer;}
+
+/* Écran succès */
+.success-screen{display:none;position:fixed;inset:0;background:white;z-index:300;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;}
+.success-screen.open{display:flex;}
+.success-icon{font-size:60px;margin-bottom:18px;animation:pop .4s ease;}
+@keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.2);}100%{transform:scale(1);}}
+.success-screen h2{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--ok);margin-bottom:6px;}
+.success-screen p{color:var(--mid);font-size:14px;margin-bottom:6px;}
+.btn-new{background:var(--dabray);color:white;border:none;border-radius:14px;padding:14px 28px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1.5px;cursor:pointer;margin-top:20px;}
+
+/* Écran de saisie de commande */
+.input-screen{position:fixed;inset:0;background:var(--cream);z-index:400;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+.input-screen h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--dark);margin-bottom:6px;text-align:center;}
+.input-screen p{font-size:13px;color:var(--mid);margin-bottom:20px;text-align:center;}
+.input-card{background:white;border-radius:16px;padding:20px;width:100%;max-width:400px;box-shadow:0 4px 20px rgba(0,0,0,.1);}
+.input-card textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 13px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--dark);background:var(--cream);resize:none;min-height:120px;margin-bottom:12px;}
+.input-card textarea:focus{outline:none;border-color:var(--dabray);}
+.btn-parse{width:100%;background:var(--dabray);color:white;border:none;border-radius:12px;padding:13px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1.5px;cursor:pointer;}
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍕 Retour Dabray</h1>
+  <p id="header-date">Validation de livraison</p>
+</header>
+
+<!-- ÉCRAN SAISIE COMMANDE (si pas de commande en cours) -->
+<div id="input-screen" class="input-screen">
+  <h2>📋 Nouvelle commande</h2>
+  <p>Collez le message WhatsApp reçu du Port<br>ou saisissez les articles manuellement</p>
+  <div class="input-card">
+    <textarea id="cmd-input" placeholder="Ex:&#10;• Jambon cru&#10;• Bresaola&#10;• Crème fraîche × 12&#10;• Poulet rôti&#10;..."></textarea>
+    <button class="btn-parse" onclick="parseCommande()">CHARGER LA COMMANDE →</button>
+  </div>
+  <button onclick="loadManual()" style="margin-top:14px;background:none;border:none;color:var(--mid);font-size:13px;text-decoration:underline;cursor:pointer;">Charger la liste complète manuellement</button>
+</div>
+
+<div class="meta-bar hidden" id="meta-bar">
+  <input type="text" id="livreur" placeholder="Prénom livreur" autocomplete="off">
+  <input type="text" id="date-livraison" placeholder="Date livraison" readonly>
+</div>
+
+<div class="container hidden" id="container"></div>
+
+<!-- Footer -->
+<div class="sticky-footer hidden" id="footer">
+  <div class="footer-row">
+    <div class="footer-summary">
+      <strong id="count-ok">0</strong> envoyés · <strong id="count-partial" style="color:var(--warn)">0</strong> partiels · <strong id="count-rup" style="color:var(--alert)">0</strong> ruptures
+    </div>
+    <button class="btn-valider" onclick="openModal()">VALIDER ▶</button>
+  </div>
+  <button class="btn-wa-port" id="btn-wa-port" onclick="sendToPort()">📱 ENVOYER LE RETOUR AU PORT</button>
+</div>
+
+<!-- Modal confirmation -->
+<div class="modal-overlay" id="modal" onclick="closeModalOut(event)">
+  <div class="modal">
+    <h3>📋 Récapitulatif livraison</h3>
+    <div class="modal-recap" id="modal-recap"></div>
+    <div class="modal-note" id="modal-reliquat-note" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Corriger</button>
+      <button class="btn-confirm" onclick="confirmerLivraison()">✓ CONFIRMER & ENVOYER</button>
+    </div>
+  </div>
+</div>
+
+<!-- Succès -->
+<div class="success-screen" id="success">
+  <div class="success-icon">✅</div>
+  <h2>LIVRAISON VALIDÉE</h2>
+  <p id="success-ok"></p>
+  <p id="success-rup" style="color:var(--alert);font-weight:600;"></p>
+  <p id="success-reliquat" style="color:var(--warn);font-size:12px;margin-top:4px;"></p>
+  <button class="btn-new" onclick="resetAll()">Nouvelle commande</button>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// DONNÉES PRODUITS
+// ══════════════════════════════════════
+const PRODUITS_DABRAY = {
+  charcut: [
+    'Jambon cru','Bresaola','Jambon blanc','Spianata','Mortadelle','Lardons','Pancetta'
+  ],
+  cuissons: [
+    'Poulet rôti','Aubergines rôties','Oignons rôtis','Poivrons rôtis','Poires rôties',
+    'Crème de poire','Courgettes','Pommes de terre','Crème de poivrons','Pesto de courgettes'
+  ],
+  emballages: [
+    {name:'Cartons 29cm', unit:'paquet'},
+    {name:'Carton calzone', unit:'unité'},
+    {name:'Carton nutella', unit:'unité'},
+  ]
+};
+
+// Produits redistribués avec quantité
+const REDISTRIB = {
+  'Carrefour': [
+    'Crème fraîche','Moutarde ancienne','Artichauts','Thon','Secret d\'arômes','Sucre blanc',
+    'Perrier 1L','Aperol','Doka Zubrowka','Chèvre bûche'
+  ],
+  'Metro': [
+    'Eau plate 50cl','Eau pétillante 50cl','Vittel 1L','San Pellegrino 1L',
+    'Coca Cola VC','Coca Zero VC','Fuze Tea VC','Limonade VC','Orangina VP',
+    'Jus pomme VP','Jus ACE VP','Jus orange VP','Limonade 1,5L',
+    'Prosecco','Millesimato','Aperol','Doka Zubrowka','Liqueur sureau',
+    'Captain Morgan','Cachaça','Grenadine',
+    'Huile pimentée','Ciboulette','Cheddar','Anchois',
+    'Glace Vanille','Glace Fraise','Glace Caramel beurre salé','Glace Citron','Glace Chocolat','Glace Pistache',
+    'Cartons 29cm','Carton calzone','Carton nutella'
+  ],
+  'Pelle d\'Or': [
+    'Sauce tomate Mutti','Coca 33cl','Ice Tea 33cl','Noix','Pistache','Amandes',
+    'Origan','Nutella','Sel','Huile olive 5L','Huile tournesol'
+  ],
+  'Cash Alimentaire': ['Coca 1,5L','Noisettes','Miel'],
+  'ID Pro': [
+    'Nettoyant sol pin 5L','Crème lavante main 5L','Liquide plonge 5L',
+    'Liquide lavage machine 5L','Liquide rinçage machine 5L','Liquide lave-verre 1L',
+    'Liquide rinçage lave-verre 5L','Paille de fer','Éponges','Essuie-main bobine',
+    'Feuille à feuille main','Feuille à feuille WC','Feuille cellophat beige','Lavette bleue'
+  ],
+  'Terres de Truffe': ['Carpaccio de truffe 500g','Huile de truffe noire'],
+};
+
+// ══════════════════════════════════════
+// ÉTAT
+// ══════════════════════════════════════
+let commande = []; // [{name, type:'toggle'|'qty', source, cmdQty, sentQty, status}]
+const STORAGE_KEY = 'dabray_reliquats';
+
+function getReliquats() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); } catch(e){ return {}; }
+}
+function saveReliquats(r) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(r));
+}
+function clearReliquat(name) {
+  const r=getReliquats(); delete r[name]; saveReliquats(r);
+}
+
+// ══════════════════════════════════════
+// PARSING COMMANDE
+// ══════════════════════════════════════
+function parseCommande() {
+  const txt = document.getElementById('cmd-input').value.trim();
+  if (!txt) { alert('Collez ou saisissez la commande du Port.'); return; }
+
+  const lines = txt.split('\n').map(l=>l.trim()).filter(l=>l);
+  const parsed = [];
+
+  lines.forEach(line => {
+    // Ignorer les lignes de header
+    if (line.startsWith('📋')||line.startsWith('👤')||line.startsWith('─')) return;
+
+    // Nettoyer préfixes
+    let clean = line.replace(/^[•\-\*●▶→]+\s*/,'').trim();
+    if (!clean) return;
+
+    // Chercher quantité : "Produit × 12" ou "Produit x 12" ou "Produit : 12"
+    const qtyMatch = clean.match(/^(.+?)\s*[×x:]\s*(\d+)\s*$/i);
+    let name = clean, cmdQty = null;
+    if (qtyMatch) { name = qtyMatch[1].trim(); cmdQty = parseInt(qtyMatch[2]); }
+
+    // Déterminer type et source
+    const type = isToggle(name) ? 'toggle' : 'qty';
+    const source = findSource(name);
+    const reliquats = getReliquats();
+    const reliquat = reliquats[name] || 0;
+
+    parsed.push({name, type, source, cmdQty: cmdQty || (reliquat ? reliquat : 1), reliquat, sentQty: cmdQty || (reliquat ? reliquat : 1), status:'ok'});
+  });
+
+  if (!parsed.length) { alert('Aucun produit reconnu. Vérifiez le format.'); return; }
+  buildInterface(parsed);
+}
+
+function loadManual() {
+  // Charger toute la liste par défaut
+  const all = [];
+  const reliquats = getReliquats();
+
+  // Charcuterie/cuissons
+  [...PRODUITS_DABRAY.charcut, ...PRODUITS_DABRAY.cuissons].forEach(name => {
+    const rel = reliquats[name]||0;
+    all.push({name, type:'toggle', source:'Dabray', cmdQty:1, reliquat:rel, sentQty:1, status:'ok'});
+  });
+  PRODUITS_DABRAY.emballages.forEach(p => {
+    const rel = reliquats[p.name]||0;
+    all.push({name:p.name, type:'qty', source:'Dabray→Metro', cmdQty:rel||0, reliquat:rel, sentQty:rel||0, status:'ok'});
+  });
+  // Redistribués
+  Object.entries(REDISTRIB).forEach(([src, prods]) => {
+    prods.forEach(name => {
+      const rel = reliquats[name]||0;
+      if (rel > 0) all.push({name, type:'qty', source:src, cmdQty:rel, reliquat:rel, sentQty:rel, status:'ok'});
+    });
+  });
+
+  buildInterface(all);
+}
+
+function isToggle(name) {
+  const allToggle = [...PRODUITS_DABRAY.charcut, ...PRODUITS_DABRAY.cuissons];
+  return allToggle.some(n=>n.toLowerCase()===name.toLowerCase());
+}
+
+function findSource(name) {
+  for (const [src, prods] of Object.entries(REDISTRIB)) {
+    if (prods.some(p=>p.toLowerCase()===name.toLowerCase())) return src;
+  }
+  if (PRODUITS_DABRAY.charcut.some(n=>n.toLowerCase()===name.toLowerCase())) return 'Dabray';
+  if (PRODUITS_DABRAY.cuissons.some(n=>n.toLowerCase()===name.toLowerCase())) return 'Dabray';
+  return 'Dabray';
+}
+
+// ══════════════════════════════════════
+// CONSTRUCTION INTERFACE
+// ══════════════════════════════════════
+function buildInterface(items) {
+  commande = items;
+
+  document.getElementById('input-screen').classList.add('hidden');
+  document.getElementById('meta-bar').classList.remove('hidden');
+  document.getElementById('container').classList.remove('hidden');
+  document.getElementById('footer').classList.remove('hidden');
+
+  // Date
+  const now = new Date();
+  document.getElementById('date-livraison').value = now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('header-date').textContent = 'Livraison du '+now.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+
+  // Reliquats en attente
+  const reliquats = getReliquats();
+  const reliqItems = Object.entries(reliquats).filter(([k,v])=>v>0&&!items.find(i=>i.name===k));
+
+  const container = document.getElementById('container');
+  container.innerHTML = '';
+
+  // Bannière reliquats si existants
+  if (reliqItems.length > 0) {
+    const banner = document.createElement('div');
+    banner.className='reliquat-banner';
+    banner.innerHTML=`<h3>⚠️ Reliquats en attente</h3>${reliqItems.map(([n,v])=>`<div class="reliquat-item">• <strong>${n}</strong> : ${v} en attente de livraison</div>`).join('')}`;
+    container.appendChild(banner);
+  }
+
+  // Grouper par section
+  const sections = {};
+  items.forEach(item => {
+    let sec = item.source;
+    if (item.source==='Dabray') {
+      const isCharcut = PRODUITS_DABRAY.charcut.some(n=>n===item.name);
+      sec = isCharcut ? 'Charcuterie' : PRODUITS_DABRAY.cuissons.some(n=>n===item.name) ? 'Cuissons' : 'Emballages Dabray';
+    }
+    if (!sections[sec]) sections[sec]=[];
+    sections[sec].push(item);
+  });
+
+  const secColors = {
+    'Charcuterie':'#922B21','Cuissons':'#922B21','Emballages Dabray':'#922B21',
+    'Carrefour':'#8E44AD','Metro':'#2C3E50','Pelle d\'Or':'#C0392B',
+    'Cash Alimentaire':'#E67E22','ID Pro':'#2980B9','Terres de Truffe':'#6D4C41',
+    'Dabray→Metro':'#922B21'
+  };
+
+  Object.entries(sections).forEach(([sec, prods]) => {
+    const color = secColors[sec]||'#555';
+    const div = document.createElement('div');
+    div.className='section';
+
+    const hdr = document.createElement('div');
+    hdr.className='section-header';
+    hdr.style.background=color;
+    hdr.onclick=()=>toggleSec(hdr);
+    const scId='sc-'+sec.replace(/[^a-z]/gi,'');
+    hdr.innerHTML=`<h2>${sec}</h2><span class="s-count" id="${scId}">0</span><span class="chevron">▼</span>`;
+    div.appendChild(hdr);
+
+    const body = document.createElement('div');
+    body.className='section-body';
+
+    prods.forEach(item => {
+      const row = document.createElement('div');
+      row.className='prod-row';
+      row.id='row-'+sanitize(item.name);
+
+      const relBadge = item.reliquat>0
+        ? `<span class="reliquat-badge">+${item.reliquat} reliquat</span>` : '';
+
+      if (item.type==='toggle') {
+        row.innerHTML=`
+          <div class="prod-dot" style="background:${color}"></div>
+          <div class="prod-info">
+            <div class="prod-name">${item.name}</div>
+            <div class="prod-meta">${item.source} ${relBadge}</div>
+          </div>
+          <div class="two-tog">
+            <button class="t-btn t-ok" onclick="setToggle('${sanitize(item.name)}','ok')">✓ Envoyé</button>
+            <button class="t-btn" onclick="setToggle('${sanitize(item.name)}','rup')">✗ Rupture</button>
+          </div>`;
+      } else {
+        const cq = item.cmdQty;
+        row.innerHTML=`
+          <div class="prod-dot" style="background:${color}"></div>
+          <div class="prod-info">
+            <div class="prod-name">${item.name}</div>
+            <div class="prod-meta">${item.source} · <span class="cmd-qty">Commandé : ${cq}</span> ${relBadge}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <div class="qty-wrap">
+              <div class="qty-ctrl">
+                <button class="qty-btn" onclick="adjQty('${sanitize(item.name)}',-1)">−</button>
+                <input class="qty-in" id="qi-${sanitize(item.name)}" type="number" value="${cq}" min="0" max="${cq}" oninput="onQtyIn('${sanitize(item.name)}')">
+                <button class="qty-btn" onclick="adjQty('${sanitize(item.name)}',1)">+</button>
+              </div>
+              <div class="qty-label">Envoyé / ${cq}</div>
+            </div>
+            <span class="qty-status" id="qs-${sanitize(item.name)}">—</span>
+          </div>`;
+      }
+      body.appendChild(row);
+    });
+
+    div.appendChild(body);
+    container.appendChild(div);
+  });
+
+  recalc();
+}
+
+// ══════════════════════════════════════
+// CONTRÔLES
+// ══════════════════════════════════════
+function sanitize(name){ return name.replace(/[^a-zA-Z0-9]/g,'_'); }
+
+function setToggle(sid, val) {
+  const item = commande.find(i=>sanitize(i.name)===sid);
+  if (!item) return;
+  item.status = val;
+  const row = document.getElementById('row-'+sid);
+  const btns = row.querySelectorAll('.t-btn');
+  btns[0].className='t-btn'+(val==='ok'?' t-ok':'');
+  btns[1].className='t-btn'+(val==='rup'?' t-rup':'');
+  recalc();
+}
+
+function adjQty(sid, d) {
+  const item = commande.find(i=>sanitize(i.name)===sid);
+  if (!item) return;
+  const el = document.getElementById('qi-'+sid);
+  const newVal = Math.max(0, Math.min(item.cmdQty, parseInt(el.value||0)+d));
+  el.value = newVal;
+  item.sentQty = newVal;
+  updateQtyStatus(item, sid);
+  recalc();
+}
+
+function onQtyIn(sid) {
+  const item = commande.find(i=>sanitize(i.name)===sid);
+  if (!item) return;
+  const el = document.getElementById('qi-'+sid);
+  item.sentQty = Math.max(0, Math.min(item.cmdQty, parseInt(el.value||0)));
+  el.value = item.sentQty;
+  updateQtyStatus(item, sid);
+  recalc();
+}
+
+function updateQtyStatus(item, sid) {
+  const el = document.getElementById('qs-'+sid);
+  if (!el) return;
+  if (item.sentQty >= item.cmdQty) { el.textContent='✓ Complet'; el.className='qty-status qs-ok'; }
+  else if (item.sentQty > 0) { el.textContent=`${item.cmdQty-item.sentQty} manquant`; el.className='qty-status qs-partial'; }
+  else { el.textContent='Rupture'; el.className='qty-status qs-rup'; }
+  const row = document.getElementById('row-'+sid);
+  row.className='prod-row'+(item.sentQty>=item.cmdQty?' r-ok':item.sentQty>0?' r-partial':' r-rupture');
+}
+
+// ══════════════════════════════════════
+// RECALCUL
+// ══════════════════════════════════════
+function recalc() {
+  let ok=0, partial=0, rup=0;
+  commande.forEach(item => {
+    const sid=sanitize(item.name);
+    if (item.type==='toggle') {
+      const row=document.getElementById('row-'+sid);
+      if (row) row.className='prod-row'+(item.status==='ok'?' r-ok':' r-rupture');
+      if (item.status==='ok') ok++; else rup++;
+    } else {
+      updateQtyStatus(item, sid);
+      if (item.sentQty>=item.cmdQty) ok++;
+      else if (item.sentQty>0) partial++;
+      else rup++;
+    }
+  });
+
+  document.getElementById('count-ok').textContent=ok;
+  document.getElementById('count-partial').textContent=partial;
+  document.getElementById('count-rup').textContent=rup;
+
+  // Sections counts
+  document.querySelectorAll('.s-count').forEach(sc => {
+    const body=sc.closest('.section')?.querySelector('.section-body');
+    if(!body)return;
+    let n=0;
+    body.querySelectorAll('.prod-row.r-rupture, .prod-row.r-partial').forEach(()=>n++);
+    sc.textContent=n; sc.classList.toggle('visible',n>0);
+  });
+}
+
+// ══════════════════════════════════════
+// MODAL & VALIDATION
+// ══════════════════════════════════════
+function buildModalRecap() {
+  const okItems=[], partialItems=[], rupItems=[];
+  commande.forEach(item => {
+    if (item.type==='toggle') {
+      if (item.status==='ok') okItems.push(item.name);
+      else rupItems.push(item.name);
+    } else {
+      if (item.sentQty>=item.cmdQty) okItems.push(item.name+` (×${item.sentQty})`);
+      else if (item.sentQty>0) partialItems.push(item.name+` (${item.sentQty}/${item.cmdQty})`);
+      else rupItems.push(item.name);
+    }
+  });
+
+  let html='';
+  if (okItems.length) {
+    html+=`<div class="recap-section" style="color:var(--ok)">✓ Envoyés (${okItems.length})</div>`;
+    okItems.forEach(n=>html+=`<span class="recap-ok">● ${n}</span><br>`);
+  }
+  if (partialItems.length) {
+    html+=`<div class="recap-section" style="color:var(--warn)">⚠ Partiels (${partialItems.length})</div>`;
+    partialItems.forEach(n=>html+=`<span class="recap-partial">● ${n}</span><br>`);
+  }
+  if (rupItems.length) {
+    html+=`<div class="recap-section" style="color:var(--alert)">✗ Ruptures (${rupItems.length})</div>`;
+    rupItems.forEach(n=>html+=`<span class="recap-rup">● ${n}</span><br>`);
+  }
+  return html||'<em>Tout envoyé ✓</em>';
+}
+
+function buildReliquatNote() {
+  const reliquats={};
+  commande.forEach(item => {
+    if (item.type==='toggle' && item.status==='rup') reliquats[item.name]='rupture';
+    else if (item.type==='qty' && item.sentQty<item.cmdQty) reliquats[item.name]=item.cmdQty-item.sentQty;
+  });
+  const entries=Object.entries(reliquats);
+  if (!entries.length) return null;
+  return `⚠️ ${entries.length} reliquat(s) seront enregistrés et proposés à la prochaine livraison :<br>`+
+    entries.map(([n,v])=>`• <strong>${n}</strong>${typeof v==='number'?' : '+v+' restant':' (rupture)'}`).join('<br>');
+}
+
+function openModal() {
+  document.getElementById('modal-recap').innerHTML=buildModalRecap();
+  const note=buildReliquatNote();
+  const noteEl=document.getElementById('modal-reliquat-note');
+  if (note){noteEl.innerHTML=note;noteEl.style.display='';}else{noteEl.style.display='none';}
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function closeModalOut(e){if(e.target.id==='modal')closeModal();}
+
+function confirmerLivraison() {
+  // Sauvegarder reliquats
+  const reliquats=getReliquats();
+  commande.forEach(item => {
+    if (item.type==='toggle') {
+      if (item.status==='rup') reliquats[item.name]='rupture';
+      else delete reliquats[item.name];
+    } else {
+      const reste=item.cmdQty-item.sentQty;
+      if (reste>0) reliquats[item.name]=reste;
+      else delete reliquats[item.name];
+    }
+  });
+  saveReliquats(reliquats);
+
+  closeModal();
+
+  // Envoyer WhatsApp au Port
+  const txt=buildWAPort();
+  window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+
+  // Afficher succès
+  const ok=commande.filter(i=>i.type==='toggle'?i.status==='ok':i.sentQty>=i.cmdQty).length;
+  const rup=commande.filter(i=>i.type==='toggle'?i.status==='rup':i.sentQty===0).length;
+  const part=commande.filter(i=>i.type==='qty'&&i.sentQty>0&&i.sentQty<i.cmdQty).length;
+  const relTotal=Object.keys(reliquats).length;
+
+  document.getElementById('success-ok').textContent=`${ok} article(s) envoyés complets`;
+  document.getElementById('success-rup').textContent=rup>0?`${rup} rupture(s) signalée(s)`:'';
+  document.getElementById('success-reliquat').textContent=relTotal>0?`${relTotal} reliquat(s) enregistré(s) pour la prochaine livraison`:'';
+  document.getElementById('success').classList.add('open');
+}
+
+function buildWAPort() {
+  const livreur=document.getElementById('livreur').value.trim()||'Dabray';
+  const date=document.getElementById('date-livraison').value||new Date().toLocaleDateString('fr-FR');
+
+  let msg=`🍕 RETOUR DABRAY → PORT\n👤 ${livreur} · 📅 ${date}\n─────────────────────\n`;
+
+  const ok=[], partial=[], rup=[];
+  commande.forEach(item=>{
+    if(item.type==='toggle'){
+      if(item.status==='ok')ok.push(item.name);
+      else rup.push(item.name+' → 🔴 RUPTURE');
+    } else {
+      if(item.sentQty>=item.cmdQty)ok.push(item.name+` ×${item.sentQty}`);
+      else if(item.sentQty>0)partial.push(item.name+` → ${item.sentQty}/${item.cmdQty} (manque ${item.cmdQty-item.sentQty})`);
+      else rup.push(item.name+' → 🔴 RUPTURE');
+    }
+  });
+
+  if(ok.length){msg+=`\n✅ ENVOYÉ (${ok.length})\n`;ok.forEach(n=>msg+=`  • ${n}\n`);}
+  if(partial.length){msg+=`\n⚠️ PARTIEL (${partial.length})\n`;partial.forEach(n=>msg+=`  • ${n}\n`);}
+  if(rup.length){msg+=`\n🔴 RUPTURE (${rup.length})\n`;rup.forEach(n=>msg+=`  • ${n}\n`);}
+
+  const reliquats=getReliquats();
+  if(Object.keys(reliquats).length>0){
+    msg+=`\n📋 RELIQUATS ENREGISTRÉS → prochaine livraison\n`;
+    Object.entries(reliquats).forEach(([n,v])=>msg+=`  • ${n}${typeof v==='number'?' : '+v+' à livrer':' (rupture)'}\n`);
+  }
+
+  msg+=`─────────────────────\nMilo's Pizza Dabray`;
+  return msg;
+}
+
+function sendToPort(){
+  window.open(`https://wa.me/?text=${encodeURIComponent(buildWAPort())}`, '_blank');
+}
+
+function resetAll(){
+  commande=[];
+  document.getElementById('success').classList.remove('open');
+  document.getElementById('container').innerHTML='';
+  document.getElementById('container').classList.add('hidden');
+  document.getElementById('meta-bar').classList.add('hidden');
+  document.getElementById('footer').classList.add('hidden');
+  document.getElementById('input-screen').classList.remove('hidden');
+  document.getElementById('cmd-input').value='';
+}
+
+function toggleSec(h){h.classList.toggle('collapsed');h.nextElementSibling.classList.toggle('collapsed');}
+
+// Init
+document.getElementById('date-livraison').value=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+</script>
+</body>
+</html>
