@@ -242,6 +242,7 @@ header h1{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
   </div>
   <div class="admin-tabs">
     <div class="atab active" id="tab-produits" onclick="showTab('produits')">📦 Produits</div>
+    <div class="atab" id="tab-cats" onclick="showTab('cats')">📂 Catégories</div>
     <div class="atab" id="tab-fournisseurs" onclick="showTab('fournisseurs')">🚚 Fournisseurs</div>
     <div class="atab" id="tab-acces" onclick="showTab('acces')">🔐 Accès</div>
     <div class="atab" id="tab-config" onclick="showTab('config')">⚙️ Config</div>
@@ -890,6 +891,7 @@ function showTab(tab){
   document.getElementById('tab-'+tab).classList.add('active');
   const body=document.getElementById('admin-body');
   if(tab==='produits')renderAdminProduits(body);
+  else if(tab==='cats')renderAdminCats(body);
   else if(tab==='fournisseurs')renderAdminFournisseurs(body);
   else if(tab==='acces')renderAdminAcces(body);
   else if(tab==='config')renderAdminConfig(body);
@@ -1026,6 +1028,143 @@ function saveOvr(id,type,val){
   saveDB();
 }
 
+// ── Onglet Catégories & Sous-catégories ──
+function renderAdminCats(body){
+  body.innerHTML='';
+
+  // Éditer les catégories existantes
+  const editCatsCard=document.createElement('div');
+  editCatsCard.className='acard';
+  editCatsCard.innerHTML='<div class="acard-title">✏️ Modifier les catégories</div>';
+  DB.cats.forEach(cat=>{
+    const row=document.createElement('div');
+    row.className='arow'; row.style.flexWrap='wrap'; row.style.gap='6px';
+    row.innerHTML=`
+      <div class="col-swatch" style="background:${cat.color||'#555'};cursor:pointer;" onclick="document.getElementById('catcolor-${cat.id}').click()"></div>
+      <input type="color" id="catcolor-${cat.id}" value="${cat.color||'#555555'}" style="display:none;"
+        onchange="updCat('${cat.id}','color',this.value)">
+      <input class="ainput" style="flex:1;min-width:140px;" value="${cat.label}"
+        onchange="updCat('${cat.id}','label',this.value)" placeholder="Nom de la catégorie">
+      <select class="aselect" onchange="updCat('${cat.id}','color',this.value)"
+        style="font-size:11px;padding:4px 6px;">
+        <option value="">Couleur...</option>
+        ${['#2980B9','#8E44AD','#D35400','#F39C12','#922B21','#1ABC9C','#27AE60','#E74C3C','#1A5276','#6D4C41','#2C3E50','#B7950B'].map(c=>`<option value="${c}" style="background:${c};color:white;"${cat.color===c?' selected':''}>${c}</option>`).join('')}
+      </select>`;
+    editCatsCard.appendChild(row);
+  });
+  body.appendChild(editCatsCard);
+
+  // Ajouter sous-catégorie
+  const addCard=document.createElement('div');
+  addCard.className='acard';
+  addCard.innerHTML=`<div class="acard-title">➕ Nouvelle sous-catégorie</div>
+    <div class="arow"><div class="arow-info">Dans la catégorie</div>
+      <select class="aselect" id="new-subcat-cat">
+        ${DB.cats.map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="arow"><div class="arow-info">Nom de la sous-catégorie</div>
+      <input class="ainput ainput-w120" id="new-subcat-name" placeholder="Ex: Vins naturels">
+    </div>
+    <button class="abtn abtn-primary add-btn" onclick="addSubcat()" style="margin-top:8px;">+ Ajouter</button>`;
+  body.appendChild(addCard);
+
+  // Liste des catégories avec leurs sous-catégories
+  DB.cats.forEach(cat=>{
+    const card=document.createElement('div');
+    card.className='acard';
+    card.innerHTML=`<div class="acard-title" style="color:${cat.color||'#555'}">${cat.label}</div>`;
+
+    if(!cat.subcats||!cat.subcats.length){
+      const empty=document.createElement('div');
+      empty.style.cssText='font-size:12px;color:var(--mid);padding:8px 0;';
+      empty.textContent='Aucune sous-catégorie — les produits s'affichent sans regroupement';
+      card.appendChild(empty);
+    } else {
+      const list=document.createElement('div');
+      list.id='sublist-'+cat.id;
+      list.style.cssText='display:flex;flex-direction:column;gap:2px;';
+      cat.subcats.forEach((sub,idx)=>{
+        const row=document.createElement('div');
+        row.className='arow draggable';
+        row.draggable=true;
+        row.dataset.catId=cat.id;
+        row.dataset.subIdx=idx;
+        row.style.cssText='background:var(--cream);border-radius:8px;padding:6px 10px;cursor:grab;';
+        row.innerHTML=`
+          <span style="font-size:18px;color:var(--mid);margin-right:6px;">⠿</span>
+          <input class="ainput" style="flex:1;font-size:13px;" value="${sub.label}"
+            onchange="renameSubcat('${cat.id}','${sub.id}',this.value)">
+          <button class="abtn abtn-danger" style="padding:4px 8px;font-size:11px;margin-left:6px;"
+            onclick="deleteSubcat('${cat.id}','${sub.id}')">✕</button>`;
+        // Drag events
+        row.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',JSON.stringify({catId:cat.id,idx}));row.classList.add('dragging');});
+        row.addEventListener('dragend',()=>row.classList.remove('dragging'));
+        row.addEventListener('dragover',e=>{e.preventDefault();row.classList.add('drag-over');});
+        row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
+        row.addEventListener('drop',e=>{
+          e.preventDefault();row.classList.remove('drag-over');
+          const data=JSON.parse(e.dataTransfer.getData('text/plain'));
+          if(data.catId!==cat.id)return;
+          const fromIdx=data.idx, toIdx=idx;
+          if(fromIdx===toIdx)return;
+          const subs=cat.subcats;
+          const [moved]=subs.splice(fromIdx,1);
+          subs.splice(toIdx,0,moved);
+          saveDB();
+          showTab('cats');
+        });
+        list.appendChild(row);
+      });
+      card.appendChild(list);
+    }
+    body.appendChild(card);
+  });
+}
+
+function updCat(catId, field, val){
+  const cat=DB.cats.find(c=>c.id===catId);
+  if(!cat||!val.trim())return;
+  cat[field]=val;
+  saveDB();
+  // Mettre à jour le swatch couleur si color changé
+  if(field==='color'){
+    const swatch=document.querySelector(`[onclick="document.getElementById('catcolor-${catId}').click()"]`);
+    if(swatch)swatch.style.background=val;
+  }
+}
+
+function addSubcat(){
+  const catId=document.getElementById('new-subcat-cat').value;
+  const name=document.getElementById('new-subcat-name').value.trim();
+  if(!name){alert('Nom obligatoire.');return;}
+  const cat=DB.cats.find(c=>c.id===catId);
+  if(!cat)return;
+  if(!cat.subcats)cat.subcats=[];
+  const id='sub-'+uid();
+  cat.subcats.push({id,label:name});
+  saveDB();
+  showTab('cats');
+}
+
+function renameSubcat(catId,subId,name){
+  const cat=DB.cats.find(c=>c.id===catId);
+  if(!cat)return;
+  const sub=cat.subcats?.find(s=>s.id===subId);
+  if(sub&&name.trim()){sub.label=name.trim();saveDB();}
+}
+
+function deleteSubcat(catId,subId){
+  if(!confirm('Supprimer cette sous-catégorie ? Les produits resteront dans la catégorie principale.'))return;
+  const cat=DB.cats.find(c=>c.id===catId);
+  if(!cat)return;
+  cat.subcats=cat.subcats.filter(s=>s.id!==subId);
+  // Réassigner les produits de cette sous-cat
+  DB.products.filter(p=>p.cat===catId&&p.sub===subId).forEach(p=>p.sub='');
+  saveDB();
+  showTab('cats');
+}
+
 // ── Onglet Fournisseurs ──
 function renderAdminFournisseurs(body){
   body.innerHTML='';
@@ -1147,13 +1286,17 @@ function renderAdminAcces(body){
     row.innerHTML=`
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <strong style="font-size:14px;">${user.name}</strong>
+          <input class="ainput" style="flex:1;font-weight:600;" value="${user.name}"
+            onchange="updUser('${pin}','name',this.value)" placeholder="Prénom">
           <input class="ainput ainput-w70" type="text" value="${pin}" maxlength="4" inputmode="numeric"
             onchange="changePIN('${pin}',this.value)" style="letter-spacing:3px;">
         </div>
-        <div style="font-size:11px;color:var(--mid);">Catégories : ${user.cats.map(c=>DB.cats.find(cat=>cat.id===c)?.label||c).join(', ')}</div>
+        <div style="font-size:10px;color:var(--mid);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Catégories accessibles</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          ${DB.cats.map(c=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" value="${c.id}" ${user.cats.includes(c.id)?'checked':''} onchange="toggleUserCat('${pin}','${c.id}',this.checked)"> ${c.label}</label>`).join('')}
+        </div>
       </div>
-      <button class="abtn abtn-danger" style="padding:5px 8px;font-size:11px;align-self:flex-start;" onclick="deleteUser('${pin}')">✕</button>`;
+      <button class="abtn abtn-danger" style="padding:5px 8px;font-size:11px;align-self:flex-start;margin-top:4px;" onclick="deleteUser('${pin}')">✕</button>`;
     listCard.appendChild(row);
   });
   body.appendChild(listCard);
@@ -1171,6 +1314,18 @@ function addUser(){
   DB.users[pin]={name,cats};
   saveDB();
   showTab('acces');
+}
+
+function updUser(pin,field,val){
+  if(DB.users[pin])DB.users[pin][field]=val;
+  saveDB();
+}
+
+function toggleUserCat(pin,catId,checked){
+  const user=DB.users[pin];if(!user)return;
+  if(checked){if(!user.cats.includes(catId))user.cats.push(catId);}
+  else{user.cats=user.cats.filter(c=>c!==catId);}
+  saveDB();
 }
 
 function changePIN(oldPin,newPin){
@@ -1193,6 +1348,29 @@ function deleteUser(pin){
 // ── Onglet Config ──
 function renderAdminConfig(body){
   body.innerHTML='';
+
+  // Partage config
+  const shareCard=document.createElement('div');
+  shareCard.className='acard';
+  shareCard.innerHTML=`<div class="acard-title">🔗 Sauvegarder & Partager la config</div>
+    <p style="font-size:12px;color:var(--mid);margin-bottom:12px;">Génère un lien contenant toute ta configuration (fournisseurs, produits, seuils, utilisateurs). Ouvre ce lien sur n'importe quel appareil pour restaurer ta config.</p>
+    <button class="abtn abtn-primary" style="width:100%;padding:12px;margin-bottom:8px;" onclick="shareConfig()">📤 Générer le lien de partage</button>
+    <div id="share-result" style="display:none;margin-top:8px;">
+      <textarea id="share-url" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:8px;font-size:11px;background:var(--cream);min-height:60px;word-break:break-all;" readonly></textarea>
+      <button class="abtn abtn-success" style="width:100%;margin-top:6px;padding:10px;" onclick="copyShareLink()">📋 Copier le lien</button>
+    </div>`;
+  body.appendChild(shareCard);
+
+  // Restaurer config depuis lien
+  const restoreCard=document.createElement('div');
+  restoreCard.className='acard';
+  restoreCard.innerHTML=`<div class="acard-title">📥 Restaurer une config</div>
+    <p style="font-size:12px;color:var(--mid);margin-bottom:10px;">Collez ici un lien de partage pour restaurer une configuration.</p>
+    <textarea id="restore-url" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:8px;font-size:11px;background:var(--cream);min-height:60px;" placeholder="Collez le lien ici..."></textarea>
+    <button class="abtn abtn-primary" style="width:100%;margin-top:8px;padding:10px;" onclick="restoreConfig()">↺ Restaurer cette config</button>`;
+  body.appendChild(restoreCard);
+
+  // Config générale
   const card=document.createElement('div');
   card.className='acard';
   card.innerHTML=`<div class="acard-title">⚙️ Configuration générale</div>
@@ -1203,6 +1381,40 @@ function renderAdminConfig(body){
       <button class="abtn abtn-danger" onclick="resetAll()" style="width:100%;padding:12px;">↺ Réinitialiser toute la configuration</button>
     </div>`;
   body.appendChild(card);
+}
+
+function shareConfig(){
+  try {
+    const json=JSON.stringify(DB);
+    const b64=btoa(unescape(encodeURIComponent(json)));
+    const url=window.location.href.split('?')[0]+'?cfg='+b64;
+    document.getElementById('share-url').value=url;
+    document.getElementById('share-result').style.display='';
+  } catch(e){ alert('Erreur lors de la génération du lien : '+e.message); }
+}
+
+function copyShareLink(){
+  const ta=document.getElementById('share-url');
+  ta.select();
+  try{ document.execCommand('copy'); alert('Lien copié !'); }
+  catch(e){ navigator.clipboard?.writeText(ta.value).then(()=>alert('Lien copié !')); }
+}
+
+function restoreConfig(){
+  const url=document.getElementById('restore-url').value.trim();
+  if(!url){alert('Collez un lien de partage.');return;}
+  try {
+    const b64=new URL(url).searchParams.get('cfg');
+    if(!b64){alert('Lien invalide.');return;}
+    const json=decodeURIComponent(escape(atob(b64)));
+    const parsed=JSON.parse(json);
+    if(!parsed.suppliers||!parsed.products){alert('Config invalide.');return;}
+    if(!confirm('Remplacer toute la configuration actuelle par celle du lien ?'))return;
+    DB=parsed;
+    saveDB();
+    alert('Configuration restaurée avec succès !');
+    showTab('config');
+  } catch(e){ alert('Erreur de restauration : '+e.message); }
 }
 
 function resetAll(){
@@ -1216,6 +1428,24 @@ function resetAll(){
 // ══════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════
+// Charger config depuis URL si présente
+(function(){
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const cfg=params.get('cfg');
+    if(cfg){
+      const json=decodeURIComponent(escape(atob(cfg)));
+      const parsed=JSON.parse(json);
+      if(parsed.suppliers&&parsed.products){
+        if(confirm('Un lien de configuration a été détecté. Voulez-vous restaurer cette configuration ?')){
+          DB=parsed; saveDB();
+          window.history.replaceState({},'',window.location.pathname);
+        }
+      }
+    }
+  }catch(e){}
+})();
+
 currentDay=effectiveDay();
 document.querySelectorAll('.day-btn').forEach((b,i)=>b.classList.toggle('active',DAY_ORDER[i]===currentDay));
 document.getElementById('day-badge').textContent=DAYS_FR[currentDay];
