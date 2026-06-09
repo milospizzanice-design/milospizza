@@ -820,14 +820,19 @@ function buildRecap(sup){
     const rups=DB.products.filter(p=>p.sup==='dabray'&&p.metroFallback&&(STATE[p.id]??'ok')==='rup');
     if(rups.length){html+=`<div class="rsup" style="color:#922B21">⚡ Ruptures Dabray → Metro</div>`;rups.forEach(p=>html+=`<span class="rorder">● ${p.name}</span> → prévoir<br>`);}
   }
+  // Ruptures via fournisseurs custom viaDabray
+  Object.entries(DB.suppliers).filter(([id,s])=>s.viaDabray&&id!=='metro'&&(sup==='all'||sup===id)).forEach(([supId,s])=>{
+    const supProds=DB.products.filter(p=>p.sup===supId);
+    const rups=supProds.filter(p=>(STATE[p.id]??'ok')==='rup'||(STATE[p.id]??'ok')==='low');
+    if(rups.length){html+=`<div class="rsup" style="color:${s.color}">⚡ Ruptures → ${s.name} (via Dabray)</div>`;rups.forEach(p=>html+=`<span class="rorder">● ${p.name}</span> → prévoir<br>`);}
+  });
   return html||'<em style="color:#999">Aucune commande</em>';
 }
 
 function buildWA(sup){
   const emp=currentUser?.name||'—';
   const date=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  const viaD=['carrefour','pelleor','cash','idpro','truffe'];
-  const isVia=viaD.includes(sup);
+  const isVia=sup!=='all'&&(DB.suppliers[sup]?.viaDabray||['carrefour','pelleor','cash','idpro','truffe'].includes(sup));
   let msg=isVia?`🛒 COMMANDE ${(DB.suppliers[sup]?.name||sup).split('→')[0].trim().toUpperCase()}\n👤 ${emp} · 📅 ${date}\nDabray, merci de prévoir :\n─────────────────────\n`:`📋 COMMANDE ${(DB.suppliers[sup]?.name||sup).toUpperCase()}\n👤 ${emp} · 📅 ${date}\n─────────────────────\n`;
   const prods=sup==='all'?DB.products:DB.products.filter(p=>p.sup===sup);
   let lastSup='',hasLines=false;
@@ -948,7 +953,8 @@ function renderAdminProduits(body){
       row.className='arow'; row.style.flexWrap='wrap'; row.style.gap='6px';
       row.innerHTML=`
         <div class="arow-info" style="flex:1;min-width:120px;">
-          ${p.name}<br>
+          <input class="ainput" style="width:100%;margin-bottom:4px;font-size:12px;" value="${p.name}" 
+            onchange="changeProdName('${p.id}',this.value)">
           <div class="arow-sub">
             <select class="aselect" style="font-size:10px;" onchange="changeSup('${p.id}',this.value)">
               ${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}"${id===p.sup?' selected':''}>${s.name}</option>`).join('')}
@@ -1003,6 +1009,10 @@ function deleteProduct(id){
   showTab('produits');
 }
 
+function changeProdName(id,name){
+  const p=DB.products.find(p=>p.id===id);
+  if(p&&name.trim()){p.name=name.trim();saveDB();}
+}
 function changeSup(id,supId){
   const p=DB.products.find(p=>p.id===id);
   if(p){p.sup=supId;saveDB();}
@@ -1034,6 +1044,15 @@ function renderAdminFournisseurs(body){
     </div>
     <div class="arow"><div class="arow-info">Heure début journée</div><input class="ainput ainput-w52" id="new-sdaystart" type="number" value="8" min="0" max="23">h</div>
     <div class="arow"><div class="arow-info">Heure fin journée</div><input class="ainput ainput-w52" id="new-sdayend" type="number" value="5" min="0" max="12">h (lendemain)</div>
+    <div class="arow" style="flex-direction:column;align-items:flex-start;gap:6px;">
+      <div class="arow-info">Mode de commande</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
+        <input type="radio" name="new-smode" value="direct" checked> Commande directe au fournisseur
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
+        <input type="radio" name="new-smode" value="via_dabray"> Via Dabray (si rupture Dabray → incrémente commande Dabray→fournisseur)
+      </label>
+    </div>
     <button class="abtn abtn-primary add-btn" onclick="addSupplier()" style="margin-top:10px;">+ Ajouter ce fournisseur</button>`;
   body.appendChild(addCard);
 
@@ -1053,6 +1072,13 @@ function renderAdminFournisseurs(body){
         </div>
         <input class="ainput ainput-full" value="${sup.wa}" placeholder="Contact WA" style="margin-bottom:4px;" onchange="updSup('${id}','wa',this.value)">
         <div class="day-tags">${dayTags}</div>
+        <div style="margin-top:5px;display:flex;gap:8px;align-items:center;">
+          <span style="font-size:10px;color:var(--mid);">Mode:</span>
+          <select class="aselect" style="font-size:10px;" onchange="updSup('${id}','viaDabray',this.value==='via_dabray')">
+            <option value="direct"${!sup.viaDabray?' selected':''}>Commande directe</option>
+            <option value="via_dabray"${sup.viaDabray?' selected':''}>Via Dabray</option>
+          </select>
+        </div>
       </div>
       <button class="abtn abtn-danger" style="padding:5px 8px;font-size:11px;align-self:flex-start;" onclick="deleteSupplier('${id}')">✕</button>`;
     listCard.appendChild(row);
@@ -1070,8 +1096,10 @@ function addSupplier(){
   const days=[...document.querySelectorAll('#new-sdays .dtag.on')].map(t=>parseInt(t.dataset.day));
   const dayStart=parseInt(document.getElementById('new-sdaystart').value)||8;
   const dayEnd=parseInt(document.getElementById('new-sdayend').value)||5;
+  const modeEl=document.querySelector('input[name="new-smode"]:checked');
+  const viaDabray=modeEl?modeEl.value==='via_dabray':false;
   const id='sup-'+uid();
-  DB.suppliers[id]={name,color,wa,days,dayStart,dayEnd};
+  DB.suppliers[id]={name,color,wa,days,dayStart,dayEnd,viaDabray};
   saveDB();
   showTab('fournisseurs');
 }
