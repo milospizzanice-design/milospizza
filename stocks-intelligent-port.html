@@ -543,6 +543,11 @@ function getS(p){
   if(o?.sDay && o.sDay[currentDay]!==undefined) return o.sDay[currentDay];
   if(p.s && p.s[currentDay]!==undefined) return p.s[currentDay];
   if(o?.sDefault!==undefined) return o.sDefault;
+  // Valeurs par défaut selon levelType pour two/level
+  if(p.type==='two'||p.type==='level'){
+    const lt=p.levelType;
+    return lt==='third'?0.33:lt==='twothird'?0.67:lt==='threequarter'?0.75:0.5;
+  }
   return p.sDefault??1;
 }
 function getC(p){
@@ -681,36 +686,67 @@ function buildRow(p){
   const sup=DB.suppliers[p.sup];
   const color=sup?.color||'#999';
   const s=getS(p), c=getC(p), colis=getColisQty(p);
-
+  const ptype=DB.overrides[p.id]?.type||p.type;
   let ctrl='', meta='';
 
-  if(p.type==='qty'){
-    const colisLabel=colis>1?` · colis de ${colis}`:' · à l\'unité';
+  // ── MODE 1 : Seuil simple ──
+  if(ptype==='threshold'){
+    meta=`Si < ${s}${p.unit&&p.unit!=='—'?' '+p.unit:''} → Commander`;
+    const v=STATE[p.id]??'ok';
+    ctrl=`<div class="two-tog">
+      <button class="tbtn${v==='ok'?' t-ok':''}" onclick="setTwo('${p.id}','ok')">✓ ≥${s}</button>
+      <button class="tbtn${v==='cmd'?' t-cmd':''}" onclick="setTwo('${p.id}','cmd')">✗ <${s}</button>
+    </div><span class="pill" id="pi-${p.id}">—</span>`;
+
+  // ── MODE 2 : Quantité exacte ──
+  } else if(ptype==='qty'){
+    const colisLabel=colis>1?` · colis ×${colis}`:'';
     meta=`Seuil:${s} · Cible:${c}${colisLabel}`;
     const v=STATE[p.id]??0;
     ctrl=`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-      <div class="qty-ctrl"><button class="qbtn" onclick="adjP('${p.id}',-1)">−</button><input class="qin" id="si-${p.id}" type="number" value="${v}" min="0" oninput="onIn('${p.id}')"><button class="qbtn" onclick="adjP('${p.id}',1)">+</button></div>
+      <div class="qty-ctrl"><button class="qbtn" onclick="adjP('${p.id}',-1)">−</button><input class="qin" id="si-${p.id}" type="number" value="${v}" min="0" step="0.25" oninput="onIn('${p.id}')"><button class="qbtn" onclick="adjP('${p.id}',1)">+</button></div>
       <div style="font-size:9px;color:var(--mid)">En stock</div>
     </div><span class="pill" id="pi-${p.id}">—</span>`;
-  } else if(p.type==='two'){
-    const thresh=p.levelType==='half'?'½':p.levelType==='third'?'⅓':'¾';
-    meta=`Commander si < ${thresh}`;
-    const v=STATE[p.id]??'ok';
-    ctrl=`<div class="two-tog"><button class="tbtn${v==='ok'?' t-ok':''}" onclick="setTwo('${p.id}','ok')">≥${thresh}</button><button class="tbtn${v==='cmd'?' t-cmd':''}" onclick="setTwo('${p.id}','cmd')"><${thresh} Cmd</button></div><span class="pill" id="pi-${p.id}">—</span>`;
-  } else if(p.type==='level'){
-    const lt=p.levelType;
+
+  // ── MODE 3 : Niveau visuel ──
+  } else if(ptype==='two'){
+    const lt=DB.overrides[p.id]?.levelType||p.levelType||'half';
     const thresh=lt==='half'?'½':lt==='third'?'⅓':lt==='twothird'?'⅔':'¾';
-    meta=`Commander si < ${thresh}`;
+    meta=`Cmd si < ${thresh}`;
     const v=STATE[p.id]??'ok';
-    ctrl=`<div class="lvl-tog"><button class="lbtn${v==='ok'?' lv-ok':''}" onclick="setLvl('${p.id}','ok')">OK</button><button class="lbtn${v==='low'?' lv-low':''}" onclick="setLvl('${p.id}','low')">≤${thresh}</button><button class="lbtn${v==='out'?' lv-out':''}" onclick="setLvl('${p.id}','out')">Vide</button></div><span class="pill" id="pi-${p.id}">—</span>`;
-  } else if(p.type==='yn'){
-    meta=p.monthlyOnly?'Rappel mensuel':'Commander si absent';
+    ctrl=`<div class="two-tog">
+      <button class="tbtn${v==='ok'?' t-ok':''}" onclick="setTwo('${p.id}','ok')">≥${thresh} OK</button>
+      <button class="tbtn${v==='cmd'?' t-cmd':''}" onclick="setTwo('${p.id}','cmd')"><${thresh} Cmd</button>
+    </div><span class="pill" id="pi-${p.id}">—</span>`;
+  } else if(ptype==='level'){
+    const lt=DB.overrides[p.id]?.levelType||p.levelType||'half';
+    const thresh=lt==='half'?'½':lt==='third'?'⅓':lt==='twothird'?'⅔':'¾';
+    meta=`Cmd si < ${thresh}`;
+    const v=STATE[p.id]??'ok';
+    ctrl=`<div class="lvl-tog">
+      <button class="lbtn${v==='ok'?' lv-ok':''}" onclick="setLvl('${p.id}','ok')">OK</button>
+      <button class="lbtn${v==='low'?' lv-low':''}" onclick="setLvl('${p.id}','low')">≤${thresh}</button>
+      <button class="lbtn${v==='out'?' lv-out':''}" onclick="setLvl('${p.id}','out')">Vide</button>
+    </div><span class="pill" id="pi-${p.id}">—</span>`;
+
+  // ── MODE 4 : Présent / Absent ──
+  } else if(ptype==='yn'){
+    meta=p.monthlyOnly?'Rappel mensuel':'Présent ou absent ?';
     const v=STATE[p.id]??'oui';
-    ctrl=`<div class="yn-tog"><button class="ybtn${v==='oui'?' y-ok':''}" onclick="setYN('${p.id}','oui')">✓ OK</button><button class="ybtn${v==='non'?' y-cmd':''}" onclick="setYN('${p.id}','non')">✗ Cmd</button></div>`;
-  } else if(p.type==='rupture'){
-    meta='Dabray · Stock bas ou rupture';
+    ctrl=`<div class="yn-tog">
+      <button class="ybtn${v==='oui'?' y-ok':''}" onclick="setYN('${p.id}','oui')">✓ Présent</button>
+      <button class="ybtn${v==='non'?' y-cmd':''}" onclick="setYN('${p.id}','non')">✗ Absent</button>
+    </div>`;
+
+  // ── RUPTURE Dabray ──
+  } else if(ptype==='rupture'){
+    meta='Dabray · signaler le statut';
     const v=STATE[p.id]??'ok';
-    ctrl=`<div class="rup-tog"><button class="rbtn${v==='ok'?' r-ok':''}" onclick="setRup('${p.id}','ok')">✓ OK</button><button class="rbtn${v==='low'?' r-low':''}" onclick="setRup('${p.id}','low')">Bas</button><button class="rbtn${v==='rup'?' r-rup':''}" onclick="setRup('${p.id}','rup')">🔴 Rupt.</button></div>`;
+    ctrl=`<div class="rup-tog">
+      <button class="rbtn${v==='ok'?' r-ok':''}" onclick="setRup('${p.id}','ok')">✓ OK</button>
+      <button class="rbtn${v==='low'?' r-low':''}" onclick="setRup('${p.id}','low')">Bas</button>
+      <button class="rbtn${v==='rup'?' r-rup':''}" onclick="setRup('${p.id}','rup')">🔴 Rupt.</button>
+    </div>`;
   }
 
   const row=document.createElement('div');
@@ -719,49 +755,12 @@ function buildRow(p){
     <div class="sup-dot" style="background:${color}"></div>
     <div class="pinfo">
       <div class="pname">${p.name}</div>
-      <div class="pmeta"><span class="sup-tag" style="background:${color}">${(sup?.name||p.sup).split('→')[0].trim().split(' ')[0]}</span>${p.unit&&p.unit!=='—'?'· '+p.unit:''}${meta?' · '+meta:''}</div>
+      <div class="pmeta"><span class="sup-tag" style="background:${color}">${(sup?.name||p.sup).split('→')[0].trim().split(' ')[0]}</span>${p.unit&&p.unit!=='—'?' · '+p.unit:''}${meta?' · '+meta:''}</div>
     </div>
     <div class="pwrap">${ctrl}</div>`;
   return row;
 }
 
-// ══════════════════════════════════════════════════════
-// CONTRÔLES
-// ══════════════════════════════════════════════════════
-function adjP(id,d){const el=document.getElementById('si-'+id);if(!el)return;el.value=Math.max(0,parseFloat(el.value||0)+d);STATE[id]=parseFloat(el.value);recalc();}
-function onIn(id){const el=document.getElementById('si-'+id);if(el)STATE[id]=parseFloat(el.value||0);recalc();}
-function setTwo(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){r.querySelectorAll('.tbtn').forEach((b,i)=>b.className='tbtn'+(i===0&&v==='ok'?' t-ok':i===1&&v==='cmd'?' t-cmd':''));}recalc();}
-function setLvl(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.lbtn');bs[0].className='lbtn'+(v==='ok'?' lv-ok':'');bs[1].className='lbtn'+(v==='low'?' lv-low':'');bs[2].className='lbtn'+(v==='out'?' lv-out':'');}recalc();}
-function setYN(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.ybtn');bs[0].className='ybtn'+(v==='oui'?' y-ok':'');bs[1].className='ybtn'+(v==='non'?' y-cmd':'');}recalc();}
-function setRup(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.rbtn');bs[0].className='rbtn'+(v==='ok'?' r-ok':'');bs[1].className='rbtn'+(v==='low'?' r-low':'');bs[2].className='rbtn'+(v==='rup'?' r-rup':'');}recalc();}
-
-// ══════════════════════════════════════════════════════
-// STATUT & RECALCUL
-// ══════════════════════════════════════════════════════
-function getStatus(p){
-  const v=STATE[p.id];
-  if(p.type==='qty'){
-    const stock=parseFloat(v??0), s=getS(p), c=getC(p), colis=getColisQty(p);
-    if(stock<s){
-      const diff=c-stock;
-      const n=Math.ceil(diff/colis);
-      const label=colis>1?`${n} colis de ${colis} ${p.unit}`:`Cmd ${diff} ${p.unit}`;
-      return{order:true,label};
-    }
-    if(stock<=s*1.3)return{warn:true,label:'Stock bas'};
-    return{ok:true,label:'✓ OK'};
-  }
-  if(p.type==='two'){const cur=v??'ok';return cur==='cmd'?{order:true,label:'Commander'}:{ok:true,label:'✓ OK'};}
-  if(p.type==='level'){const cur=v??'ok';if(cur==='out'||cur==='low')return{order:true,label:'Commander'};return{ok:true,label:'✓ OK'};}
-  if(p.type==='yn'){return(v??'oui')==='non'?{order:true,label:'Commander'}:{ok:true,label:'✓ OK'};}
-  if(p.type==='rupture'){
-    const cur=v??'ok';
-    if(cur==='rup')return{rupture:true,label:'🔴 RUPTURE'};
-    if(cur==='low')return{warn:true,label:'Stock bas'};
-    return{ok:true,label:'✓ OK'};
-  }
-  return{ok:true,label:'✓ OK'};
-}
 
 function recalc(){
   const counts={};Object.keys(DB.suppliers).forEach(s=>counts[s]=0);
@@ -933,11 +932,12 @@ function renderAdminProduits(body){
     <div class="arow"><div class="arow-info">Unité</div><input class="ainput ainput-w120" id="new-punit" placeholder="bouteille, bac..."></div>
     <div class="arow"><div class="arow-info">Type de contrôle</div>
       <select class="aselect" id="new-ptype">
-        <option value="qty">Quantité (seuil/cible)</option>
-        <option value="two">Niveau ½</option>
-        <option value="level">Niveau ⅓/⅔/¾</option>
-        <option value="yn">Oui / Non</option>
-        <option value="rupture">Rupture Dabray</option>
+        <option value="threshold">🟡 Seuil simple (OK / Commander)</option>
+        <option value="qty">🔢 Quantité exacte (compter)</option>
+        <option value="two">👁 Niveau ½ (boutons visuels)</option>
+        <option value="level">👁 Niveau ⅓/⅔/¾ (boutons visuels)</option>
+        <option value="yn">✓✗ Présent / Absent</option>
+        <option value="rupture">🔴 Rupture Dabray</option>
       </select></div>
     <div id="new-qty-fields">
       <div class="arow"><div class="arow-info">Seuil</div><input class="ainput ainput-w52" id="new-ps" type="number" value="1" step="0.5" min="0"></div>
@@ -966,7 +966,13 @@ function renderAdminProduits(body){
 
     catProds.forEach(p=>{
       const o=DB.overrides[p.id]||{};
-      const sVal=o.sDefault??p.sDefault??1;
+      // Valeur par défaut seuil selon type
+      let defS=p.sDefault;
+      if(defS===undefined){
+        const lt=p.levelType;
+        defS=lt==='third'?0.33:lt==='twothird'?0.67:lt==='threequarter'?0.75:0.5;
+      }
+      const sVal=o.sDefault??defS??1;
       const cVal=o.cDefault??p.cDefault??1;
       const colisVal=o.colisQty??p.colisQty??1;
       const sup=DB.suppliers[p.sup];
@@ -976,20 +982,25 @@ function renderAdminProduits(body){
         <div class="arow-info" style="flex:1;min-width:120px;">
           <input class="ainput" style="width:100%;margin-bottom:4px;font-size:12px;" value="${p.name}" 
             onchange="changeProdName('${p.id}',this.value)">
-          <div class="arow-sub">
+          <div class="arow-sub" style="display:flex;flex-direction:column;gap:3px;margin-top:3px;">
             <select class="aselect" style="font-size:10px;" onchange="changeSup('${p.id}',this.value)">
               ${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}"${id===p.sup?' selected':''}>${s.name}</option>`).join('')}
             </select>
+            <select class="aselect" style="font-size:10px;" onchange="changeProdSub('${p.id}',this.value)">
+              <option value="">— pas de sous-cat —</option>
+              ${(DB.cats.find(c=>c.id===p.cat)?.subcats||[]).map(s=>`<option value="${s.id}"${s.id===p.sub?' selected':''}>${s.label}</option>`).join('')}
+            </select>
+            <select class="aselect" style="font-size:10px;" onchange="changeProdType('${p.id}',this.value)">
+              ${[['threshold','🟡 Seuil simple (OK / Commander)'],['qty','🔢 Quantité exacte (compter)'],['two','👁 Niveau ½ (boutons visuels)'],['level','👁 Niveau ⅓/⅔/¾ (boutons visuels)'],['yn','✓✗ Présent / Absent'],['rupture','🔴 Rupture Dabray']].map(([v,l])=>`<option value="${v}"${(DB.overrides[p.id]?.type||p.type)===v?' selected':''}>${l}</option>`).join('')}
+            </select>
           </div>
         </div>
-        ${p.type==='qty'?`
         <div style="text-align:center"><div style="font-size:9px;color:var(--mid)">Seuil</div>
-          <input class="ainput ainput-w52" type="number" value="${sVal}" step="0.5" min="0" onchange="saveOvr('${p.id}','s',this.value)"></div>
+          <input class="ainput ainput-w52" type="number" value="${sVal}" step="0.25" min="0" onchange="saveOvr('${p.id}','s',this.value)"></div>
         <div style="text-align:center"><div style="font-size:9px;color:var(--mid)">Cible</div>
-          <input class="ainput ainput-w52" type="number" value="${cVal}" step="0.5" min="0" onchange="saveOvr('${p.id}','c',this.value)"></div>
-        <div style="text-align:center"><div style="font-size:9px;color:var(--mid)">Colis</div>
-          <input class="ainput ainput-w52" type="number" value="${colisVal}" step="1" min="1" onchange="saveOvr('${p.id}','colis',this.value)"></div>
-        `:''}
+          <input class="ainput ainput-w52" type="number" value="${cVal}" step="0.25" min="0" onchange="saveOvr('${p.id}','c',this.value)"></div>
+        ${p.type==='qty'?`<div style="text-align:center"><div style="font-size:9px;color:var(--mid)">Colis</div>
+          <input class="ainput ainput-w52" type="number" value="${colisVal}" step="1" min="1" onchange="saveOvr('${p.id}','colis',this.value)"></div>`:''}
         <button class="abtn abtn-danger" style="padding:5px 8px;font-size:11px;" onclick="deleteProduct('${p.id}')">✕</button>`;
       card.appendChild(row);
     });
@@ -1034,6 +1045,23 @@ function changeProdName(id,name){
   const p=DB.products.find(p=>p.id===id);
   if(p&&name.trim()){p.name=name.trim();saveDB();}
 }
+function changeProdSub(id,subId){
+  const p=DB.products.find(p=>p.id===id);
+  if(p){p.sub=subId;saveDB();}
+}
+
+function changeProdType(id,type){
+  const p=DB.products.find(p=>p.id===id);
+  if(!p)return;
+  // Stocker le type dans overrides pour ne pas modifier le type d'origine
+  if(!DB.overrides[id])DB.overrides[id]={};
+  DB.overrides[id].type=type;
+  if(DB.overrides[id].sDefault===undefined) DB.overrides[id].sDefault = p.sDefault??0.5;
+  if(DB.overrides[id].cDefault===undefined) DB.overrides[id].cDefault = p.cDefault??1;
+  saveDB();
+  showTab('produits');
+}
+
 function changeSup(id,supId){
   const p=DB.products.find(p=>p.id===id);
   if(p){p.sup=supId;saveDB();}
