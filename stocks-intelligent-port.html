@@ -472,7 +472,16 @@ const DEFAULT_DB = {
 };
 
 // ── INIT DB ──
-let DB = loadDB() || JSON.parse(JSON.stringify(DEFAULT_DB));
+let _loaded = loadDB();
+// Sanitiser : s'assurer que toutes les propriétés requises existent
+if(_loaded){
+  if(!_loaded.users || typeof _loaded.users !== 'object') _loaded.users = JSON.parse(JSON.stringify(DEFAULT_DB.users));
+  if(!_loaded.suppliers || typeof _loaded.suppliers !== 'object') _loaded.suppliers = JSON.parse(JSON.stringify(DEFAULT_DB.suppliers));
+  if(!_loaded.products || !Array.isArray(_loaded.products)) _loaded.products = JSON.parse(JSON.stringify(DEFAULT_DB.products));
+  if(!_loaded.cats || !Array.isArray(_loaded.cats)) _loaded.cats = JSON.parse(JSON.stringify(DEFAULT_DB.cats));
+  if(!_loaded.overrides) _loaded.overrides = {};
+}
+let DB = _loaded || JSON.parse(JSON.stringify(DEFAULT_DB));
 
 // ══════════════════════════════════════════════════════
 // HELPERS
@@ -561,22 +570,32 @@ function pClear(){ pinBuffer=''; updDots(); document.getElementById('pin-error')
 function updDots(){ for(let i=1;i<=4;i++) document.getElementById('pd'+i).classList.toggle('filled',i<=pinBuffer.length); }
 
 function checkPin(){
-  if(pinBuffer===ADMIN_PIN){
-    pinBuffer=''; updDots();
-    document.getElementById('pin-screen').style.display='none';
-    openAdmin(); return;
-  }
-  const user = DB.users[pinBuffer];
-  if(user){
-    currentUser=user;
-    document.getElementById('pin-screen').style.display='none';
-    const rb=document.getElementById('role-badge');
-    rb.textContent=user.name; rb.style.background='#444'; rb.style.color='white'; rb.style.display='inline-block';
-    document.getElementById('employe-display').textContent='';
-    document.getElementById('footer').style.display='';
-    setDay(currentDay);
-  } else {
-    document.getElementById('pin-error').textContent='Code incorrect — réessayez';
+  try{
+    if(pinBuffer===ADMIN_PIN){
+      pinBuffer=''; updDots();
+      document.getElementById('pin-screen').style.display='none';
+      openAdmin(); return;
+    }
+    if(!DB.users || typeof DB.users !== 'object'){
+      DB.users = JSON.parse(JSON.stringify(DEFAULT_DB.users));
+      saveDB();
+    }
+    const user = DB.users[pinBuffer];
+    if(user){
+      currentUser=user;
+      document.getElementById('pin-screen').style.display='none';
+      const rb=document.getElementById('role-badge');
+      rb.textContent=user.name; rb.style.background='#444'; rb.style.color='white'; rb.style.display='inline-block';
+      document.getElementById('employe-display').textContent='';
+      document.getElementById('footer').style.display='';
+      setDay(currentDay);
+    } else {
+      document.getElementById('pin-error').textContent='Code incorrect — réessayez';
+      pinBuffer=''; updDots();
+    }
+  }catch(e){
+    console.error('checkPin error:',e);
+    document.getElementById('pin-error').textContent='Erreur: '+e.message+' — videz le cache';
     pinBuffer=''; updDots();
   }
 }
@@ -1078,7 +1097,7 @@ function renderAdminCats(body){
     if(!cat.subcats||!cat.subcats.length){
       const empty=document.createElement('div');
       empty.style.cssText='font-size:12px;color:var(--mid);padding:8px 0;';
-      empty.textContent='Aucune sous-catégorie — les produits s'affichent sans regroupement';
+      empty.textContent="Aucune sous-catégorie — les produits s'affichent sans regroupement";
       card.appendChild(empty);
     } else {
       const list=document.createElement('div');
