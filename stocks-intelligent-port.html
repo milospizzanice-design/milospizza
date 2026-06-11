@@ -1186,15 +1186,15 @@ function startWizard(){
 
 
 function sendCurrent(){
-  closeModal();
-  detectAndSaveRuptures();
   if(currentSup==='all'){
-    // Construire la liste des fournisseurs actifs avec commandes
-    // Exclure les fournisseurs mergés dans Dabray (ils sont inclus dans Dabray)
+    closeModal();
+    detectAndSaveRuptures();
     startWizard();
   } else {
     const txt=buildWA(currentSup);
-    window.location.href='whatsapp://send?text='+encodeURIComponent(txt);
+    // Ouvrir WA avant de fermer le modal (iOS exige action directe dans le tap)
+    window.open('https://wa.me/?text='+encodeURIComponent(txt), '_blank');
+    closeModal();
   }
 }
 
@@ -1227,8 +1227,8 @@ function showWizardStep(){
     if(prog) prog.style.width=Math.round((wizardIdx+1)/total*100)+'%';
     if(btnWrap){
       // Lien direct — pas de window.location.href pour iOS
-      var url='whatsapp://send?text='+encodeURIComponent(step.txt);
-      btnWrap.innerHTML='<a href="'+url+'" id="wiz-wa-link" style="display:block;width:100%;background:#25D366;color:white;border:none;border-radius:13px;padding:14px;font-family:Bebas Neue,sans-serif;font-size:18px;letter-spacing:1.5px;cursor:pointer;text-align:center;text-decoration:none;margin-bottom:10px;">📤 OUVRIR WHATSAPP</a>';
+      var url='https://wa.me/?text='+encodeURIComponent(step.txt);
+      btnWrap.innerHTML='<a href="'+url+'" target="_blank" rel="noopener" id="wiz-wa-link" style="display:block;width:100%;background:#25D366;color:white;border:none;border-radius:13px;padding:14px;font-family:Bebas Neue,sans-serif;font-size:18px;letter-spacing:1.5px;cursor:pointer;text-align:center;text-decoration:none;margin-bottom:10px;">📤 OUVRIR WHATSAPP</a>';
       // Après clic → passer au suivant
       var link=document.getElementById('wiz-wa-link');
       if(link){
