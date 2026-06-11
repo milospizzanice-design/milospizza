@@ -165,44 +165,11 @@ header h1{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter
 .hidden{display:none!important;}
 
 /* ── RESPONSIVE ── */
-/* Mobile portrait (défaut) : déjà stylé */
-
-/* Mobile paysage + petite tablette */
-@media (min-width:600px){
-  .pin-card{max-width:380px;}
-  .modal{max-width:480px;}
-  .prow{padding:10px 18px;}
-  .sticky-footer{padding:6px 20px 8px;}
-}
-
-/* Tablette */
-@media (min-width:768px){
-  header{padding:10px 24px 8px;}
-  .day-selector{padding:8px 24px;}
-  .sec-hdr{top:68px;}
-  .container{padding:0 0 80px;max-width:700px;margin:0 auto;}
-  .sticky-footer{max-width:700px;left:50%;transform:translateX(-50%);}
-  .prow{padding:11px 20px;}
-  .admin-body{padding:20px;max-width:700px;margin:0 auto;}
-}
-
-/* Desktop */
-@media (min-width:1024px){
-  body{background:#F0EBE0;}
-  header,#pin-screen,#admin-screen,#import-screen{max-width:480px;left:50%;transform:translateX(-50%);border-radius:0;}
-  header{position:fixed;top:0;width:480px;}
-  .day-selector{max-width:480px;position:fixed;top:48px;left:50%;transform:translateX(-50%);z-index:99;width:480px;}
-  .container{max-width:480px;margin:0 auto;padding-top:4px;}
-  .sticky-footer{max-width:480px;left:50%;transform:translateX(-50%);border-radius:16px 16px 0 0;}
-  #modal,#wizard-modal,#rupture-alert,#dayrules-modal{max-width:480px;left:50%;transform:translateX(-50%);}
-}
-
-/* PWA standalone mode */
+/* PWA standalone : gérer les safe areas iOS/Android */
 @media all and (display-mode:standalone){
-  body{padding-top:env(safe-area-inset-top);}
-  header{padding-top:max(7px,env(safe-area-inset-top));}
-  .sticky-footer{padding-bottom:max(6px,env(safe-area-inset-bottom));}
-  .container{padding-bottom:calc(60px + env(safe-area-inset-bottom));}
+  body{padding-top:env(safe-area-inset-top,0px);}
+  .sticky-footer{padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));}
+  .container{padding-bottom:calc(60px + env(safe-area-inset-bottom,0px));}
 }
 </style>
 </head>
@@ -1095,32 +1062,35 @@ let wizardQueue=[];
 let wizardIdx=0;
 
 function startWizard(){
-  detectAndSaveRuptures();
-  // Construire la liste : tous fournisseurs actifs sauf ceux mergés dans Dabray
-  const allSups=Object.keys(DB.suppliers).filter(s=>{
-    if(DB.suppliers[s]?.mergeIntoDabray) return false;
-    return SUPS_ACTIVE_TODAY.includes(s);
-  });
-  wizardQueue=[];
-  allSups.forEach(s=>{
-    const txt=buildWA(s);
-    // Vérifier qu'il y a des articles à commander (bullet point dans le texte)
-    if(txt.includes('  • ')){
-      wizardQueue.push({
-        sup:s,
-        name:DB.suppliers[s]?.name||s,
-        color:DB.suppliers[s]?.color||'#25D366',
-        group:DB.suppliers[s]?.waGroup||DB.suppliers[s]?.wa||s,
-        txt:txt
-      });
+  try{
+    detectAndSaveRuptures();
+    // Prendre tous les fournisseurs visibles dans le footer (boutons actifs ou inactifs)
+    const allSups=Object.keys(DB.suppliers).filter(s=>!DB.suppliers[s]?.mergeIntoDabray);
+    wizardQueue=[];
+    allSups.forEach(s=>{
+      try{
+        const txt=buildWA(s);
+        if(txt&&txt.includes('  • ')){
+          wizardQueue.push({
+            sup:s,
+            name:DB.suppliers[s]?.name||s,
+            color:DB.suppliers[s]?.color||'#25D366',
+            group:DB.suppliers[s]?.waGroup||DB.suppliers[s]?.wa||s,
+            txt:txt
+          });
+        }
+      }catch(e){console.warn('buildWA error for',s,e);}
+    });
+    if(!wizardQueue.length){
+      alert('Aucune commande à envoyer — tous les stocks sont OK !');
+      return;
     }
-  });
-  if(!wizardQueue.length){
-    alert('Aucune commande à envoyer — tous les stocks sont OK !');
-    return;
+    wizardIdx=0;
+    showWizardStep();
+  }catch(e){
+    alert('Erreur : '+e.message);
+    console.error('startWizard error:',e);
   }
-  wizardIdx=0;
-  showWizardStep();
 }
 
 // Liste des fournisseurs actifs aujourd'hui (mise à jour dans renderDispatch)
@@ -1151,25 +1121,39 @@ function detectAndSaveRuptures(){
 }
 
 function showWizardStep(){
-  const step=wizardQueue[wizardIdx];
-  if(!step) return closeWizard();
-  const total=wizardQueue.length;
-  const wiz=document.getElementById('wizard-modal');
-  document.getElementById('wiz-counter').textContent=(wizardIdx+1)+'/'+total;
-  document.getElementById('wiz-sup-name').textContent=step.name;
-  document.getElementById('wiz-sup-name').style.color=step.color;
-  document.getElementById('wiz-group').textContent=step.group;
-  document.getElementById('wiz-progress').style.width=((wizardIdx+1)/total*100)+'%';
-  document.getElementById('wiz-send-btn').onclick=()=>{
-    window.location.href='whatsapp://send?text='+encodeURIComponent(step.txt);
-    // Après 2s, proposer de passer à la suivante
-    setTimeout(()=>{
-      wizardIdx++;
-      if(wizardIdx<wizardQueue.length) showWizardStep();
-      else closeWizard();
-    },2000);
-  };
-  wiz.style.display='flex';
+  try{
+    const step=wizardQueue[wizardIdx];
+    if(!step){closeWizard();return;}
+    const total=wizardQueue.length;
+    const wiz=document.getElementById('wizard-modal');
+    if(!wiz){alert('Erreur: modal wizard introuvable');return;}
+    const counter=document.getElementById('wiz-counter');
+    const supName=document.getElementById('wiz-sup-name');
+    const grp=document.getElementById('wiz-group');
+    const prog=document.getElementById('wiz-progress');
+    const btn=document.getElementById('wiz-send-btn');
+    if(counter)counter.textContent=(wizardIdx+1)+'/'+total;
+    if(supName){supName.textContent=step.name;supName.style.color=step.color;}
+    if(grp)grp.textContent=step.group||step.name;
+    if(prog)prog.style.width=Math.round((wizardIdx+1)/total*100)+'%';
+    if(btn){
+      // Cloner pour éviter les listeners multiples
+      const newBtn=btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn,btn);
+      newBtn.onclick=function(){
+        window.location.href='whatsapp://send?text='+encodeURIComponent(step.txt);
+        setTimeout(()=>{
+          wizardIdx++;
+          if(wizardIdx<wizardQueue.length)showWizardStep();
+          else closeWizard();
+        },2500);
+      };
+    }
+    wiz.style.display='flex';
+  }catch(e){
+    alert('Erreur wizard: '+e.message);
+    console.error(e);
+  }
 }
 
 function closeWizard(){
