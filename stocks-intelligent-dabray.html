@@ -3,7 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<script>if(window.navigator.standalone||window.matchMedia("(display-mode:standalone)").matches){var m=document.querySelector("meta[name=viewport]");if(m)m.content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover";}</script>
+<script>
+(function(){
+  // Forcer zoom=1 immédiatement, avant tout rendu
+  var ua=navigator.userAgent;
+  var isIOS=/iPad|iPhone|iPod/.test(ua);
+  var isStandalone=window.navigator.standalone===true;
+  var meta=document.querySelector('meta[name="viewport"]');
+  if(meta){
+    meta.content='width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover';
+  }
+  if(isIOS&&isStandalone){
+    // iOS standalone : forcer font-size base à 16px et bloquer l'auto-resize
+    document.documentElement.style.setProperty('-webkit-text-size-adjust','none','important');
+    document.documentElement.style.setProperty('text-size-adjust','none','important');
+  }
+})();
+</script>
 <title>Milo's Pizza · Stocks Dabray</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -164,6 +180,7 @@ header h1{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter
 .dtag{font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;cursor:pointer;border:1.5px solid var(--border);background:var(--cream);color:var(--mid);}
 .dtag.on{background:var(--dark);color:white;border-color:var(--dark);}
 .hidden{display:none!important;}
+html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 
 /* ── RESPONSIVE ── */
 /* PWA standalone : gérer les safe areas iOS/Android */
@@ -880,7 +897,13 @@ function recalc(){
     total+=counts[sup]||0;
   });
   const dcAll=document.getElementById('dc-all');if(dcAll)dcAll.textContent=total+' art.';
-  const dAll=document.getElementById('dbtn-all');if(dAll)dAll.classList.toggle('act',total>0);
+  const dAll=document.getElementById('dbtn-all');
+  if(dAll){
+    const hasOrders=total>0;
+    dAll.classList.toggle('act',hasOrders);
+    dAll.style.opacity=hasOrders?'1':'0.4';
+    dAll.style.cursor=hasOrders?'pointer':'default';
+  }
 }
 
 // ══ DISPATCH ══
@@ -1068,11 +1091,27 @@ let wizardQueue=[];
 let wizardIdx=0;
 
 function hasOrdersForSupplier(supId){
-  // Vérifie si un fournisseur a des produits à commander en utilisant getStatus()
+  // Lit les pills p-order dans le DOM — source de vérité après recalc()
   return DB.products.some(p=>{
     if(p.sup!==supId)return false;
-    const st=getStatus(p);
-    return st.order||st.rupture;
+    const pill=document.getElementById('pi-'+san(p.id));
+    return pill&&pill.classList.contains('p-order');
+  });
+}
+
+function hasAnyOrders(){
+  // Vérifie si au moins un fournisseur non-mergé a des commandes
+  return Object.keys(DB.suppliers).some(s=>{
+    if(DB.suppliers[s]?.mergeIntoDabray)return false;
+    // Pour dabray : inclure aussi les produits mergés
+    if(s==='dabray'){
+      return DB.products.some(p=>{
+        if(p.sup!=='dabray'&&!DB.suppliers[p.sup]?.mergeIntoDabray)return false;
+        const pill=document.getElementById('pi-'+san(p.id));
+        return pill&&pill.classList.contains('p-order');
+      });
+    }
+    return hasOrdersForSupplier(s);
   });
 }
 
@@ -1083,12 +1122,11 @@ function startWizard(){
     wizardQueue=[];
     allSups.forEach(s=>{
       try{
-        // Vérifier avec getStatus() direct — pas besoin des pills DOM
         const hasDirect=hasOrdersForSupplier(s);
-        // Pour Dabray : inclure aussi les produits Carrefour/Metro mergés
         const hasMerged=s==='dabray'&&DB.products.some(p=>{
           if(!DB.suppliers[p.sup]?.mergeIntoDabray)return false;
-          const st=getStatus(p);return st.order;
+          const pill=document.getElementById('pi-'+san(p.id));
+          return pill&&pill.classList.contains('p-order');
         });
         if(hasDirect||hasMerged){
           const txt=buildWA(s);
@@ -1713,6 +1751,20 @@ currentDay=effectiveDay();
 document.querySelectorAll('.day-btn').forEach((b,i)=>b.classList.toggle('active',DAY_ORDER[i]===currentDay));
 document.getElementById('day-badge').textContent=DAYS_FR[currentDay];
 checkFirstLaunch();
+
+// Fix zoom mode app iOS
+(function fixPWAZoom(){
+  function applyZoom(){
+    if(window.navigator.standalone||window.matchMedia('(display-mode:standalone)').matches){
+      document.documentElement.style.fontSize='15px';
+      // Forcer le viewport à ne pas zoomer
+      var vp=document.querySelector('meta[name=viewport]');
+      if(vp)vp.setAttribute('content','width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover');
+    }
+  }
+  applyZoom();
+  window.addEventListener('load',applyZoom);
+})();
 // Charger ruptures du jour
 activeRuptures=loadRuptures();
 
