@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Milo's Pizza · Stocks Port</title>
+<title>Milo's Pizza · Stocks Dabray</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -157,7 +157,7 @@ header h1{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
 </head>
 <body>
 <header>
-  <h1>🍕 Milo's Pizza · Stocks Port</h1>
+  <h1>🍕 Milo's Pizza · Stocks Dabray</h1>
   <div class="hrow">
     <span class="day-badge" id="day-badge">—</span>
     <span id="role-badge" class="role-badge"></span>
@@ -191,7 +191,7 @@ header h1{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
 </div>
 <!-- PIN -->
 <div id="pin-screen">
-  <div class="pin-logo">🍕 MILO'S PIZZA PORT</div>
+  <div class="pin-logo">🍕 MILO'S PIZZA DABRAY</div>
   <div class="pin-sub">Gestion des stocks · Port</div>
   <div class="pin-card">
     <div class="pin-title">ENTREZ VOTRE CODE PIN</div>
@@ -211,7 +211,7 @@ header h1{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
 <!-- ADMIN -->
 <div id="admin-screen">
   <div class="admin-header">
-    <h2>⚙️ Admin · Port</h2>
+    <h2>⚙️ Admin · Dabray</h2>
     <button class="abtn abtn-ghost" onclick="closeAdmin()">✕ Fermer</button>
   </div>
   <div class="admin-tabs">
@@ -238,8 +238,8 @@ header h1{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
 </div>
 <script>
 // ══ STORAGE ══
-const SK='mirceo_v2';
-const ADMIN_PIN='1704';
+const SK='mirceo_dabray_v1';
+const ADMIN_PIN='6934';
 function loadDB(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}return null;}
 function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){console.error('saveDB error',e);}}
 
@@ -259,9 +259,9 @@ const DEFAULT_DB={
     dabray:{name:'Dabray',color:'#922B21',wa:'Dabray (labo)',days:[0],dayStart:8,dayEnd:5},
   },
   users:{
-    '1734':{name:'Responsable Bar',cats:['boissons-emporter','boissons-place','glaces']},
-    '3553':{name:'Chef de Cuisine',cats:['epicerie','fromages','charcuterie']},
-    '6934':{name:'Tout le Restaurant',cats:['boissons-emporter','boissons-place','epicerie','fromages','charcuterie','glaces','hygiene']},
+    '2847':{name:'Équipe Cuisine',cats:['charcuterie','fromages','epicerie','hygiene']},
+    
+    '9182':{name:'Tout Dabray',cats:['boissons-emporter','boissons-place','epicerie','fromages','charcuterie','glaces','hygiene']},
   },
   cats:[
     {id:'boissons-emporter',label:'🥤 Boissons à emporter',color:'#2980B9',subcats:[
@@ -703,7 +703,7 @@ function recalc(){
     const pill=document.getElementById('pi-'+san(p.id));
     if(pill){pill.textContent=st.label||'✓ OK';pill.className='pill '+(st.rupture||st.order?'p-order':st.warn?'p-warn':'p-ok');}
     if(st.order)counts[p.sup]++;
-    if(st.rupture){counts[p.sup]++;if(p.metroFallback)counts['metro']=(counts['metro']||0)+1;}
+    if(st.rupture)counts[p.sup]++;
   });
   DB.cats.forEach(cat=>{
     const sc=document.getElementById('sc-'+san(cat.id));if(!sc)return;
@@ -773,26 +773,8 @@ Dabray, merci de prévoir :
   const rups=DB.products.filter(p=>p.sup==='dabray'&&p.metroFallback&&(STATE[p.id]??'ok')==='rup');
   if(rups.length&&(sup==='metro'||sup==='all')){if(sup==='all')msg+=`\n▶ METRO (ruptures Dabray)\n`;else msg+=`\n⚡ RUPTURES DABRAY :\n`;rups.forEach(p=>{msg+=`  • ${p.name} → prévoir\n`;hasLines=true;});}
   if(!hasLines)msg+='  Aucune commande\n';
-  // Ajouter état du stock pour Dabray
-  if(isDabray){
-    const dabrayProds=DB.products.filter(p=>p.sup==='dabray');
-    if(dabrayProds.length){
-      msg+='\n📦 ÉTAT DU STOCK (produits Dabray)\n';
-      dabrayProds.forEach(p=>{
-        const stockVal=STATE[p.id];
-        if(stockVal!==undefined&&stockVal!==null){
-          const ptype=getPtype(p);
-          let stockStr='';
-          if(ptype==='qty')stockStr=stockVal+' '+p.unit;
-          else if(ptype==='two'||ptype==='level')stockStr=stockVal==='ok'?('≥'+fracLabel(getS(p))+' '+p.unit):('<'+fracLabel(getS(p))+' '+p.unit);
-          else if(ptype==='yn')stockStr=stockVal==='oui'?'Présent':'Absent';
-          else stockStr=String(stockVal);
-          msg+='  • '+p.name+' : '+stockStr+'\n';
-        }
-      });
-    }
-  }
-  return msg+'─────────────────────\nMilo\'s Pizza Port';
+
+  return msg+'─────────────────────\nMilo\'s Pizza Dabray';
 }
 function openModal(sup){
   currentSup=sup;
