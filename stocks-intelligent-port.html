@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Milo's Pizza · Stocks Port</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Port">
+<meta name="application-name" content="Milo's Pizza Port">
+<meta name="theme-color" content="#1A1008">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -157,6 +163,47 @@ header h1{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter
 .dtag{font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;cursor:pointer;border:1.5px solid var(--border);background:var(--cream);color:var(--mid);}
 .dtag.on{background:var(--dark);color:white;border-color:var(--dark);}
 .hidden{display:none!important;}
+
+/* ── RESPONSIVE ── */
+/* Mobile portrait (défaut) : déjà stylé */
+
+/* Mobile paysage + petite tablette */
+@media (min-width:600px){
+  .pin-card{max-width:380px;}
+  .modal{max-width:480px;}
+  .prow{padding:10px 18px;}
+  .sticky-footer{padding:6px 20px 8px;}
+}
+
+/* Tablette */
+@media (min-width:768px){
+  header{padding:10px 24px 8px;}
+  .day-selector{padding:8px 24px;}
+  .sec-hdr{top:68px;}
+  .container{padding:0 0 80px;max-width:700px;margin:0 auto;}
+  .sticky-footer{max-width:700px;left:50%;transform:translateX(-50%);}
+  .prow{padding:11px 20px;}
+  .admin-body{padding:20px;max-width:700px;margin:0 auto;}
+}
+
+/* Desktop */
+@media (min-width:1024px){
+  body{background:#F0EBE0;}
+  header,#pin-screen,#admin-screen,#import-screen{max-width:480px;left:50%;transform:translateX(-50%);border-radius:0;}
+  header{position:fixed;top:0;width:480px;}
+  .day-selector{max-width:480px;position:fixed;top:48px;left:50%;transform:translateX(-50%);z-index:99;width:480px;}
+  .container{max-width:480px;margin:0 auto;padding-top:4px;}
+  .sticky-footer{max-width:480px;left:50%;transform:translateX(-50%);border-radius:16px 16px 0 0;}
+  #modal,#wizard-modal,#rupture-alert,#dayrules-modal{max-width:480px;left:50%;transform:translateX(-50%);}
+}
+
+/* PWA standalone mode */
+@media all and (display-mode:standalone){
+  body{padding-top:env(safe-area-inset-top);}
+  header{padding-top:max(7px,env(safe-area-inset-top));}
+  .sticky-footer{padding-bottom:max(6px,env(safe-area-inset-bottom));}
+  .container{padding-bottom:calc(60px + env(safe-area-inset-bottom));}
+}
 </style>
 </head>
 <body>
@@ -866,8 +913,10 @@ function recalc(){
 // ══ DISPATCH ══
 function renderDispatch(){
   const grid=document.getElementById('dgrid');grid.innerHTML='';
+  SUPS_ACTIVE_TODAY=[];
   Object.entries(DB.suppliers).forEach(([id,sup])=>{
     if(!supActive(id)&&!(id==='metro'&&supActive('dabray')))return;
+    SUPS_ACTIVE_TODAY.push(id);
     const btn=document.createElement('button');
     btn.className='dbtn';btn.id='dbtn-'+id;btn.style.background=sup.color;btn.onclick=()=>checkAndOpenModal(id);
     btn.innerHTML=`${sup.name.split('\u2192')[0].trim().split(' ')[0].substring(0,8).toUpperCase()}<div class="dc" id="dc-${id}">0</div>`;
@@ -1065,21 +1114,35 @@ let wizardIdx=0;
 
 function startWizard(){
   detectAndSaveRuptures();
-  const sups=Object.keys(DB.suppliers).filter(s=>{
+  // Construire la liste : tous fournisseurs actifs sauf ceux mergés dans Dabray
+  const allSups=Object.keys(DB.suppliers).filter(s=>{
     if(DB.suppliers[s]?.mergeIntoDabray) return false;
-    return supActive(s);
+    return SUPS_ACTIVE_TODAY.includes(s);
   });
-  wizardQueue=sups.map(s=>({
-    sup:s,
-    name:DB.suppliers[s]?.name||s,
-    color:DB.suppliers[s]?.color||'#25D366',
-    group:DB.suppliers[s]?.waGroup||DB.suppliers[s]?.wa||s,
-    txt:buildWA(s)
-  })).filter(({txt})=>txt.includes('•'));
-  if(!wizardQueue.length){ alert('Aucune commande à envoyer.'); return; }
+  wizardQueue=[];
+  allSups.forEach(s=>{
+    const txt=buildWA(s);
+    // Vérifier qu'il y a des articles à commander (bullet point dans le texte)
+    if(txt.includes('  • ')){
+      wizardQueue.push({
+        sup:s,
+        name:DB.suppliers[s]?.name||s,
+        color:DB.suppliers[s]?.color||'#25D366',
+        group:DB.suppliers[s]?.waGroup||DB.suppliers[s]?.wa||s,
+        txt:txt
+      });
+    }
+  });
+  if(!wizardQueue.length){
+    alert('Aucune commande à envoyer — tous les stocks sont OK !');
+    return;
+  }
   wizardIdx=0;
   showWizardStep();
 }
+
+// Liste des fournisseurs actifs aujourd'hui (mise à jour dans renderDispatch)
+let SUPS_ACTIVE_TODAY=[];
 
 function sendCurrent(){
   closeModal();
