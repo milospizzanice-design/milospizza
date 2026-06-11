@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no">
 <title>Milo's Pizza · Stocks Port</title>
 <meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest-port.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Port">
@@ -238,7 +239,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 </div>
 
 <!-- WIZARD ENVOI -->
-<div id="wizard-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:none;align-items:flex-end;justify-content:center;overflow:hidden;">
+<div id="wizard-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:350;display:none;align-items:flex-end;justify-content:center;overflow:hidden;">
   <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:520px;overflow:hidden;animation:up .25s ease;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:var(--mid);">ENVOI EN COURS</div>
@@ -912,16 +913,15 @@ function renderDispatch(){
     grid.appendChild(btn);
   });
   const all=document.createElement('button');
-  all.className='dbtn dbtn-all';all.id='dbtn-all';all.onclick=()=>{
-  // Vérifier ruptures d'abord
-  if(activeRuptures.length>0){
-    const names=activeRuptures.map(id=>DB.products.find(p=>p.id===id)?.name||id).filter(Boolean);
-    showRuptureAlert(names,()=>startWizard());
-    return;
-  }
-  startWizard();
-};
-  all.innerHTML='📤 TOUT ENVOYER <div class="dc" id="dc-all">0 art.</div>';
+  all.className='dbtn dbtn-all';all.id='dbtn-all';  all.innerHTML='📤 TOUT ENVOYER <div class="dc" id="dc-all">0 art.</div>';
+  all.addEventListener('click', function(){
+    if(activeRuptures.length>0){
+      const names=activeRuptures.map(id=>DB.products.find(p=>p.id===id)?.name||id).filter(Boolean);
+      showRuptureAlert(names,()=>startWizard());
+      return;
+    }
+    startWizard();
+  });
   grid.appendChild(all);
 }
 
