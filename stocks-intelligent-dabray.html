@@ -190,9 +190,29 @@ header h1{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
   </div>
 </div>
 <!-- PIN -->
+<!-- ÉCRAN IMPORT CONFIG (premier démarrage) -->
+<div id="import-screen" style="position:fixed;inset:0;background:var(--cream);z-index:600;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;">
+  <div style="font-size:48px;margin-bottom:20px;">📱</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--dark);margin-bottom:10px;">Bienvenue !</div>
+  <div style="font-size:14px;color:var(--mid);margin-bottom:28px;max-width:280px;line-height:1.6;">
+    Pour commencer, importez le fichier de configuration reçu par WhatsApp.
+  </div>
+  <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.1);">
+    <input type="file" id="import-file-input" accept=".json" style="display:none;" onchange="handleImportFile(this)">
+    <button onclick="document.getElementById('import-file-input').click()" style="width:100%;background:var(--dark);color:white;border:none;border-radius:12px;padding:14px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1.5px;cursor:pointer;margin-bottom:10px;">
+      📂 IMPORTER LE FICHIER
+    </button>
+    <button onclick="skipImport()" style="width:100%;background:none;border:none;color:var(--mid);font-size:12px;cursor:pointer;padding:6px;">
+      Continuer sans importer
+    </button>
+  </div>
+</div>
+
 <div id="pin-screen">
-  <div class="pin-logo">🍕 MILO'S PIZZA DABRAY</div>
-  <div class="pin-sub">Gestion des stocks · Port</div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+    <div class="pin-logo">🍕 MILO'S PIZZA DABRAY</div>
+  </div>
+  
   <div class="pin-card">
     <div class="pin-title">ENTREZ VOTRE CODE PIN</div>
     <div class="pin-dots">
@@ -242,6 +262,59 @@ const SK='mirceo_dabray_v1';
 const ADMIN_PIN='6934';
 function loadDB(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}return null;}
 function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){console.error('saveDB error',e);}}
+
+// ══ EXPORT / IMPORT CONFIG ══
+function exportConfig(){
+  const json=JSON.stringify(DB, null, 2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const siteName='Dabray';
+  a.href=url;
+  a.download='config-milos-'+siteName.toLowerCase()+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function handleImportFile(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const parsed=JSON.parse(e.target.result);
+      if(!parsed.suppliers||!parsed.products){
+        alert('Fichier invalide — vérifiez que c\'est bien le bon fichier de configuration.');
+        return;
+      }
+      DB=parsed;
+      saveDB();
+      // Fermer l\'écran import et aller au PIN
+      document.getElementById('import-screen').style.display='none';
+      document.getElementById('pin-screen').style.display='flex';
+      alert('✅ Configuration importée avec succès !');
+    }catch(err){
+      alert('Erreur de lecture du fichier : '+err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function skipImport(){
+  document.getElementById('import-screen').style.display='none';
+  document.getElementById('pin-screen').style.display='flex';
+}
+
+function checkFirstLaunch(){
+  // Si pas de config en localStorage → afficher l\'écran d\'import
+  const existing=localStorage.getItem(SK);
+  if(!existing){
+    document.getElementById('pin-screen').style.display='none';
+    document.getElementById('import-screen').style.display='flex';
+  }
+}
 
 // ══ DEFAULT DB ══
 const DEFAULT_DB={
@@ -1348,6 +1421,13 @@ function renderAdminConfig(body){
     <textarea id="restore-url" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:8px;font-size:11px;background:var(--cream);min-height:60px;" placeholder="Collez le lien ici..."></textarea>
     <button class="abtn abtn-primary" style="width:100%;margin-top:8px;padding:10px;" onclick="restoreConfig()">↺ Restaurer</button>`;
   body.appendChild(restoreCard);
+  // Export config JSON
+  const exportCard=document.createElement('div');exportCard.className='acard';
+  exportCard.innerHTML=`<div class="acard-title">💾 Exporter la configuration</div>
+    <p style="font-size:12px;color:var(--mid);margin-bottom:10px;">Télécharge un fichier JSON avec toute la configuration. À envoyer par WhatsApp aux appareils qui doivent l\'importer.</p>
+    <button class="abtn abtn-primary" style="width:100%;padding:12px;" onclick="exportConfig()">📥 Télécharger config-milos.json</button>`;
+  body.appendChild(exportCard);
+
   const resetCard=document.createElement('div');resetCard.className='acard';
   resetCard.innerHTML=`<div class="acard-title">⚠️ Réinitialiser</div>
     <button class="abtn abtn-danger" onclick="resetAll()" style="width:100%;padding:12px;">↺ Remettre les valeurs par défaut</button>`;
@@ -1387,6 +1467,7 @@ function resetAll(){if(!confirm('Remettre TOUTE la configuration par défaut ?')
 currentDay=effectiveDay();
 document.querySelectorAll('.day-btn').forEach((b,i)=>b.classList.toggle('active',DAY_ORDER[i]===currentDay));
 document.getElementById('day-badge').textContent=DAYS_FR[currentDay];
+checkFirstLaunch();
 </script>
 </body>
 </html>
