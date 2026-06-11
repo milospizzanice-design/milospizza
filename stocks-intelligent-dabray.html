@@ -2,24 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<script>
-(function(){
-  // Forcer zoom=1 immédiatement, avant tout rendu
-  var ua=navigator.userAgent;
-  var isIOS=/iPad|iPhone|iPod/.test(ua);
-  var isStandalone=window.navigator.standalone===true;
-  var meta=document.querySelector('meta[name="viewport"]');
-  if(meta){
-    meta.content='width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover';
-  }
-  if(isIOS&&isStandalone){
-    // iOS standalone : forcer font-size base à 16px et bloquer l'auto-resize
-    document.documentElement.style.setProperty('-webkit-text-size-adjust','none','important');
-    document.documentElement.style.setProperty('text-size-adjust','none','important');
-  }
-})();
-</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Milo's Pizza · Stocks Dabray</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -339,7 +322,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 </div>
 <script>
 // ══ STORAGE ══
-const SK='mirceo_dabray_v1';
+const SK='milos_dabray_v3';
 const ADMIN_PIN='6934';
 function loadDB(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}return null;}
 function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){console.error('saveDB error',e);}}
@@ -406,11 +389,15 @@ function skipImport(){
 }
 
 function checkFirstLaunch(){
-  // Si pas de config en localStorage → afficher l\'écran d\'import
-  const existing=localStorage.getItem(SK);
-  if(!existing){
-    document.getElementById('pin-screen').style.display='none';
-    document.getElementById('import-screen').style.display='flex';
+  var existing=localStorage.getItem(SK);
+  var pinScreen=document.getElementById('pin-screen');
+  var importScreen=document.getElementById('import-screen');
+  if(!existing&&importScreen){
+    if(pinScreen) pinScreen.style.display='none';
+    importScreen.style.display='flex';
+  } else {
+    if(pinScreen) pinScreen.style.display='flex';
+    if(importScreen) importScreen.style.display='none';
   }
 }
 
@@ -1117,45 +1104,45 @@ function hasAnyOrders(){
 }
 
 function startWizard(){
-  try{
-    detectAndSaveRuptures();
-    const allSups=Object.keys(DB.suppliers).filter(s=>!DB.suppliers[s]?.mergeIntoDabray);
-    wizardQueue=[];
-    allSups.forEach(s=>{
-      try{
-        const hasDirect=hasOrdersForSupplier(s);
-        const hasMerged=s==='dabray'&&DB.products.some(p=>{
-          if(!DB.suppliers[p.sup]?.mergeIntoDabray)return false;
-          const pill=document.getElementById('pi-'+san(p.id));
-          if(pill) return pill.classList.contains('p-order');
-          const st=getStatus(p);return st.order;
-        });
-        if(hasDirect||hasMerged){
-          const txt=buildWA(s);
-          wizardQueue.push({
-            sup:s,
-            name:DB.suppliers[s]?.name||s,
-            color:DB.suppliers[s]?.color||'#25D366',
-            group:DB.suppliers[s]?.waGroup||DB.suppliers[s]?.wa||s,
-            txt:txt
-          });
-        }
-      }catch(e){console.warn('wizard error for',s,e);}
+  // Collecter toutes les commandes actives
+  var queue=[];
+  Object.keys(DB.suppliers).forEach(function(s){
+    if(DB.suppliers[s]&&DB.suppliers[s].mergeIntoDabray) return;
+    var hasCmd=false;
+    DB.products.forEach(function(p){
+      if(p.sup!==s) return;
+      var pill=document.getElementById('pi-'+san(p.id));
+      if(pill&&pill.classList.contains('p-order')) hasCmd=true;
+      if(!pill){ var st=getStatus(p); if(st.order) hasCmd=true; }
     });
-    if(!wizardQueue.length){
-      alert('Aucune commande à envoyer — tous les stocks sont OK !');
-      return;
+    // Pour dabray : inclure aussi les produits mergés
+    if(s==='dabray'){
+      DB.products.forEach(function(p){
+        if(!DB.suppliers[p.sup]||!DB.suppliers[p.sup].mergeIntoDabray) return;
+        var pill=document.getElementById('pi-'+san(p.id));
+        if(pill&&pill.classList.contains('p-order')) hasCmd=true;
+        if(!pill){ var st=getStatus(p); if(st.order) hasCmd=true; }
+      });
     }
-    wizardIdx=0;
-    showWizardStep();
-  }catch(e){
-    alert('Erreur : '+e.message);
-    console.error('startWizard error:',e);
+    if(hasCmd){
+      queue.push({
+        sup:s,
+        name:DB.suppliers[s].name||s,
+        color:DB.suppliers[s].color||'#25D366',
+        group:DB.suppliers[s].waGroup||DB.suppliers[s].wa||s,
+        txt:buildWA(s)
+      });
+    }
+  });
+  if(!queue.length){
+    alert('Aucune commande — tous les stocks sont OK !');
+    return;
   }
+  wizardQueue=queue;
+  wizardIdx=0;
+  showWizardStep();
 }
 
-// Liste des fournisseurs actifs aujourd'hui (mise à jour dans renderDispatch)
-let SUPS_ACTIVE_TODAY=[];
 
 function sendCurrent(){
   closeModal();
