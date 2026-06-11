@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<script>if(window.navigator.standalone||window.matchMedia("(display-mode:standalone)").matches){var m=document.querySelector("meta[name=viewport]");if(m)m.content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover";}</script>
 <title>Milo's Pizza · Stocks Port</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -167,9 +168,14 @@ header h1{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter
 /* ── RESPONSIVE ── */
 /* PWA standalone : gérer les safe areas iOS/Android */
 @media all and (display-mode:standalone){
-  body{padding-top:env(safe-area-inset-top,0px);}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+  body{padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%;}
   .sticky-footer{padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));}
   .container{padding-bottom:calc(60px + env(safe-area-inset-bottom,0px));}
+  /* Neutraliser l'agrandissement automatique iOS en mode app */
+  .prow{font-size:15px;}
+  .pname{font-size:13px;}
+  header h1{font-size:12px;}
 }
 </style>
 </head>
@@ -1079,16 +1085,31 @@ function closeDayRules(){
 let wizardQueue=[];
 let wizardIdx=0;
 
+function hasOrdersForSupplier(supId){
+  // Vérifie si un fournisseur a des produits à commander en utilisant getStatus()
+  return DB.products.some(p=>{
+    if(p.sup!==supId)return false;
+    const st=getStatus(p);
+    return st.order||st.rupture;
+  });
+}
+
 function startWizard(){
   try{
     detectAndSaveRuptures();
-    // Prendre tous les fournisseurs visibles dans le footer (boutons actifs ou inactifs)
     const allSups=Object.keys(DB.suppliers).filter(s=>!DB.suppliers[s]?.mergeIntoDabray);
     wizardQueue=[];
     allSups.forEach(s=>{
       try{
-        const txt=buildWA(s);
-        if(txt&&txt.includes('  • ')){
+        // Vérifier avec getStatus() direct — pas besoin des pills DOM
+        const hasDirect=hasOrdersForSupplier(s);
+        // Pour Dabray : inclure aussi les produits Carrefour/Metro mergés
+        const hasMerged=s==='dabray'&&DB.products.some(p=>{
+          if(!DB.suppliers[p.sup]?.mergeIntoDabray)return false;
+          const st=getStatus(p);return st.order;
+        });
+        if(hasDirect||hasMerged){
+          const txt=buildWA(s);
           wizardQueue.push({
             sup:s,
             name:DB.suppliers[s]?.name||s,
@@ -1097,7 +1118,7 @@ function startWizard(){
             txt:txt
           });
         }
-      }catch(e){console.warn('buildWA error for',s,e);}
+      }catch(e){console.warn('wizard error for',s,e);}
     });
     if(!wizardQueue.length){
       alert('Aucune commande à envoyer — tous les stocks sont OK !');
