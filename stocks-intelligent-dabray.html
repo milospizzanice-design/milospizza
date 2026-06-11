@@ -198,6 +198,9 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
     <button class="btn-logout" onclick="logout()">⏻ Quitter</button>
   </div>
 </header>
+<div id="inventory-banner" style="display:none;background:#E67E22;color:white;padding:6px 14px;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;text-align:center;position:sticky;top:48px;z-index:99;">
+  🔍 MODE INVENTAIRE COMPLET — <span id="inv-label"></span> — <span id="inv-countdown"></span>
+</div>
 <div class="day-selector">
   <button class="day-btn" onclick="setDay(1)">Lun</button>
   <button class="day-btn" onclick="setDay(2)">Mar</button>
@@ -590,6 +593,7 @@ const DEFAULT_DB={
     {id:'lavette',cat:'hygiene',sub:'',sup:'idpro',name:'Lavette bleue',unit:'paquet',type:'qty',colisQty:1,sDefault:1,cDefault:1},
   ],
   overrides:{},
+  inventoryMode:{active:false, endTime:null, label:''},
   displayOptions:{
     showSeuil: true,
     showCible: true,
@@ -638,8 +642,16 @@ function effectiveDay(){
   if(now.getHours()<5){const d=new Date(now);d.setDate(d.getDate()-1);return d.getDay();}
   return now.getDay();
 }
-function supActive(supId){const sup=DB.suppliers[supId];if(!sup)return false;return sup.days.includes(currentDay);}
-function catAllowed(catId){if(!currentUser)return false;return currentUser.cats.includes(catId);}
+function supActive(supId){
+  const sup=DB.suppliers[supId];if(!sup)return false;
+  if(isInventoryMode())return true; // Tous fournisseurs visibles en inventaire
+  return sup.days.includes(currentDay);
+}
+function catAllowed(catId){
+  if(!currentUser)return false;
+  if(isInventoryMode())return true; // Tout visible en mode inventaire
+  return currentUser.cats.includes(catId);
+}
 function isLastSunday(){const now=new Date();return now.getDay()===0&&(new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate())<7;}
 function getS(p){
   const o=DB.overrides[p.id];
@@ -671,6 +683,63 @@ function getPtype(p){
 }
 function getLevelType(p){return DB.overrides[p.id]?.levelType||p.levelType||'half';}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+
+// ══ MODE INVENTAIRE ══
+var invTimer=null;
+
+function startInventoryMode(endTime, label){
+  if(!DB.inventoryMode)DB.inventoryMode={};
+  DB.inventoryMode.active=true;
+  DB.inventoryMode.endTime=endTime;
+  DB.inventoryMode.label=label||'Inventaire complet';
+  saveDB();
+  applyInventoryMode();
+}
+
+function stopInventoryMode(){
+  if(!DB.inventoryMode)DB.inventoryMode={};
+  DB.inventoryMode.active=false;
+  DB.inventoryMode.endTime=null;
+  saveDB();
+  applyInventoryMode();
+  if(invTimer){clearInterval(invTimer);invTimer=null;}
+}
+
+function applyInventoryMode(){
+  var inv=DB.inventoryMode;
+  var banner=document.getElementById('inventory-banner');
+  var label=document.getElementById('inv-label');
+  var countdown=document.getElementById('inv-countdown');
+  if(!banner)return;
+  if(inv&&inv.active&&inv.endTime){
+    var now=Date.now();
+    var end=new Date(inv.endTime).getTime();
+    if(now>end){stopInventoryMode();return;}
+    banner.style.display='block';
+    if(label)label.textContent=inv.label||'Inventaire complet';
+    // Countdown
+    if(invTimer)clearInterval(invTimer);
+    invTimer=setInterval(function(){
+      var remaining=new Date(inv.endTime).getTime()-Date.now();
+      if(remaining<=0){stopInventoryMode();return;}
+      var h=Math.floor(remaining/3600000);
+      var m=Math.floor((remaining%3600000)/60000);
+      var s=Math.floor((remaining%60000)/1000);
+      if(countdown)countdown.textContent=(h?h+'h ':'')+m+'min '+s+'s restantes';
+    },1000);
+    // En mode inventaire : forcer tous les produits visibles
+    if(currentUser)renderAll();
+  } else {
+    banner.style.display='none';
+    if(invTimer){clearInterval(invTimer);invTimer=null;}
+  }
+}
+
+function isInventoryMode(){
+  var inv=DB.inventoryMode;
+  if(!inv||!inv.active||!inv.endTime)return false;
+  return Date.now()<new Date(inv.endTime).getTime();
+}
 
 // Fractions supportées
 const FRACTIONS=[
@@ -1737,6 +1806,33 @@ function renderAdminConfig(body){
     <textarea id="restore-url" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:8px;font-size:11px;background:var(--cream);min-height:60px;" placeholder="Collez le lien ici..."></textarea>
     <button class="abtn abtn-primary" style="width:100%;margin-top:8px;padding:10px;" onclick="restoreConfig()">↺ Restaurer</button>`;
   body.appendChild(restoreCard);
+  // Mode inventaire complet
+  var invCard=document.createElement('div');invCard.className='acard';
+  var invActive=DB.inventoryMode&&DB.inventoryMode.active&&DB.inventoryMode.endTime&&Date.now()<new Date(DB.inventoryMode.endTime).getTime();
+  invCard.innerHTML=`<div class="acard-title">🔍 Mode Inventaire Complet</div>
+    <p style="font-size:12px;color:var(--mid);margin-bottom:12px;">Active tous les produits et fournisseurs pour l\'équipe. Idéal pour un inventaire de fin de mois ou après un rush.</p>
+    ${invActive?`
+    <div style="background:#FEF9E7;border:1px solid #F39C12;border-radius:10px;padding:10px;margin-bottom:10px;font-size:12px;">
+      <strong>🟠 Mode inventaire actif</strong> — ${DB.inventoryMode.label||''}<br>
+      Fin : ${new Date(DB.inventoryMode.endTime).toLocaleString('fr-FR')}
+    </div>
+    <button class="abtn abtn-danger" style="width:100%;padding:10px;" onclick="stopInventoryMode();showTab('config');">⏹ Arrêter l'inventaire</button>
+    `:`
+    <div class="arow"><div class="arow-info">Nom / raison</div>
+      <input class="ainput ainput-full" id="inv-name" placeholder="Ex: Inventaire juin 2026" value="Inventaire complet"></div>
+    <div class="arow"><div class="arow-info">Fin de l'inventaire</div>
+      <input class="ainput" type="datetime-local" id="inv-end" style="font-size:12px;"></div>
+    <button class="abtn abtn-primary" style="width:100%;padding:12px;margin-top:10px;background:#E67E22;" onclick="launchInventory()">🔍 LANCER L'INVENTAIRE</button>
+    `}`;
+  // Préremplir date fin à 23h59 ce soir
+  var invEndEl=invCard.querySelector('#inv-end');
+  if(invEndEl){
+    var d=new Date();d.setHours(23,59,0,0);
+    var iso=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    invEndEl.value=iso;
+  }
+  body.appendChild(invCard);
+
   // Export config JSON
   const exportCard=document.createElement('div');exportCard.className='acard';
   exportCard.innerHTML=`<div class="acard-title">💾 Exporter la configuration</div>
@@ -1777,6 +1873,17 @@ function updDisplay(key,val){
   DB.displayOptions[key]=val;
   saveDB();
 }
+function launchInventory(){
+  var name=document.getElementById('inv-name')?.value.trim()||'Inventaire complet';
+  var endVal=document.getElementById('inv-end')?.value;
+  if(!endVal){alert('Choisissez une date et heure de fin.');return;}
+  var endTime=new Date(endVal).toISOString();
+  if(new Date(endVal)<=new Date()){alert('La date de fin doit être dans le futur.');return;}
+  if(!confirm('Lancer le mode inventaire jusqu\'au '+new Date(endVal).toLocaleString('fr-FR')+' ?'))return;
+  startInventoryMode(endTime,name);
+  showTab('config');
+}
+
 function resetAll(){if(!confirm('Remettre TOUTE la configuration par défaut ?'))return;localStorage.removeItem(SK);DB=JSON.parse(JSON.stringify(DEFAULT_DB));alert('Réinitialisé.');showTab('produits');}
 
 // ══ INIT ══
@@ -1784,6 +1891,7 @@ currentDay=effectiveDay();
 document.querySelectorAll('.day-btn').forEach((b,i)=>b.classList.toggle('active',DAY_ORDER[i]===currentDay));
 document.getElementById('day-badge').textContent=DAYS_FR[currentDay];
 checkFirstLaunch();
+applyInventoryMode();
 
 // Fix zoom mode app iOS
 (function fixPWAZoom(){
