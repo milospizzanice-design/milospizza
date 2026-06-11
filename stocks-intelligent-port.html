@@ -1129,40 +1129,56 @@ function hasAnyOrders(){
 }
 
 function startWizard(){
-  // Collecter toutes les commandes actives
+  var debug=[];
   var queue=[];
-  Object.keys(DB.suppliers).forEach(function(s){
-    if(DB.suppliers[s]&&DB.suppliers[s].mergeIntoDabray) return;
+  
+  // Lister tous les fournisseurs
+  var allSupIds=Object.keys(DB.suppliers);
+  debug.push('Fournisseurs total: '+allSupIds.length);
+  
+  allSupIds.forEach(function(s){
+    var sup=DB.suppliers[s];
+    if(sup&&sup.mergeIntoDabray){ debug.push('Skip '+s+' (mergé)'); return; }
+    
     var hasCmd=false;
+    var cmdProds=[];
+    
     DB.products.forEach(function(p){
       if(p.sup!==s) return;
       var pill=document.getElementById('pi-'+san(p.id));
-      if(pill&&pill.classList.contains('p-order')) hasCmd=true;
-      if(!pill){ var st=getStatus(p); if(st.order) hasCmd=true; }
+      var isPorder=pill&&pill.classList.contains('p-order');
+      var stOrder=!pill&&getStatus(p).order;
+      if(isPorder||stOrder){ hasCmd=true; cmdProds.push(p.name); }
     });
-    // Pour dabray : inclure aussi les produits mergés
+    
     if(s==='dabray'){
       DB.products.forEach(function(p){
-        if(!DB.suppliers[p.sup]||!DB.suppliers[p.sup].mergeIntoDabray) return;
+        if(!DB.suppliers[p.sup]||!DB.suppliers[p.sup].mergeIntoDabray)return;
         var pill=document.getElementById('pi-'+san(p.id));
-        if(pill&&pill.classList.contains('p-order')) hasCmd=true;
-        if(!pill){ var st=getStatus(p); if(st.order) hasCmd=true; }
+        if(pill&&pill.classList.contains('p-order')){ hasCmd=true; cmdProds.push(p.name+'(mergé)'); }
       });
     }
+    
+    debug.push(s+': '+(hasCmd?'✅ CMD('+cmdProds.join(',')+')':'❌ rien'));
+    
     if(hasCmd){
       queue.push({
         sup:s,
-        name:DB.suppliers[s].name||s,
-        color:DB.suppliers[s].color||'#25D366',
-        group:DB.suppliers[s].waGroup||DB.suppliers[s].wa||s,
+        name:sup.name||s,
+        color:sup.color||'#25D366',
+        group:sup.waGroup||sup.wa||s,
         txt:buildWA(s)
       });
     }
   });
+  
+  debug.push('Queue finale: '+queue.length+' fournisseurs');
+  
   if(!queue.length){
-    alert('Aucune commande — tous les stocks sont OK !');
+    alert('DEBUG:\n'+debug.join('\n'));
     return;
   }
+  
   wizardQueue=queue;
   wizardIdx=0;
   showWizardStep();
