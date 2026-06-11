@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no">
 <title>Milo's Pizza · Stocks Dabray</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,8 +19,9 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{overflow-x:hidden;width:100%;max-width:100vw;}
 body{background:var(--cream);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--dark);overflow-x:hidden;overflow-y:auto;width:100vw;max-width:100vw;position:relative;-webkit-overflow-scrolling:touch;}
-*{box-sizing:border-box;max-width:100%;word-break:break-word;-webkit-tap-highlight-color:transparent;}
-input,select,textarea{max-width:100%;}
+*{box-sizing:border-box;max-width:100%;word-break:break-word;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+input,select,textarea{max-width:100%;touch-action:manipulation;}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation;}
 header{background:var(--dark);color:white;padding:7px 14px 6px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
 header h1{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.5px;opacity:.7;}
 .hrow{display:flex;align-items:center;gap:6px;margin-top:2px;}
@@ -166,16 +167,24 @@ header h1{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter
 html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 
 /* ── RESPONSIVE ── */
-/* PWA standalone : gérer les safe areas iOS/Android */
+/* PWA standalone */
 @media all and (display-mode:standalone){
-  html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
-  body{padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%;}
+  html{
+    -webkit-text-size-adjust:100%!important;
+    text-size-adjust:100%!important;
+    font-size:15px!important;
+  }
+  body{
+    padding-top:env(safe-area-inset-top,0px);
+    font-size:15px!important;
+    zoom:1!important;
+  }
   .sticky-footer{padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));}
   .container{padding-bottom:calc(60px + env(safe-area-inset-bottom,0px));}
-  /* Neutraliser l'agrandissement automatique iOS en mode app */
-  .prow{font-size:15px;}
-  .pname{font-size:13px;}
-  header h1{font-size:12px;}
+}
+/* iOS Safari standalone spécifique */
+@media screen and (max-width:430px){
+  html,body{font-size:15px;-webkit-text-size-adjust:none;}
 }
 </style>
 </head>
@@ -244,9 +253,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
     <div style="font-size:12px;color:var(--mid);margin-bottom:16px;">
       📱 Groupe WhatsApp : <strong id="wiz-group" style="color:var(--dark);"></strong>
     </div>
-    <button id="wiz-send-btn" style="width:100%;background:#25D366;color:white;border:none;border-radius:13px;padding:14px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1.5px;cursor:pointer;margin-bottom:10px;">
-      📤 OUVRIR WHATSAPP
-    </button>
+    <div id="wiz-btn-wrap"></div>
     <button onclick="closeWizard()" style="width:100%;background:none;border:none;color:var(--mid);font-size:12px;cursor:pointer;padding:6px;">
       Annuler l'envoi
     </button>
@@ -1170,37 +1177,39 @@ function detectAndSaveRuptures(){
 
 function showWizardStep(){
   try{
-    const step=wizardQueue[wizardIdx];
+    var step=wizardQueue[wizardIdx];
     if(!step){closeWizard();return;}
-    const total=wizardQueue.length;
-    const wiz=document.getElementById('wizard-modal');
-    if(!wiz){alert('Erreur: modal wizard introuvable');return;}
-    const counter=document.getElementById('wiz-counter');
-    const supName=document.getElementById('wiz-sup-name');
-    const grp=document.getElementById('wiz-group');
-    const prog=document.getElementById('wiz-progress');
-    const btn=document.getElementById('wiz-send-btn');
-    if(counter)counter.textContent=(wizardIdx+1)+'/'+total;
+    var total=wizardQueue.length;
+    var wiz=document.getElementById('wizard-modal');
+    if(!wiz)return;
+    var counter=document.getElementById('wiz-counter');
+    var supName=document.getElementById('wiz-sup-name');
+    var grp=document.getElementById('wiz-group');
+    var prog=document.getElementById('wiz-progress');
+    var btnWrap=document.getElementById('wiz-btn-wrap');
+    if(counter) counter.textContent=(wizardIdx+1)+'/'+total;
     if(supName){supName.textContent=step.name;supName.style.color=step.color;}
-    if(grp)grp.textContent=step.group||step.name;
-    if(prog)prog.style.width=Math.round((wizardIdx+1)/total*100)+'%';
-    if(btn){
-      // Cloner pour éviter les listeners multiples
-      const newBtn=btn.cloneNode(true);
-      btn.parentNode.replaceChild(newBtn,btn);
-      newBtn.onclick=function(){
-        window.location.href='whatsapp://send?text='+encodeURIComponent(step.txt);
-        setTimeout(()=>{
-          wizardIdx++;
-          if(wizardIdx<wizardQueue.length)showWizardStep();
-          else closeWizard();
-        },2500);
-      };
+    if(grp) grp.textContent=step.group||step.name;
+    if(prog) prog.style.width=Math.round((wizardIdx+1)/total*100)+'%';
+    if(btnWrap){
+      // Lien direct — pas de window.location.href pour iOS
+      var url='whatsapp://send?text='+encodeURIComponent(step.txt);
+      btnWrap.innerHTML='<a href="'+url+'" id="wiz-wa-link" style="display:block;width:100%;background:#25D366;color:white;border:none;border-radius:13px;padding:14px;font-family:Bebas Neue,sans-serif;font-size:18px;letter-spacing:1.5px;cursor:pointer;text-align:center;text-decoration:none;margin-bottom:10px;">📤 OUVRIR WHATSAPP</a>';
+      // Après clic → passer au suivant
+      var link=document.getElementById('wiz-wa-link');
+      if(link){
+        link.addEventListener('click',function(){
+          setTimeout(function(){
+            wizardIdx++;
+            if(wizardIdx<wizardQueue.length) showWizardStep();
+            else closeWizard();
+          },2500);
+        });
+      }
     }
     wiz.style.display='flex';
   }catch(e){
     alert('Erreur wizard: '+e.message);
-    console.error(e);
   }
 }
 
