@@ -19,10 +19,10 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{overflow-x:hidden;width:100%;max-width:100vw;}
-body{background:var(--cream);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--dark);overflow-x:hidden;overflow-y:auto;width:100vw;max-width:100vw;position:relative;-webkit-overflow-scrolling:touch;}
-*{box-sizing:border-box;max-width:100%;word-break:break-word;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
-input,select,textarea{max-width:100%;touch-action:manipulation;}
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation;}
+body{background:var(--cream);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--dark);overflow-x:hidden;overflow-y:auto;width:100vw;max-width:100vw;position:relative;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;}
+*{box-sizing:border-box;max-width:100%;word-break:break-word;-webkit-tap-highlight-color:transparent;}
+input,select,textarea{max-width:100%;}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 header{background:var(--dark);color:white;padding:7px 14px 6px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
 header h1{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.5px;opacity:.7;}
 .hrow{display:flex;align-items:center;gap:6px;margin-top:2px;}
@@ -222,7 +222,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
     </div>
     <div class="mactions">
       <button class="btn-cancel" onclick="closeModal()">Annuler</button>
-      <button class="btn-wa" onclick="sendCurrent()">📤 OUVRIR WHATSAPP</button>
+      <div id="modal-wa-btn" style="flex:2;"></div>
     </div>
   </div>
 </div>
@@ -940,31 +940,65 @@ function buildRecap(sup){
   return html||'<em style="color:#999">Aucune commande</em>';
 }
 function buildWA(sup){
-  const emp=currentUser?.name||'—';
-  const date=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  const isVia=sup!=='all'&&DB.suppliers[sup]?.viaDabray;
-  const isDabray=sup==='dabray';
-  let msg=isVia?`🛒 COMMANDE ${(DB.suppliers[sup]?.name||sup).split('→')[0].trim().toUpperCase()}
-👤 ${emp} · 📅 ${date}
-Dabray, merci de prévoir :
-─────────────────────
-`:`📋 COMMANDE ${(DB.suppliers[sup]?.name||sup).toUpperCase()}
-👤 ${emp} · 📅 ${date}
-─────────────────────
-`;
-  const prods=sup==='all'?DB.products:DB.products.filter(p=>p.sup===sup);
-  let lastSup='',hasLines=false;
-  prods.forEach(p=>{
-    const pill=document.getElementById('pi-'+san(p.id));if(!pill||!pill.classList.contains('p-order'))return;
-    if(sup==='all'&&p.sup!==lastSup){msg+=`\n▶ ${DB.suppliers[p.sup]?.name?.toUpperCase()||p.sup}\n`;lastSup=p.sup;}
-    msg+=`  • ${p.name} → ${pill.textContent}\n`;hasLines=true;
-  });
-  const rups=DB.products.filter(p=>p.sup==='dabray'&&p.metroFallback&&(STATE[p.id]??'ok')==='rup');
-  if(rups.length&&(sup==='metro'||sup==='all')){if(sup==='all')msg+=`\n▶ METRO (ruptures Dabray)\n`;else msg+=`\n⚡ RUPTURES DABRAY :\n`;rups.forEach(p=>{msg+=`  • ${p.name} → prévoir\n`;hasLines=true;});}
+  var emp=currentUser&&currentUser.name?currentUser.name:'—';
+  var date=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  var supName=(DB.suppliers[sup]&&DB.suppliers[sup].name?DB.suppliers[sup].name:sup).split('\u2192')[0].trim();
+  var isVia=sup!=='all'&&DB.suppliers[sup]&&DB.suppliers[sup].viaDabray;
+  var isDabray=sup==='dabray';
+  var sepLine='────────────────────────────';
+  var header="Milo's Pizza Dabray 🎯";
+  
+  var msg=header+'\n';
+  msg+='Hello, veuillez trouver ci-dessous notre commande.\n';
+  msg+='Merci de nous prévenir en cas de rupture éventuelle.\n';
+  msg+=sepLine+'\n';
+  if(isVia){
+    msg+='🛒 COMMANDE '+supName.toUpperCase()+'\n';
+    msg+='👤 '+emp+' · 📅 '+date+'\n';
+    msg+=sepLine+'\n';
+    msg+='Dabray, merci de prévoir :\n';
+  } else {
+    msg+='📋 COMMANDE '+supName.toUpperCase()+'\n';
+    msg+='👤 '+emp+' · 📅 '+date+'\n';
+    msg+=sepLine+'\n';
+  }
+  
+  // Lister les produits à commander
+  var hasLines=false;
+  // Pour Dabray : grouper avec Carrefour/Metro mergés
+  if(isDabray){
+    var groups={dabray:[],carrefour:[],metro:[]};
+    DB.products.forEach(function(p){
+      var pill=document.getElementById('pi-'+san(p.id));
+      var isOrdered=pill?pill.classList.contains('p-order'):getStatus(p).order;
+      var lbl=pill?pill.textContent:(getStatus(p).label||'Commander');
+      if(!isOrdered)return;
+      if(p.sup==='dabray'){groups.dabray.push('  • '+p.name+' → '+lbl);hasLines=true;}
+      else if(DB.suppliers[p.sup]&&DB.suppliers[p.sup].mergeIntoDabray){
+        if(p.sup==='carrefour'){groups.carrefour.push('  • '+p.name+' → '+lbl);hasLines=true;}
+        else if(p.sup==='metro'){groups.metro.push('  • '+p.name+' → '+lbl);hasLines=true;}
+      }
+    });
+    if(groups.dabray.length){msg+='\n📦 PRÉPARATION DABRAY :\n'+groups.dabray.join('\n')+'\n';}
+    if(groups.carrefour.length){msg+='\n🛒 À COMMANDER CHEZ CARREFOUR :\n'+groups.carrefour.join('\n')+'\n';}
+    if(groups.metro.length){msg+='\n🛒 À COMMANDER CHEZ METRO :\n'+groups.metro.join('\n')+'\n';}
+  } else {
+    var prods=DB.products.filter(function(p){return p.sup===sup;});
+    prods.forEach(function(p){
+      var pill=document.getElementById('pi-'+san(p.id));
+      var isOrdered=pill?pill.classList.contains('p-order'):getStatus(p).order;
+      var lbl=pill?pill.textContent:(getStatus(p).label||'Commander');
+      if(!isOrdered)return;
+      msg+='  • '+p.name+' → '+lbl+'\n';
+      hasLines=true;
+    });
+  }
+  
   if(!hasLines)msg+='  Aucune commande\n';
-
-  return msg+sepLine;
+  msg+=sepLine;
+  return msg;
 }
+
 function checkAndOpenModal(sup){
   // Vérifier ruptures non acquittées
   if(activeRuptures.length>0){
@@ -999,6 +1033,20 @@ function openModal(sup){
     waEl.style.color=info?.color||'#25D366';
   }
   document.getElementById('mrecap').innerHTML=buildRecap(sup);
+  // Construire le bouton WhatsApp comme un VRAI lien <a>
+  var waBtn=document.getElementById('modal-wa-btn');
+  if(waBtn){
+    if(sup==='all'){
+      // Pour "all" : bouton qui lance le wizard
+      waBtn.innerHTML='<button class="btn-wa" style="width:100%;" id="modal-all-btn">📤 ENVOYER TOUT</button>';
+      var allBtn=document.getElementById('modal-all-btn');
+      if(allBtn) allBtn.addEventListener('click',function(){closeModal();detectAndSaveRuptures();startWizard();});
+    } else {
+      var txt=buildWA(sup);
+      var url='https://wa.me/?text='+encodeURIComponent(txt);
+      waBtn.innerHTML='<a href="'+url+'" target="_blank" rel="noopener" class="btn-wa" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box;" onclick="setTimeout(closeModal,300)">📤 OUVRIR WHATSAPP</a>';
+    }
+  }
   document.getElementById('modal').classList.add('open');
 }
 function closeModal(){document.getElementById('modal').classList.remove('open');}
@@ -1111,56 +1159,43 @@ function hasAnyOrders(){
 }
 
 function startWizard(){
-  // Collecter toutes les commandes actives
   var queue=[];
   Object.keys(DB.suppliers).forEach(function(s){
-    if(DB.suppliers[s]&&DB.suppliers[s].mergeIntoDabray) return;
+    var sup=DB.suppliers[s];
+    if(sup&&sup.mergeIntoDabray)return;
     var hasCmd=false;
     DB.products.forEach(function(p){
-      if(p.sup!==s) return;
+      if(p.sup!==s)return;
       var pill=document.getElementById('pi-'+san(p.id));
-      if(pill&&pill.classList.contains('p-order')) hasCmd=true;
-      if(!pill){ var st=getStatus(p); if(st.order) hasCmd=true; }
+      if(pill&&pill.classList.contains('p-order'))hasCmd=true;
+      if(!pill&&getStatus(p).order)hasCmd=true;
     });
-    // Pour dabray : inclure aussi les produits mergés
     if(s==='dabray'){
       DB.products.forEach(function(p){
-        if(!DB.suppliers[p.sup]||!DB.suppliers[p.sup].mergeIntoDabray) return;
+        if(!DB.suppliers[p.sup]||!DB.suppliers[p.sup].mergeIntoDabray)return;
         var pill=document.getElementById('pi-'+san(p.id));
-        if(pill&&pill.classList.contains('p-order')) hasCmd=true;
-        if(!pill){ var st=getStatus(p); if(st.order) hasCmd=true; }
+        if(pill&&pill.classList.contains('p-order'))hasCmd=true;
       });
     }
     if(hasCmd){
-      queue.push({
-        sup:s,
-        name:DB.suppliers[s].name||s,
-        color:DB.suppliers[s].color||'#25D366',
-        group:DB.suppliers[s].waGroup||DB.suppliers[s].wa||s,
-        txt:buildWA(s)
-      });
+      queue.push({sup:s,name:sup.name||s,color:sup.color||'#25D366',group:sup.waGroup||sup.wa||s,txt:buildWA(s)});
     }
   });
-  if(!queue.length){
-    alert('Aucune commande — tous les stocks sont OK !');
-    return;
-  }
-  wizardQueue=queue;
-  wizardIdx=0;
-  showWizardStep();
+  if(!queue.length){alert('Aucune commande — tous les stocks sont OK !');return;}
+  wizardQueue=queue;wizardIdx=0;showWizardStep();
 }
 
 
 function sendCurrent(){
-  closeModal();
-  detectAndSaveRuptures();
   if(currentSup==='all'){
-    // Construire la liste des fournisseurs actifs avec commandes
-    // Exclure les fournisseurs mergés dans Dabray (ils sont inclus dans Dabray)
+    closeModal();
+    detectAndSaveRuptures();
     startWizard();
   } else {
     const txt=buildWA(currentSup);
-    window.location.href='whatsapp://send?text='+encodeURIComponent(txt);
+    // Ouvrir WA avant de fermer le modal (iOS exige action directe dans le tap)
+    window.open('https://wa.me/?text='+encodeURIComponent(txt), '_blank');
+    closeModal();
   }
 }
 
@@ -1193,8 +1228,8 @@ function showWizardStep(){
     if(prog) prog.style.width=Math.round((wizardIdx+1)/total*100)+'%';
     if(btnWrap){
       // Lien direct — pas de window.location.href pour iOS
-      var url='whatsapp://send?text='+encodeURIComponent(step.txt);
-      btnWrap.innerHTML='<a href="'+url+'" id="wiz-wa-link" style="display:block;width:100%;background:#25D366;color:white;border:none;border-radius:13px;padding:14px;font-family:Bebas Neue,sans-serif;font-size:18px;letter-spacing:1.5px;cursor:pointer;text-align:center;text-decoration:none;margin-bottom:10px;">📤 OUVRIR WHATSAPP</a>';
+      var url='https://wa.me/?text='+encodeURIComponent(step.txt);
+      btnWrap.innerHTML='<a href="'+url+'" target="_blank" rel="noopener" id="wiz-wa-link" style="display:block;width:100%;background:#25D366;color:white;border:none;border-radius:13px;padding:14px;font-family:Bebas Neue,sans-serif;font-size:18px;letter-spacing:1.5px;cursor:pointer;text-align:center;text-decoration:none;margin-bottom:10px;">📤 OUVRIR WHATSAPP</a>';
       // Après clic → passer au suivant
       var link=document.getElementById('wiz-wa-link');
       if(link){
