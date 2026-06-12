@@ -1450,10 +1450,108 @@ function renderAdminProduits(body){
           </div>`;
         block.appendChild(row);
       });
+      // Bouton + ajouter produit dans cette sous-cat
+      const addProdBtn=document.createElement('button');
+      addProdBtn.style.cssText='width:100%;background:none;border:1.5px dashed rgba(41,128,185,.4);border-radius:8px;padding:8px;font-size:12px;font-weight:600;color:#2980B9;cursor:pointer;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px;';
+      addProdBtn.innerHTML='<span style="font-size:16px;line-height:1;">+</span> Ajouter un produit ici';
+      addProdBtn.onclick=(function(catId,subId){
+        return function(){openInlineAddProd(catId,subId,this);};
+      })(cat.id,subId);
+      block.appendChild(addProdBtn);
       card.appendChild(block);
     });
     body.appendChild(card);
   });
+}
+
+function openInlineAddProd(catId, subId, btn){
+  // Si un formulaire inline est déjà ouvert, le fermer
+  var existing=document.getElementById('inline-add-form');
+  if(existing){
+    existing.remove();
+    if(existing.dataset.btn===btn.id) return; // Toggle
+  }
+
+  const cat=DB.cats.find(c=>c.id===catId);
+  const sub=cat?.subcats?.find(s=>s.id===subId);
+
+  const form=document.createElement('div');
+  form.id='inline-add-form';
+  form.dataset.btn=btn.id||'';
+  form.style.cssText='background:#F0F7FF;border:1.5px solid #2980B9;border-radius:10px;padding:14px;margin-top:6px;';
+  form.innerHTML=`
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:#2980B9;margin-bottom:10px;">
+      + NOUVEAU PRODUIT — ${cat?.label||catId}${sub?' › '+sub.label:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <input class="ainput ainput-full" id="ia-name" placeholder="Nom du produit *" style="font-size:13px;">
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-size:9px;color:var(--mid);margin-bottom:3px;text-transform:uppercase;">Fournisseur</div>
+          <select class="aselect" id="ia-sup" style="width:100%;font-size:11px;">
+            ${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}">${s.name}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:9px;color:var(--mid);margin-bottom:3px;text-transform:uppercase;">Unité</div>
+          <input class="ainput" id="ia-unit" placeholder="bouteille, bac..." style="width:100%;font-size:12px;">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-size:9px;color:var(--mid);margin-bottom:3px;text-transform:uppercase;">Type</div>
+          <select class="aselect" id="ia-type" style="width:100%;font-size:11px;" onchange="toggleIAFields()">
+            <option value="qty">🔢 Quantité exacte</option>
+            <option value="two">≥ / < Seuil</option>
+            <option value="yn">✓✗ Présent/Absent</option>
+          </select>
+        </div>
+      </div>
+      <div id="ia-qty-fields" style="display:flex;gap:8px;">
+        <div style="flex:1;text-align:center;">
+          <div style="font-size:9px;color:var(--mid);margin-bottom:3px;">Seuil</div>
+          <input class="ainput ainput-w52" id="ia-s" type="text" value="1" placeholder="1 ou ½" style="width:100%;">
+        </div>
+        <div style="flex:1;text-align:center;">
+          <div style="font-size:9px;color:var(--mid);margin-bottom:3px;">Cible</div>
+          <input class="ainput ainput-w52" id="ia-c" type="text" value="1" placeholder="1" style="width:100%;">
+        </div>
+        <div style="flex:1;text-align:center;">
+          <div style="font-size:9px;color:var(--mid);margin-bottom:3px;">Colis</div>
+          <input class="ainput ainput-w52" id="ia-colis" type="number" value="1" min="1" style="width:100%;">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="abtn abtn-primary" style="flex:2;padding:9px;" onclick="saveInlineProd('${catId}','${subId}')">✓ Ajouter</button>
+        <button class="abtn abtn-ghost" style="flex:1;padding:9px;" onclick="document.getElementById('inline-add-form').remove()">Annuler</button>
+      </div>
+    </div>`;
+
+  btn.parentNode.insertBefore(form, btn.nextSibling);
+  document.getElementById('ia-name')?.focus();
+}
+
+function toggleIAFields(){
+  const type=document.getElementById('ia-type')?.value;
+  const fields=document.getElementById('ia-qty-fields');
+  if(fields)fields.style.display=(type==='yn'||type==='rupture')?'none':'flex';
+}
+
+function saveInlineProd(catId,subId){
+  const name=document.getElementById('ia-name')?.value.trim();
+  if(!name){alert('Nom obligatoire.');return;}
+  const sup=document.getElementById('ia-sup')?.value||'';
+  const unit=document.getElementById('ia-unit')?.value.trim()||'—';
+  const type=document.getElementById('ia-type')?.value||'qty';
+  const s=parseSeuil(document.getElementById('ia-s')?.value||'1');
+  const cVal=parseSeuil(document.getElementById('ia-c')?.value||'1');
+  const colis=parseInt(document.getElementById('ia-colis')?.value)||1;
+  const id='p-'+uid();
+  const prod={id,cat:catId,sub:subId,sup,name,unit,type};
+  if(type==='qty'||type==='threshold'||type==='two'){prod.sDefault=s;prod.cDefault=cVal;prod.colisQty=colis;}
+  DB.products.push(prod);
+  saveDB();
+  showTab('produits');
 }
 
 function toggleNewProdFields(){
@@ -1904,6 +2002,12 @@ document.getElementById('day-badge').textContent=DAYS_FR[currentDay];
 checkFirstLaunch();
 applyInventoryMode();
 
+// Scroll to top button
+window.addEventListener('scroll',function(){
+  var btn=document.getElementById('scroll-top');
+  if(btn)btn.style.display=window.scrollY>300?'flex':'none';
+});
+
 // Fix zoom mode app iOS
 (function fixPWAZoom(){
   function applyZoom(){
@@ -1932,5 +2036,7 @@ document.body.addEventListener('touchmove', function(e){
   if(Math.abs(e.touches[0]?.clientX - (e.touches[0]?.pageX||0)) > 5) return;
 }, {passive: true});
 </script>
+<!-- SCROLL TO TOP -->
+<button id="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:80px;right:16px;width:42px;height:42px;border-radius:50%;background:var(--dark);color:white;border:none;font-size:18px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:50;transition:opacity .2s;">↑</button>
 </body>
 </html>
