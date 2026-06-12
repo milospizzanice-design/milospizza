@@ -12,13 +12,10 @@
     background: linear-gradient(160deg, #0f1923 0%, #1a2535 60%, #0f1923 100%);
     font-family: -apple-system, 'Inter', system-ui, sans-serif;
     color: #e2e8f0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
     padding: 24px 16px;
-    user-select: none;
-    overflow: hidden;
+    user-select: none; overflow: hidden;
   }
   .header { text-align: center; margin-bottom: 16px; }
   .brand { font-size: 11px; color: #e53e3e; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
@@ -29,128 +26,99 @@
     width: 100%; max-width: 340px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 24px;
-    padding: 28px 24px;
-    margin-top: 20px;
+    border-radius: 24px; padding: 28px 24px; margin-top: 20px;
   }
   .screen { display: none; }
   .screen.active { display: block; animation: fadeIn 0.25s ease; }
-  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes popIn { 0%{transform:scale(0.6);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)} }
+  @keyframes popIn  { 0%{transform:scale(0.6);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1} }
 
-  /* IDLE */
   .idle-icon {
-    width: 64px; height: 64px; border-radius: 50%;
-    background: rgba(229,62,62,0.1); border: 2px solid rgba(229,62,62,0.3);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 28px; margin: 0 auto 16px; cursor: pointer;
+    width:64px;height:64px;border-radius:50%;
+    background:rgba(229,62,62,0.1);border:2px solid rgba(229,62,62,0.3);
+    display:flex;align-items:center;justify-content:center;
+    font-size:28px;margin:0 auto 16px;cursor:pointer;
   }
-  .idle-title { color: #e2e8f0; font-size: 17px; font-weight: 600; text-align: center; }
-  .idle-sub { color: #718096; font-size: 11px; text-align: center; margin-top: 8px; line-height: 1.4; }
+  .idle-title { color:#e2e8f0;font-size:17px;font-weight:600;text-align:center; }
+  .idle-sub   { color:#718096;font-size:11px;text-align:center;margin-top:8px;line-height:1.4; }
 
-  /* PIN */
-  .pin-label { color: #a0aec0; font-size: 13px; text-align: center; margin-bottom: 20px; }
-  .pin-dots { display: flex; gap: 12px; justify-content: center; margin-bottom: 24px; }
+  .pin-label { color:#a0aec0;font-size:13px;text-align:center;margin-bottom:20px; }
+  .pin-dots  { display:flex;gap:12px;justify-content:center;margin-bottom:24px; }
   .pin-dot {
-    width: 48px; height: 48px; border-radius: 10px;
-    background: rgba(255,255,255,0.08);
-    border: 2px solid rgba(255,255,255,0.15);
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
+    width:48px;height:48px;border-radius:10px;
+    background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.15);
+    display:flex;align-items:center;justify-content:center;transition:all 0.15s;
   }
-  .pin-dot.filled { background: #e53e3e; border-color: #e53e3e; }
-  .pin-dot.filled::after { content:''; width:12px; height:12px; border-radius:50%; background:#fff; display:block; }
-  .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 240px; margin: 0 auto; }
+  .pin-dot.filled { background:#e53e3e;border-color:#e53e3e; }
+  .pin-dot.filled::after { content:'';width:12px;height:12px;border-radius:50%;background:#fff;display:block; }
+  .numpad { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto; }
   .num-btn {
-    height: 60px; border-radius: 12px; border: none; cursor: pointer;
-    font-size: 24px; font-weight: 600;
-    background: rgba(255,255,255,0.07); color: #e2e8f0;
-    transition: transform 0.1s, background 0.1s;
-    -webkit-tap-highlight-color: transparent;
+    height:60px;border-radius:12px;border:none;cursor:pointer;
+    font-size:24px;font-weight:600;
+    background:rgba(255,255,255,0.07);color:#e2e8f0;
+    transition:transform 0.1s,background 0.1s;
   }
-  .num-btn:active { transform: scale(0.93); background: rgba(255,255,255,0.12); }
-  .num-btn.confirm { background: rgba(229,62,62,0.15); color: #e53e3e; font-size: 22px; }
-  .num-btn.confirm.ready { background: linear-gradient(135deg,#e53e3e,#c53030); color:#fff; box-shadow:0 4px 15px rgba(229,62,62,0.4); }
-  .num-btn.back { font-size: 20px; }
-  .cancel-btn { display: block; margin: 16px auto 0; background: none; border: none; color: #718096; font-size: 12px; cursor: pointer; }
+  .num-btn:active { transform:scale(0.93);background:rgba(255,255,255,0.12); }
+  .num-btn.confirm { background:rgba(229,62,62,0.15);color:#e53e3e;font-size:22px; }
+  .num-btn.confirm.ready { background:linear-gradient(135deg,#e53e3e,#c53030);color:#fff;box-shadow:0 4px 15px rgba(229,62,62,0.4); }
+  .num-btn.back { font-size:20px; }
+  .cancel-btn { display:block;margin:16px auto 0;background:none;border:none;color:#718096;font-size:12px;cursor:pointer; }
 
-  /* CAMERA */
-  .cam-label { color: #a0aec0; font-size: 13px; text-align: center; margin-bottom: 16px; }
-  .cam-label strong { color: #fff; }
-  .cam-wrap { position: relative; display: inline-block; border-radius: 16px; overflow: hidden; display: block; width: fit-content; margin: 0 auto; }
-  #video { width: 220px; height: 165px; object-fit: cover; display: block; background: #1a202c; }
+  .cam-label { color:#a0aec0;font-size:13px;text-align:center;margin-bottom:16px; }
+  .cam-label strong { color:#fff; }
+  .cam-wrap { position:relative;display:block;width:fit-content;margin:0 auto;border-radius:16px;overflow:hidden; }
+  #video { width:220px;height:165px;object-fit:cover;display:block;background:#1a202c; }
   .cam-overlay {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.35);
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.35);
   }
   .countdown-circle {
-    width: 64px; height: 64px; border-radius: 50%;
-    background: rgba(229,62,62,0.9); color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 28px; font-weight: 700;
-    box-shadow: 0 0 0 8px rgba(229,62,62,0.25);
+    width:64px;height:64px;border-radius:50%;
+    background:rgba(229,62,62,0.9);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:28px;font-weight:700;
+    box-shadow:0 0 0 8px rgba(229,62,62,0.25);
   }
-  .cam-error { color: #fc8181; font-size: 13px; text-align: center; padding: 20px 0; }
-
-  /* ACTION */
-  .emp-avatar {
-    width: 72px; height: 72px; border-radius: 50%;
-    border: 3px solid #e53e3e; margin: 0 auto 10px;
-    overflow: hidden; display: flex; align-items: center; justify-content: center;
-    background: #2d3748; font-size: 28px;
-  }
-  .emp-avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .emp-name { color: #e2e8f0; font-size: 20px; font-weight: 600; text-align: center; }
-  .emp-sub { color: #718096; font-size: 13px; text-align: center; margin-top: 4px; }
-  .action-btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
-  .action-btn {
-    width: 120px; height: 100px; border-radius: 16px; border: none; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-    font-size: 13px; font-weight: 600; color: #fff; letter-spacing: 0.5px;
-    transition: transform 0.12s;
-  }
-  .action-btn:active { transform: scale(0.94); }
-  .action-btn .btn-icon { font-size: 28px; }
-  .btn-entree { background: linear-gradient(145deg,#38a16999,#38a169dd); box-shadow: 0 6px 20px rgba(56,161,105,0.4); }
-  .btn-sortie  { background: linear-gradient(145deg,#e53e3e99,#e53e3edd); box-shadow: 0 6px 20px rgba(229,62,62,0.4); }
+  .cam-error { color:#fc8181;font-size:13px;text-align:center;padding:20px 0; }
 
   /* CONFIRM */
   .confirm-icon {
-    width: 80px; height: 80px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 36px; margin: 0 auto 16px;
-    animation: popIn 0.3s ease;
+    width:80px;height:80px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:36px;margin:0 auto 16px;animation:popIn 0.3s ease;
   }
-  .confirm-icon.entree { background: linear-gradient(135deg,#38a169,#276749); box-shadow: 0 8px 24px rgba(56,161,105,0.5); }
-  .confirm-icon.sortie  { background: linear-gradient(135deg,#e53e3e,#c53030); box-shadow: 0 8px 24px rgba(229,62,62,0.5); }
-  .confirm-title { color: #e2e8f0; font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 4px; }
-  .confirm-time  { color: #a0aec0; font-size: 14px; text-align: center; }
-  .confirm-time strong { color: #fff; }
-  .confirm-name  { color: #718096; font-size: 12px; text-align: center; margin-top: 8px; }
+  .confirm-icon.entree { background:linear-gradient(135deg,#38a169,#276749);box-shadow:0 8px 24px rgba(56,161,105,0.5); }
+  .confirm-icon.sortie  { background:linear-gradient(135deg,#e53e3e,#c53030);box-shadow:0 8px 24px rgba(229,62,62,0.5); }
+  .confirm-badge {
+    display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;
+    font-size:12px;font-weight:700;letter-spacing:0.5px;margin-bottom:12px;
+  }
+  .confirm-badge.entree { background:rgba(56,161,105,0.15);border:1px solid rgba(56,161,105,0.4);color:#68d391; }
+  .confirm-badge.sortie  { background:rgba(229,62,62,0.15);border:1px solid rgba(229,62,62,0.4);color:#fc8181; }
+  .confirm-title { color:#e2e8f0;font-size:22px;font-weight:700;text-align:center;margin-bottom:4px; }
+  .confirm-time  { color:#a0aec0;font-size:14px;text-align:center; }
+  .confirm-time strong { color:#fff; }
+  .confirm-name  { color:#718096;font-size:12px;text-align:center;margin-top:8px; }
 
-  /* ERROR */
   .error-icon {
-    width: 72px; height: 72px; border-radius: 50%;
-    background: rgba(229,62,62,0.1); border: 2px solid #e53e3e;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 32px; margin: 0 auto 16px; color: #e53e3e;
+    width:72px;height:72px;border-radius:50%;
+    background:rgba(229,62,62,0.1);border:2px solid #e53e3e;
+    display:flex;align-items:center;justify-content:center;
+    font-size:32px;margin:0 auto 16px;color:#e53e3e;
   }
-  .error-msg { color: #fc8181; font-size: 15px; font-weight: 600; text-align: center; }
-  .error-sub { color: #718096; font-size: 12px; text-align: center; margin-top: 8px; }
+  .error-msg { color:#fc8181;font-size:15px;font-weight:600;text-align:center; }
+  .error-sub  { color:#718096;font-size:12px;text-align:center;margin-top:8px; }
 
-  .rgpd { color: #4a5568; font-size: 10px; margin-top: 16px; text-align: center; max-width: 300px; line-height: 1.4; }
-  canvas { display: none; }
+  .rgpd { color:#4a5568;font-size:10px;margin-top:16px;text-align:center;max-width:300px;line-height:1.4; }
+  canvas { display:none; }
 </style>
 </head>
 <body>
 
-<!-- Config (à modifier) -->
 <script>
-  const SUPABASE_URL = 'https://kkfccfipmxnsiohjxfdy.supabase.co';
+  const SUPABASE_URL     = 'https://kkfccfipmxnsiohjxfdy.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZmNjZmlwbXhuc2lvaGp4ZmR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjgwNjcsImV4cCI6MjA5Njg0NDA2N30.cMp5VhkkzSN6i04fJD1B6zVuDfMOHo8GfD91_Q6Rk-U';
-  const RESTAURANT_ID = 'port'; // 'port' ou 'dabray' selon la tablette
-  const RESTAURANT_LABEL = "Milo's Pizza — Port";
+  const RESTAURANT_ID      = 'port'; // 'port' ou 'dabray'
   const RESTAURANT_ADDRESS = '9 rue Bavastro, 06300 Nice';
 </script>
 
@@ -159,21 +127,19 @@
   <div class="address" id="restLabel"></div>
 </div>
 
-<div style="text-align:center; margin-bottom:8px;">
+<div style="text-align:center;margin-bottom:8px;">
   <div class="clock-time" id="clockTime">--:--</div>
   <div class="clock-date" id="clockDate"></div>
 </div>
 
 <div class="panel">
 
-  <!-- IDLE -->
   <div class="screen active" id="screen-idle">
     <div class="idle-icon" onclick="showPin()">👆</div>
     <div class="idle-title">Toucher pour pointer</div>
     <div class="idle-sub">Ce terminal enregistre une photo à chaque badgeage.</div>
   </div>
 
-  <!-- PIN -->
   <div class="screen" id="screen-pin">
     <div class="pin-label">Saisir votre code PIN</div>
     <div class="pin-dots">
@@ -199,7 +165,6 @@
     <button class="cancel-btn" onclick="reset()">Annuler</button>
   </div>
 
-  <!-- CAMERA -->
   <div class="screen" id="screen-camera">
     <div class="cam-label">Bonjour <strong id="empPrenom"></strong> — photo en cours…</div>
     <div id="camContainer">
@@ -214,32 +179,16 @@
     <canvas id="canvas"></canvas>
   </div>
 
-  <!-- ACTION -->
-  <div class="screen" id="screen-action">
-    <div style="text-align:center;">
-      <div class="emp-avatar" id="empAvatar"><span id="empInitial">?</span></div>
-      <div class="emp-name" id="empName"></div>
-      <div class="emp-sub">Identifié avec succès</div>
-    </div>
-    <div class="action-btns">
-      <button class="action-btn btn-entree" onclick="doAction('entree')">
-        <span class="btn-icon">→</span>Entrée
-      </button>
-      <button class="action-btn btn-sortie" onclick="doAction('sortie')">
-        <span class="btn-icon">←</span>Sortie
-      </button>
-    </div>
-  </div>
-
-  <!-- CONFIRM -->
   <div class="screen" id="screen-confirm">
     <div class="confirm-icon" id="confirmIcon">✓</div>
+    <div style="text-align:center;">
+      <div class="confirm-badge" id="confirmBadge"></div>
+    </div>
     <div class="confirm-title" id="confirmTitle"></div>
-    <div class="confirm-time" id="confirmTime"></div>
-    <div class="confirm-name" id="confirmName"></div>
+    <div class="confirm-time"  id="confirmTime"></div>
+    <div class="confirm-name"  id="confirmName"></div>
   </div>
 
-  <!-- ERROR -->
   <div class="screen" id="screen-error">
     <div class="error-icon">✕</div>
     <div class="error-msg" id="errorMsg"></div>
@@ -251,11 +200,9 @@
 <div class="rgpd">Photos conservées 90 jours · Accès restreint direction · RGPD Art. 13</div>
 
 <script>
-// ── Init Supabase ────────────────────────────────────────────
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ── État ─────────────────────────────────────────────────────
 let pin = '';
 let currentEmployee = null;
 let capturedPhoto = null;
@@ -268,12 +215,11 @@ document.getElementById('restLabel').textContent = RESTAURANT_ADDRESS;
 function updateClock() {
   const now = new Date();
   document.getElementById('clockTime').textContent =
-    now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+    now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('clockDate').textContent =
-    now.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+    now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
 }
-updateClock();
-setInterval(updateClock, 1000);
+updateClock(); setInterval(updateClock, 1000);
 
 // ── Écrans ───────────────────────────────────────────────────
 function showScreen(id) {
@@ -282,16 +228,10 @@ function showScreen(id) {
 }
 
 function reset() {
-  clearTimeout(autoResetTimer);
-  autoResetTimer = null;
+  clearTimeout(autoResetTimer); autoResetTimer = null;
   stopCamera();
-  pin = '';
-  currentEmployee = null;
-  capturedPhoto = null;
-  const av = document.getElementById('empAvatar');
-  if (av) av.innerHTML = '<span id="empInitial">?</span>';
-  const bc = document.getElementById('btnConfirm');
-  if (bc) bc.classList.remove('ready');
+  pin = ''; currentEmployee = null; capturedPhoto = null;
+  document.getElementById('btnConfirm').classList.remove('ready');
   updateDots();
   showScreen('idle');
 }
@@ -300,40 +240,25 @@ function reset() {
 function showPin() { showScreen('pin'); }
 
 function pressKey(k) {
-  if (k === 'back') { pin = pin.slice(0, -1); }
+  if (k === 'back') { pin = pin.slice(0,-1); }
   else if (pin.length < 4) { pin += k; }
   updateDots();
-  if (pin.length === 4) {
-    document.getElementById('btnConfirm').classList.add('ready');
-  } else {
-    document.getElementById('btnConfirm').classList.remove('ready');
-  }
+  document.getElementById('btnConfirm').classList.toggle('ready', pin.length === 4);
 }
 
 function updateDots() {
-  for (let i = 0; i < 4; i++) {
-    document.getElementById('d' + i).classList.toggle('filled', pin.length > i);
-  }
+  for (let i=0;i<4;i++)
+    document.getElementById('d'+i).classList.toggle('filled', pin.length > i);
 }
 
 async function confirmPin() {
   if (pin.length !== 4) return;
-  // Vérification via pgcrypto côté Supabase
-  const { data, error } = await db
-    .from('employees')
-    .select('id, prenom, nom, restaurant_id')
-    .eq('restaurant_id', RESTAURANT_ID)
-    .eq('actif', true);
 
-  if (error || !data) { showError('Erreur de connexion.'); return; }
-
-  // Vérification du PIN avec crypt() côté SQL
-  const { data: match, error: err2 } = await db
+  const { data: match, error } = await db
     .rpc('verify_pin', { p_pin: pin, p_restaurant: RESTAURANT_ID });
 
-  if (err2 || !match || match.length === 0) {
-    pin = '';
-    updateDots();
+  if (error || !match || match.length === 0) {
+    pin = ''; updateDots();
     showError('PIN incorrect ou salarié non affecté à ce restaurant.');
     return;
   }
@@ -344,32 +269,54 @@ async function confirmPin() {
   startCamera();
 }
 
-// ── CAMERA ───────────────────────────────────────────────────
+// ── LOGIQUE ENTRÉE/SORTIE AUTOMATIQUE ────────────────────────
+async function detectType(employeeId) {
+  // Compte les pointages du jour pour ce salarié
+  const today = new Date().toISOString().slice(0,10);
+  const { data, error } = await db
+    .from('time_entries')
+    .select('id', { count: 'exact' })
+    .eq('employee_id', employeeId)
+    .eq('manuel', false)
+    .gte('timestamp', today + 'T00:00:00')
+    .lte('timestamp', today + 'T23:59:59');
+
+  if (error) return 'entree';
+  const count = data?.length ?? 0;
+  // Pair = entrée (0, 2, 4...), Impair = sortie (1, 3, 5...)
+  return count % 2 === 0 ? 'entree' : 'sortie';
+}
+
+// ── CAMÉRA ───────────────────────────────────────────────────
 function startCamera() {
   const video = document.getElementById('video');
   const camError = document.getElementById('camError');
   const camContainer = document.getElementById('camContainer');
 
-  // Reset complet avant chaque utilisation
   camError.style.display = 'none';
   camContainer.style.display = 'block';
   document.getElementById('countdown').textContent = '3';
   video.srcObject = null;
   capturedPhoto = null;
 
-  navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+  if (!navigator.mediaDevices?.getUserMedia) {
+    camError.textContent = 'Caméra indisponible — pointage enregistré sans photo.';
+    camError.style.display = 'block';
+    camContainer.style.display = 'none';
+    startCountdown(true); return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user' }, audio:false })
     .then(s => {
       stream = s;
       video.srcObject = s;
       video.onloadedmetadata = () => {
-        video.play().then(() => startCountdown(false)).catch(() => startCountdown(false));
+        video.play().catch(()=>{});
+        startCountdown(false);
       };
-      // Fallback si onloadedmetadata ne se déclenche pas
       setTimeout(() => {
-        if (document.getElementById('screen-camera').classList.contains('active') && !countdownTimer) {
-          startCountdown(false);
-        }
-      }, 1500);
+        if (!countdownTimer) startCountdown(false);
+      }, 1800);
     })
     .catch(() => {
       camError.textContent = 'Caméra indisponible — pointage enregistré sans photo.';
@@ -379,85 +326,56 @@ function startCamera() {
     });
 }
 
-function startCountdown(noPhoto = false) {
-  // Annule tout timer précédent
+function startCountdown(noPhoto) {
   if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-
   let count = 3;
   const el = document.getElementById('countdown');
   el.textContent = count;
-
   countdownTimer = setInterval(() => {
     count--;
-    if (count > 0) {
-      el.textContent = count;
-    } else {
-      clearInterval(countdownTimer);
-      countdownTimer = null;
+    if (count > 0) { el.textContent = count; }
+    else {
+      clearInterval(countdownTimer); countdownTimer = null;
       el.textContent = '📸';
-      setTimeout(() => capturePhoto(noPhoto), 200);
+      setTimeout(() => captureAndSave(noPhoto), 200);
     }
   }, 1000);
 }
 
-function capturePhoto(noPhoto) {
+function stopCamera() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const video = document.getElementById('video');
+  if (video) video.srcObject = null;
+}
+
+// ── CAPTURE + ENREGISTREMENT DIRECT ─────────────────────────
+async function captureAndSave(noPhoto) {
   if (!noPhoto) {
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    canvas.width = video.videoWidth || 320;
+    canvas.width  = video.videoWidth  || 320;
     canvas.height = video.videoHeight || 240;
     canvas.getContext('2d').drawImage(video, 0, 0);
     capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
   }
   stopCamera();
-  showActionScreen();
-}
 
-function stopCamera() {
-  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-  if (stream) {
-    stream.getTracks().forEach(t => t.stop());
-    stream = null;
-  }
-  const video = document.getElementById('video');
-  video.srcObject = null;
-  document.getElementById('camContainer').style.display = 'block';
-}
+  // Détermine automatiquement entrée ou sortie
+  const type = await detectType(currentEmployee.id);
 
-// ── ACTION ───────────────────────────────────────────────────
-function showActionScreen() {
-  const emp = currentEmployee;
-  document.getElementById('empInitial').textContent = emp.prenom[0];
-  document.getElementById('empName').textContent = emp.prenom + ' ' + emp.nom;
-
-  if (capturedPhoto) {
-    const av = document.getElementById('empAvatar');
-    av.innerHTML = '<img src="' + capturedPhoto + '" alt="">';
-  }
-  showScreen('action');
-}
-
-async function doAction(type) {
-  const now = new Date();
-
-  // Récupère l'IP publique
-  let ip = 'inconnu';
+  // Récupère IP
+  let ip = 'inconnu'; let ip_ok = false;
   try {
     const r = await fetch('https://api.ipify.org?format=json');
-    const j = await r.json();
-    ip = j.ip;
+    const j = await r.json(); ip = j.ip;
+    const { data: resto } = await db
+      .from('restaurants').select('ip_whitelist')
+      .eq('id', RESTAURANT_ID).single();
+    ip_ok = resto?.ip_whitelist?.includes(ip) ?? false;
   } catch(e) {}
 
-  // Vérifie l'IP côté base
-  const { data: resto } = await db
-    .from('restaurants')
-    .select('ip_whitelist')
-    .eq('id', RESTAURANT_ID)
-    .single();
-
-  const ip_ok = resto?.ip_whitelist?.includes(ip) ?? false;
-
-  // Enregistre le pointage
+  const now = new Date();
   const { error } = await db.from('time_entries').insert({
     employee_id:   currentEmployee.id,
     restaurant_id: RESTAURANT_ID,
@@ -466,19 +384,26 @@ async function doAction(type) {
     ip_address:    ip,
     ip_ok:         ip_ok,
     photo_b64:     capturedPhoto || null,
+    manuel:        false,
   });
 
-  if (error) { showError('Erreur lors de l\'enregistrement.'); return; }
+  if (error) { showError("Erreur d'enregistrement. Réessayez."); return; }
 
   // Confirmation
   const isEntree = type === 'entree';
   const icon = document.getElementById('confirmIcon');
   icon.className = 'confirm-icon ' + type;
   icon.textContent = '✓';
-  document.getElementById('confirmTitle').textContent = isEntree ? 'Bonne journée !' : 'À bientôt !';
+
+  const badge = document.getElementById('confirmBadge');
+  badge.className = 'confirm-badge ' + type;
+  badge.textContent = isEntree ? '↗ ENTRÉE' : '↙ SORTIE';
+
+  document.getElementById('confirmTitle').textContent =
+    isEntree ? 'Bonne journée !' : 'À bientôt !';
   document.getElementById('confirmTime').innerHTML =
     (isEntree ? 'Entrée' : 'Sortie') + ' enregistrée — <strong>' +
-    now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) + '</strong>';
+    now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) + '</strong>';
   document.getElementById('confirmName').textContent =
     currentEmployee.prenom + ' ' + currentEmployee.nom;
 
@@ -486,14 +411,11 @@ async function doAction(type) {
   autoResetTimer = setTimeout(reset, 3500);
 }
 
-// ── ERREUR ───────────────────────────────────────────────────
 function showError(msg) {
   document.getElementById('errorMsg').textContent = msg;
   showScreen('error');
   autoResetTimer = setTimeout(reset, 3000);
 }
 </script>
-
-<!-- Fonction SQL verify_pin à créer dans Supabase (voir instructions) -->
 </body>
 </html>
