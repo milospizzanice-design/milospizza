@@ -283,11 +283,15 @@ function showScreen(id) {
 
 function reset() {
   clearTimeout(autoResetTimer);
-  clearTimeout(countdownTimer);
+  autoResetTimer = null;
   stopCamera();
   pin = '';
   currentEmployee = null;
   capturedPhoto = null;
+  const av = document.getElementById('empAvatar');
+  if (av) av.innerHTML = '<span id="empInitial">?</span>';
+  const bc = document.getElementById('btnConfirm');
+  if (bc) bc.classList.remove('ready');
   updateDots();
   showScreen('idle');
 }
@@ -344,34 +348,54 @@ async function confirmPin() {
 function startCamera() {
   const video = document.getElementById('video');
   const camError = document.getElementById('camError');
+  const camContainer = document.getElementById('camContainer');
+
+  // Reset complet avant chaque utilisation
   camError.style.display = 'none';
+  camContainer.style.display = 'block';
+  document.getElementById('countdown').textContent = '3';
+  video.srcObject = null;
+  capturedPhoto = null;
 
   navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user' }, audio: false })
     .then(s => {
       stream = s;
       video.srcObject = s;
-      video.play();
-      startCountdown();
+      video.onloadedmetadata = () => {
+        video.play().then(() => startCountdown(false)).catch(() => startCountdown(false));
+      };
+      // Fallback si onloadedmetadata ne se déclenche pas
+      setTimeout(() => {
+        if (document.getElementById('screen-camera').classList.contains('active') && !countdownTimer) {
+          startCountdown(false);
+        }
+      }, 1500);
     })
     .catch(() => {
       camError.textContent = 'Caméra indisponible — pointage enregistré sans photo.';
       camError.style.display = 'block';
-      document.getElementById('camContainer').style.display = 'none';
+      camContainer.style.display = 'none';
       startCountdown(true);
     });
 }
 
 function startCountdown(noPhoto = false) {
+  // Annule tout timer précédent
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+
   let count = 3;
   const el = document.getElementById('countdown');
   el.textContent = count;
 
   countdownTimer = setInterval(() => {
     count--;
-    el.textContent = count;
-    if (count <= 0) {
+    if (count > 0) {
+      el.textContent = count;
+    } else {
       clearInterval(countdownTimer);
-      capturePhoto(noPhoto);
+      countdownTimer = null;
+      el.textContent = '📸';
+      setTimeout(() => capturePhoto(noPhoto), 200);
     }
   }, 1000);
 }
@@ -390,7 +414,13 @@ function capturePhoto(noPhoto) {
 }
 
 function stopCamera() {
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  const video = document.getElementById('video');
+  video.srcObject = null;
   document.getElementById('camContainer').style.display = 'block';
 }
 
