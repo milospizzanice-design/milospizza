@@ -1529,13 +1529,13 @@ function updProdCat(id,catId){
   const p=DB.products.find(p=>p.id===id);
   if(!p)return;
   p.cat=catId;p.sub='';saveDB();
-  const subSel=document.getElementById('subsel-'+san(id));
-  if(subSel){
-    const cat=DB.cats.find(c=>c.id===catId);
-    subSel.innerHTML='<option value="">— sous-cat —</option>'+(cat?.subcats||[]).map(s=>'<option value="'+s.id+'">'+s.label+'</option>').join('');
-  }
+  // Rafraîchir l'admin pour déplacer le produit dans la bonne catégorie
+  showTab('produits');
 }
-function updProdSub(id,subId){const p=DB.products.find(p=>p.id===id);if(p){p.sub=subId;saveDB();renderAll();}}
+function updProdSub(id,subId){
+  const p=DB.products.find(p=>p.id===id);
+  if(p){p.sub=subId;saveDB();showTab('produits');}
+}
 function updProdType(id,type){
   const p=DB.products.find(p=>p.id===id);if(!p)return;
   if(!DB.overrides[id])DB.overrides[id]={};
