@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-<title>Milo's Pizza Port · RestoGlobal</title>
+<title>Milo's Pizza · Stocks Port</title>
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest-port.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -284,11 +284,8 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 </div>
 
 <div id="pin-screen">
-  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;">
     <div class="pin-logo">🍕 MILO'S PIZZA PORT</div>
-    <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--mid);letter-spacing:.5px;">
-      Propulsé par <strong style="color:var(--dark);">RestoGlobal.fr</strong>
-    </div>
   </div>
   
   <div class="pin-card">
@@ -1068,7 +1065,6 @@ function buildWA(sup){
   
   if(!hasLines)msg+='  Aucune commande\n';
   msg+=sepLine;
-  msg+='\nPropulsé par RestoGlobal.fr';
   return msg;
 }
 
@@ -1431,7 +1427,8 @@ function renderAdminProduits(body){
             <input class="ainput ainput-full" style="margin-bottom:4px;" value="${p.name}" onchange="updProd('${p.id}','name',this.value)">
             <div style="display:flex;flex-direction:column;gap:3px;">
               <select class="aselect" style="font-size:10px;" onchange="updProdSup('${p.id}',this.value)">${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}"${id===p.sup?' selected':''}>${s.name}</option>`).join('')}</select>
-              <select class="aselect" style="font-size:10px;" onchange="updProdSub('${p.id}',this.value,this)"><option value="">— sous-cat —</option>${(cat.subcats||[]).map(s=>`<option value="${s.id}"${s.id===p.sub?' selected':''}>${s.label}</option>`).join('')}</select>
+              <select class="aselect" style="font-size:10px;" onchange="updProdCat('${p.id}',this.value,this)">${DB.cats.map(c2=>`<option value="${c2.id}"${c2.id===p.cat?' selected':''}>${c2.label}</option>`).join('')}</select>
+              <select class="aselect" style="font-size:10px;" id="subsel-${san(p.id)}" onchange="updProdSub('${p.id}',this.value)"><option value="">— sous-cat —</option>${(DB.cats.find(c2=>c2.id===p.cat)?.subcats||[]).map(s=>`<option value="${s.id}"${s.id===p.sub?' selected':''}>${s.label}</option>`).join('')}</select>
               <select class="aselect" style="font-size:10px;" onchange="updProdType('${p.id}',this.value)">
                 <option value="qty"${(ptype==='qty'||ptype==='threshold'||ptype==='level'||ptype==='two')?'':''}>
                   ${[['qty','🔢 Quantité exacte'],['two','≥ / < Supérieur ou inférieur'],['yn','✓✗ Présent / Absent']].map(([v,l])=>`<option value="${v}"${getPtype(p)===v?' selected':''}>${l}</option>`).join('')}
@@ -1528,6 +1525,16 @@ function addProduct(){
 }
 function updProd(id,field,val){const p=DB.products.find(p=>p.id===id);if(p&&val.trim()){p[field]=val;saveDB();}}
 function updProdSup(id,supId){const p=DB.products.find(p=>p.id===id);if(p){p.sup=supId;saveDB();}}
+function updProdCat(id,catId){
+  const p=DB.products.find(p=>p.id===id);
+  if(!p)return;
+  p.cat=catId;p.sub='';saveDB();
+  const subSel=document.getElementById('subsel-'+san(id));
+  if(subSel){
+    const cat=DB.cats.find(c=>c.id===catId);
+    subSel.innerHTML='<option value="">— sous-cat —</option>'+(cat?.subcats||[]).map(s=>'<option value="'+s.id+'">'+s.label+'</option>').join('');
+  }
+}
 function updProdSub(id,subId){const p=DB.products.find(p=>p.id===id);if(p){p.sub=subId;saveDB();renderAll();}}
 function updProdType(id,type){
   const p=DB.products.find(p=>p.id===id);if(!p)return;
