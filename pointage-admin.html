@@ -137,12 +137,12 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 <!-- TABS -->
 <div class="tabs">
-  <div class="tab active" onclick="showTab('pointages')">Pointages</div>
-  <div class="tab" onclick="showTab('presences')">Pr&#233;sences</div>
-  <div class="tab" onclick="showTab('planning')">Planning</div>
-  <div class="tab" onclick="showTab('recap')">R&#233;cap heures</div>
-  <div class="tab" onclick="showTab('absences')">Absences</div>
-  <div class="tab" onclick="showTab('salaries')">Salari&#233;s</div>
+  <div class="tab active" onclick="showTab('pointages',this)">Pointages</div>
+  <div class="tab" onclick="showTab('presences',this)">Pr&#233;sences</div>
+  <div class="tab" onclick="showTab('planning',this)">Planning</div>
+  <div class="tab" onclick="showTab('recap',this)">R&#233;cap heures</div>
+  <div class="tab" onclick="showTab('absences',this)">Absences</div>
+  <div class="tab" onclick="showTab('salaries',this)">Salari&#233;s</div>
 </div>
 
 <div class="content">
@@ -391,12 +391,19 @@ let allEmployees=[], allPointages=[], allAbsences=[], currentSalId=null;
 let planningWeekStart=getMondayOf(new Date());
 
 // ── Init ──────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded',async()=>{
-  updateTopDate();
-  await loadEmployees();
-  await loadPointages();
-  loadPresences();
-});
+async function init(){
+  try{
+    updateTopDate();
+    await loadEmployees();
+    await loadPointages();
+  }catch(e){
+    console.error('Init error:',e);
+    document.getElementById('pointages-body').innerHTML=
+      '<tr><td colspan="7" style="text-align:center;padding:20px;color:red">Erreur de connexion: '+e.message+'</td></tr>';
+  }
+}
+document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('load', ()=>{ if(!allEmployees.length) init(); });
 
 function updateTopDate(){
   document.getElementById('topDate').textContent=
@@ -404,13 +411,13 @@ function updateTopDate(){
 }
 
 // ── TABS ──────────────────────────────────────────────────────
-function showTab(name){
-  document.querySelectorAll('[id^="tab-"]').forEach(el=>el.style.display='none');
+function showTab(name,el){
+  document.querySelectorAll('[id^="tab-"]').forEach(e=>e.style.display='none');
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+name).style.display='block';
-  event.currentTarget.classList.add('active');
+  if(el)el.classList.add('active');
   if(name==='presences')loadPresences();
-  if(name==='planning'){loadPlanning();}
+  if(name==='planning')loadPlanning();
   if(name==='recap')loadRecap();
   if(name==='absences')loadAbsences();
   if(name==='salaries')renderSalaries();
