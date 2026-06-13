@@ -341,7 +341,7 @@ function renderAlerts(){
   var c=document.getElementById('alc');c.innerHTML='';
   mx.forEach(function(id){
     var em=emp(id);
-    c.innerHTML+='<div class="al"><div class="alt">⚠ Sortie non enregistrée</div>'+em.prenom+' '+em.nom+' — <button class="btn ba sm" onclick="openCorFor('+id+','sortie')">Corriger</button></div>';
+    c.innerHTML+='<div class="al"><div class="alt">⚠ Sortie non enregistrée</div>'+em.prenom+' '+em.nom+' — <button class="btn ba sm" onclick="openCorFor('+id+',&quot;sortie&quot;)">Corriger</button></div>';
   });
   sx.forEach(function(e){
     var em=emp(e.employee_id);
@@ -566,7 +566,7 @@ function renderSal(){
       h+='<div style="flex:1"><div style="font-weight:600;font-size:13px'+(em.actif?'':';color:#aaa')+'">'+em.prenom+' '+em.nom+'</div>';
       h+='<div style="font-size:11px;color:var(--txm)">●●●● &nbsp;|&nbsp; '+st+'</div></div>';
       h+='<div style="display:flex;gap:5px"><button class="btn bs sm" onclick="openEditSal('+em.id+')">Modifier</button>';
-      h+='<button class="btn '+bc+' sm" onclick="togSal('+em.id+','+em.actif+')">'+bl+'</button></div>';
+      h+='<button class="btn '+bc+' sm" onclick="togSal('+em.id+','+(em.actif?'true':'false')+')">'+bl+'</button></div>';
       h+='</div></div>';
     });
   });
