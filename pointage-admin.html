@@ -168,7 +168,7 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
       <select class="fsel" id="f-date" onchange="loadPointages()">
         <option value="today">Aujourd'hui</option>
         <option value="yesterday">Hier</option>
-        <option value="week">Cette semaine</option>
+        <option value="week" selected>Cette semaine</option>
         <option value="month">Ce mois</option>
       </select>
     </div>
@@ -510,7 +510,7 @@ async function loadPointages(){
 
 function renderPointages(){
   const tbody=document.getElementById('pointages-body');
-  if(!allPointages.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:#aaa">Aucun pointage</td></tr>';return;}
+  if(!allPointages.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#aaa">Aucun pointage sur cette période</td></tr>';return;}
   tbody.innerHTML=allPointages.map(e=>{
     const emp=getEmp(e.employee_id);
     const manuel=e.manuel?'<span class="badge sup">Manuel</span>':'';
@@ -530,8 +530,8 @@ function updateStats(){
   const today=new Date().toISOString().slice(0,10);
   const todayEntries=allPointages.filter(e=>e.timestamp.startsWith(today));
   const presents=new Set(todayEntries.filter(e=>e.type==='entree').map(e=>e.employee_id)).size;
-  document.getElementById('stat-presents').textContent=presents;
-  document.getElementById('stat-pointages').textContent=todayEntries.length;
+  document.getElementById('stat-presents').textContent=presents||0;
+  document.getElementById('stat-pointages').textContent=allPointages.length;
   const missing=getMissingExits(todayEntries);
   const suspicious=allPointages.filter(e=>!e.ip_ok).length;
   document.getElementById('stat-alertes').textContent=missing.length+suspicious;
