@@ -210,12 +210,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <div class="card" style="padding:10px;margin-bottom:10px">
       <div style="font-size:10px;font-weight:700;color:var(--bx);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px" id="plan-tbl-title"></div>
-      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
-        <span class="sec-badge cuisine">&#9679; Cuisine</span>
-        <span class="sec-badge salle">&#9679; Salle</span>
-        <span class="sec-badge livraison">&#9679; Livraison</span>
-        <span style="font-size:10px;color:var(--txm);margin-left:2px">&#8212; Cliquer sur une case pour saisir</span>
-      </div>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:8px">Cliquer sur une case pour ajouter un créneau</div>
       <div class="ptbl-wrap"><table class="ptbl" id="plan-main-tbl"></table></div>
     </div>
     <div id="plan-emp-list"></div>
@@ -679,13 +674,13 @@ function renderPlan(){
     filtered.forEach(function(em){
       var sec=em.secteur||'salle';
       if(sec!==lastSecT){
-        th+='<tr class="sec-row"><td colspan="9" style="color:'+(SECCOLORS[sec]||'#7A4A35')+'">'+( SECLABELS[sec]||sec)+'</td></tr>';
+        th+='<tr class="sec-row"><td colspan="8" style="color:'+(SECCOLORS[sec]||'#7A4A35')+'">'+(SECLABELS[sec]||sec)+'</td></tr>';
         lastSecT=sec;
       }
       var rowBg=sec==='cuisine'?'rgba(254,226,226,.1)':sec==='livraison'?'rgba(209,250,229,.1)':'';
       th+='<tr style="background:'+rowBg+'">';
       th+='<td>'+em.prenom+' '+em.nom+(em.multi_site?'<span style="font-size:8px;background:#EDE9FE;color:#5B21B6;padding:1px 4px;border-radius:3px;margin-left:4px">MS</span>':'')+'</td>';
-      th+='<td><span class="sec-badge '+sec+'">'+(SECLABELS[sec]||sec)+'</span></td>';
+      
       dates.forEach(function(d){
         var dstr=planDs(d);
         var crs=((planData[em.id]&&planData[em.id][dstr])||[]).filter(function(c){return !c._del;});
