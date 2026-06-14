@@ -141,7 +141,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="cfdet" id="abs-ok-det"></div>
     </div>
   </div>
-  <div class="rgpd">Photos conservées 90 jours &middot; Accès restreint direction &middot; RGPD Art. 13</div>
+  <div class="rgpd">Photos conservées 90 jours &middot; Aucune reconnaissance faciale &middot; RGPD Art. 13</div>
 </div>
 <script>
 var RESTAURANT_ID='port';
@@ -166,7 +166,35 @@ function ss(name){
 function reset(){
   pin='';absPin='';emp=null;absEmp=null;
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
-  ss('idle');
+  
+// ── RGPD ─────────────────────────────────────────────────────────────────────
+document.getElementById('rgpd-check').addEventListener('change', function(){
+  var btn = document.getElementById('rgpd-btn');
+  if(this.checked){
+    btn.disabled = false;
+    btn.style.background = '#B91E26';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.background = '#ccc';
+    btn.style.cursor = 'not-allowed';
+  }
+});
+
+function acceptRgpd(){
+  localStorage.setItem('rgpd_accepted_v1', '1');
+  document.getElementById('rgpd-overlay').style.display = 'none';
+}
+
+function checkRgpd(){
+  if(!localStorage.getItem('rgpd_accepted_v1')){
+    document.getElementById('rgpd-overlay').style.display = 'flex';
+  }
+}
+
+checkRgpd();
+
+ss('idle');
 }
 
 function showPin(){pin='';upd();ss('pin');}
@@ -268,7 +296,63 @@ async function submitAbs(){
   ss('abs-ok');setTimeout(reset,4000);
 }
 
+
+// ── RGPD ─────────────────────────────────────────────────────────────────────
+document.getElementById('rgpd-check').addEventListener('change', function(){
+  var btn = document.getElementById('rgpd-btn');
+  if(this.checked){
+    btn.disabled = false;
+    btn.style.background = '#B91E26';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.background = '#ccc';
+    btn.style.cursor = 'not-allowed';
+  }
+});
+
+function acceptRgpd(){
+  localStorage.setItem('rgpd_accepted_v1', '1');
+  document.getElementById('rgpd-overlay').style.display = 'none';
+}
+
+function checkRgpd(){
+  if(!localStorage.getItem('rgpd_accepted_v1')){
+    document.getElementById('rgpd-overlay').style.display = 'flex';
+  }
+}
+
+checkRgpd();
+
 ss('idle');
 </script>
+
+<div id="rgpd-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto">
+    <div style="background:#B91E26;margin:-20px -20px 16px;padding:16px 20px;border-radius:16px 16px 0 0">
+      <div style="color:#fff;font-size:14px;font-weight:700;text-align:center">Information relative au traitement de vos données</div>
+      <div style="color:rgba(255,255,255,.7);font-size:11px;text-align:center;margin-top:3px">Loi Informatique et Libertés • RGPD</div>
+    </div>
+    <div style="font-size:12px;color:#2A0A0B;line-height:1.6;margin-bottom:14px">
+      <p style="margin-bottom:10px">Afin d'assurer la fiabilité du système de pointage et de prévenir les erreurs ou fraudes liées à l'enregistrement du temps de travail, <strong>une photographie est prise lors de chaque pointage</strong> (arrivée ou départ).</p>
+      <p style="margin-bottom:10px">Cette photographie a pour <strong>seule finalité</strong> de permettre, en cas de contestation, de vérifier que le pointage a été effectué par le salarié concerné.</p>
+      <ul style="margin-left:16px;margin-bottom:10px">
+        <li>Aucune reconnaissance faciale n'est réalisée</li>
+        <li>Aucune décision automatique n'est prise</li>
+        <li>Les images ne servent pas à une surveillance permanente</li>
+      </ul>
+      <p style="margin-bottom:10px"><strong>Conservation :</strong> les photographies sont conservées <strong>90 jours maximum</strong> puis supprimées. L'accès est strictement limité aux personnes habilitées.</p>
+      <p>Conformément au RGPD, vous disposez de droits d'accès, de rectification et d'opposition. Exercez-les auprès de votre employeur.</p>
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:#FAF4EC;border-radius:10px;border:1px solid #E8D5B5;cursor:pointer;margin-bottom:14px">
+      <input type="checkbox" id="rgpd-check" style="width:18px;height:18px;accent-color:#B91E26;flex-shrink:0;margin-top:1px">
+      <span style="font-size:12px;color:#2A0A0B;font-weight:500">J'atteste avoir pris connaissance des informations relatives au traitement de mes données de pointage et des photographies associées.</span>
+    </label>
+    <button id="rgpd-btn" onclick="acceptRgpd()" disabled style="width:100%;background:#ccc;border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:not-allowed;transition:background .2s">
+      Accepter et continuer
+    </button>
+    <p style="font-size:10px;color:#B08060;text-align:center;margin-top:10px">Milo's Pizza • Restauroglobal • RGPD Art. 13</p>
+  </div>
+</div>
 </body>
 </html>

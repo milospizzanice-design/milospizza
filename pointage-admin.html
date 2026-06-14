@@ -452,7 +452,7 @@ function renderAlerts(){
   });
 }
 
-function showPh(id){
+async function showPh(id){
   var e=pts.find(function(p){return p.id===id;});
   if(!e)return;
   var em=emp(e.employee_id);
@@ -460,6 +460,7 @@ function showPh(id){
   document.getElementById('phi').src=e.photo_b64||'';
   document.getElementById('phi2').textContent=(e.type==='entree'?'Entrée':'Sortie')+' • '+e.ip_address;
   document.getElementById('mph').classList.add('op');
+  await db.from('audit_photos').insert({time_entry_id:id,consulte_le:new Date().toISOString(),motif:'consultation admin'});
 }
 
 function openCor(){document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('mc').classList.add('op');}
@@ -993,6 +994,11 @@ async function loadDem(){
     h+='</div></div></div>';
   });
   body.innerHTML=h;
+}
+
+function showJustifFull(src){
+  var w=window.open('','_blank');
+  w.document.write('<img src="'+src+'" style="max-width:100%;height:auto">');
 }
 
 async function traitDem(id,statut){
