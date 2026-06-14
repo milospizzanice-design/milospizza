@@ -1359,6 +1359,107 @@ async function saveAb(){
   await loadAb();
 }
 
+
+async function loadDem(){
+  var body=document.getElementById('dem-body');if(!body)return;
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
+  var r=await db.from('demandes_absence').select('*').order('created_at',{ascending:false}).limit(50);
+  var data=r.data||[];
+  if(!data.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Aucune demande</div>';return;}
+  var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var h='';
+  data.forEach(function(d){
+    var em2=emp(d.employee_id);
+    var st=d.statut||'att';
+    var stL={att:'En attente',ok:'Accept\u00e9e',ko:'Refus\u00e9e'}[st]||st;
+    h+='<div class="dem-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">';
+    h+='<div><div style="font-weight:600;font-size:13px">'+em2.prenom+' '+em2.nom+'</div>';
+    h+='<div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TL[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div>';
+    if(d.message)h+='<div style="font-size:11px;color:var(--txm);margin-top:4px;font-style:italic">'+d.message+'</div>';
+    if(d.justif_b64){
+      h+='<div style="margin-top:6px">';
+      if(d.justif_b64.startsWith('data:image'))h+='<img src="'+d.justif_b64+'" style="max-width:100%;max-height:120px;border-radius:6px;border:1px solid var(--bd);cursor:pointer" onclick="showJustifFull(this.src)">';
+      else h+='<a href="'+d.justif_b64+'" download="justificatif.pdf" style="font-size:11px;color:var(--bx);font-weight:600">T\u00e9l\u00e9charger le justificatif</a>';
+      h+='</div>';
+    }
+    h+='<div style="font-size:10px;color:var(--txf);margin-top:4px">Re\u00e7ue le '+new Date(d.created_at).toLocaleDateString('fr-FR')+'</div>';
+    h+='</div>';
+    h+='<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
+    h+='<span class="dem-status '+st+'">'+stL+'</span>';
+    if(st==='att'){
+      h+='<button class="btn bg2 sm" data-id="'+d.id+'" data-st="ok" onclick="traitDemBtn(this)">&#10003; Accepter</button>';
+      h+='<button class="btn sm" style="background:#991B1B;color:#fff" data-id="'+d.id+'" data-st="ko" onclick="traitDemBtn(this)">&#10005; Refuser</button>';
+    }
+    h+='</div></div></div>';
+  });
+  body.innerHTML=h;
+}
+
+function traitDemBtn(btn){traitDem(parseInt(btn.dataset.id),btn.dataset.st);}
+
+async function traitDem(id,statut){
+  await db.from('demandes_absence').update({statut:statut}).eq('id',id);
+  await loadDem();
+}
+
+function showJustifFull(src){
+  var w=window.open('','_blank');
+  if(w)w.document.write('<img src="'+src+'" style="max-width:100%;height:auto">');
+}
+
+async function loadAudit(){
+  var body=document.getElementById('au-body');if(!body)return;
+  body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr>';
+  var r=await db.from('audit_photos').select('*').order('consulte_le',{ascending:false}).limit(100);
+  var data=r.data||[];
+  if(!data.length){body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Aucune consultation</td></tr>';return;}
+  var teIds=data.map(function(a){return a.time_entry_id;}).filter(Boolean);
+  var teMap={};
+  if(teIds.length){
+    var tr2=await db.from('time_entries').select('id,employee_id,type,timestamp').in('id',teIds);
+    (tr2.data||[]).forEach(function(t){teMap[t.id]=t;});
+  }
+  var h='';
+  data.forEach(function(a){
+    var te=teMap[a.time_entry_id]||{};
+    var em2=te.employee_id?emp(te.employee_id):{prenom:'Inconnu',nom:''};
+    var tl=te.type==='entree'?'\u2197 Entr\u00e9e':te.type==='sortie'?'\u2199 Sortie':'\u2014';
+    var pd=te.timestamp?fmtF(te.timestamp):'\u2014';
+    var cd=new Date(a.consulte_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    h+='<tr><td><strong>'+em2.prenom+' '+em2.nom+'</strong></td>';
+    h+='<td><span class="bg '+(te.type||'')+'">'+tl+'</span> '+pd+'</td>';
+    h+='<td style="font-variant-numeric:tabular-nums">'+cd+'</td>';
+    h+='<td style="font-size:11px;color:var(--txm)">'+(a.motif||'\u2014')+'</td></tr>';
+  });
+  body.innerHTML=h;
+}
+
+async function checkDemandesEnAttente(){
+  var r=await db.from('demandes_absence').select('*').eq('statut','att').order('created_at',{ascending:false});
+  var data=r.data||[];
+  if(!data.length)return;
+  var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var h='<div style="font-size:12px;color:var(--txm);margin-bottom:10px">'+data.length+' demande(s) en attente :</div>';
+  data.slice(0,5).forEach(function(d){
+    var em2=emp(d.employee_id);
+    h+='<div style="background:#FAF4EC;border-radius:8px;padding:8px 10px;margin-bottom:6px">';
+    h+='<div style="font-weight:600;font-size:13px">'+em2.prenom+' '+em2.nom+'</div>';
+    h+='<div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TL[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div>';
+    h+='</div>';
+  });
+  if(data.length>5)h+='<div style="font-size:11px;color:var(--txm);text-align:center">...et '+(data.length-5)+' autre(s)</div>';
+  var ab=document.getElementById('alertes-dem-body');if(ab)ab.innerHTML=h;
+  var mo=document.getElementById('modal-alertes-dem');if(mo)mo.classList.add('op');
+}
+
+function goTabByName(name){
+  var tabs=document.querySelectorAll('.tab');
+  for(var i=0;i<tabs.length;i++){
+    var oc=tabs[i].getAttribute('onclick')||'';
+    if(oc.indexOf("'"+name+"'")>=0){goTab(name,tabs[i]);return;}
+  }
+}
+
 async function init(){
   await loadEmps();
   await loadPt();
