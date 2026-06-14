@@ -119,6 +119,24 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .dem-status.ok{background:#DCFCE7;color:#166534;border:1px solid #86EFAC}
 .dem-status.ko{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5}
 
+.ptbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:14px}
+.ptbl{border-collapse:collapse;width:100%;min-width:500px;font-size:11px}
+.ptbl th{padding:6px 5px;font-size:10px;font-weight:700;white-space:nowrap;text-align:center;border:1px solid var(--bd)}
+.ptbl th:first-child{text-align:left;min-width:110px}
+.ptbl td{border:1px solid var(--bd);padding:4px 5px;vertical-align:top;text-align:center;cursor:pointer;min-width:50px}
+.ptbl td:first-child{text-align:left;font-weight:600;font-size:11px;cursor:default;background:var(--cr2)}
+.ptbl td:nth-child(2){cursor:default}
+.ptbl tr:hover td{background:#FFF8F0}
+.ptbl tr:hover td:first-child,.ptbl tr:hover td:nth-child(2){background:var(--cr2)}
+.ptbl .sec-row td{background:var(--cr2);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;cursor:default;padding:5px 6px;border-top:2px solid var(--bx)}
+.ptbl .cr-cell{font-size:10px;font-weight:600;color:var(--bx);line-height:1.3;display:block}
+.ptbl .cr-abs{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;display:inline-block;margin-top:2px}
+.ptbl .cr-off{font-size:10px;color:#ccc}
+.ptbl .cr-tag{font-size:8px;padding:0 3px;border-radius:2px;background:rgba(185,30,38,.1);color:var(--bx);display:inline-block}
+.sec-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700}
+.sec-badge.cuisine{background:#FEE2E2;color:#991B1B}
+.sec-badge.salle{background:#FEF3C7;color:#92400E}
+.sec-badge.livraison{background:#D1FAE5;color:#065F46}
 </style>
 </head>
 <body>
@@ -189,6 +207,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <button class="btn ba" onclick="openPlanDupli()">&#128203; Dupliquer sem.</button>
       <button class="btn bp" onclick="openPDFMonth()">&#8595; PDF mensuel</button>
       <button class="btn bs" onclick="openAddSalFromPlan()">+ Salari&#233;</button>
+    </div>
+    <div class="card" style="padding:10px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--bx);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px" id="plan-tbl-title"></div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+        <span class="sec-badge cuisine">&#9679; Cuisine</span>
+        <span class="sec-badge salle">&#9679; Salle</span>
+        <span class="sec-badge livraison">&#9679; Livraison</span>
+        <span style="font-size:10px;color:var(--txm);margin-left:2px">&#8212; Cliquer sur une case pour saisir</span>
+      </div>
+      <div class="ptbl-wrap"><table class="ptbl" id="plan-main-tbl"></table></div>
     </div>
     <div id="plan-emp-list"></div>
   </div>
@@ -626,56 +654,99 @@ function planReopenEmp(eid){
 
 function renderPlan(){
   var filtered=planGetFiltered();
-  var list=document.getElementById('plan-emp-list');
-  if(!list)return;
-  if(!filtered.length){list.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Aucun salari\u00e9</div>';return;}
-  var h='';var dates=planGetWeekDates();var lastSec='';
+  var dates=planGetWeekDates();
   var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
   var SECCOLORS={cuisine:'#991B1B',salle:'#92400E',livraison:'#065F46'};
+  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'Récup'};
+  var ABS_S={am:'background:#FEE2E2;color:#991B1B',ai:'background:#111;color:#fff',cp:'background:#EDE9FE;color:#5B21B6',rec:'background:#D1FAE5;color:#065F46'};
+
+  // Titre
+  var tblTitle=document.getElementById('plan-tbl-title');
+  if(tblTitle){
+    var rl=planResto==='port'?'Port — Bavastro':'Dabray';
+    tblTitle.textContent=rl+' — Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  }
+
+  // ── TABLEAU GÉNÉRAL ──────────────────────────────────────────────────────
+  var tbl=document.getElementById('plan-main-tbl');
+  if(tbl){
+    var th='<thead><tr><th style="background:var(--bx);color:#fff;text-align:left">Salarié</th><th style="background:var(--bx);color:#fff">Secteur</th>';
+    dates.forEach(function(d,i){
+      th+='<th style="background:var(--bx);color:#fff">'+PLAN_DAYSFULL[i].slice(0,3)+'<br><span style="font-weight:400;font-size:8px">'+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</span></th>';
+    });
+    th+='</tr></thead><tbody>';
+    var lastSecT='';
+    filtered.forEach(function(em){
+      var sec=em.secteur||'salle';
+      if(sec!==lastSecT){
+        th+='<tr class="sec-row"><td colspan="9" style="color:'+(SECCOLORS[sec]||'#7A4A35')+'">'+( SECLABELS[sec]||sec)+'</td></tr>';
+        lastSecT=sec;
+      }
+      var rowBg=sec==='cuisine'?'rgba(254,226,226,.1)':sec==='livraison'?'rgba(209,250,229,.1)':'';
+      th+='<tr style="background:'+rowBg+'">';
+      th+='<td>'+em.prenom+' '+em.nom+(em.multi_site?'<span style="font-size:8px;background:#EDE9FE;color:#5B21B6;padding:1px 4px;border-radius:3px;margin-left:4px">MS</span>':'')+'</td>';
+      th+='<td><span class="sec-badge '+sec+'">'+(SECLABELS[sec]||sec)+'</span></td>';
+      dates.forEach(function(d){
+        var dstr=planDs(d);
+        var crs=((planData[em.id]&&planData[em.id][dstr])||[]).filter(function(c){return !c._del;});
+        var absCode=(planAbs[em.id]&&planAbs[em.id][dstr])||null;
+        th+='<td data-eid="'+em.id+'" data-d="'+dstr+'" onclick="planCellClickBtn(this)">';
+        if(!crs.length&&!absCode){th+='<span class="cr-off">Off</span>';}
+        else{
+          crs.forEach(function(cr){
+            var tag=(em.multi_site&&cr.restaurant_id&&cr.restaurant_id!==em.restaurant_id)?'<span class="cr-tag">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>':'';
+            th+='<span class="cr-cell">'+cr.start+'-'+cr.end+tag+'</span>';
+          });
+          if(absCode)th+='<span class="cr-abs" style="'+(ABS_S[absCode]||'')+'">'+( ABS_L[absCode]||absCode)+'</span>';
+        }
+        th+='</td>';
+      });
+      th+='</tr>';
+    });
+    tbl.innerHTML=th+'</tbody>';
+  }
+
+  // ── LISTE SALARIÉS (saisie détaillée) ────────────────────────────────────
+  var list=document.getElementById('plan-emp-list');
+  if(!list)return;
+  if(!filtered.length){list.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Aucun salarié</div>';return;}
+  var h='';var lastSec2='';
   filtered.forEach(function(emp){
     var sec=emp.secteur||'salle';
-    if(sec!==lastSec){
+    if(sec!==lastSec2){
       h+='<div style="font-size:10px;font-weight:700;color:'+(SECCOLORS[sec]||'#7A4A35')+';text-transform:uppercase;letter-spacing:1px;margin:10px 0 5px">'+(SECLABELS[sec]||sec)+'</div>';
-      lastSec=sec;
+      lastSec2=sec;
     }
     var rl=emp.restaurant_id==='port'?'Port':'Dabray';
-    var meta=[rl,emp.heures_contrat?emp.heures_contrat+'h/sem':''].filter(Boolean).join(' \u2022 ');
+    var meta=[rl,emp.heures_contrat?emp.heures_contrat+'h/sem':''].filter(Boolean).join(' • ');
     h+='<div class="emp-card"><div class="emp-hd" onclick="planTogEmp('+emp.id+')">';
     h+='<div class="emp-av">'+emp.prenom[0]+'</div>';
     h+='<div style="flex:1;min-width:0"><div class="emp-nm">'+emp.prenom+' '+emp.nom+'</div><div class="emp-mt">'+meta+'</div></div>';
     h+='<span class="emp-tog" id="ept-'+emp.id+'">&#9654;</span></div>';
     h+='<div class="emp-body" id="epb-'+emp.id+'">';
-    // Template rapide
     h+='<div class="tpl-box"><div class="tpl-ttl">Application rapide</div>';
-    h+='<div class="tpl-row">D\u00e9but&nbsp;<input type="time" class="tpl-inp" id="pts-'+emp.id+'" value="17:00">&nbsp;Fin&nbsp;<input type="time" class="tpl-inp" id="pte-'+emp.id+'" value="23:30"></div>';
+    h+='<div class="tpl-row">Début&nbsp;<input type="time" class="tpl-inp" id="pts-'+emp.id+'" value="17:00">&nbsp;Fin&nbsp;<input type="time" class="tpl-inp" id="pte-'+emp.id+'" value="23:30"></div>';
     h+='<div class="day-row">';
     PLAN_DAYS.forEach(function(d,i){h+='<input type="checkbox" class="dcb" id="pdc-'+emp.id+'-'+i+'"><label class="dlbl" for="pdc-'+emp.id+'-'+i+'">'+d+'</label>';});
-    h+='</div><button class="btn bp sm" onclick="planApplyTpl('+emp.id+')">Appliquer aux jours coch\u00e9s</button></div>';
-    // Grille 7 jours
+    h+='</div><button class="btn bp sm" onclick="planApplyTpl('+emp.id+')">Appliquer aux jours cochés</button></div>';
     h+='<div class="dg">';
     dates.forEach(function(date,i){
       var dstr=planDs(date);
       var crs=((planData[emp.id]&&planData[emp.id][dstr])||[]).filter(function(c){return !c._del;});
       var absCode=(planAbs[emp.id]&&planAbs[emp.id][dstr])||'';
-      h+='<div class="dc">';
-      h+='<div class="dch">'+PLAN_DAYS[i]+'</div>';
+      h+='<div class="dc"><div class="dch">'+PLAN_DAYS[i]+'</div>';
       h+='<div class="dcd">'+date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</div>';
       if(!crs.length&&!absCode)h+='<div style="font-size:8px;color:var(--txf);text-align:center;padding:2px 0">Off</div>';
       crs.forEach(function(cr,ci){
-        var restoTag='';
-        if(emp.multi_site&&cr.restaurant_id&&cr.restaurant_id!==emp.restaurant_id){
-          restoTag='<span style="font-size:7px;background:rgba(185,30,38,.15);color:var(--bx);border-radius:3px;padding:1px 3px;display:block;text-align:center;margin-top:1px">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>';
-        }
+        var restoTag=(emp.multi_site&&cr.restaurant_id&&cr.restaurant_id!==emp.restaurant_id)?'<span style="font-size:7px;background:rgba(185,30,38,.15);color:var(--bx);border-radius:3px;padding:1px 3px;display:block;text-align:center">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>':'';
         h+='<div class="cr" style="cursor:pointer" data-eid="'+emp.id+'" data-d="'+dstr+'" data-i="'+ci+'" onclick="planOpenEdit(this)">';
         h+='<div class="cr-t">'+cr.start+'<br>'+cr.end+restoTag+'</div></div>';
       });
       h+='<button class="add-c" data-eid="'+emp.id+'" data-d="'+dstr+'" onclick="planOpenCrBtn(this)">+</button>';
-      // Menu déroulant absence
       h+='<select class="abs-sel" data-eid="'+emp.id+'" data-d="'+dstr+'" onchange="planSetAbs(this)">';
-      ABS_OPTS.forEach(function(o){h+='<option value="'+o.v+'"'+(absCode===o.v?' selected':'')+'>'+o.l+'</option>';});
-      h+='</select>';
-      if(absCode){h+='<span class="abs-chip '+absCode+'">'+ABS_OPTS.find(function(o){return o.v===absCode;}).l.split(' - ')[0]+'</span>';}
-      h+='</div>';
+      var ABS_OPTS3=[{v:'',l:'-- Aucune --'},{v:'am',l:'AM'},{v:'ai',l:'AI'},{v:'cp',l:'CP'},{v:'rec',l:'Récup'}];
+      ABS_OPTS3.forEach(function(o){h+='<option value="'+o.v+'"'+(absCode===o.v?' selected':'')+'>'+o.l+'</option>';});
+      h+='</select></div>';
     });
     h+='</div>';
     h+='<div class="emp-acts"><button class="btn bs sm" style="font-size:10px" onclick="planOpenPDFIndiv('+emp.id+')">&#8595; PDF</button></div>';
@@ -683,6 +754,21 @@ function renderPlan(){
   });
   list.innerHTML=h;
 }
+
+function planCellClickBtn(td){
+  planCellClick(parseInt(td.dataset.eid),td.dataset.d);
+}
+
+function planCellClick(empId,dstr){
+  planCrInfo={eid:empId,dstr:dstr};
+  var d=new Date(dstr+'T12:00:00');
+  var dayIdx=d.getDay()===0?6:d.getDay()-1;
+  document.getElementById('pcr-title').textContent='Créneau — '+PLAN_DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+  document.getElementById('pcr-s').value='17:00';
+  document.getElementById('pcr-e').value='23:30';
+  document.getElementById('modal-pcr').classList.add('op');
+}
+
 
 function planTogEmp(id){
   var b=document.getElementById('epb-'+id);var t=document.getElementById('ept-'+id);
