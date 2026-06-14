@@ -798,7 +798,10 @@ function renderPlan(){
       h+='</select></div>';
     });
     h+='</div>';
-    h+='<div class="emp-acts"><button class="btn bs sm" style="font-size:10px" onclick="planOpenPDFIndiv('+emp.id+')">&#8595; PDF</button></div>';
+    h+='<div class="emp-acts">';
+    h+='<button class="btn bg2 sm" onclick="savePl()">&#10003; Enregistrer</button>';
+    h+='<button class="btn bs sm" style="font-size:10px" onclick="planOpenPDFIndiv('+emp.id+')">&#8595; PDF</button>';
+    h+='</div>';
     h+='</div></div>';
   });
   list.innerHTML=h;
@@ -892,8 +895,17 @@ function planApplyTpl(eid){
 function planOpenCr(eid,dstr){
   planCrInfo={eid:eid,dstr:dstr};
   var d=new Date(dstr+'T12:00:00');var dayIdx=d.getDay()===0?6:d.getDay()-1;
-  document.getElementById('pcr-title').textContent='Cr\u00e9neau \u2014 '+PLAN_DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+  document.getElementById('pcr-title').textContent='Créneau — '+PLAN_DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
   document.getElementById('pcr-s').value='09:00';document.getElementById('pcr-e').value='17:00';
+  // Toujours afficher le sélecteur restaurant
+  var em=emps.find(function(e){return e.id===eid;});
+  var row=document.getElementById('pcr-resto-row');
+  var sel=document.getElementById('pcr-resto');
+  if(row)row.style.display='block';
+  if(sel)sel.value=(em&&em.restaurant_id)||planResto;
+  // Changer le label si multi-site
+  var lbl=row&&row.querySelector('.fl2');
+  if(lbl)lbl.textContent=em&&em.multi_site?'Restaurant (multi-site)':'Restaurant';
   document.getElementById('modal-pcr').classList.add('op');
 }
 
@@ -1300,8 +1312,9 @@ async function exportPlanIndivPDF(empId,val){
 
   // En-tête jours avec couleur secteur
   var x=MG;
-  doc.setFillColor(sbg[0],sbg[1],sbg[2]);doc.setDrawColor(216,197,167);
-  doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(stx[0],stx[1],stx[2]);
+  // En-tête : fond bordeaux, texte crème
+  doc.setFillColor(185,30,38);doc.setDrawColor(216,197,167);
+  doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(242,224,192);
   colW.forEach(function(w,i){
     doc.rect(x,y,w,9,'FD');
     if(i===0){doc.text('Semaine',x+2,y+5.5);}
@@ -1324,14 +1337,14 @@ async function exportPlanIndivPDF(empId,val){
       if(c.length+abs>maxCr)maxCr=c.length+abs;
     });
     var rh=Math.max(14,maxCr*7+5);
-    if(wi%2===0)doc.setFillColor(255,253,248);else doc.setFillColor(250,247,238);
+    if(wi%2===0)doc.setFillColor(255,252,245);else doc.setFillColor(242,224,192);
     doc.setDrawColor(216,197,167);
     var x2=MG;
     colW.forEach(function(w,ci){
       doc.rect(x2,y,w,rh,'FD');
       if(ci===0){
         // Label semaine: du XX au XX
-        doc.setTextColor(122,74,53);doc.setFontSize(6);doc.setFont('helvetica','bold');
+        doc.setTextColor(185,30,38);doc.setFontSize(6);doc.setFont('helvetica','bold');
         doc.text(dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x2+2,y+5);
         doc.setFontSize(5.5);doc.setFont('helvetica','normal');doc.text('au',x2+2,y+9);
         doc.setFontSize(6);doc.setFont('helvetica','bold');
@@ -1348,8 +1361,18 @@ async function exportPlanIndivPDF(empId,val){
             doc.setTextColor(185,30,38);doc.setFontSize(7);doc.setFont('helvetica','bold');
             crs.forEach(function(cr){
               var crtext=cr.start+'-'+cr.end;
-              var crw=doc.getTextWidth(crtext);doc.text(crtext,x2+w/2-crw/2,ytxt);ytxt+=7;
-              // Pastille si autre restaurant
+              var crw=doc.getTextWidth(crtext);doc.text(crtext,x2+w/2-crw/2,ytxt);ytxt+=6;
+              // Pastille restaurant TOUJOURS (même restaurant principal)
+              if(cr.resto){
+                var rb=cr.resto==='port'?[219,234,254]:[209,250,229];
+                var rt=cr.resto==='port'?[30,64,175]:[6,95,70];
+                var rnm2=cr.resto==='port'?'Port':'Dabray';
+                doc.setFillColor(rb[0],rb[1],rb[2]);doc.roundedRect(x2+w/2-8,ytxt-4.5,16,3.5,1,1,'F');
+                doc.setTextColor(rt[0],rt[1],rt[2]);doc.setFontSize(5);
+                var rnw=doc.getTextWidth(rnm2);doc.text(rnm2,x2+w/2-rnw/2,ytxt-2);
+                doc.setFontSize(7);doc.setTextColor(185,30,38);ytxt+=4;
+              }
+              // Ancienne pastille si autre restaurant
               if(em.multi_site&&cr.resto&&cr.resto!==em.restaurant_id){
                 var rb=RESTO_BG[cr.resto]||[219,234,254];var rt=RESTO_TX[cr.resto]||[30,64,175];
                 var rnm2=cr.resto==='port'?'Port':'Dabray';
