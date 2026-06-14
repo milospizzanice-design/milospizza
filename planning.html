@@ -647,11 +647,7 @@ async function exportMonthPDF(){
   });
   var t=new Date();
   var fname=t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf';
-  if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
-    doc.output('dataurlnewwindow',{filename:fname});
-  }else{
-    doc.save(fname);
-  }
+  doc.save(fname);
 }
 
 async function exportIndivPDF(){
