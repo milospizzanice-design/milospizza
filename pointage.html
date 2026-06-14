@@ -74,6 +74,11 @@ const RESTAURANT_ADDRESS='9 rue Bavastro, 06300 Nice';
     <div class="ii" onclick="showPin()">&#128070;</div>
     <div class="it">Toucher pour pointer</div>
     <div class="is">Ce terminal enregistre une photo &#224; chaque badgeage.</div>
+    <div style="margin-top:14px;text-align:center">
+      <button onclick="showAbsBtn()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:8px 16px;font-size:12px;color:#fff;font-weight:600;cursor:pointer">
+        &#128197; Demande d&#39;absence
+      </button>
+    </div>
   </div>
   <div class="screen" id="screen-pin">
     <div class="pl">Saisir votre code PIN</div>
@@ -106,6 +111,63 @@ const RESTAURANT_ADDRESS='9 rue Bavastro, 06300 Nice';
     <div class="em" id="em"></div>
     <div class="es">R&#233;essai dans 3 secondes&#8230;</div>
   </div>
+
+  <div class="screen" id="screen-abs-pin">
+    <div style="color:rgba(255,255,255,.8);font-size:13px;text-align:center;margin-bottom:16px">PIN pour demande d&#39;absence</div>
+    <div class="pd"><div id="ap0"></div><div id="ap1"></div><div id="ap2"></div><div id="ap3"></div></div>
+    <div class="np">
+      <button class="nb" onclick="apk('1')">1</button><button class="nb" onclick="apk('2')">2</button><button class="nb" onclick="apk('3')">3</button>
+      <button class="nb" onclick="apk('4')">4</button><button class="nb" onclick="apk('5')">5</button><button class="nb" onclick="apk('6')">6</button>
+      <button class="nb" onclick="apk('7')">7</button><button class="nb" onclick="apk('8')">8</button><button class="nb" onclick="apk('9')">9</button>
+      <button class="nb" onclick="apk('back')" style="font-size:18px">&#9003;</button>
+      <button class="nb" onclick="apk('0')">0</button>
+      <button class="nb nc" id="abcConfirm" onclick="absConfirmPin()">&#10003;</button>
+    </div>
+    <button class="cancel-btn" onclick="reset()">Annuler</button>
+  </div>
+
+  <div class="screen" id="screen-abs-form">
+    <div style="color:#fff;font-size:14px;font-weight:600;text-align:center;margin-bottom:12px" id="abs-emp-name"></div>
+    <div style="margin-bottom:9px">
+      <label style="color:rgba(255,255,255,.7);font-size:10px;font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px">Type</label>
+      <select id="abs-type" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:8px 10px;font-size:13px;color:#fff;outline:none">
+        <option value="cp">Cong&#233;s pay&#233;s (CP)</option>
+        <option value="am">Arr&#234;t maladie (AM)</option>
+        <option value="rec">R&#233;cup&#233;ration</option>
+        <option value="ai">Absence injustifi&#233;e</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:9px">
+      <div style="flex:1"><label style="color:rgba(255,255,255,.7);font-size:10px;font-weight:700;display:block;margin-bottom:3px">Du</label>
+        <input type="date" id="abs-from" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:7px 9px;font-size:13px;color:#fff;outline:none"></div>
+      <div style="flex:1"><label style="color:rgba(255,255,255,.7);font-size:10px;font-weight:700;display:block;margin-bottom:3px">Au</label>
+        <input type="date" id="abs-to" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:7px 9px;font-size:13px;color:#fff;outline:none"></div>
+    </div>
+    <div style="margin-bottom:9px">
+      <label style="color:rgba(255,255,255,.7);font-size:10px;font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px">Message (optionnel)</label>
+      <textarea id="abs-msg" rows="2" placeholder="Ex: rendez-vous m&#233;dical..." style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:7px 9px;font-size:12px;color:#fff;outline:none;resize:none"></textarea>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="color:rgba(255,255,255,.7);font-size:10px;font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px">Justificatif</label>
+      <label style="display:block;background:rgba(255,255,255,.12);border:1px dashed rgba(255,255,255,.3);border-radius:8px;padding:9px;text-align:center;cursor:pointer;color:rgba(255,255,255,.7);font-size:12px">
+        <span id="abs-file-lbl">&#128247; Ajouter un justificatif</span>
+        <input type="file" id="abs-file" accept="image/*,application/pdf" style="display:none" onchange="absFileChg(this)">
+      </label>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="reset()" style="flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:10px;color:#fff;font-size:13px;cursor:pointer">Annuler</button>
+      <button onclick="submitAbs()" style="flex:1;background:#B91E26;border:none;border-radius:8px;padding:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Envoyer</button>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-abs-ok">
+    <div style="text-align:center">
+      <div style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,#276749,#38a169);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 12px">&#10003;</div>
+      <div style="color:#fff;font-size:17px;font-weight:700;margin-bottom:6px">Demande envoy&#233;e !</div>
+      <div style="color:rgba(255,255,255,.7);font-size:12px" id="abs-ok-detail"></div>
+    </div>
+  </div>
+
 </div>
 <div class="rg">Photos conserv&#233;es 90 jours &#183; Acc&#232;s restreint direction &#183; RGPD Art. 13</div>
 <script>
