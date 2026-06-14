@@ -26,7 +26,6 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .br{background:#991B1B;color:#fff}
 .bpur{background:#5B21B6;color:#fff}
 .sm{padding:5px 9px;font-size:11px}
-.fs{background:var(--wh);border:1px solid var(--bd);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--tx);outline:none;width:100%}
 .fi{width:100%;background:var(--cr2);border:1px solid var(--bd);border-radius:7px;padding:8px 10px;font-size:13px;color:var(--tx);outline:none}
 .fi:focus{border-color:var(--bx)}
 .rtabs{display:flex;gap:6px;margin-bottom:12px;width:100%}
@@ -84,7 +83,6 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .gen-tbl td:first-child{font-weight:600;background:var(--cr2);white-space:nowrap}
 .gen-cr{font-size:10px;color:var(--bx);font-weight:600;display:block}
 .gen-off{font-size:10px;color:var(--txf)}
-.badge-ms{background:#EDE9FE;color:#5B21B6;display:inline-flex;padding:1px 5px;border-radius:10px;font-size:9px;font-weight:700;margin-left:4px}
 </style>
 </head>
 <body>
@@ -97,7 +95,7 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 </div>
 <div class="page">
   <div class="rtabs">
-    <div class="rtab on" onclick="switchResto('port',this)">&#127961; Port</div>
+    <div class="rtab on" onclick="switchResto('port',this)">Port</div>
     <div class="rtab" onclick="switchResto('dabray',this)">Dabray</div>
   </div>
   <div class="wnav">
@@ -124,7 +122,6 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
   <div id="emp-list"></div>
 </div>
 
-<!-- Modal créneau -->
 <div class="mb" id="modal-cr">
   <div class="md">
     <div class="mdt" id="cr-title">Ajouter un créneau</div>
@@ -134,7 +131,6 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
   </div>
 </div>
 
-<!-- Modal dupliquer -->
 <div class="mb" id="modal-dupli">
   <div class="md">
     <div class="mdt">Dupliquer vers semaine suivante</div>
@@ -148,7 +144,6 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
   </div>
 </div>
 
-<!-- Modal confirmation -->
 <div class="mb" id="modal-confirm">
   <div class="md">
     <div class="mdt">&#9888; Confirmation</div>
@@ -157,26 +152,23 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
   </div>
 </div>
 
-<!-- Modal PDF mensuel général -->
 <div class="mb" id="modal-pdf-month">
   <div class="md">
-    <div class="mdt">PDF Planning général mensuel</div>
+    <div class="mdt">PDF Planning mensuel</div>
     <div class="fr"><label class="fl2">Mois</label><input type="month" class="fi" id="pdf-month"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pdf-month')">Annuler</button><button class="btn br" onclick="exportMonthPDF()">Générer PDF</button></div>
   </div>
 </div>
 
-<!-- Modal PDF individuel -->
 <div class="mb" id="modal-pdf-indiv">
   <div class="md">
-    <div class="mdt">PDF Planning individuel</div>
+    <div class="mdt">PDF individuel mensuel</div>
     <input type="hidden" id="pdf-indiv-emp">
     <div class="fr"><label class="fl2">Mois</label><input type="month" class="fi" id="pdf-indiv-month"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pdf-indiv')">Annuler</button><button class="btn bpur" onclick="exportIndivPDF()">Générer PDF</button></div>
   </div>
 </div>
 
-<!-- Modal salarié -->
 <div class="mb" id="modal-sal">
   <div class="md">
     <div class="mdt" id="sal-ttl">Nouveau salarié</div>
@@ -184,6 +176,12 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
     <div class="fr"><label class="fl2">Nom *</label><input type="text" class="fi" id="sal-nom"></div>
     <div class="fr"><label class="fl2">Restaurant principal</label>
       <select class="fi" id="sal-resto"><option value="port">Port (Bavastro)</option><option value="dabray">Dabray</option></select></div>
+    <div class="fr"><label class="fl2">Secteur</label>
+      <select class="fi" id="sal-secteur">
+        <option value="cuisine">Cuisine</option>
+        <option value="salle" selected>Salle</option>
+        <option value="livraison">Livraison</option>
+      </select></div>
     <div class="fr"><label class="fl2" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="sal-multi" style="width:16px;height:16px;accent-color:var(--bx)"> Multi-site (badge sur les 2 restaurants)</label></div>
     <div class="fr"><label class="fl2">Email</label><input type="email" class="fi" id="sal-email" placeholder="prenom.nom@email.fr"></div>
     <div class="fr"><label class="fl2">Téléphone</label><input type="tel" class="fi" id="sal-tel" placeholder="06 XX XX XX XX"></div>
@@ -210,13 +208,20 @@ var crInfo=null,dupliIds=[],curSalId=null,dirty=false;
 var DAYS=['L','Ma','Me','J','V','S','D'];
 var DAYSFULL=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 var MONTHS=['Janvier','F\u00e9vrier','Mars','Avril','Mai','Juin','Juillet','Ao\u00fbt','Septembre','Octobre','Novembre','D\u00e9cembre'];
+var SECTEURS=['cuisine','salle','livraison'];
+var SECTEUR_LABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
+// Couleurs PDF par secteur (bordeaux clair, or, terracotta)
+var SECTEUR_PDF_COLORS={
+  cuisine:[139,17,24],
+  salle:[146,97,10],
+  livraison:[39,103,73]
+};
 
 function monOf(d){var x=new Date(d);var day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(0,0,0,0);return x;}
 function addD(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x;}
 function ds(d){return d.toISOString().slice(0,10);}
 function closeM(id){document.getElementById(id).classList.remove('op');}
 function pad(n){return String(n).padStart(2,'0');}
-
 function getWeekDates(){var r=[];for(var i=0;i<7;i++)r.push(addD(wkStart,i));return r;}
 
 function updateLabel(){
@@ -226,14 +231,8 @@ function updateLabel(){
   document.getElementById('bar-week').textContent=lbl;
 }
 
-async function prevWeek(){
-  if(dirty){await saveAll(true);}
-  wkStart=addD(wkStart,-7);updateLabel();await loadPlan();
-}
-async function nextWeek(){
-  if(dirty){await saveAll(true);}
-  wkStart=addD(wkStart,7);updateLabel();await loadPlan();
-}
+async function prevWeek(){if(dirty)await saveAll(true);wkStart=addD(wkStart,-7);updateLabel();await loadPlan();}
+async function nextWeek(){if(dirty)await saveAll(true);wkStart=addD(wkStart,7);updateLabel();await loadPlan();}
 
 function switchResto(r,el){
   curResto=r;
@@ -243,11 +242,7 @@ function switchResto(r,el){
   renderEmps();
 }
 
-async function init(){
-  updateLabel();
-  await loadEmps();
-  await loadPlan();
-}
+async function init(){updateLabel();await loadEmps();await loadPlan();}
 
 async function loadEmps(){
   var r=await db.from('employees').select('*').eq('actif',true).order('nom');
@@ -274,25 +269,45 @@ async function loadPlan(){
 }
 
 function getFiltered(){
-  return emps.filter(function(e){return e.restaurant_id===curResto||e.multi_site;});
+  var list=emps.filter(function(e){return e.restaurant_id===curResto||e.multi_site;});
+  // Trier: cuisine > salle > livraison > autres
+  list.sort(function(a,b){
+    var ai=SECTEURS.indexOf(a.secteur||'salle');
+    var bi=SECTEURS.indexOf(b.secteur||'salle');
+    if(ai!==bi)return ai-bi;
+    return (a.nom||'').localeCompare(b.nom||'');
+  });
+  return list;
 }
 
-function markDirty(){dirty=true;var btn=document.querySelector('.btn.bg2');if(btn)btn.style.background='#92610A';}
+function markDirty(){dirty=true;var btn=document.querySelector('.btn.bg2');if(btn){btn.style.background='#92610A';btn.textContent='! Enregistrer';}}
+
+function getSecteurBadge(secteur){
+  var colors={cuisine:'background:#FDE8E8;color:#991B1B',salle:'background:#FEF3C7;color:#92400E',livraison:'background:#D1FAE5;color:#065F46'};
+  var s=secteur||'salle';
+  return '<span style="'+( colors[s]||colors['salle'])+';padding:1px 6px;border-radius:10px;font-size:9px;font-weight:700;margin-left:4px">'+(SECTEUR_LABELS[s]||s)+'</span>';
+}
 
 function renderEmps(){
   var filtered=getFiltered();
   document.getElementById('emp-count').textContent=filtered.length+' salari\u00e9(s)';
   if(!filtered.length){document.getElementById('emp-list').innerHTML='<div class="card" style="text-align:center;color:#aaa;padding:20px">Aucun salari\u00e9</div>';return;}
-  var h='';
-  var dates=getWeekDates();
+  var h='';var dates=getWeekDates();var lastSecteur='';
   filtered.forEach(function(emp){
-    var ms=emp.multi_site?'<span class="badge-ms">Multi-site</span>':'';
+    var sec=emp.secteur||'salle';
+    // Séparateur de section
+    if(sec!==lastSecteur){
+      var secColors={cuisine:'#991B1B',salle:'#92400E',livraison:'#065F46'};
+      h+='<div style="font-size:10px;font-weight:700;color:'+(secColors[sec]||'#7A4A35')+';text-transform:uppercase;letter-spacing:1px;margin:10px 0 5px;padding-left:2px">'+(SECTEUR_LABELS[sec]||sec)+'</div>';
+      lastSecteur=sec;
+    }
+    var ms=emp.multi_site?'<span style="background:#EDE9FE;color:#5B21B6;padding:1px 5px;border-radius:10px;font-size:9px;font-weight:700;margin-left:4px">Multi-site</span>':'';
     var rl=emp.restaurant_id==='port'?'Port':'Dabray';
     var meta=[rl,emp.heures_contrat?emp.heures_contrat+'h/sem':'',emp.taux_horaire?emp.taux_horaire+'\u20ac/h':''].filter(Boolean).join(' \u2022 ');
     h+='<div class="emp-card">';
     h+='<div class="emp-hd" onclick="togEmp('+emp.id+')">';
     h+='<div class="emp-av">'+emp.prenom[0]+'</div>';
-    h+='<div class="emp-info"><div class="emp-name">'+emp.prenom+' '+emp.nom+ms+'</div>';
+    h+='<div class="emp-info"><div class="emp-name">'+emp.prenom+' '+emp.nom+getSecteurBadge(sec)+ms+'</div>';
     h+='<div class="emp-meta">'+meta+'</div></div>';
     h+='<span class="emp-tog" id="tog-'+emp.id+'">&#9654;</span>';
     h+='</div>';
@@ -336,12 +351,12 @@ function renderEmps(){
 }
 
 function togEmp(id){
-  var b=document.getElementById('body-'+id);
-  var t=document.getElementById('tog-'+id);
-  var op=b.classList.contains('open');
-  b.classList.toggle('open',!op);
-  t.classList.toggle('open',!op);
+  var b=document.getElementById('body-'+id);var t=document.getElementById('tog-'+id);
+  var op=b.classList.contains('open');b.classList.toggle('open',!op);t.classList.toggle('open',!op);
 }
+function reopen(eid){var b=document.getElementById('body-'+eid);var t=document.getElementById('tog-'+eid);if(b){b.classList.add('open');t.classList.add('open');}}
+function delCrBtn(btn){delCr(parseInt(btn.dataset.eid),btn.dataset.d,parseInt(btn.dataset.i));}
+function openCrBtn(btn){openCr(parseInt(btn.dataset.eid),btn.dataset.d);}
 
 function applyTpl(eid){
   var s=document.getElementById('ts-'+eid).value;
@@ -359,57 +374,38 @@ function applyTpl(eid){
     }
   });
   if(!changed){alert('Aucun jour coch\u00e9 ou cr\u00e9neau d\u00e9j\u00e0 existant');return;}
-  markDirty();
-  var wasOpen=document.getElementById('body-'+eid).classList.contains('open');
-  renderEmps();
-  if(wasOpen)reopen(eid);
+  markDirty();var wasOpen=document.getElementById('body-'+eid).classList.contains('open');
+  renderEmps();if(wasOpen)reopen(eid);
 }
-
-function reopen(eid){
-  var b=document.getElementById('body-'+eid);
-  var t=document.getElementById('tog-'+eid);
-  if(b){b.classList.add('open');t.classList.add('open');}
-}
-
-function delCrBtn(btn){delCr(parseInt(btn.dataset.eid),btn.dataset.d,parseInt(btn.dataset.i));}
-function openCrBtn(btn){openCr(parseInt(btn.dataset.eid),btn.dataset.d);}
 
 function openCr(eid,dstr){
   crInfo={eid:eid,dstr:dstr};
-  var d=new Date(dstr+'T12:00:00');
-  var dayIdx=d.getDay()===0?6:d.getDay()-1;
+  var d=new Date(dstr+'T12:00:00');var dayIdx=d.getDay()===0?6:d.getDay()-1;
   document.getElementById('cr-title').textContent='Cr\u00e9neau \u2014 '+DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
-  document.getElementById('cr-s').value='09:00';
-  document.getElementById('cr-e').value='17:00';
+  document.getElementById('cr-s').value='09:00';document.getElementById('cr-e').value='17:00';
   document.getElementById('modal-cr').classList.add('op');
 }
 
 function saveCr(){
   if(!crInfo)return;
-  var s=document.getElementById('cr-s').value;
-  var e=document.getElementById('cr-e').value;
+  var s=document.getElementById('cr-s').value;var e=document.getElementById('cr-e').value;
   if(!s||!e){alert('Saisissez les heures');return;}
   var eid=crInfo.eid;var d=crInfo.dstr;
-  if(!planning[eid])planning[eid]={};
-  if(!planning[eid][d])planning[eid][d]=[];
+  if(!planning[eid])planning[eid]={};if(!planning[eid][d])planning[eid][d]=[];
   planning[eid][d].push({start:s,end:e,_new:true});
   planning[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});
-  markDirty();
-  closeM('modal-cr');
+  markDirty();closeM('modal-cr');
   var wasOpen=document.getElementById('body-'+eid)&&document.getElementById('body-'+eid).classList.contains('open');
-  renderEmps();
-  if(wasOpen)reopen(eid);
+  renderEmps();if(wasOpen)reopen(eid);
 }
 
 function delCr(eid,dstr,idx){
   if(!planning[eid]||!planning[eid][dstr])return;
   var cr=planning[eid][dstr][idx];
-  if(cr.id)cr._del=true;
-  else planning[eid][dstr].splice(idx,1);
+  if(cr.id)cr._del=true;else planning[eid][dstr].splice(idx,1);
   markDirty();
   var wasOpen=document.getElementById('body-'+eid)&&document.getElementById('body-'+eid).classList.contains('open');
-  renderEmps();
-  if(wasOpen)reopen(eid);
+  renderEmps();if(wasOpen)reopen(eid);
 }
 
 async function saveAll(silent){
@@ -433,15 +429,13 @@ async function saveAll(silent){
 }
 
 function openDupli(){
-  var filtered=getFiltered();
-  var h='';
+  var filtered=getFiltered();var h='';
   filtered.forEach(function(em){
     h+='<div class="sal-chk"><input type="checkbox" id="dup-'+em.id+'" checked><label for="dup-'+em.id+'" style="font-size:13px;cursor:pointer">'+em.prenom+' '+em.nom+'</label></div>';
   });
   document.getElementById('dupli-list').innerHTML=h;
   document.getElementById('modal-dupli').classList.add('op');
 }
-
 function chkAll(v){document.querySelectorAll('#dupli-list input').forEach(function(cb){cb.checked=v;});}
 
 function confirmDupli(){
@@ -450,13 +444,11 @@ function confirmDupli(){
   if(!dupliIds.length){alert('S\u00e9lectionnez au moins un salari\u00e9');return;}
   var next=addD(wkStart,7);
   document.getElementById('confirm-msg').textContent='Le planning de '+dupliIds.length+' salari\u00e9(s) sera copi\u00e9 sur la semaine du '+next.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+'. Les cr\u00e9neaux existants seront \u00e9cras\u00e9s.';
-  closeM('modal-dupli');
-  document.getElementById('modal-confirm').classList.add('op');
+  closeM('modal-dupli');document.getElementById('modal-confirm').classList.add('op');
 }
 
 async function doDupli(){
-  closeM('modal-confirm');
-  var dates=getWeekDates();var err=0;
+  closeM('modal-confirm');var dates=getWeekDates();var err=0;
   for(var si=0;si<dupliIds.length;si++){
     var eid=dupliIds[si];
     for(var di=0;di<dates.length;di++){
@@ -482,11 +474,20 @@ function renderGeneral(){
   var rl=curResto==='port'?'Port \u2014 Bavastro':'Dabray';
   var wl='Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   document.getElementById('gen-title').textContent=rl+' \u2014 '+wl;
-  var h='<thead><tr><th>Salari\u00e9</th>';
+  var h='<thead><tr><th>Salari\u00e9</th><th>Secteur</th>';
   dates.forEach(function(d,i){h+='<th>'+DAYSFULL[i].slice(0,3)+'<br><span style="font-size:9px">'+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</span></th>';});
   h+='</tr></thead><tbody>';
+  var lastSec='';
   filtered.forEach(function(em){
+    var sec=em.secteur||'salle';
+    if(sec!==lastSec){
+      var secBg={cuisine:'#FDE8E8',salle:'#FEF3C7',livraison:'#D1FAE5'};
+      var secTx={cuisine:'#991B1B',salle:'#92400E',livraison:'#065F46'};
+      h+='<tr><td colspan="'+(9)+'" style="background:'+(secBg[sec]||'#FAF4EC')+';color:'+(secTx[sec]||'#7A4A35')+';font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:5px 8px">'+(SECTEUR_LABELS[sec]||sec)+'</td></tr>';
+      lastSec=sec;
+    }
     h+='<tr><td>'+em.prenom+' '+em.nom+'</td>';
+    h+='<td>'+getSecteurBadge(sec)+'</td>';
     dates.forEach(function(d){
       var crs=(planning[em.id]&&planning[em.id][ds(d)])||[];
       h+='<td>';
@@ -499,7 +500,62 @@ function renderGeneral(){
   document.getElementById('gen-table').innerHTML=h+'</tbody>';
 }
 
-// ── PDF MENSUEL ────────────────────────────────────────────────
+// ── PDF HELPERS ────────────────────────────────────────────────
+function drawPDFHeader(doc,title,subtitle,pageW){
+  // Fond bordeaux header
+  doc.setFillColor(185,30,38);doc.rect(0,0,pageW,18,'F');
+  doc.setTextColor(242,224,192);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text(title,8,11);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text(subtitle,8,16);
+}
+
+function drawPDFTableHeader(doc,cols,colWidths,y,startX){
+  var x=startX;
+  doc.setFontSize(8);doc.setFont('helvetica','bold');
+  colWidths.forEach(function(w,i){
+    doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);
+    doc.rect(x,y,w,10,'FD');
+    doc.setTextColor(122,74,53);
+    var lines=cols[i].split('\n');
+    if(lines.length>1){doc.setFontSize(8);doc.text(lines[0],x+2,y+4);doc.setFontSize(7);doc.text(lines[1],x+2,y+8);}
+    else doc.text(cols[i],x+2,y+6);
+    x+=w;
+  });
+}
+
+function drawPDFRow(doc,em,crs_map,dates,colWidths,y,startX,ri){
+  var sec=em.secteur||'salle';
+  var sc=SECTEUR_PDF_COLORS[sec]||[122,74,53];
+  var maxCr=0;
+  dates.forEach(function(d){var c=crs_map[ds(d)]||[];if(c.length>maxCr)maxCr=c.length;});
+  var rh=Math.max(10,maxCr*5+5);
+  var x=startX;
+  if(ri%2===0)doc.setFillColor(255,253,248);else doc.setFillColor(250,244,235);
+  doc.setDrawColor(216,197,167);
+  colWidths.forEach(function(w,ci){
+    doc.rect(x,y,w,rh,'FD');
+    if(ci===0){
+      doc.setTextColor(42,10,11);doc.setFontSize(8);doc.setFont('helvetica','bold');
+      doc.text(em.prenom+' '+em.nom,x+2,y+6);
+      doc.setFontSize(7);doc.setFont('helvetica','normal');
+      doc.setTextColor(sc[0],sc[1],sc[2]);
+      doc.text(SECTEUR_LABELS[sec]||sec,x+2,y+10);
+    }else if(ci===1){
+      // colonne secteur sur planning individuel (pas sur général)
+    }else{
+      var dateIdx=ci-1;
+      var crs=crs_map[ds(dates[dateIdx])]||[];
+      doc.setFont('helvetica','normal');
+      if(!crs.length){doc.setTextColor(176,128,96);doc.setFontSize(7);doc.text('Off',x+2,y+6);}
+      else{doc.setTextColor(sc[0],sc[1],sc[2]);doc.setFontSize(7);crs.forEach(function(cr,i){doc.text(cr.start+'-'+cr.end,x+2,y+5+(i*5));});}
+    }
+    x+=w;
+  });
+  return rh;
+}
+
+// ── PDF MENSUEL GÉNÉRAL ────────────────────────────────────────
 function openPDFMonth(){
   var now=new Date();
   document.getElementById('pdf-month').value=now.getFullYear()+'-'+pad(now.getMonth()+1);
@@ -507,94 +563,84 @@ function openPDFMonth(){
 }
 
 async function exportMonthPDF(){
-  if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez dans 2s');return;}
-  var jsPDF=window.jspdf.jsPDF;
+  if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
   var val=document.getElementById('pdf-month').value;
   if(!val){alert('S\u00e9lectionnez un mois');return;}
-  var parts=val.split('-');
-  var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
   closeM('modal-pdf-month');
-
-  // Trouver toutes les semaines du mois
-  var firstDay=new Date(year,month,1);
-  var lastDay=new Date(year,month+1,0);
-  var weeks=[];
-  var cur=monOf(firstDay);
-  while(cur<=lastDay){weeks.push(new Date(cur));cur=addD(cur,7);}
-
+  var jsPDF=window.jspdf.jsPDF;
+  var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
+  var firstDay=new Date(year,month,1);var lastDay=new Date(year,month+1,0);
+  var weeks=[];var cur=monOf(firstDay);
+  while(ds(cur)<=ds(lastDay)){weeks.push(new Date(cur));cur=addD(cur,7);}
   var filtered=getFiltered();
-  var rl=curResto==='port'?'Port':'Dabray';
+  var rl=curResto==='port'?'Port - Bavastro':'Dabray';
   var monthLabel=MONTHS[month]+' '+year;
-
-  // Charger toutes les données du mois
-  var allCrs=await db.from('planning_creneaux').select('*')
-    .gte('date',ds(firstDay)).lte('date',ds(lastDay))
-    .in('employee_id',filtered.map(function(e){return e.id;}));
+  var allCrs=await db.from('planning_creneaux').select('*').gte('date',ds(firstDay)).lte('date',ds(lastDay)).in('employee_id',filtered.map(function(e){return e.id;}));
   var mplan={};
   (allCrs.data||[]).forEach(function(c){
     if(!mplan[c.employee_id])mplan[c.employee_id]={};
     if(!mplan[c.employee_id][c.date])mplan[c.employee_id][c.date]=[];
     mplan[c.employee_id][c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});
   });
-
   var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   var pageW=297;var isFirst=true;
-
   weeks.forEach(function(wk){
     if(!isFirst)doc.addPage();isFirst=false;
     var dates=[];for(var i=0;i<7;i++)dates.push(addD(wk,i));
-
-    // Header
-    doc.setFillColor(185,30,38);doc.rect(0,0,pageW,16,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont('helvetica','bold');
-    doc.text('Milo\'s Pizza \u2014 Planning '+rl+' \u2014 '+monthLabel,8,10);
-    doc.setFontSize(9);doc.setFont('helvetica','normal');
     var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
-    doc.text(wlbl,8,15);
-
-    var cW=[42,35,35,35,35,35,35,35];
-    var startY=20;var x=8;
-    doc.setFillColor(242,224,192);doc.setTextColor(122,74,53);doc.setFontSize(8);doc.setFont('helvetica','bold');
-    cW.forEach(function(w,i){
-      doc.rect(x,startY,w,10,'FD');
-      if(i===0){doc.text('Salari\u00e9',x+2,startY+6);}
-      else{doc.text(DAYSFULL[i-1].slice(0,3),x+2,startY+4);doc.setFontSize(7);doc.text(dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x+2,startY+8);doc.setFontSize(8);}
-      x+=w;
-    });
-
-    var y=startY+10;
-    filtered.forEach(function(em,ri){
-      if(ri%2===0)doc.setFillColor(255,255,255);else doc.setFillColor(250,248,245);
+    drawPDFHeader(doc,'Milo\'s Pizza \u2014 Planning '+rl+' \u2014 '+monthLabel,wlbl,pageW);
+    // Colonnes: Salarié + 7 jours (pas de colonne secteur sur le général)
+    var colW=[40,32,32,32,32,32,32,33];
+    var hdrs=['Salari\u00e9'].concat(dates.map(function(d,i){return DAYSFULL[i].slice(0,3)+'\n'+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}));
+    var startY=22;
+    drawPDFTableHeader(doc,hdrs,colW,startY,8);
+    var y=startY+10;var lastSec='';var rowIdx=0;
+    filtered.forEach(function(em){
+      var sec=em.secteur||'salle';
+      // Ligne de séparation de secteur
+      if(sec!==lastSec){
+        var scBg={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
+        var scTx={cuisine:[153,27,27],salle:[146,64,14],livraison:[6,95,70]};
+        var bg=scBg[sec]||[242,224,192];var tx=scTx[sec]||[122,74,53];
+        doc.setFillColor(bg[0],bg[1],bg[2]);doc.setDrawColor(216,197,167);
+        doc.rect(8,y,pageW-16,7,'FD');
+        doc.setTextColor(tx[0],tx[1],tx[2]);doc.setFontSize(8);doc.setFont('helvetica','bold');
+        doc.text((SECTEUR_LABELS[sec]||sec).toUpperCase(),10,y+5);
+        y+=7;lastSec=sec;
+      }
+      var empPlan=mplan[em.id]||{};
       var maxCr=0;
-      dates.forEach(function(d){var c=(mplan[em.id]&&mplan[em.id][ds(d)])||[];if(c.length>maxCr)maxCr=c.length;});
+      dates.forEach(function(d){var c=empPlan[ds(d)]||[];if(c.length>maxCr)maxCr=c.length;});
       var rh=Math.max(9,maxCr*5+4);
-      var x2=8;
-      cW.forEach(function(w,ci){
-        doc.rect(x2,y,w,rh,'FD');
-        if(ci===0){doc.setTextColor(42,10,11);doc.setFontSize(8);doc.setFont('helvetica','bold');doc.text(em.prenom+' '+em.nom,x2+2,y+5);}
-        else{
-          var crs=(mplan[em.id]&&mplan[em.id][ds(dates[ci-1])])||[];
+      var sc=SECTEUR_PDF_COLORS[sec]||[122,74,53];
+      var x=8;
+      if(rowIdx%2===0)doc.setFillColor(255,253,248);else doc.setFillColor(250,244,235);
+      doc.setDrawColor(216,197,167);
+      colW.forEach(function(w,ci){
+        doc.rect(x,y,w,rh,'FD');
+        if(ci===0){
+          doc.setTextColor(42,10,11);doc.setFontSize(8);doc.setFont('helvetica','bold');
+          doc.text(em.prenom+' '+em.nom,x+2,y+5.5);
+        }else{
+          var crs=empPlan[ds(dates[ci-1])]||[];
           doc.setFont('helvetica','normal');
-          if(!crs.length){doc.setTextColor(176,128,96);doc.setFontSize(7);doc.text('Off',x2+2,y+5);}
-          else{doc.setTextColor(185,30,38);doc.setFontSize(7);crs.forEach(function(cr,i){doc.text(cr.start+'-'+cr.end,x2+1,y+4+(i*5));});}
-          doc.setTextColor(42,10,11);
+          if(!crs.length){doc.setTextColor(176,128,96);doc.setFontSize(7);doc.text('Off',x+2,y+5.5);}
+          else{doc.setTextColor(sc[0],sc[1],sc[2]);doc.setFontSize(7);crs.forEach(function(cr,k){doc.text(cr.start+'-'+cr.end,x+2,y+4.5+(k*5));});}
         }
-        x2+=w;
+        x+=w;
       });
-      y+=rh;
-      if(y>190){doc.addPage();y=15;}
+      y+=rh;rowIdx++;
+      if(y>195){doc.addPage();y=15;}
     });
-
+    // Footer
     doc.setFontSize(7);doc.setTextColor(176,128,96);
-    doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR'),8,205);
+    doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milo\'s Pizza',8,204);
   });
-
   var t=new Date();
-  var fn=t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf';
-  doc.save(fn);
+  doc.save(t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
 }
 
-// ── PDF INDIVIDUEL ─────────────────────────────────────────────
+// ── PDF INDIVIDUEL MENSUEL ─────────────────────────────────────
 function openPDFIndiv(empId){
   var now=new Date();
   document.getElementById('pdf-indiv-month').value=now.getFullYear()+'-'+pad(now.getMonth()+1);
@@ -604,69 +650,73 @@ function openPDFIndiv(empId){
 
 async function exportIndivPDF(){
   if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
-  var jsPDF=window.jspdf.jsPDF;
   var empId=parseInt(document.getElementById('pdf-indiv-emp').value);
   var val=document.getElementById('pdf-indiv-month').value;
   if(!val){alert('S\u00e9lectionnez un mois');return;}
   closeM('modal-pdf-indiv');
+  var jsPDF=window.jspdf.jsPDF;
   var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
-  var em=emps.find(function(e){return e.id===empId;});
-  if(!em)return;
-
+  var em=emps.find(function(e){return e.id===empId;});if(!em)return;
   var firstDay=new Date(year,month,1);var lastDay=new Date(year,month+1,0);
   var weeks=[];var cur=monOf(firstDay);
-  while(cur<=lastDay){weeks.push(new Date(cur));cur=addD(cur,7);}
-
+  while(ds(cur)<=ds(lastDay)){weeks.push(new Date(cur));cur=addD(cur,7);}
   var monthLabel=MONTHS[month]+' '+year;
+  var rl=em.restaurant_id==='port'?'Port - Bavastro':'Dabray';
+  var sec=em.secteur||'salle';var sc=SECTEUR_PDF_COLORS[sec]||[122,74,53];
   var allCrs=await db.from('planning_creneaux').select('*').gte('date',ds(firstDay)).lte('date',ds(lastDay)).eq('employee_id',empId);
   var mplan={};
   (allCrs.data||[]).forEach(function(c){
     if(!mplan[c.date])mplan[c.date]=[];
     mplan[c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});
   });
-
   var doc=new jsPDF({unit:'mm',format:'a4'});
-  doc.setFillColor(185,30,38);doc.rect(0,0,210,18,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont('helvetica','bold');
-  doc.text('Milo\'s Pizza \u2014 Planning '+monthLabel,8,11);
-  doc.setFontSize(9);doc.setFont('helvetica','normal');
-  var rl=em.restaurant_id==='port'?'Port \u2014 Bavastro':'Dabray';
-  doc.text(em.prenom+' '+em.nom+' \u2014 '+rl,8,16);
-
-  var y=24;
+  // Page de garde
+  doc.setFillColor(185,30,38);doc.rect(0,0,210,40,'F');
+  doc.setFillColor(242,224,192);doc.rect(0,40,210,2,'F');
+  doc.setTextColor(242,224,192);doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text('Milo\'s Pizza',10,16);
+  doc.setFontSize(11);doc.setFont('helvetica','normal');
+  doc.text('Planning '+monthLabel,10,24);
+  doc.text(rl,10,31);
+  doc.setFontSize(20);doc.setFont('helvetica','bold');doc.setTextColor(42,10,11);
+  doc.text(em.prenom+' '+em.nom,10,56);
+  doc.setFontSize(11);doc.setFont('helvetica','normal');doc.setTextColor(sc[0],sc[1],sc[2]);
+  doc.text(SECTEUR_LABELS[sec]||sec,10,64);
+  if(em.heures_contrat){doc.setTextColor(122,74,53);doc.setFontSize(10);doc.text('Contrat : '+em.heures_contrat+'h/semaine',10,71);}
+  var y=82;
   weeks.forEach(function(wk){
     var dates=[];for(var i=0;i<7;i++)dates.push(addD(wk,i));
-    var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
-    doc.setFillColor(185,30,38);doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
-    doc.rect(10,y,190,7,'F');doc.text(wlbl,12,y+5);y+=7;
+    var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+    doc.setFillColor(185,30,38);doc.rect(10,y,190,8,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text(wlbl,12,y+5.5);y+=8;
     dates.forEach(function(d,i){
       var crs=mplan[ds(d)]||[];
-      doc.setFillColor(i%2===0?255:250);
-      doc.rect(10,y,190,crs.length>1?8+(crs.length-1)*5:8,'FD');
-      doc.setTextColor(122,74,53);doc.setFontSize(8);doc.setFont('helvetica','bold');
+      var rh=crs.length>1?8+(crs.length-1)*5:8;
+      if(i%2===0)doc.setFillColor(255,253,248);else doc.setFillColor(250,244,235);
+      doc.setDrawColor(216,197,167);doc.rect(10,y,190,rh,'FD');
+      doc.setTextColor(122,74,53);doc.setFontSize(9);doc.setFont('helvetica','bold');
       doc.text(DAYSFULL[i].slice(0,3)+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),12,y+5.5);
-      if(!crs.length){doc.setTextColor(176,128,96);doc.setFont('helvetica','normal');doc.text('Repos',70,y+5.5);}
-      else{doc.setTextColor(185,30,38);doc.setFont('helvetica','bold');crs.forEach(function(cr,ci){doc.text(cr.start+' - '+cr.end,70,y+5+(ci*5));});}
-      doc.setTextColor(42,10,11);
-      y+=crs.length>1?8+(crs.length-1)*5:8;
+      if(!crs.length){doc.setTextColor(176,128,96);doc.setFont('helvetica','normal');doc.text('Repos',75,y+5.5);}
+      else{doc.setTextColor(sc[0],sc[1],sc[2]);doc.setFont('helvetica','bold');crs.forEach(function(cr,k){doc.text(cr.start+' - '+cr.end,75,y+5+(k*5));});}
+      y+=rh;
     });
-    y+=4;
+    y+=5;
     if(y>270){doc.addPage();y=15;}
   });
-
   doc.setFontSize(7);doc.setTextColor(176,128,96);
-  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR'),10,285);
+  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milo\'s Pizza',10,287);
   var t=new Date();
-  var fn=t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf';
-  doc.save(fn);
+  doc.save(t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf');
 }
 
-// ── GESTION SALARIÉS ───────────────────────────────────────────
+// ── SALARIÉS ───────────────────────────────────────────────────
 function openAddSal(){
   curSalId=null;
   document.getElementById('sal-ttl').textContent='Nouveau salari\u00e9';
   ['sal-prenom','sal-nom','sal-email','sal-tel','sal-adresse','sal-heures','sal-taux','sal-pin'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('sal-resto').value='port';
+  document.getElementById('sal-secteur').value='salle';
   document.getElementById('sal-multi').checked=false;
   document.getElementById('sal-pin-hint').style.display='none';
   document.getElementById('modal-sal').classList.add('op');
@@ -674,8 +724,7 @@ function openAddSal(){
 
 function openEditSal(id){
   curSalId=id;
-  var em=emps.find(function(e){return e.id===id;});
-  if(!em)return;
+  var em=emps.find(function(e){return e.id===id;});if(!em)return;
   document.getElementById('sal-ttl').textContent='Modifier \u2014 '+em.prenom+' '+em.nom;
   document.getElementById('sal-prenom').value=em.prenom||'';
   document.getElementById('sal-nom').value=em.nom||'';
@@ -683,6 +732,7 @@ function openEditSal(id){
   document.getElementById('sal-tel').value=em.telephone||'';
   document.getElementById('sal-adresse').value=em.adresse||'';
   document.getElementById('sal-resto').value=em.restaurant_id||'port';
+  document.getElementById('sal-secteur').value=em.secteur||'salle';
   document.getElementById('sal-multi').checked=!!em.multi_site;
   document.getElementById('sal-heures').value=em.heures_contrat||'';
   document.getElementById('sal-taux').value=em.taux_horaire||'';
@@ -699,6 +749,7 @@ async function saveSal(){
   var updates={
     prenom:p,nom:n,
     restaurant_id:document.getElementById('sal-resto').value,
+    secteur:document.getElementById('sal-secteur').value,
     multi_site:document.getElementById('sal-multi').checked,
     heures_contrat:parseFloat(document.getElementById('sal-heures').value)||null,
     taux_horaire:parseFloat(document.getElementById('sal-taux').value)||null,
@@ -711,16 +762,14 @@ async function saveSal(){
     var r=await db.from('employees').update(updates).eq('id',curSalId);
     if(r.error){alert('Erreur: '+r.error.message);return;}
   }else{
-    if(pin.length!==4){alert('PIN 4 chiffres requis pour cr\u00e9er un salari\u00e9');return;}
+    if(pin.length!==4){alert('PIN 4 chiffres requis');return;}
     var hr2=await db.rpc('hash_pin',{p_pin:pin});
     if(hr2.error){alert('Erreur hash PIN');return;}
     updates.pin_hash=hr2.data;updates.actif=true;
     var r2=await db.from('employees').insert(updates);
     if(r2.error){alert('Erreur: '+r2.error.message);return;}
   }
-  closeM('modal-sal');
-  await loadEmps();
-  renderEmps();
+  closeM('modal-sal');await loadEmps();renderEmps();
 }
 
 init();
