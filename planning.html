@@ -798,6 +798,23 @@ async function saveSal(){
   closeM('modal-sal');await loadEmps();renderEmps();
 }
 
+// Avertissement si on quitte avec des modifications non sauvegardées
+window.addEventListener('beforeunload', function(e){
+  if(dirty){
+    e.preventDefault();
+    e.returnValue='Vous avez des modifications non enregistrées. Voulez-vous quitter ?';
+    return e.returnValue;
+  }
+});
+
+// Sauvegarde automatique toutes les 30 secondes
+setInterval(function(){
+  if(dirty){
+    console.log('Autosave...');
+    saveAll(true);
+  }
+},30000);
+
 init();
 
 </script>
