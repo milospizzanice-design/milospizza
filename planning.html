@@ -524,7 +524,7 @@ async function exportGeneralPDF(){
   // Header
   doc.setFillColor(185,30,38);doc.rect(0,0,297,16,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont('helvetica','bold');
-  doc.text("Milo's Pizza — Planning "+rl,8,10);
+  doc.text("Milo\'s Pizza — Planning "+rl,8,10);
   doc.setFontSize(9);doc.setFont('helvetica','normal');
   doc.text(wl,8,15);
   // Colonnes
@@ -534,10 +534,8 @@ async function exportGeneralPDF(){
   doc.setFillColor(242,224,192);doc.setTextColor(122,74,53);doc.setFontSize(8);doc.setFont('helvetica','bold');
   cW.forEach(function(w,i){
     doc.rect(x,startY,w,10,'FD');
-    var lbl=i===0?'Salarié':(DAYS_FULL[i-1].slice(0,3)+'
-'+dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}));
-    var parts=lbl.split('
-');
+    var lbl=i===0?'Salari\u00e9':(DAYS_FULL[i-1].slice(0,3)+'\n'+dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}));
+    var parts=lbl.split('\n');
     if(parts.length>1){doc.text(parts[0],x+2,startY+4);doc.setFontSize(7);doc.text(parts[1],x+2,startY+8);doc.setFontSize(8);}
     else doc.text(lbl,x+2,startY+6);
     x+=w;
@@ -566,7 +564,7 @@ async function exportGeneralPDF(){
     if(y>190){doc.addPage();y=15;}
   });
   doc.setFontSize(7);doc.setTextColor(176,128,96);
-  doc.text('Généré le '+new Date().toLocaleDateString('fr-FR')+' — Milo's Pizza',8,205);
+  doc.text('Généré le '+new Date().toLocaleDateString('fr-FR')+' — Milo\'s Pizza',8,205);
   var t=new Date();
   var fn=t.getFullYear()+'_'+String(t.getMonth()+1).padStart(2,'0')+'_'+String(t.getDate()).padStart(2,'0')+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf';
   doc.save(fn);
@@ -583,7 +581,7 @@ async function exportIndiv(empId){
   var wl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   doc.setFillColor(185,30,38);doc.rect(0,0,210,18,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont('helvetica','bold');
-  doc.text("Milo's Pizza — Planning individuel",8,11);
+  doc.text("Milo\'s Pizza — Planning individuel",8,11);
   doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text(wl,8,16);
   doc.setTextColor(42,10,11);doc.setFontSize(14);doc.setFont('helvetica','bold');
   doc.text(em.prenom+' '+em.nom,10,28);
