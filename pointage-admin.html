@@ -326,6 +326,13 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt" id="pcr-title">Ajouter un cr&#233;neau</div>
     <div class="fr"><label class="fl2">D&#233;but</label><input type="time" class="fi" id="pcr-s" value="09:00"></div>
     <div class="fr"><label class="fl2">Fin</label><input type="time" class="fi" id="pcr-e" value="17:00"></div>
+    <div class="fr" id="pcr-resto-row" style="display:none">
+      <label class="fl2">Restaurant (multi-site)</label>
+      <select class="fi" id="pcr-resto">
+        <option value="port">Port (Bavastro)</option>
+        <option value="dabray">Dabray</option>
+      </select>
+    </div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pcr')">Annuler</button><button class="btn bp" onclick="savePCr()">Ajouter</button></div>
   </div>
 </div>
@@ -755,13 +762,9 @@ function planCellClickBtn(td){
 }
 
 function planCellClick(empId,dstr){
-  planCrInfo={eid:empId,dstr:dstr};
-  var d=new Date(dstr+'T12:00:00');
-  var dayIdx=d.getDay()===0?6:d.getDay()-1;
-  document.getElementById('pcr-title').textContent='Créneau — '+PLAN_DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+  planOpenCr(empId,dstr);
   document.getElementById('pcr-s').value='17:00';
   document.getElementById('pcr-e').value='23:30';
-  document.getElementById('modal-pcr').classList.add('op');
 }
 
 
@@ -852,8 +855,11 @@ function savePCr(){
   var s=document.getElementById('pcr-s').value;var e=document.getElementById('pcr-e').value;
   if(!s||!e){alert('Saisissez les heures');return;}
   var eid=planCrInfo.eid;var d=planCrInfo.dstr;
+  var em=emps.find(function(emp){return emp.id===eid;});
+  var restoSel=document.getElementById('pcr-resto');
+  var resto=(em&&em.multi_site&&restoSel)?restoSel.value:planResto;
   if(!planData[eid])planData[eid]={};if(!planData[eid][d])planData[eid][d]=[];
-  planData[eid][d].push({start:s,end:e,_new:true,restaurant_id:planResto});
+  planData[eid][d].push({start:s,end:e,_new:true,restaurant_id:resto});
   planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});
   planMarkDirty();closeM('modal-pcr');
   var wasOpen=document.getElementById('epb-'+eid)&&document.getElementById('epb-'+eid).classList.contains('open');
@@ -940,8 +946,10 @@ function openPDFMonth(){
 
 async function exportMonthPDF(){
   if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
-  var val=document.getElementById('pdf-month').value;if(!val){alert('S\u00e9lectionnez un mois');return;}
-  var filtered=planGetFiltered();if(!filtered.length){alert('Aucun salari\u00e9');closeM('modal-pdf-month');return;}
+  var val=document.getElementById('pdf-month').value;
+  if(!val){alert('S\u00e9lectionnez un mois');return;}
+  var filtered=planGetFiltered();
+  if(!filtered.length){alert('Aucun salari\u00e9');closeM('modal-pdf-month');return;}
   closeM('modal-pdf-month');
   var jsPDF=window.jspdf.jsPDF;
   var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
@@ -954,84 +962,121 @@ async function exportMonthPDF(){
   var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).in('employee_id',empIds);
   var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).in('employee_id',empIds);
   var mplan={};
-  (allCrs.data||[]).forEach(function(c){if(!mplan[c.employee_id])mplan[c.employee_id]={};if(!mplan[c.employee_id][c.date])mplan[c.employee_id][c.date]=[];mplan[c.employee_id][c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});});
+  (allCrs.data||[]).forEach(function(c){
+    if(!mplan[c.employee_id])mplan[c.employee_id]={};
+    if(!mplan[c.employee_id][c.date])mplan[c.employee_id][c.date]=[];
+    mplan[c.employee_id][c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5),resto:c.restaurant_id||null});
+  });
   var mabs={};
   (allAbs.data||[]).forEach(function(a){if(!mabs[a.employee_id])mabs[a.employee_id]={};mabs[a.employee_id][a.date]=a.code;});
+  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
   var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
   var ABS_T={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
-  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
+  var SEC_BG={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
+  var SEC_TX={cuisine:[153,27,27],salle:[146,64,14],livraison:[6,95,70]};
+  var SECLABELS={cuisine:'CUISINE',salle:'SALLE',livraison:'LIVRAISON'};
   var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   var PW=297;var PH=210;var MG=5;
-  var cW=[40,36,36,35,35,35,35,34];
+
   function wkH(wk){
     var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
-    var h=9+8;
+    var h=10+8+2;
     filtered.forEach(function(em){
       var maxCr=0;
       dates.forEach(function(d){var c=(mplan[em.id]&&mplan[em.id][planDs(d)])||[];if(c.length>maxCr)maxCr=c.length;});
-      h+=Math.max(7,maxCr*4+2)+(dates.some(function(d){return mabs[em.id]&&mabs[em.id][planDs(d)];})? 3:0);
+      h+=Math.max(7,maxCr*4.5+2);
     });
     return h;
   }
+
   function drawWk(wk,sy){
     var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
     var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    // Header semaine
     doc.setFillColor(185,30,38);doc.rect(MG,sy,PW-MG*2,9,'F');
-    doc.setTextColor(242,224,192);doc.setFontSize(8);doc.setFont('helvetica','bold');
-    var tW=doc.getTextWidth('Milo\'s Pizza - '+rl+' - '+monthLabel);
-    doc.text('Milo\'s Pizza - '+rl+' - '+monthLabel,(PW-tW)/2,sy+4);
-    doc.setFontSize(6);doc.setFont('helvetica','normal');
-    var lW=doc.getTextWidth(wlbl);doc.text(wlbl,(PW-lW)/2,sy+8);
+    doc.setTextColor(242,224,192);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    var tw=doc.getTextWidth('Milo\'s Pizza - '+rl+' - '+monthLabel);
+    doc.text('Milo\'s Pizza - '+rl+' - '+monthLabel,(PW-tw)/2,sy+4);
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+    var lw=doc.getTextWidth(wlbl);doc.text(wlbl,(PW-lw)/2,sy+7.5);
+    // En-tete colonnes
+    var cW=[38,37,37,37,37,37,37,35];
     var y=sy+9;var x=MG;
-    doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);doc.setTextColor(122,74,53);doc.setFontSize(6);doc.setFont('helvetica','bold');
+    doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);
+    doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(122,74,53);
     cW.forEach(function(w,i){
       doc.rect(x,y,w,8,'FD');
       if(i===0){doc.text('Salari\u00e9',x+2,y+5);}
       else{
         var dl=PLAN_DAYSFULL[i-1];
         var dtl=dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
-        var dW=doc.getTextWidth(dl);doc.setFontSize(6.5);doc.text(dl,x+w/2-dW/2,y+3.5);
-        doc.setFontSize(5.5);var dtW=doc.getTextWidth(dtl);doc.text(dtl,x+w/2-dtW/2,y+7);
-        doc.setFontSize(6);
+        var dlw=doc.getTextWidth(dl);doc.setFontSize(6.5);doc.text(dl,x+w/2-dlw/2,y+3.5);
+        doc.setFontSize(5.5);var dtw=doc.getTextWidth(dtl);doc.text(dtl,x+w/2-dtw/2,y+7);
+        doc.setFontSize(6.5);
       }
       x+=w;
     });
     y+=8;
-    filtered.forEach(function(em,ri){
+    // Lignes salariés groupées par secteur
+    var lastSec='';var rowIdx=0;
+    filtered.forEach(function(em){
+      var sec=em.secteur||'salle';
+      // Séparateur de secteur
+      if(sec!==lastSec&&lastSec!==''){
+        var sbg=SEC_BG[sec]||[242,224,192];var stx=SEC_TX[sec]||[122,74,53];
+        doc.setFillColor(sbg[0],sbg[1],sbg[2]);doc.setDrawColor(216,197,167);
+        doc.rect(MG,y,PW-MG*2,4,'FD');
+        doc.setTextColor(stx[0],stx[1],stx[2]);doc.setFontSize(5.5);doc.setFont('helvetica','bold');
+        doc.text((SECLABELS[sec]||sec).toUpperCase(),MG+3,y+2.8);
+        y+=4;
+      }
+      if(sec!==lastSec){lastSec=sec;}
       var ep=mplan[em.id]||{};var ea=mabs[em.id]||{};
       var maxCr=0;
       dates.forEach(function(d){var c=ep[planDs(d)]||[];if(c.length>maxCr)maxCr=c.length;});
-      var hasAbs=dates.some(function(d){return ea[planDs(d)];});
-      var rh=Math.max(7,maxCr*4+2)+(hasAbs?3:0);
+      var rh=Math.max(7,maxCr*4.5+2);
       var x2=MG;
-      if(ri%2===0)doc.setFillColor(255,252,245);else doc.setFillColor(248,241,230);
+      var sbg2=SEC_BG[sec]||[255,255,255];
+      if(rowIdx%2===0)doc.setFillColor(255,253,248);
+      else doc.setFillColor(Math.min(255,sbg2[0]+10),Math.min(255,sbg2[1]+10),Math.min(255,sbg2[2]+10));
       doc.setDrawColor(216,197,167);
       cW.forEach(function(w,ci){
         doc.rect(x2,y,w,rh,'FD');
         if(ci===0){
-          doc.setTextColor(42,10,11);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
+          var stx2=SEC_TX[sec]||[42,10,11];
+          doc.setTextColor(stx2[0],stx2[1],stx2[2]);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
           doc.text(em.prenom+' '+em.nom,x2+2,y+rh/2+1);
         }else{
           var dstr=planDs(dates[ci-1]);
           var crs=ep[dstr]||[];var absCode=ea[dstr]||null;
-          if(!crs.length&&!absCode){doc.setTextColor(200,185,165);doc.setFontSize(5);doc.setFont('helvetica','normal');doc.text('Off',x2+w/2-1,y+rh/2+1);}
+          doc.setFont('helvetica','normal');
+          if(!crs.length&&!absCode){doc.setTextColor(200,185,165);doc.setFontSize(5.5);doc.text('Off',x2+w/2-2,y+rh/2+1);}
           else{
-            if(crs.length){doc.setTextColor(185,30,38);doc.setFontSize(5.5);doc.setFont('helvetica','bold');crs.forEach(function(cr,k){doc.text(cr.start+'-'+cr.end,x2+1,y+3.5+(k*4));});}
+            if(crs.length){
+              doc.setTextColor(185,30,38);doc.setFontSize(5.5);doc.setFont('helvetica','bold');
+              crs.forEach(function(cr,k){
+                var rtag=(em.multi_site&&cr.resto&&cr.resto!==em.restaurant_id)?'('+( cr.resto==='port'?'P':'D')+')':'';
+                doc.text(cr.start+'-'+cr.end+(rtag?'  '+rtag:''),x2+1,y+4+(k*4.5));
+              });
+            }
             if(absCode){
               var ac=ABS_C[absCode]||[238,238,238];var at=ABS_T[absCode]||[51,51,51];
-              doc.setFillColor(ac[0],ac[1],ac[2]);doc.rect(x2+1,y+rh-3.2,w-2,3,'F');
+              doc.setFillColor(ac[0],ac[1],ac[2]);doc.rect(x2+1,y+rh-3.5,w-2,3,'F');
               doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(4.5);doc.setFont('helvetica','bold');
-              var al=ABS_L[absCode]||absCode;var alW=doc.getTextWidth(al);
-              doc.text(al,x2+w/2-alW/2,y+rh-1);
+              var al=ABS_L[absCode]||absCode;var alw=doc.getTextWidth(al);
+              doc.text(al,x2+w/2-alw/2,y+rh-1);
+              doc.setFillColor(255,255,255);
             }
           }
         }
         x2+=w;
       });
-      y+=rh;
+      doc.setDrawColor(216,197,167);
+      y+=rh;rowIdx++;
     });
     return y;
   }
+
   var isFirst=true;var curY=MG;
   for(var wi=0;wi<weeks.length;wi++){
     var wh=wkH(weeks[wi]);
@@ -1040,16 +1085,9 @@ async function exportMonthPDF(){
     curY=drawWk(weeks[wi],curY)+2;isFirst=false;
   }
   doc.setFontSize(5);doc.setTextColor(176,128,96);
-  doc.text('Genere le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',MG,PH-1.5);
+  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',MG,PH-1.5);
   var t=new Date();
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
-}
-
-function planOpenPDFIndiv(empId){
-  alert('PDF individuel: s\u00e9lectionnez le mois dans la bo\u00eete de dialogue qui va s\'ouvrir.');
-  var now=new Date();var m=now.getFullYear()+'-'+planPad(now.getMonth()+1);
-  var val=prompt('Mois (YYYY-MM):',m);if(!val)return;
-  exportPlanIndivPDF(empId,val);
 }
 
 async function exportPlanIndivPDF(empId,val){
@@ -1065,268 +1103,127 @@ async function exportPlanIndivPDF(empId,val){
   var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).eq('employee_id',empId);
   var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).eq('employee_id',empId);
   var mplan2={};
-  (allCrs.data||[]).forEach(function(c){if(!mplan2[c.date])mplan2[c.date]=[];mplan2[c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});});
+  (allCrs.data||[]).forEach(function(c){if(!mplan2[c.date])mplan2[c.date]=[];mplan2[c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5),resto:c.restaurant_id||null});});
   var mabs2={};(allAbs.data||[]).forEach(function(a){mabs2[a.date]=a.code;});
   var ABS_L2={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
   var ABS_C2={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
   var ABS_T2={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
-  var doc=new jsPDF({unit:'mm',format:'a4'});
-  doc.setFillColor(185,30,38);doc.rect(0,0,210,36,'F');
-  doc.setFillColor(242,224,192);doc.rect(0,36,210,2,'F');
-  doc.setTextColor(242,224,192);doc.setFontSize(14);doc.setFont('helvetica','bold');doc.text('Milo\'s Pizza',10,14);
-  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.text('Planning '+monthLabel,10,22);doc.text(rl,10,29);
-  doc.setFontSize(18);doc.setFont('helvetica','bold');doc.setTextColor(42,10,11);doc.text(em.prenom+' '+em.nom,10,50);
-  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(122,74,53);
-  if(em.heures_contrat)doc.text('Contrat: '+em.heures_contrat+'h/sem',10,58);
-  var y=68;
-  weeks.forEach(function(wk){
+
+  // Format paysage A4 - colonnes = jours de la semaine, lignes = semaines du mois
+  var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  var PW=297;var PH=210;var MG=6;
+
+  // Header
+  doc.setFillColor(185,30,38);doc.rect(0,0,PW,16,'F');
+  doc.setTextColor(242,224,192);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  var htitle='Milo\'s Pizza - Planning '+monthLabel+' - '+em.prenom+' '+em.nom;
+  var htw=doc.getTextWidth(htitle);doc.text(htitle,(PW-htw)/2,9);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  var hsub=rl+(em.heures_contrat?' - Contrat '+em.heures_contrat+'h/sem':'');
+  var hsw=doc.getTextWidth(hsub);doc.text(hsub,(PW-hsw)/2,14.5);
+
+  // Tableau: colonnes = L Ma Me J V S D, lignes = semaines
+  var colW=[22,38,38,38,38,38,38,38]; // col 0 = label semaine, col 1-7 = jours
+  var DAYS_SHORT=['L','Ma','Me','J','V','S','D'];
+  var DAYS_FULL2=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var y=20;
+
+  // En-tête colonnes (jours)
+  doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);
+  doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(122,74,53);
+  var x=MG;
+  colW.forEach(function(w,i){
+    doc.rect(x,y,w,8,'FD');
+    if(i===0){doc.text('Semaine',x+2,y+5);}
+    else{
+      var dl=DAYS_FULL2[i-1];
+      var dlw=doc.getTextWidth(dl);doc.text(dl,x+w/2-dlw/2,y+5);
+    }
+    x+=w;
+  });
+  y+=8;
+
+  // Lignes = semaines
+  weeks.forEach(function(wk,wi){
     var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
-    var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
-    doc.setFillColor(185,30,38);doc.rect(10,y,190,8,'F');
-    doc.setTextColor(242,224,192);doc.setFontSize(8);doc.setFont('helvetica','bold');
-    var wW=doc.getTextWidth(wlbl);doc.text(wlbl,105-wW/2,y+5.5);y+=8;
-    dates.forEach(function(d,i){
-      var crs=mplan2[planDs(d)]||[];var absCode=mabs2[planDs(d)]||null;
-      var rh=Math.max(7,crs.length>1?7+(crs.length-1)*5:7)+(absCode?5:0);
-      if(i%2===0)doc.setFillColor(255,252,245);else doc.setFillColor(248,241,230);
-      doc.setDrawColor(216,197,167);doc.rect(10,y,190,rh,'FD');
-      doc.setTextColor(122,74,53);doc.setFontSize(8);doc.setFont('helvetica','bold');
-      doc.text(PLAN_DAYSFULL[i]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),12,y+5);
-      if(!crs.length&&!absCode){doc.setTextColor(176,128,96);doc.setFont('helvetica','normal');doc.text('Repos',80,y+5);}
-      else{
-        if(crs.length){doc.setTextColor(185,30,38);doc.setFont('helvetica','bold');crs.forEach(function(cr,k){doc.text(cr.start+' - '+cr.end,80,y+5+(k*5));});}
-        if(absCode){
-          var ac=ABS_C2[absCode]||[238,238,238];var at=ABS_T2[absCode]||[51,51,51];
-          doc.setFillColor(ac[0],ac[1],ac[2]);doc.rect(145,y+1,50,rh-2,'F');
-          doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(7);doc.setFont('helvetica','bold');
-          var al=ABS_L2[absCode]||absCode;var alW=doc.getTextWidth(al);doc.text(al,170-alW/2,y+rh/2+1);
+    // Calculer hauteur ligne
+    var maxCr=0;
+    dates.forEach(function(d){
+      var c=mplan2[planDs(d)]||[];
+      var abs=mabs2[planDs(d)]?1:0;
+      if(c.length+abs>maxCr)maxCr=c.length+abs;
+    });
+    var rh=Math.max(12,maxCr*6+4);
+
+    if(wi%2===0)doc.setFillColor(255,253,248);else doc.setFillColor(250,244,236);
+    doc.setDrawColor(216,197,167);
+
+    var x2=MG;
+    colW.forEach(function(w,ci){
+      doc.rect(x2,y,w,rh,'FD');
+      if(ci===0){
+        // Label semaine = dates[0] du/au dates[6]
+        doc.setTextColor(122,74,53);doc.setFontSize(5.5);doc.setFont('helvetica','bold');
+        doc.text(dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x2+2,y+4);
+        doc.text('au',x2+2,y+7.5);
+        doc.text(dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x2+2,y+11);
+      }else{
+        var dstr=planDs(dates[ci-1]);
+        var crs=mplan2[dstr]||[];
+        var absCode=mabs2[dstr]||null;
+        if(!crs.length&&!absCode){
+          doc.setTextColor(200,185,165);doc.setFontSize(6);doc.setFont('helvetica','normal');
+          doc.text('Off',x2+w/2-2,y+rh/2+1);
+        }else{
+          var ytxt=y+5;
+          if(crs.length){
+            doc.setTextColor(185,30,38);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
+            crs.forEach(function(cr){
+              var rtag=(em.multi_site&&cr.resto&&cr.resto!==em.restaurant_id)?'\n('+( cr.resto==='port'?'Port':'Dabray')+')':'';
+              var crtext=cr.start+'-'+cr.end;
+              var crw=doc.getTextWidth(crtext);doc.text(crtext,x2+w/2-crw/2,ytxt);ytxt+=6;
+              if(rtag){doc.setFontSize(5);doc.setTextColor(122,74,53);var rtw=doc.getTextWidth(rtag.replace('\n',''));doc.text(rtag.replace('\n',''),x2+w/2-rtw/2,ytxt);ytxt+=4;doc.setFontSize(6.5);doc.setTextColor(185,30,38);}
+            });
+          }
+          if(absCode){
+            var ac=ABS_C2[absCode]||[238,238,238];var at=ABS_T2[absCode]||[51,51,51];
+            doc.setFillColor(ac[0],ac[1],ac[2]);doc.rect(x2+1,y+rh-5,w-2,4,'F');
+            doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(5.5);doc.setFont('helvetica','bold');
+            var al=ABS_L2[absCode]||absCode;var alw=doc.getTextWidth(al);
+            doc.text(al,x2+w/2-alw/2,y+rh-2);
+            doc.setFillColor(255,255,255);
+          }
         }
       }
-      y+=rh;
+      x2+=w;
     });
-    y+=4;if(y>270){doc.addPage();y=15;}
+    y+=rh;
+    if(y>PH-MG-5){doc.addPage();y=MG;}
   });
-  doc.setFontSize(6);doc.setTextColor(176,128,96);doc.text('Genere le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',10,287);
+
+  // Totaux heures
+  y+=3;
+  doc.setFontSize(7);doc.setTextColor(122,74,53);doc.setFont('helvetica','bold');
+  var totalMin=0;
+  Object.keys(mplan2).forEach(function(d){(mplan2[d]||[]).forEach(function(cr){var s=cr.start.split(':');var e=cr.end.split(':');totalMin+=(parseInt(e[0])*60+parseInt(e[1]))-(parseInt(s[0])*60+parseInt(s[1]));});});
+  var totalH=Math.floor(totalMin/60);var totalM=totalMin%60;
+  doc.text('Total heures du mois : '+totalH+'h'+String(totalM).padStart(2,'0'),MG,y);
+
+  doc.setFontSize(5);doc.setTextColor(176,128,96);
+  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',MG,PH-2);
   var t=new Date();
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf');
 }
 
-// Salarié depuis planning
-function openAddSalFromPlan(){openAddSal();}
-
-// ── DEMANDES D'ABSENCE ──────────────────────────────────────────────────────
-async function loadDem(){
-  var r=await db.from('demandes_absence').select('*').order('created_at',{ascending:false}).limit(50);
-  var data=r.data||[];
-  var body=document.getElementById('dem-body');if(!body)return;
-  if(!data.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Aucune demande re\u00e7ue</div>';return;}
-  var TYPE_L={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
-  var h='';
-  data.forEach(function(d){
-    var em=emp(d.employee_id);
-    var st=d.statut||'att';
-    var stLabel={att:'En attente',ok:'Accept\u00e9e',ko:'Refus\u00e9e'}[st]||st;
-    h+='<div class="dem-card">';
-    h+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">';
-    h+='<div><div style="font-weight:600;font-size:13px">'+em.prenom+' '+em.nom+'</div>';
-    h+='<div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TYPE_L[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div>';
-    if(d.message)h+='<div style="font-size:11px;color:var(--txm);margin-top:4px;font-style:italic">'+d.message+'</div>';
-    h+='<div style="font-size:10px;color:var(--txf);margin-top:4px">Re\u00e7ue le '+new Date(d.created_at).toLocaleDateString('fr-FR')+'</div>';
-    h+='</div>';
-    h+='<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
-    h+='<span class="dem-status '+st+'">'+stLabel+'</span>';
-    if(st==='att'){
-      h+='<button class="btn bg2 sm" onclick="traitDem('+d.id+',\'ok\')">&#10003; Accepter</button>';
-      h+='<button class="btn sm" style="background:#991B1B;color:#fff" onclick="traitDem('+d.id+',\'ko\')">&#10005; Refuser</button>';
-    }
-    h+='</div></div></div>';
-  });
-  body.innerHTML=h;
-}
-
-function showJustifFull(src){
-  var w=window.open('','_blank');
-  w.document.write('<img src="'+src+'" style="max-width:100%;height:auto">');
-}
-
-async function traitDem(id,statut){
-  await db.from('demandes_absence').update({statut:statut}).eq('id',id);
-  await loadDem();
+function planOpenPDFIndiv(empId){
+  var now=new Date();
+  var m=now.getFullYear()+'-'+planPad(now.getMonth()+1);
+  var val=prompt('Mois (YYYY-MM):',m);
+  if(!val)return;
+  exportPlanIndivPDF(empId,val);
 }
 
 
-async function loadRc(){
-  var resto=document.getElementById('rcr').value;
-  var period=document.getElementById('rcp').value;
-  var dr=getDR(period);
-  var les=emps.filter(function(e){return e.actif&&(resto==='all'||e.restaurant_id===resto);});
-  var pd=await db.from('time_entries').select('*').gte('timestamp',dr.s).lte('timestamp',dr.e);
-  var pld=await db.from('planning').select('*').gte('date',dr.s.slice(0,10)).lte('date',dr.e.slice(0,10));
-  var abd=await db.from('absences').select('*').gte('date_fin',dr.s.slice(0,10)).lte('date_debut',dr.e.slice(0,10));
-  var h='';
-  les.forEach(function(em){
-    var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
-    var epl=(pld.data||[]).filter(function(p){return p.employee_id===em.id;});
-    var ea=(abd.data||[]).filter(function(a){return a.employee_id===em.id;});
-    var w=calcW(ep);
-    var pl=epl.reduce(function(s,p){return s+phrs(p.horaire);},0);
-    var diff=w-pl;
-    var sa=diff>=180;
-    var dc=sa?'#991B1B':diff>=0?'#166534':'#991B1B';
-    var rl=em.restaurant_id==='port'?'Port':'Dabray';
-    var ats=[];ea.forEach(function(a){if(ats.indexOf(a.type)<0)ats.push(a.type);});
-    h+='<div class="card"><div style="display:flex;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
-    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+em.prenom+' '+em.nom+'</div>';
-    h+='<div style="margin-top:2px"><span class="bg '+em.restaurant_id+'">'+rl+'</span></div>';
-    h+='<div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">';
-    h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Prévu</div><div style="font-size:18px;font-weight:700;color:var(--txm)">'+toHM(pl)+'</div></div>';
-    h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Réel</div><div style="font-size:18px;font-weight:700;color:var(--bx)">'+toHM(w)+'</div></div>';
-    h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Diff</div><div style="font-size:18px;font-weight:700;color:'+dc+'">'+(diff>=0?'+':'')+toHM(diff)+'</div></div>';
-    h+='</div>';
-    if(sa)h+='<div style="margin-top:7px"><span class="bg sup al2">⚠ +3h sup détectées</span></div>';
-    if(ats.length){h+='<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">';ats.forEach(function(t){h+='<span class="bg '+t+'">'+t.toUpperCase()+'</span>';});h+='</div>';}
-    h+='</div></div></div>';
-  });
-  document.getElementById('rcb').innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
-}
-
-function expRc(){
-  var rows=[['Prenom','Nom','Restaurant','Prevu','Reel','Diff']];
-  document.querySelectorAll('#rcb .card').forEach(function(card,i){
-    var em=emps.filter(function(e){return e.actif;})[i];if(!em)return;
-    var vals=card.querySelectorAll('[style*="font-size:18px"]');
-    if(vals.length>=3)rows.push([em.prenom,em.nom,em.restaurant_id,vals[0].textContent,vals[1].textContent,vals[2].textContent]);
-  });
-  var csv=rows.map(function(r){return r.join(';');}).join('\n');
-  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');a.href=url;a.download='recap_heures.csv';a.click();
-}
-
-async function loadAb(){
-  var resto=document.getElementById('abr').value;
-  var r=await db.from('absences').select('*').order('date_debut',{ascending:false}).limit(100);
-  var data=(r.data||[]).filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
-  var labels={cp:'CP',rtt:'RTT',maladie:'Maladie',injustifie:'Injustifiée',ferie:'Férié',autre:'Autre'};
-  var tb=document.getElementById('abb');
-  if(!data.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr>';return;}
-  var h='';
-  data.forEach(function(a){
-    var em=emp(a.employee_id);
-    h+='<tr><td><strong>'+em.prenom+' '+em.nom+'</strong></td>';
-    h+='<td><span class="bg '+a.type+'">'+(labels[a.type]||a.type)+'</span></td>';
-    h+='<td>'+a.date_debut+'</td><td>'+a.date_fin+'</td>';
-    h+='<td>'+(a.note||'—')+'</td>';
-    h+='<td>'+(a.justif_b64?'<button class="btn bs sm">Voir</button>':'—')+'</td></tr>';
-  });
-  tb.innerHTML=h;
-}
-
-function openAb(){document.getElementById('abf').value=new Date().toISOString().slice(0,10);document.getElementById('abt2').value=new Date().toISOString().slice(0,10);document.getElementById('mab').classList.add('op');}
-
-async function saveAb(){
-  var eid=parseInt(document.getElementById('abe').value);
-  var type=document.getElementById('abt').value;
-  var from=document.getElementById('abf').value;
-  var to=document.getElementById('abt2').value;
-  var note=document.getElementById('abn').value;
-  var fi=document.getElementById('abfi');
-  var jb=null;
-  if(fi.files[0]){jb=await new Promise(function(res){var rd=new FileReader();rd.onload=function(e){res(e.target.result);};rd.readAsDataURL(fi.files[0]);});}
-  var r=await db.from('absences').insert({employee_id:eid,type:type,date_debut:from,date_fin:to,note:note,justif_b64:jb});
-  if(r.error){alert('Erreur: '+r.error.message);return;}
-  closeM('mab');
-  document.getElementById('abn').value='';fi.value='';
-  await loadAb();
-}
-
-function renderSal(){
-  var body=document.getElementById('sab');
-  var h='';
-  ['port','dabray'].forEach(function(resto){
-    var les=emps.filter(function(e){return e.restaurant_id===resto;});
-    h+='<div style="font-size:11px;font-weight:700;color:var(--bx);letter-spacing:.5px;text-transform:uppercase;margin:12px 0 7px">'+(resto==='port'?'Port (Bavastro)':'Dabray')+'</div>';
-    les.forEach(function(em){
-      var bg=em.actif?'var(--bx)':'#ccc';
-      var st=em.actif?'Actif':'Désactivé';
-      var bc=em.actif?'ba':'bg2';
-      var bl=em.actif?'Désactiver':'Réactiver';
-      h+='<div class="card" style="margin-bottom:7px"><div style="display:flex;align-items:center;gap:10px">';
-      h+='<div style="width:34px;height:34px;border-radius:50%;background:'+bg+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
-      h+='<div style="flex:1"><div style="font-weight:600;font-size:13px'+(em.actif?'':';color:#aaa')+'">'+em.prenom+' '+em.nom+'</div>';
-      h+='<div style="font-size:11px;color:var(--txm)">●●●● &nbsp;|&nbsp; '+st+'</div></div>';
-      h+='<div style="display:flex;gap:5px"><button class="btn bs sm" onclick="openEditSal('+em.id+')">Modifier</button>';
-      h+='<button class="btn '+bc+' sm" onclick="togSal('+em.id+','+(em.actif?'true':'false')+')">'+bl+'</button></div>';
-      h+='</div></div>';
-    });
-  });
-  body.innerHTML=h;
-}
-
-function openAddSal(){curSal=null;document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
-function openEditSal(id){curSal=id;var em=emp(id);document.getElementById('msat').textContent='Modifier '+em.prenom+' '+em.nom;document.getElementById('sap').value=em.prenom;document.getElementById('san').value=em.nom;document.getElementById('sar').value=em.restaurant_id;document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
-
-async function saveSal(){
-  var p=document.getElementById('sap').value.trim();
-  var n=document.getElementById('san').value.trim();
-  var resto=document.getElementById('sar').value;
-  var pin=document.getElementById('sapin').value.trim();
-  if(!p||!n){alert('Prénom et nom requis');return;}
-  if(curSal){
-    var upd={prenom:p,nom:n,restaurant_id:resto};
-    if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
-    await db.from('employees').update(upd).eq('id',curSal);
-  }else{
-    if(pin.length!==4){alert('PIN 4 chiffres requis');return;}
-    var hr2=await db.rpc('hash_pin',{p_pin:pin});
-    await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true});
-  }
-  closeM('msa');
-  await loadEmps();
-  renderSal();
-}
-
-async function togSal(id,actif){
-  await db.from('employees').update({actif:!actif}).eq('id',id);
-  await loadEmps();renderSal();
-}
-
-async function loadAudit(){
-  var body=document.getElementById('au-body');
-  if(!body)return;
-  body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr>';
-  var r=await db.from('audit_photos').select('*').order('consulte_le',{ascending:false}).limit(100);
-  var data=r.data||[];
-  if(!data.length){body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Aucune consultation enregistrée</td></tr>';return;}
-  // Charger les pointages concernés
-  var teIds=data.map(function(a){return a.time_entry_id;}).filter(Boolean);
-  var teMap={};
-  if(teIds.length){
-    var tr=await db.from('time_entries').select('id,employee_id,type,timestamp').in('id',teIds);
-    (tr.data||[]).forEach(function(t){teMap[t.id]=t;});
-  }
-  var h='';
-  data.forEach(function(a){
-    var te=teMap[a.time_entry_id]||{};
-    var em=te.employee_id?emp(te.employee_id):{prenom:'Inconnu',nom:''};
-    var typeLabel=te.type==='entree'?'↗ Entrée':te.type==='sortie'?'↙ Sortie':'—';
-    var pointageDate=te.timestamp?fmtF(te.timestamp):'—';
-    var consultDate=new Date(a.consulte_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    h+='<tr>';
-    h+='<td><strong>'+em.prenom+' '+em.nom+'</strong></td>';
-    h+='<td><span class="bg '+(te.type||'')+'">'+typeLabel+'</span> '+pointageDate+'</td>';
-    h+='<td style="font-variant-numeric:tabular-nums">'+consultDate+'</td>';
-    h+='<td style="font-size:11px;color:var(--txm)">'+( a.motif||'—')+'</td>';
-    h+='</tr>';
-  });
-  body.innerHTML=h;
-}
-
-async function init(){
-  await loadEmps();
-  await loadPt();
-}
-init();
 </script>
 </body>
 </html>
