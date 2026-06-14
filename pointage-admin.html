@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin RH</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bx:#B91E26;--bxdk:#8B1118;--cr:#F2E0C0;--tx:#2A0A0B;--txm:#7A4A35;--txf:#B08060;--bd:#E8D5B5}
@@ -69,6 +70,55 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .ptbl td:first-child{text-align:left;font-weight:600;font-size:11px;min-width:110px;background:#FAF4EC}
 .pi{width:100%;border:none;background:transparent;font-size:11px;text-align:center;color:var(--tx);outline:none}
 .rgpd{color:var(--txf);font-size:10px;margin-top:14px;text-align:center;line-height:1.5}
+
+/* Planning */
+.plan-rtabs{display:flex;gap:6px;margin-bottom:12px}
+.plan-rtab{flex:1;padding:8px;border-radius:8px;border:2px solid var(--bd);background:#fff;color:var(--txm);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
+.plan-rtab.on{background:var(--bx);border-color:var(--bx);color:#fff}
+.plan-wnav{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.plan-wlbl{font-size:12px;font-weight:600;color:var(--txm);flex:1;text-align:center}
+.plan-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.plan-acts .btn{width:100%;justify-content:center}
+.emp-card{background:#fff;border:1px solid var(--bd);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.emp-hd{display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer}
+.emp-av{width:34px;height:34px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.emp-nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.emp-mt{font-size:10px;color:var(--txm);margin-top:1px}
+.emp-tog{font-size:15px;color:var(--txm);flex-shrink:0;transition:transform .2s}
+.emp-tog.open{transform:rotate(90deg)}
+.emp-body{display:none;padding:0 12px 12px;border-top:1px solid var(--bd)}
+.emp-body.open{display:block}
+.tpl-box{background:#FAF4EC;border-radius:8px;padding:10px;margin:10px 0}
+.tpl-ttl{font-size:10px;font-weight:700;color:var(--txm);text-transform:uppercase;margin-bottom:8px}
+.tpl-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.tpl-inp{width:78px;background:#fff;border:1px solid var(--bd);border-radius:6px;padding:6px 7px;font-size:13px;color:var(--tx);outline:none}
+.day-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+.dcb{display:none}
+.dlbl{width:32px;height:32px;border-radius:7px;border:2px solid var(--bd);font-size:11px;font-weight:600;cursor:pointer;color:var(--txm);display:flex;align-items:center;justify-content:center;transition:all .15s}
+.dcb:checked + .dlbl{background:var(--bx);border-color:var(--bx);color:#fff}
+.dg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.dc{background:#FAF4EC;border-radius:7px;padding:5px 3px;min-height:75px;position:relative}
+.dch{font-size:9px;font-weight:700;color:var(--txm);text-align:center;margin-bottom:1px;text-transform:uppercase}
+.dcd{font-size:8px;color:var(--txf);text-align:center;margin-bottom:3px}
+.cr{background:#fff;border:1px solid var(--bd);border-radius:4px;padding:2px 3px;margin-bottom:5px;position:relative}
+.cr-t{font-size:8px;font-weight:600;color:var(--bx);text-align:center;padding-right:9px;line-height:1.2}
+.cr-x{position:absolute;top:-4px;right:-4px;background:var(--bx);border:none;color:#fff;cursor:pointer;font-size:9px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:1}
+.add-c{width:100%;background:rgba(185,30,38,.08);border:1px dashed var(--bx);border-radius:4px;padding:3px;font-size:14px;color:var(--bx);cursor:pointer;text-align:center;font-weight:700;line-height:1}
+.abs-sel{width:100%;background:#fff;border:1px solid var(--bd);border-radius:4px;padding:2px 3px;font-size:8px;color:var(--tx);outline:none;margin-top:3px;cursor:pointer}
+.abs-chip{font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;margin-top:3px;display:block;text-align:center}
+.abs-chip.am{background:#FEE2E2;color:#991B1B}
+.abs-chip.ai{background:#111;color:#fff}
+.abs-chip.cp{background:#EDE9FE;color:#5B21B6}
+.abs-chip.rec{background:#D1FAE5;color:#065F46}
+.abs-chip.off{background:#FAF4EC;color:var(--txm)}
+.emp-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+/* Demandes */
+.dem-card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:8px}
+.dem-status{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.dem-status.att{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
+.dem-status.ok{background:#DCFCE7;color:#166534;border:1px solid #86EFAC}
+.dem-status.ko{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5}
+
 </style>
 </head>
 <body>
@@ -88,6 +138,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="tab" onclick="goTab('pl',this)">Planning</div>
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
   <div class="tab" onclick="goTab('ab',this)">Absences</div>
+  <div class="tab" onclick="goTab('dem',this)">Demandes</div>
   <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
 </div>
 <div class="page">
@@ -123,15 +174,22 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
   <div id="pr" style="display:none"><div id="prb"></div></div>
   <div id="pl" style="display:none">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <select class="fs" id="plr" onchange="loadPl()"><option value="port">Port</option><option value="dabray">Dabray</option></select>
-      <button class="btn bs sm" onclick="pvW()">&#8592; Pr&#233;c.</button>
-      <span id="plwl" style="font-size:12px;font-weight:600;color:var(--txm)"></span>
-      <button class="btn bs sm" onclick="pnW()">Suiv. &#8594;</button>
-      <button class="btn bp sm" onclick="savePl()">Enregistrer</button>
+    <div class="plan-rtabs">
+      <div class="plan-rtab on" id="plr-port" onclick="switchPlanResto('port',this)">Port</div>
+      <div class="plan-rtab" id="plr-dabray" onclick="switchPlanResto('dabray',this)">Dabray</div>
     </div>
-    <div class="card" style="padding:0;overflow-x:auto"><table class="ptbl" id="pltbl"></table></div>
-    <div style="font-size:11px;color:var(--txm);margin-top:7px">Format: 09:00-17:00 ou vide = jour off</div>
+    <div class="plan-wnav">
+      <button class="btn bs sm" onclick="pvW()">&#8592;</button>
+      <span class="plan-wlbl" id="plwl"></span>
+      <button class="btn bs sm" onclick="pnW()">&#8594;</button>
+    </div>
+    <div class="plan-acts">
+      <button class="btn bg2" onclick="savePl()">&#10003; Enregistrer</button>
+      <button class="btn ba" onclick="openPlanDupli()">&#128203; Dupliquer sem.</button>
+      <button class="btn bp" onclick="openPDFMonth()">&#8595; PDF mensuel</button>
+      <button class="btn bs" onclick="openAddSalFromPlan()">+ Salari&#233;</button>
+    </div>
+    <div id="plan-emp-list"></div>
   </div>
   <div id="rc" style="display:none">
     <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
@@ -158,6 +216,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <button class="btn bp" onclick="openAddSal()">+ Ajouter</button>
     </div>
     <div id="sab"></div>
+  </div>
+  <div id="dem" style="display:none">
+    <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Demandes de cong&#233;s et absences envoy&#233;es par les salari&#233;s</div>
+    <div id="dem-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
   </div>
   <div class="rgpd">Photos conserv&#233;es 90 jours &#183; Acc&#232;s restreint direction &#183; RGPD Art. 13</div>
 </div>
@@ -211,6 +273,46 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+
+<!-- Modal créneau planning -->
+<div class="mb" id="modal-pcr">
+  <div class="md">
+    <div class="mdt" id="pcr-title">Ajouter un cr&#233;neau</div>
+    <div class="fr"><label class="fl2">D&#233;but</label><input type="time" class="fi" id="pcr-s" value="09:00"></div>
+    <div class="fr"><label class="fl2">Fin</label><input type="time" class="fi" id="pcr-e" value="17:00"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-pcr')">Annuler</button><button class="btn bp" onclick="savePCr()">Ajouter</button></div>
+  </div>
+</div>
+<!-- Modal PDF mensuel -->
+<div class="mb" id="modal-pdf-month">
+  <div class="md">
+    <div class="mdt">PDF Planning mensuel</div>
+    <div class="fr"><label class="fl2">Mois</label><input type="month" class="fi" id="pdf-month"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-pdf-month')">Annuler</button><button class="btn bp" onclick="exportMonthPDF()">G&#233;n&#233;rer PDF</button></div>
+  </div>
+</div>
+<!-- Modal duplication planning -->
+<div class="mb" id="modal-plan-dupli">
+  <div class="md">
+    <div class="mdt">Dupliquer vers semaine suivante</div>
+    <p style="font-size:12px;color:var(--txm);margin-bottom:10px">S&#233;lectionner les salari&#233;s :</p>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="btn bs sm" onclick="planChkAll(true)">Tout cocher</button>
+      <button class="btn bs sm" onclick="planChkAll(false)">Tout d&#233;cocher</button>
+    </div>
+    <div id="plan-dupli-list"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-plan-dupli')">Annuler</button><button class="btn bp" onclick="confirmPlanDupli()">Dupliquer</button></div>
+  </div>
+</div>
+<!-- Modal confirm duplication -->
+<div class="mb" id="modal-plan-confirm">
+  <div class="md">
+    <div class="mdt">&#9888; Confirmation</div>
+    <p style="font-size:13px;margin-bottom:14px" id="plan-confirm-msg"></p>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-plan-confirm')">Annuler</button><button class="btn bp" onclick="doPlanDupli()">Écraser et dupliquer</button></div>
+  </div>
+</div>
+
 <script>
 var db=supabase.createClient(SURL,SKEY);
 var emps=[],pts=[],abs=[],curSal=null;
@@ -227,18 +329,19 @@ function emp(id){return emps.find(function(e){return e.id===id;})||{prenom:'?',n
 function closeM(id){document.getElementById(id).classList.remove('op');}
 
 function goTab(name,el){
-  document.querySelectorAll('[id^="pt"],[id="pr"],[id="pl"],[id="rc"],[id="ab"],[id="sa"]').forEach(function(e){
-    var ids=['pt','pr','pl','rc','ab','sa'];
+  document.querySelectorAll('[id^="pt"],[id="pr"],[id="pl"],[id="rc"],[id="ab"],[id="sa"],[id="dem"]').forEach(function(e){
+    var ids=['pt','pr','pl','rc','ab','sa','dem'];
     if(ids.indexOf(e.id)>=0)e.style.display='none';
   });
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
   document.getElementById(name).style.display='block';
   el.classList.add('on');
   if(name==='pr')loadPr();
-  if(name==='pl')loadPl();
+  if(name==='pl'){planUpdateLabel();loadPl();}
   if(name==='rc')loadRc();
   if(name==='ab')loadAb();
   if(name==='sa')renderSal();
+  if(name==='dem')loadDem();
 }
 
 function getDR(p){
@@ -417,53 +520,486 @@ async function loadPr(){
   body.innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
 }
 
-async function loadPl(){
-  var resto=document.getElementById('plr').value;
-  var les=emps.filter(function(e){return e.actif&&e.restaurant_id===resto;});
-  var days=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-  var dates=days.map(function(_,i){var d=new Date(pwStart);d.setDate(d.getDate()+i);return d;});
-  var we=new Date(dates[6]);we.setHours(23,59,59);
-  document.getElementById('plwl').textContent='Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
-  var pr=await db.from('planning').select('*').gte('date',dates[0].toISOString().slice(0,10)).lte('date',dates[6].toISOString().slice(0,10)).in('employee_id',les.map(function(e){return e.id;}));
-  var pm={};(pr.data||[]).forEach(function(p){pm[p.employee_id+'_'+p.date]=p.horaire;});
-  var pe=await db.from('time_entries').select('*').gte('timestamp',dates[0].toISOString()).lte('timestamp',we.toISOString()).in('employee_id',les.map(function(e){return e.id;}));
-  var pb={};(pe.data||[]).forEach(function(p){var day=p.timestamp.slice(0,10);var k=p.employee_id+'_'+day;if(!pb[k])pb[k]=[];pb[k].push(p);});
-  var t=document.getElementById('pltbl');
-  var th='<thead><tr><th>Salarié</th>';
-  dates.forEach(function(d,i){th+='<th>'+days[i]+'<br><span style="font-size:9px;opacity:.8">'+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</span></th>';});
-  th+='<th>Prévu</th><th>Réel</th></tr></thead>';
-  var tb='<tbody>';
-  les.forEach(function(em){
-    var tp=0,tr2=0,cells='';
-    dates.forEach(function(d){
-      var ds=d.toISOString().slice(0,10);
-      var k=em.id+'_'+ds;
-      var h=pm[k]||'';
-      var pv=phrs(h);tp+=pv;
-      var re=calcW(pb[k]||[]);tr2+=re;
-      cells+='<td><input class="pi" data-emp="'+em.id+'" data-date="'+ds+'" value="'+h+'" placeholder="—">';
-      if(re>0)cells+='<div style="font-size:9px;color:var(--txm)">'+toHM(re)+'</div>';
-      cells+='</td>';
-    });
-    var sm=tr2-tp;
-    var sb=sm>=180?'<span class="bg sup al2">+'+toHM(sm)+'</span>':sm>0?'<span class="bg sup">+'+toHM(sm)+'</span>':'';
-    tb+='<tr><td>'+em.prenom+' '+em.nom+'</td>'+cells+'<td><strong>'+toHM(tp)+'</strong></td><td><strong>'+toHM(tr2)+'</strong>'+sb+'</td></tr>';
-  });
-  tb+='</tbody>';
-  t.innerHTML=th+tb;
+
+// ── PLANNING VARIABLES ──────────────────────────────────────────────────────
+var planResto='port';
+var planWkStart=planMonOf(new Date());
+var planData={},planAbs={};
+var planCrInfo=null,planDupliIds=[];
+var planDirty=false;
+var PLAN_DAYS=['L','Ma','Me','J','V','S','D'];
+var PLAN_DAYSFULL=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+var PLAN_MONTHS=['Janvier','F\u00e9vrier','Mars','Avril','Mai','Juin','Juillet','Ao\u00fbt','Septembre','Octobre','Novembre','D\u00e9cembre'];
+var ABS_OPTS=[{v:'',l:'-- Aucune --'},{v:'am',l:'AM - Arr\u00eat maladie'},{v:'ai',l:'AI - Abs. injustifi\u00e9e'},{v:'cp',l:'CP - Cong\u00e9s pay\u00e9s'},{v:'rec',l:'R\u00e9cup - R\u00e9cup\u00e9ration'}];
+var ABS_STYLES={am:'background:#FEE2E2;color:#991B1B',ai:'background:#111;color:#fff',cp:'background:#EDE9FE;color:#5B21B6',rec:'background:#D1FAE5;color:#065F46'};
+
+function planMonOf(d){var x=new Date(d);var day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(0,0,0,0);return x;}
+function planAddD(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x;}
+function planDs(d){return d.toISOString().slice(0,10);}
+function planPad(n){return String(n).padStart(2,'0');}
+function planGetWeekDates(){var r=[];for(var i=0;i<7;i++)r.push(planAddD(planWkStart,i));return r;}
+
+function switchPlanResto(r,el){
+  planResto=r;
+  document.querySelectorAll('.plan-rtab').forEach(function(t){t.classList.remove('on');});
+  el.classList.add('on');
+  loadPl();
 }
 
-function pvW(){pwStart.setDate(pwStart.getDate()-7);loadPl();}
-function pnW(){pwStart.setDate(pwStart.getDate()+7);loadPl();}
+function planUpdateLabel(){
+  var dates=planGetWeekDates();
+  var lbl='Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
+  var el=document.getElementById('plwl');if(el)el.textContent=lbl;
+}
+
+function pvW(){planWkStart=planAddD(planWkStart,-7);planUpdateLabel();loadPl();}
+function pnW(){planWkStart=planAddD(planWkStart,7);planUpdateLabel();loadPl();}
+
+function planMarkDirty(){
+  planDirty=true;
+  var btn=document.querySelector('.plan-acts .btn.bg2');
+  if(btn){btn.style.background='#92610A';btn.textContent='! Enregistrer';}
+}
+
+function planGetFiltered(){
+  var list=emps.filter(function(e){return e.actif&&(e.restaurant_id===planResto||e.multi_site);});
+  var SECS=['cuisine','salle','livraison'];
+  list.sort(function(a,b){
+    var ai=SECS.indexOf(a.secteur||'salle');var bi=SECS.indexOf(b.secteur||'salle');
+    if(ai!==bi)return ai-bi;return (a.nom||'').localeCompare(b.nom||'');
+  });
+  return list;
+}
+
+async function loadPl(){
+  planUpdateLabel();
+  var ids=emps.filter(function(e){return e.actif;}).map(function(e){return e.id;});
+  if(!ids.length){renderPlan();return;}
+  var r=await db.from('planning_creneaux').select('*').gte('date',planDs(planWkStart)).lte('date',planDs(planAddD(planWkStart,6))).in('employee_id',ids);
+  planData={};
+  (r.data||[]).forEach(function(c){
+    if(!planData[c.employee_id])planData[c.employee_id]={};
+    if(!planData[c.employee_id][c.date])planData[c.employee_id][c.date]=[];
+    planData[c.employee_id][c.date].push({id:c.id,start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});
+  });
+  Object.keys(planData).forEach(function(eid){
+    Object.keys(planData[eid]).forEach(function(d){
+      planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});
+    });
+  });
+  var r2=await db.from('absences_planning').select('*').gte('date',planDs(planWkStart)).lte('date',planDs(planAddD(planWkStart,6))).in('employee_id',ids);
+  planAbs={};
+  (r2.data||[]).forEach(function(a){if(!planAbs[a.employee_id])planAbs[a.employee_id]={};planAbs[a.employee_id][a.date]=a.code;});
+  planDirty=false;
+  renderPlan();
+}
+
+function planReopenEmp(eid){
+  var b=document.getElementById('epb-'+eid);var t=document.getElementById('ept-'+eid);
+  if(b){b.classList.add('open');t.classList.add('open');}
+}
+
+function renderPlan(){
+  var filtered=planGetFiltered();
+  var list=document.getElementById('plan-emp-list');
+  if(!list)return;
+  if(!filtered.length){list.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Aucun salari\u00e9</div>';return;}
+  var h='';var dates=planGetWeekDates();var lastSec='';
+  var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
+  var SECCOLORS={cuisine:'#991B1B',salle:'#92400E',livraison:'#065F46'};
+  filtered.forEach(function(emp){
+    var sec=emp.secteur||'salle';
+    if(sec!==lastSec){
+      h+='<div style="font-size:10px;font-weight:700;color:'+(SECCOLORS[sec]||'#7A4A35')+';text-transform:uppercase;letter-spacing:1px;margin:10px 0 5px">'+(SECLABELS[sec]||sec)+'</div>';
+      lastSec=sec;
+    }
+    var rl=emp.restaurant_id==='port'?'Port':'Dabray';
+    var meta=[rl,emp.heures_contrat?emp.heures_contrat+'h/sem':''].filter(Boolean).join(' \u2022 ');
+    h+='<div class="emp-card"><div class="emp-hd" onclick="planTogEmp('+emp.id+')">';
+    h+='<div class="emp-av">'+emp.prenom[0]+'</div>';
+    h+='<div style="flex:1;min-width:0"><div class="emp-nm">'+emp.prenom+' '+emp.nom+'</div><div class="emp-mt">'+meta+'</div></div>';
+    h+='<span class="emp-tog" id="ept-'+emp.id+'">&#9654;</span></div>';
+    h+='<div class="emp-body" id="epb-'+emp.id+'">';
+    // Template rapide
+    h+='<div class="tpl-box"><div class="tpl-ttl">Application rapide</div>';
+    h+='<div class="tpl-row">D\u00e9but&nbsp;<input type="time" class="tpl-inp" id="pts-'+emp.id+'" value="17:00">&nbsp;Fin&nbsp;<input type="time" class="tpl-inp" id="pte-'+emp.id+'" value="23:30"></div>';
+    h+='<div class="day-row">';
+    PLAN_DAYS.forEach(function(d,i){h+='<input type="checkbox" class="dcb" id="pdc-'+emp.id+'-'+i+'"><label class="dlbl" for="pdc-'+emp.id+'-'+i+'">'+d+'</label>';});
+    h+='</div><button class="btn bp sm" onclick="planApplyTpl('+emp.id+')">Appliquer aux jours coch\u00e9s</button></div>';
+    // Grille 7 jours
+    h+='<div class="dg">';
+    dates.forEach(function(date,i){
+      var dstr=planDs(date);
+      var crs=(planData[emp.id]&&planData[emp.id][dstr])||[];
+      var absCode=(planAbs[emp.id]&&planAbs[emp.id][dstr])||'';
+      h+='<div class="dc">';
+      h+='<div class="dch">'+PLAN_DAYS[i]+'</div>';
+      h+='<div class="dcd">'+date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</div>';
+      if(!crs.length&&!absCode)h+='<div style="font-size:8px;color:var(--txf);text-align:center;padding:2px 0">Off</div>';
+      crs.forEach(function(cr,ci){
+        h+='<div class="cr"><button class="cr-x" data-eid="'+emp.id+'" data-d="'+dstr+'" data-i="'+ci+'" onclick="planDelCrBtn(this)">&#10005;</button>';
+        h+='<div class="cr-t">'+cr.start+'<br>'+cr.end+'</div></div>';
+      });
+      h+='<button class="add-c" data-eid="'+emp.id+'" data-d="'+dstr+'" onclick="planOpenCrBtn(this)">+</button>';
+      // Menu déroulant absence
+      h+='<select class="abs-sel" data-eid="'+emp.id+'" data-d="'+dstr+'" onchange="planSetAbs(this)">';
+      ABS_OPTS.forEach(function(o){h+='<option value="'+o.v+'"'+(absCode===o.v?' selected':'')+'>'+o.l+'</option>';});
+      h+='</select>';
+      if(absCode){h+='<span class="abs-chip '+absCode+'">'+ABS_OPTS.find(function(o){return o.v===absCode;}).l.split(' - ')[0]+'</span>';}
+      h+='</div>';
+    });
+    h+='</div>';
+    h+='<div class="emp-acts"><button class="btn bs sm" style="font-size:10px" onclick="planOpenPDFIndiv('+emp.id+')">&#8595; PDF</button></div>';
+    h+='</div></div>';
+  });
+  list.innerHTML=h;
+}
+
+function planTogEmp(id){
+  var b=document.getElementById('epb-'+id);var t=document.getElementById('ept-'+id);
+  var op=b.classList.contains('open');b.classList.toggle('open',!op);t.classList.toggle('open',!op);
+}
+
+function planDelCrBtn(btn){planDelCr(parseInt(btn.dataset.eid),btn.dataset.d,parseInt(btn.dataset.i));}
+function planOpenCrBtn(btn){planOpenCr(parseInt(btn.dataset.eid),btn.dataset.d);}
+
+function planSetAbs(sel){
+  var eid=parseInt(sel.dataset.eid);var dstr=sel.dataset.d;var code=sel.value;
+  if(!planAbs[eid])planAbs[eid]={};
+  if(code){planAbs[eid][dstr]=code;}else{delete planAbs[eid][dstr];}
+  planMarkDirty();
+  var wasOpen=document.getElementById('epb-'+eid)&&document.getElementById('epb-'+eid).classList.contains('open');
+  renderPlan();if(wasOpen)planReopenEmp(eid);
+}
+
+function planApplyTpl(eid){
+  var s=document.getElementById('pts-'+eid).value;var e=document.getElementById('pte-'+eid).value;
+  if(!s||!e){alert('Saisissez les heures');return;}
+  var dates=planGetWeekDates();var changed=false;
+  PLAN_DAYS.forEach(function(_,i){
+    var cb=document.getElementById('pdc-'+eid+'-'+i);
+    if(cb&&cb.checked){
+      var d=planDs(dates[i]);
+      if(!planData[eid])planData[eid]={};if(!planData[eid][d])planData[eid][d]=[];
+      var exists=planData[eid][d].some(function(c){return c.start===s&&c.end===e;});
+      if(!exists){planData[eid][d].push({start:s,end:e,_new:true});planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});changed=true;}
+    }
+  });
+  if(!changed){alert('Aucun jour coch\u00e9 ou cr\u00e9neau d\u00e9j\u00e0 existant');return;}
+  planMarkDirty();
+  var wasOpen=document.getElementById('epb-'+eid).classList.contains('open');
+  renderPlan();if(wasOpen)planReopenEmp(eid);
+}
+
+function planOpenCr(eid,dstr){
+  planCrInfo={eid:eid,dstr:dstr};
+  var d=new Date(dstr+'T12:00:00');var dayIdx=d.getDay()===0?6:d.getDay()-1;
+  document.getElementById('pcr-title').textContent='Cr\u00e9neau \u2014 '+PLAN_DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+  document.getElementById('pcr-s').value='09:00';document.getElementById('pcr-e').value='17:00';
+  document.getElementById('modal-pcr').classList.add('op');
+}
+
+function savePCr(){
+  if(!planCrInfo)return;
+  var s=document.getElementById('pcr-s').value;var e=document.getElementById('pcr-e').value;
+  if(!s||!e){alert('Saisissez les heures');return;}
+  var eid=planCrInfo.eid;var d=planCrInfo.dstr;
+  if(!planData[eid])planData[eid]={};if(!planData[eid][d])planData[eid][d]=[];
+  planData[eid][d].push({start:s,end:e,_new:true});
+  planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});
+  planMarkDirty();closeM('modal-pcr');
+  var wasOpen=document.getElementById('epb-'+eid)&&document.getElementById('epb-'+eid).classList.contains('open');
+  renderPlan();if(wasOpen)planReopenEmp(eid);
+}
+
+function planDelCr(eid,dstr,idx){
+  if(!planData[eid]||!planData[eid][dstr])return;
+  var cr=planData[eid][dstr][idx];
+  if(cr.id)cr._del=true;else planData[eid][dstr].splice(idx,1);
+  planMarkDirty();
+  var wasOpen=document.getElementById('epb-'+eid)&&document.getElementById('epb-'+eid).classList.contains('open');
+  renderPlan();if(wasOpen)planReopenEmp(eid);
+}
 
 async function savePl(){
-  var inputs=document.querySelectorAll('.pi');
-  for(var i=0;i<inputs.length;i++){
-    var inp=inputs[i];
-    await db.from('planning').upsert({employee_id:parseInt(inp.dataset.emp),date:inp.dataset.date,horaire:inp.value.trim()},{onConflict:'employee_id,date'});
+  var btn=document.querySelector('.plan-acts .btn.bg2');
+  if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
+  var err=0;
+  for(var eid in planData){
+    for(var d in planData[eid]){
+      var crs=planData[eid][d];
+      for(var i=0;i<crs.length;i++){
+        var cr=crs[i];
+        if(cr._del&&cr.id){var r=await db.from('planning_creneaux').delete().eq('id',cr.id);if(r.error)err++;}
+        else if(cr._new&&!cr._del){var r2=await db.from('planning_creneaux').insert({employee_id:parseInt(eid),date:d,heure_debut:cr.start,heure_fin:cr.end});if(r2.error)err++;else cr._new=false;}
+      }
+      planData[eid][d]=crs.filter(function(c){return !c._del;});
+    }
   }
-  alert('Planning enregistré !');
+  for(var eid2 in planAbs){
+    for(var d2 in planAbs[eid2]){
+      var code=planAbs[eid2][d2];
+      if(code){await db.from('absences_planning').upsert({employee_id:parseInt(eid2),date:d2,code:code},{onConflict:'employee_id,date'});}
+      else{await db.from('absences_planning').delete().eq('employee_id',parseInt(eid2)).eq('date',d2);}
+    }
+  }
+  planDirty=false;
+  if(btn){btn.innerHTML=err?'Erreur ('+err+')':'&#10003; Enregistr\u00e9';btn.disabled=false;btn.style.background='';setTimeout(function(){btn.innerHTML='&#10003; Enregistrer';},2000);}
+  await loadPl();
 }
+
+// Duplication planning
+function openPlanDupli(){
+  var filtered=planGetFiltered();var h='';
+  filtered.forEach(function(em){h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)"><input type="checkbox" id="pdup-'+em.id+'" checked style="width:16px;height:16px;accent-color:var(--bx)"><label for="pdup-'+em.id+'" style="font-size:13px;cursor:pointer">'+em.prenom+' '+em.nom+'</label></div>';});
+  document.getElementById('plan-dupli-list').innerHTML=h;
+  document.getElementById('modal-plan-dupli').classList.add('op');
+}
+function planChkAll(v){document.querySelectorAll('#plan-dupli-list input').forEach(function(cb){cb.checked=v;});}
+
+function confirmPlanDupli(){
+  planDupliIds=[];
+  document.querySelectorAll('#plan-dupli-list input').forEach(function(cb){if(cb.checked)planDupliIds.push(parseInt(cb.id.replace('pdup-','')));});
+  if(!planDupliIds.length){alert('S\u00e9lectionnez au moins un salari\u00e9');return;}
+  var next=planAddD(planWkStart,7);
+  document.getElementById('plan-confirm-msg').textContent='Le planning de '+planDupliIds.length+' salari\u00e9(s) sera copi\u00e9 sur la semaine du '+next.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+'. Les cr\u00e9neaux existants seront \u00e9cras\u00e9s.';
+  closeM('modal-plan-dupli');document.getElementById('modal-plan-confirm').classList.add('op');
+}
+
+async function doPlanDupli(){
+  closeM('modal-plan-confirm');var dates=planGetWeekDates();var err=0;
+  for(var si=0;si<planDupliIds.length;si++){
+    var eid=planDupliIds[si];
+    for(var di=0;di<dates.length;di++){
+      var src2=planDs(dates[di]);var dst=planDs(planAddD(dates[di],7));
+      var crs=(planData[eid]&&planData[eid][src2])||[];
+      await db.from('planning_creneaux').delete().eq('employee_id',eid).eq('date',dst);
+      for(var ci=0;ci<crs.length;ci++){
+        if(!crs[ci]._del){await db.from('planning_creneaux').insert({employee_id:eid,date:dst,heure_debut:crs[ci].start,heure_fin:crs[ci].end});}
+      }
+    }
+  }
+  alert('Planning dupliqu\u00e9 avec succ\u00e8s !');
+}
+
+// PDF Mensuel
+function openPDFMonth(){
+  var now=new Date();
+  document.getElementById('pdf-month').value=now.getFullYear()+'-'+planPad(now.getMonth()+1);
+  document.getElementById('modal-pdf-month').classList.add('op');
+}
+
+async function exportMonthPDF(){
+  if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
+  var val=document.getElementById('pdf-month').value;if(!val){alert('S\u00e9lectionnez un mois');return;}
+  var filtered=planGetFiltered();if(!filtered.length){alert('Aucun salari\u00e9');closeM('modal-pdf-month');return;}
+  closeM('modal-pdf-month');
+  var jsPDF=window.jspdf.jsPDF;
+  var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
+  var firstDay=new Date(year,month,1);var lastDay=new Date(year,month+1,0);
+  var weeks=[];var cur=planMonOf(firstDay);
+  while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
+  var rl=planResto==='port'?'Port - Bavastro':'Dabray';
+  var monthLabel=PLAN_MONTHS[month]+' '+year;
+  var empIds=filtered.map(function(e){return e.id;});
+  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).in('employee_id',empIds);
+  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).in('employee_id',empIds);
+  var mplan={};
+  (allCrs.data||[]).forEach(function(c){if(!mplan[c.employee_id])mplan[c.employee_id]={};if(!mplan[c.employee_id][c.date])mplan[c.employee_id][c.date]=[];mplan[c.employee_id][c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});});
+  var mabs={};
+  (allAbs.data||[]).forEach(function(a){if(!mabs[a.employee_id])mabs[a.employee_id]={};mabs[a.employee_id][a.date]=a.code;});
+  var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
+  var ABS_T={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
+  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
+  var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  var PW=297;var PH=210;var MG=5;
+  var cW=[40,36,36,35,35,35,35,34];
+  function wkH(wk){
+    var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
+    var h=9+8;
+    filtered.forEach(function(em){
+      var maxCr=0;
+      dates.forEach(function(d){var c=(mplan[em.id]&&mplan[em.id][planDs(d)])||[];if(c.length>maxCr)maxCr=c.length;});
+      h+=Math.max(7,maxCr*4+2)+(dates.some(function(d){return mabs[em.id]&&mabs[em.id][planDs(d)];})? 3:0);
+    });
+    return h;
+  }
+  function drawWk(wk,sy){
+    var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
+    var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    doc.setFillColor(185,30,38);doc.rect(MG,sy,PW-MG*2,9,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(8);doc.setFont('helvetica','bold');
+    var tW=doc.getTextWidth('Milo\'s Pizza - '+rl+' - '+monthLabel);
+    doc.text('Milo\'s Pizza - '+rl+' - '+monthLabel,(PW-tW)/2,sy+4);
+    doc.setFontSize(6);doc.setFont('helvetica','normal');
+    var lW=doc.getTextWidth(wlbl);doc.text(wlbl,(PW-lW)/2,sy+8);
+    var y=sy+9;var x=MG;
+    doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);doc.setTextColor(122,74,53);doc.setFontSize(6);doc.setFont('helvetica','bold');
+    cW.forEach(function(w,i){
+      doc.rect(x,y,w,8,'FD');
+      if(i===0){doc.text('Salari\u00e9',x+2,y+5);}
+      else{
+        var dl=PLAN_DAYSFULL[i-1];
+        var dtl=dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+        var dW=doc.getTextWidth(dl);doc.setFontSize(6.5);doc.text(dl,x+w/2-dW/2,y+3.5);
+        doc.setFontSize(5.5);var dtW=doc.getTextWidth(dtl);doc.text(dtl,x+w/2-dtW/2,y+7);
+        doc.setFontSize(6);
+      }
+      x+=w;
+    });
+    y+=8;
+    filtered.forEach(function(em,ri){
+      var ep=mplan[em.id]||{};var ea=mabs[em.id]||{};
+      var maxCr=0;
+      dates.forEach(function(d){var c=ep[planDs(d)]||[];if(c.length>maxCr)maxCr=c.length;});
+      var hasAbs=dates.some(function(d){return ea[planDs(d)];});
+      var rh=Math.max(7,maxCr*4+2)+(hasAbs?3:0);
+      var x2=MG;
+      if(ri%2===0)doc.setFillColor(255,252,245);else doc.setFillColor(248,241,230);
+      doc.setDrawColor(216,197,167);
+      cW.forEach(function(w,ci){
+        doc.rect(x2,y,w,rh,'FD');
+        if(ci===0){
+          doc.setTextColor(42,10,11);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
+          doc.text(em.prenom+' '+em.nom,x2+2,y+rh/2+1);
+        }else{
+          var dstr=planDs(dates[ci-1]);
+          var crs=ep[dstr]||[];var absCode=ea[dstr]||null;
+          if(!crs.length&&!absCode){doc.setTextColor(200,185,165);doc.setFontSize(5);doc.setFont('helvetica','normal');doc.text('Off',x2+w/2-1,y+rh/2+1);}
+          else{
+            if(crs.length){doc.setTextColor(185,30,38);doc.setFontSize(5.5);doc.setFont('helvetica','bold');crs.forEach(function(cr,k){doc.text(cr.start+'-'+cr.end,x2+1,y+3.5+(k*4));});}
+            if(absCode){
+              var ac=ABS_C[absCode]||[238,238,238];var at=ABS_T[absCode]||[51,51,51];
+              doc.setFillColor(ac[0],ac[1],ac[2]);doc.rect(x2+1,y+rh-3.2,w-2,3,'F');
+              doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(4.5);doc.setFont('helvetica','bold');
+              var al=ABS_L[absCode]||absCode;var alW=doc.getTextWidth(al);
+              doc.text(al,x2+w/2-alW/2,y+rh-1);
+            }
+          }
+        }
+        x2+=w;
+      });
+      y+=rh;
+    });
+    return y;
+  }
+  var isFirst=true;var curY=MG;
+  for(var wi=0;wi<weeks.length;wi++){
+    var wh=wkH(weeks[wi]);
+    if(!isFirst&&curY+wh+3>PH-MG){doc.addPage();curY=MG;}
+    if(!isFirst)curY+=3;
+    curY=drawWk(weeks[wi],curY)+2;isFirst=false;
+  }
+  doc.setFontSize(5);doc.setTextColor(176,128,96);
+  doc.text('Genere le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',MG,PH-1.5);
+  var t=new Date();
+  doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
+}
+
+function planOpenPDFIndiv(empId){
+  alert('PDF individuel: s\u00e9lectionnez le mois dans la bo\u00eete de dialogue qui va s\'ouvrir.');
+  var now=new Date();var m=now.getFullYear()+'-'+planPad(now.getMonth()+1);
+  var val=prompt('Mois (YYYY-MM):',m);if(!val)return;
+  exportPlanIndivPDF(empId,val);
+}
+
+async function exportPlanIndivPDF(empId,val){
+  if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
+  var jsPDF=window.jspdf.jsPDF;
+  var em=emps.find(function(e){return e.id===empId;});if(!em)return;
+  var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
+  var firstDay=new Date(year,month,1);var lastDay=new Date(year,month+1,0);
+  var weeks=[];var cur=planMonOf(firstDay);
+  while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
+  var monthLabel=PLAN_MONTHS[month]+' '+year;
+  var rl=em.restaurant_id==='port'?'Port - Bavastro':'Dabray';
+  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).eq('employee_id',empId);
+  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).eq('employee_id',empId);
+  var mplan2={};
+  (allCrs.data||[]).forEach(function(c){if(!mplan2[c.date])mplan2[c.date]=[];mplan2[c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});});
+  var mabs2={};(allAbs.data||[]).forEach(function(a){mabs2[a.date]=a.code;});
+  var ABS_L2={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var ABS_C2={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
+  var ABS_T2={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
+  var doc=new jsPDF({unit:'mm',format:'a4'});
+  doc.setFillColor(185,30,38);doc.rect(0,0,210,36,'F');
+  doc.setFillColor(242,224,192);doc.rect(0,36,210,2,'F');
+  doc.setTextColor(242,224,192);doc.setFontSize(14);doc.setFont('helvetica','bold');doc.text('Milo\'s Pizza',10,14);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.text('Planning '+monthLabel,10,22);doc.text(rl,10,29);
+  doc.setFontSize(18);doc.setFont('helvetica','bold');doc.setTextColor(42,10,11);doc.text(em.prenom+' '+em.nom,10,50);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(122,74,53);
+  if(em.heures_contrat)doc.text('Contrat: '+em.heures_contrat+'h/sem',10,58);
+  var y=68;
+  weeks.forEach(function(wk){
+    var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
+    var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+    doc.setFillColor(185,30,38);doc.rect(10,y,190,8,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(8);doc.setFont('helvetica','bold');
+    var wW=doc.getTextWidth(wlbl);doc.text(wlbl,105-wW/2,y+5.5);y+=8;
+    dates.forEach(function(d,i){
+      var crs=mplan2[planDs(d)]||[];var absCode=mabs2[planDs(d)]||null;
+      var rh=Math.max(7,crs.length>1?7+(crs.length-1)*5:7)+(absCode?5:0);
+      if(i%2===0)doc.setFillColor(255,252,245);else doc.setFillColor(248,241,230);
+      doc.setDrawColor(216,197,167);doc.rect(10,y,190,rh,'FD');
+      doc.setTextColor(122,74,53);doc.setFontSize(8);doc.setFont('helvetica','bold');
+      doc.text(PLAN_DAYSFULL[i]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),12,y+5);
+      if(!crs.length&&!absCode){doc.setTextColor(176,128,96);doc.setFont('helvetica','normal');doc.text('Repos',80,y+5);}
+      else{
+        if(crs.length){doc.setTextColor(185,30,38);doc.setFont('helvetica','bold');crs.forEach(function(cr,k){doc.text(cr.start+' - '+cr.end,80,y+5+(k*5));});}
+        if(absCode){
+          var ac=ABS_C2[absCode]||[238,238,238];var at=ABS_T2[absCode]||[51,51,51];
+          doc.setFillColor(ac[0],ac[1],ac[2]);doc.rect(145,y+1,50,rh-2,'F');
+          doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(7);doc.setFont('helvetica','bold');
+          var al=ABS_L2[absCode]||absCode;var alW=doc.getTextWidth(al);doc.text(al,170-alW/2,y+rh/2+1);
+        }
+      }
+      y+=rh;
+    });
+    y+=4;if(y>270){doc.addPage();y=15;}
+  });
+  doc.setFontSize(6);doc.setTextColor(176,128,96);doc.text('Genere le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',10,287);
+  var t=new Date();
+  doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf');
+}
+
+// Salarié depuis planning
+function openAddSalFromPlan(){openAddSal();}
+
+// ── DEMANDES D'ABSENCE ──────────────────────────────────────────────────────
+async function loadDem(){
+  var r=await db.from('demandes_absence').select('*').order('created_at',{ascending:false}).limit(50);
+  var data=r.data||[];
+  var body=document.getElementById('dem-body');if(!body)return;
+  if(!data.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Aucune demande re\u00e7ue</div>';return;}
+  var TYPE_L={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var h='';
+  data.forEach(function(d){
+    var em=emp(d.employee_id);
+    var st=d.statut||'att';
+    var stLabel={att:'En attente',ok:'Accept\u00e9e',ko:'Refus\u00e9e'}[st]||st;
+    h+='<div class="dem-card">';
+    h+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">';
+    h+='<div><div style="font-weight:600;font-size:13px">'+em.prenom+' '+em.nom+'</div>';
+    h+='<div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TYPE_L[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div>';
+    if(d.message)h+='<div style="font-size:11px;color:var(--txm);margin-top:4px;font-style:italic">'+d.message+'</div>';
+    h+='<div style="font-size:10px;color:var(--txf);margin-top:4px">Re\u00e7ue le '+new Date(d.created_at).toLocaleDateString('fr-FR')+'</div>';
+    h+='</div>';
+    h+='<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
+    h+='<span class="dem-status '+st+'">'+stLabel+'</span>';
+    if(st==='att'){
+      h+='<button class="btn bg2 sm" onclick="traitDem('+d.id+',\'ok\')">&#10003; Accepter</button>';
+      h+='<button class="btn sm" style="background:#991B1B;color:#fff" onclick="traitDem('+d.id+',\'ko\')">&#10005; Refuser</button>';
+    }
+    h+='</div></div></div>';
+  });
+  body.innerHTML=h;
+}
+
+async function traitDem(id,statut){
+  await db.from('demandes_absence').update({statut:statut}).eq('id',id);
+  await loadDem();
+}
+
 
 async function loadRc(){
   var resto=document.getElementById('rcr').value;
