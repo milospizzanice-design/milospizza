@@ -284,6 +284,19 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 </div>
 
 
+<!-- Modal édition créneau planning -->
+<div class="mb" id="modal-pedit">
+  <div class="md">
+    <div class="mdt" id="pedit-title">Modifier le créneau</div>
+    <div class="fr"><label class="fl2">Début</label><input type="time" class="fi" id="pedit-s"></div>
+    <div class="fr"><label class="fl2">Fin</label><input type="time" class="fi" id="pedit-e"></div>
+    <div class="ma">
+      <button class="btn br sm" onclick="delFromEdit()">&#10005; Supprimer</button>
+      <button class="btn bs" onclick="closeM('modal-pedit')">Annuler</button>
+      <button class="btn bp" onclick="savePlanEdit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 <!-- Modal créneau planning -->
 <div class="mb" id="modal-pcr">
   <div class="md">
@@ -592,7 +605,7 @@ async function loadPl(){
   (r.data||[]).forEach(function(c){
     if(!planData[c.employee_id])planData[c.employee_id]={};
     if(!planData[c.employee_id][c.date])planData[c.employee_id][c.date]=[];
-    planData[c.employee_id][c.date].push({id:c.id,start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});
+    planData[c.employee_id][c.date].push({id:c.id,start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5),restaurant_id:c.restaurant_id||null});
   });
   Object.keys(planData).forEach(function(eid){
     Object.keys(planData[eid]).forEach(function(d){
@@ -642,15 +655,19 @@ function renderPlan(){
     h+='<div class="dg">';
     dates.forEach(function(date,i){
       var dstr=planDs(date);
-      var crs=(planData[emp.id]&&planData[emp.id][dstr])||[];
+      var crs=((planData[emp.id]&&planData[emp.id][dstr])||[]).filter(function(c){return !c._del;});
       var absCode=(planAbs[emp.id]&&planAbs[emp.id][dstr])||'';
       h+='<div class="dc">';
       h+='<div class="dch">'+PLAN_DAYS[i]+'</div>';
       h+='<div class="dcd">'+date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</div>';
       if(!crs.length&&!absCode)h+='<div style="font-size:8px;color:var(--txf);text-align:center;padding:2px 0">Off</div>';
       crs.forEach(function(cr,ci){
-        h+='<div class="cr"><button class="cr-x" data-eid="'+emp.id+'" data-d="'+dstr+'" data-i="'+ci+'" onclick="planDelCrBtn(this)">&#10005;</button>';
-        h+='<div class="cr-t">'+cr.start+'<br>'+cr.end+'</div></div>';
+        var restoTag='';
+        if(emp.multi_site&&cr.restaurant_id&&cr.restaurant_id!==emp.restaurant_id){
+          restoTag='<span style="font-size:7px;background:rgba(185,30,38,.15);color:var(--bx);border-radius:3px;padding:1px 3px;display:block;text-align:center;margin-top:1px">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>';
+        }
+        h+='<div class="cr" style="cursor:pointer" data-eid="'+emp.id+'" data-d="'+dstr+'" data-i="'+ci+'" onclick="planOpenEdit(this)">';
+        h+='<div class="cr-t">'+cr.start+'<br>'+cr.end+restoTag+'</div></div>';
       });
       h+='<button class="add-c" data-eid="'+emp.id+'" data-d="'+dstr+'" onclick="planOpenCrBtn(this)">+</button>';
       // Menu déroulant absence
@@ -673,6 +690,44 @@ function planTogEmp(id){
 }
 
 function planDelCrBtn(btn){planDelCr(parseInt(btn.dataset.eid),btn.dataset.d,parseInt(btn.dataset.i));}
+
+var planEditInfo=null;
+function planOpenEdit(el){
+  var eid=parseInt(el.dataset.eid);
+  var dstr=el.dataset.d;
+  var idx=parseInt(el.dataset.i);
+  if(!planData[eid]||!planData[eid][dstr]||!planData[eid][dstr][idx])return;
+  planEditInfo={eid:eid,dstr:dstr,idx:idx};
+  var cr=planData[eid][dstr][idx];
+  document.getElementById('pedit-s').value=cr.start;
+  document.getElementById('pedit-e').value=cr.end;
+  var d=new Date(dstr+'T12:00:00');
+  var dayIdx=d.getDay()===0?6:d.getDay()-1;
+  document.getElementById('pedit-title').textContent='Modifier créneau — '+PLAN_DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+  document.getElementById('modal-pedit').classList.add('op');
+}
+
+function savePlanEdit(){
+  if(!planEditInfo)return;
+  var s=document.getElementById('pedit-s').value;
+  var e=document.getElementById('pedit-e').value;
+  if(!s||!e){alert('Saisissez les heures');return;}
+  var eid=planEditInfo.eid;var dstr=planEditInfo.dstr;var idx=planEditInfo.idx;
+  var cr=planData[eid][dstr][idx];
+  cr.start=s;cr.end=e;
+  if(cr.id){cr._modified=true;}
+  planData[eid][dstr].sort(function(a,b){return a.start.localeCompare(b.start);});
+  planMarkDirty();
+  closeM('modal-pedit');
+  var wasOpen=document.getElementById('epb-'+eid)&&document.getElementById('epb-'+eid).classList.contains('open');
+  renderPlan();if(wasOpen)planReopenEmp(eid);
+}
+
+function delFromEdit(){
+  if(!planEditInfo)return;
+  closeM('modal-pedit');
+  planDelCr(planEditInfo.eid,planEditInfo.dstr,planEditInfo.idx);
+}
 function planOpenCrBtn(btn){planOpenCr(parseInt(btn.dataset.eid),btn.dataset.d);}
 
 function planSetAbs(sel){
@@ -694,7 +749,7 @@ function planApplyTpl(eid){
       var d=planDs(dates[i]);
       if(!planData[eid])planData[eid]={};if(!planData[eid][d])planData[eid][d]=[];
       var exists=planData[eid][d].some(function(c){return c.start===s&&c.end===e;});
-      if(!exists){planData[eid][d].push({start:s,end:e,_new:true});planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});changed=true;}
+      if(!exists){planData[eid][d].push({start:s,end:e,_new:true,restaurant_id:planResto});planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});changed=true;}
     }
   });
   if(!changed){alert('Aucun jour coch\u00e9 ou cr\u00e9neau d\u00e9j\u00e0 existant');return;}
@@ -717,7 +772,7 @@ function savePCr(){
   if(!s||!e){alert('Saisissez les heures');return;}
   var eid=planCrInfo.eid;var d=planCrInfo.dstr;
   if(!planData[eid])planData[eid]={};if(!planData[eid][d])planData[eid][d]=[];
-  planData[eid][d].push({start:s,end:e,_new:true});
+  planData[eid][d].push({start:s,end:e,_new:true,restaurant_id:planResto});
   planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});
   planMarkDirty();closeM('modal-pcr');
   var wasOpen=document.getElementById('epb-'+eid)&&document.getElementById('epb-'+eid).classList.contains('open');
@@ -743,7 +798,8 @@ async function savePl(){
       for(var i=0;i<crs.length;i++){
         var cr=crs[i];
         if(cr._del&&cr.id){var r=await db.from('planning_creneaux').delete().eq('id',cr.id);if(r.error)err++;}
-        else if(cr._new&&!cr._del){var r2=await db.from('planning_creneaux').insert({employee_id:parseInt(eid),date:d,heure_debut:cr.start,heure_fin:cr.end});if(r2.error)err++;else cr._new=false;}
+        else if(cr._modified&&cr.id&&!cr._del){var rm=await db.from('planning_creneaux').update({heure_debut:cr.start,heure_fin:cr.end}).eq('id',cr.id);if(rm.error)err++;else cr._modified=false;}
+        else if(cr._new&&!cr._del){var r2=await db.from('planning_creneaux').insert({employee_id:parseInt(eid),date:d,heure_debut:cr.start,heure_fin:cr.end,restaurant_id:planResto});if(r2.error)err++;else cr._new=false;}
       }
       planData[eid][d]=crs.filter(function(c){return !c._del;});
     }
