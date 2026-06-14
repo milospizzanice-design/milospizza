@@ -59,9 +59,9 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .day-dt{font-size:8px;color:var(--txf);text-align:center;margin-bottom:4px}
 .creneau{background:var(--wh);border:1px solid var(--bd);border-radius:5px;padding:3px 4px;margin-bottom:3px;position:relative}
 .cr-time{font-size:9px;font-weight:600;color:var(--bx);text-align:center;padding-right:10px}
-.cr-del{position:absolute;top:1px;right:2px;background:none;border:none;color:#ccc;cursor:pointer;font-size:10px;line-height:1;padding:1px}
+.cr-del{position:absolute;top:2px;right:2px;background:rgba(229,62,62,0.1);border:none;color:#B91E26;cursor:pointer;font-size:12px;line-height:1;padding:2px 3px;border-radius:3px;font-weight:700}
 .cr-del:hover{color:var(--bx)}
-.add-cr{width:100%;background:none;border:1px dashed var(--bd);border-radius:5px;padding:3px;font-size:10px;color:var(--txm);cursor:pointer;text-align:center}
+.add-cr{width:100%;background:rgba(185,30,38,0.08);border:1px dashed var(--bx);border-radius:5px;padding:5px 3px;font-size:13px;color:var(--bx);cursor:pointer;text-align:center;font-weight:700}
 .add-cr:hover{border-color:var(--bx);color:var(--bx)}
 .off-lbl{font-size:9px;color:var(--txf);text-align:center;padding:2px 0}
 .emp-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
@@ -337,7 +337,7 @@ function renderEmps(){
         h+='<div class="cr-time">'+cr.start+'<br>'+cr.end+'</div>';
         h+='</div>';
       });
-      h+='<button class="add-cr" data-eid="'+emp.id+'" data-d="'+dstr+'" onclick="openCrBtn(this)">+</button>';
+      h+='<button class="add-cr" data-eid="'+emp.id+'" data-d="'+dstr+'" onclick="openCrBtn(this)">+ créneau</button>';
       h+='</div>';
     });
     h+='</div>';
