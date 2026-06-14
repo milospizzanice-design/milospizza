@@ -57,11 +57,11 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .day-col{background:var(--cr2);border-radius:8px;padding:6px 4px;min-height:70px;min-width:0}
 .day-hd{font-size:9px;font-weight:700;color:var(--txm);text-align:center;margin-bottom:2px;text-transform:uppercase}
 .day-dt{font-size:8px;color:var(--txf);text-align:center;margin-bottom:4px}
-.creneau{background:var(--wh);border:1px solid var(--bd);border-radius:5px;padding:3px 4px;margin-bottom:3px;position:relative}
+.creneau{background:var(--wh);border:1px solid var(--bd);border-radius:5px;padding:3px 4px;margin-bottom:6px;position:relative}
 .cr-time{font-size:9px;font-weight:600;color:var(--bx);text-align:center;padding-right:10px}
-.cr-del{position:absolute;top:2px;right:2px;background:rgba(229,62,62,0.1);border:none;color:#B91E26;cursor:pointer;font-size:12px;line-height:1;padding:2px 3px;border-radius:3px;font-weight:700}
+.cr-del{position:absolute;top:-5px;right:-5px;background:#B91E26;border:none;color:#fff;cursor:pointer;font-size:10px;line-height:1;padding:2px 4px;border-radius:50%;font-weight:700;z-index:1;width:16px;height:16px;display:flex;align-items:center;justify-content:center}
 .cr-del:hover{color:var(--bx)}
-.add-cr{width:100%;background:rgba(185,30,38,0.08);border:1px dashed var(--bx);border-radius:5px;padding:5px 3px;font-size:13px;color:var(--bx);cursor:pointer;text-align:center;font-weight:700}
+.add-cr{width:100%;background:rgba(185,30,38,0.08);border:1px dashed var(--bx);border-radius:5px;padding:4px 3px;font-size:16px;color:var(--bx);cursor:pointer;text-align:center;font-weight:700;line-height:1}
 .add-cr:hover{border-color:var(--bx);color:var(--bx)}
 .off-lbl{font-size:9px;color:var(--txf);text-align:center;padding:2px 0}
 .emp-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
@@ -651,7 +651,14 @@ async function exportMonthPDF(){
     doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milo\'s Pizza',8,204);
   });
   var t=new Date();
-  doc.save(t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
+  var fname=t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf';
+  // iOS Safari: ouvrir dans nouvel onglet (doc.save bloqué en async)
+  var ua=navigator.userAgent;
+  if(/iPad|iPhone|iPod/.test(ua)){
+    doc.output('dataurlnewwindow',{filename:fname});
+  }else{
+    doc.save(fname);
+  }
 }
 
 // ── PDF INDIVIDUEL MENSUEL ─────────────────────────────────────
@@ -721,7 +728,12 @@ async function exportIndivPDF(){
   doc.setFontSize(7);doc.setTextColor(176,128,96);
   doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milo\'s Pizza',10,287);
   var t=new Date();
-  doc.save(t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf');
+  var fname2=t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf';
+  if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
+    doc.output('dataurlnewwindow',{filename:fname2});
+  }else{
+    doc.save(fname2);
+  }
 }
 
 // ── SALARIÉS ───────────────────────────────────────────────────
