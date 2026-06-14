@@ -585,90 +585,89 @@ async function exportMonthPDF(){
     mplan[c.employee_id][c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});
   });
   var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  var PW=297;var PH=210;var MARGIN=6;
-  var cW=[40,32,32,32,32,32,32,33];
+  var PW=297;var PH=210;var MG=4;var USABLE=PH-MG*2;
+  var GAP=2;
 
-  // Calculer la hauteur d'une semaine
-  function calcWeekHeight(wk){
+  // Calculer hauteur réelle d'une semaine
+  function weekH(wk){
     var dates=[];for(var i=0;i<7;i++)dates.push(addD(wk,i));
-    var h=16+9; // header(16) + entete tableau(9)
+    var h=8+6; // header semaine + entete colonnes
     filtered.forEach(function(em){
-      var empPlan=mplan[em.id]||{};
       var maxCr=0;
-      dates.forEach(function(d){var c=empPlan[ds(d)]||[];if(c.length>maxCr)maxCr=c.length;});
-      h+=Math.max(8,maxCr*5+3);
+      dates.forEach(function(d){var c=(mplan[em.id]&&mplan[em.id][ds(d)])||[];if(c.length>maxCr)maxCr=c.length;});
+      h+=Math.max(6,maxCr*4+2);
     });
-    h+=5; // footer
     return h;
   }
 
-  function drawWeek(doc,wk,startY){
+  // Dessiner une semaine à partir de startY, retourne Y final
+  function drawWeek(wk,startY){
     var dates=[];for(var i=0;i<7;i++)dates.push(addD(wk,i));
-    var wlbl='Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
-    // Mini header bordeaux pour cette semaine
-    doc.setFillColor(185,30,38);doc.rect(MARGIN,startY,PW-MARGIN*2,9,'F');
-    doc.setTextColor(242,224,192);doc.setFontSize(9);doc.setFont('helvetica','bold');
-    doc.text('Milo\'s Pizza - '+rl+' - '+monthLabel,MARGIN+2,startY+5.5);
-    doc.setFontSize(7);doc.setFont('helvetica','normal');doc.text(wlbl,MARGIN+120,startY+5.5);
-    var y=startY+9;
+    var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    // Header semaine
+    doc.setFillColor(185,30,38);doc.rect(MG,startY,PW-MG*2,8,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(8);doc.setFont('helvetica','bold');
+    doc.text('Milo\'s Pizza - '+rl+' - '+monthLabel,MG+2,startY+5.5);
+    doc.setFontSize(6);doc.setFont('helvetica','normal');
+    doc.text(wlbl,MG+2,startY+7.5);
+    // wait: mettre wlbl sur la droite
+    doc.setFontSize(6);doc.text(wlbl,PW-MG-doc.getTextWidth(wlbl)-2,startY+5);
+    var y=startY+8;
     // En-tete colonnes
-    var x=MARGIN;
-    doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);doc.setTextColor(122,74,53);
-    doc.setFontSize(7);doc.setFont('helvetica','bold');
+    var cW=[38,32,32,32,32,32,32,31];
+    var x=MG;
+    doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);
+    doc.setFontSize(6);doc.setFont('helvetica','bold');doc.setTextColor(122,74,53);
     cW.forEach(function(w,i){
-      doc.rect(x,y,w,7,'FD');
-      if(i===0){doc.text('Salari\u00e9',x+2,y+4.5);}
+      doc.rect(x,y,w,6,'FD');
+      if(i===0){doc.text('Salari\u00e9',x+1,y+4);}
       else{
-        doc.text(DAYSFULL[i-1].slice(0,3),x+2,y+3);
-        doc.setFontSize(6);doc.text(dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x+2,y+6.5);
-        doc.setFontSize(7);
+        doc.text(DAYSFULL[i-1].slice(0,3),x+1,y+2.5);
+        doc.text(dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x+1,y+5);
       }
       x+=w;
     });
-    y+=7;
-    // Lignes salaries
+    y+=6;
+    // Lignes salariés
     filtered.forEach(function(em,ri){
-      var empPlan=mplan[em.id]||{};
+      var empPlan=(mplan[em.id])||{};
       var maxCr=0;
       dates.forEach(function(d){var c=empPlan[ds(d)]||[];if(c.length>maxCr)maxCr=c.length;});
-      var rh=Math.max(8,maxCr*5+3);
-      var x2=MARGIN;
+      var rh=Math.max(6,maxCr*4+2);
+      var x2=MG;
       if(ri%2===0)doc.setFillColor(255,253,248);else doc.setFillColor(250,244,235);
       doc.setDrawColor(216,197,167);
       cW.forEach(function(w,ci){
         doc.rect(x2,y,w,rh,'FD');
         if(ci===0){
-          doc.setTextColor(42,10,11);doc.setFontSize(7);doc.setFont('helvetica','bold');
-          doc.text(em.prenom+' '+em.nom,x2+2,y+rh/2+1.5);
+          doc.setTextColor(42,10,11);doc.setFontSize(6);doc.setFont('helvetica','bold');
+          doc.text(em.prenom+' '+em.nom,x2+1,y+rh/2+1);
         }else{
           var crs=empPlan[ds(dates[ci-1])]||[];
           doc.setFont('helvetica','normal');
-          if(!crs.length){doc.setTextColor(200,180,160);doc.setFontSize(6);doc.text('Off',x2+2,y+rh/2+1.5);}
-          else{doc.setTextColor(185,30,38);doc.setFontSize(6);doc.setFont('helvetica','bold');crs.forEach(function(cr,k){doc.text(cr.start+'-'+cr.end,x2+1,y+4+(k*4.5));});}
+          if(!crs.length){doc.setTextColor(210,195,175);doc.setFontSize(5);doc.text('Off',x2+1,y+rh/2+1);}
+          else{doc.setTextColor(185,30,38);doc.setFontSize(5.5);doc.setFont('helvetica','bold');crs.forEach(function(cr,k){doc.text(cr.start+'-'+cr.end,x2+1,y+3+(k*4));});}
         }
         x2+=w;
       });
       y+=rh;
     });
-    return y; // retourne la position Y finale
+    return y;
   }
 
-  // Placer les semaines: 2 par page si ça rentre
-  var isFirst=true;var curY=MARGIN;
+  // Empiler les semaines sur chaque page
+  var isFirst=true;var curY=MG;
   for(var wi=0;wi<weeks.length;wi++){
-    var wh=calcWeekHeight(weeks[wi]);
-    if(!isFirst&&curY+wh>PH-MARGIN){
-      // Nouvelle page
-      doc.addPage();curY=MARGIN;
-    }else if(isFirst){
-      curY=MARGIN;
+    var wh=weekH(weeks[wi]);
+    if(!isFirst&&curY+wh+GAP>PH-MG){
+      doc.addPage();curY=MG;
     }
-    curY=drawWeek(doc,weeks[wi],curY)+4; // +4px espace entre semaines
+    if(!isFirst)curY+=GAP;
+    curY=drawWeek(weeks[wi],curY)+GAP;
     isFirst=false;
   }
-  // Footer derniere page
-  doc.setFontSize(6);doc.setTextColor(176,128,96);
-  doc.text('Genere le '+new Date().toLocaleDateString('fr-FR')+' - Milo\'s Pizza',MARGIN,PH-2);
+  doc.setFontSize(5);doc.setTextColor(176,128,96);
+  doc.text('Genere le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',MG,PH-1.5);
   var t=new Date();
   var fname=t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf';
   doc.save(fname);
