@@ -139,6 +139,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
   <div class="tab" onclick="goTab('ab',this)">Absences</div>
   <div class="tab" onclick="goTab('dem',this)">Demandes</div>
+  <div class="tab" onclick="goTab('au',this)">Audit</div>
   <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
 </div>
 <div class="page">
@@ -220,6 +221,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div id="dem" style="display:none">
     <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Demandes de cong&#233;s et absences envoy&#233;es par les salari&#233;s</div>
     <div id="dem-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
+  </div>
+  <div id="au" style="display:none">
+    <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Journal des consultations de photos de pointage</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="tbl">
+        <thead><tr><th>Salari&#233;</th><th>Pointage</th><th>Consult&#233; le</th><th>Motif</th></tr></thead>
+        <tbody id="au-body"><tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr></tbody>
+      </table>
+    </div>
   </div>
   <div class="rgpd">Photos conserv&#233;es 90 jours &#183; Acc&#232;s restreint direction &#183; RGPD Art. 13</div>
 </div>
@@ -330,7 +340,7 @@ function closeM(id){document.getElementById(id).classList.remove('op');}
 
 function goTab(name,el){
   document.querySelectorAll('[id^="pt"],[id="pr"],[id="pl"],[id="rc"],[id="ab"],[id="sa"],[id="dem"]').forEach(function(e){
-    var ids=['pt','pr','pl','rc','ab','sa','dem'];
+    var ids=['pt','pr','pl','rc','ab','sa','dem','au'];
     if(ids.indexOf(e.id)>=0)e.style.display='none';
   });
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
@@ -342,6 +352,7 @@ function goTab(name,el){
   if(name==='ab')loadAb();
   if(name==='sa')renderSal();
   if(name==='dem')loadDem();
+  if(name==='au')loadAudit();
 }
 
 function getDR(p){
@@ -1141,6 +1152,37 @@ async function saveSal(){
 async function togSal(id,actif){
   await db.from('employees').update({actif:!actif}).eq('id',id);
   await loadEmps();renderSal();
+}
+
+async function loadAudit(){
+  var body=document.getElementById('au-body');
+  if(!body)return;
+  body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr>';
+  var r=await db.from('audit_photos').select('*').order('consulte_le',{ascending:false}).limit(100);
+  var data=r.data||[];
+  if(!data.length){body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Aucune consultation enregistrée</td></tr>';return;}
+  // Charger les pointages concernés
+  var teIds=data.map(function(a){return a.time_entry_id;}).filter(Boolean);
+  var teMap={};
+  if(teIds.length){
+    var tr=await db.from('time_entries').select('id,employee_id,type,timestamp').in('id',teIds);
+    (tr.data||[]).forEach(function(t){teMap[t.id]=t;});
+  }
+  var h='';
+  data.forEach(function(a){
+    var te=teMap[a.time_entry_id]||{};
+    var em=te.employee_id?emp(te.employee_id):{prenom:'Inconnu',nom:''};
+    var typeLabel=te.type==='entree'?'↗ Entrée':te.type==='sortie'?'↙ Sortie':'—';
+    var pointageDate=te.timestamp?fmtF(te.timestamp):'—';
+    var consultDate=new Date(a.consulte_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    h+='<tr>';
+    h+='<td><strong>'+em.prenom+' '+em.nom+'</strong></td>';
+    h+='<td><span class="bg '+(te.type||'')+'">'+typeLabel+'</span> '+pointageDate+'</td>';
+    h+='<td style="font-variant-numeric:tabular-nums">'+consultDate+'</td>';
+    h+='<td style="font-size:11px;color:var(--txm)">'+( a.motif||'—')+'</td>';
+    h+='</tr>';
+  });
+  body.innerHTML=h;
 }
 
 async function init(){
