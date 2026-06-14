@@ -916,7 +916,7 @@ function savePCr(){
   var eid=planCrInfo.eid;var d=planCrInfo.dstr;
   var em=emps.find(function(emp){return emp.id===eid;});
   var restoSel=document.getElementById('pcr-resto');
-  var resto=(em&&em.multi_site&&restoSel)?restoSel.value:planResto;
+  var resto=restoSel?restoSel.value:((em&&em.restaurant_id)||planResto);
   if(!planData[eid])planData[eid]={};if(!planData[eid][d])planData[eid][d]=[];
   planData[eid][d].push({start:s,end:e,_new:true,restaurant_id:resto});
   planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});
@@ -1431,6 +1431,36 @@ function planOpenPDFIndiv(empId){
   exportPlanIndivPDF(empId,val);
 }
 
+
+function openAddSal(){curSal=null;document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
+function openEditSal(id){curSal=id;var em=emp(id);document.getElementById('msat').textContent='Modifier '+em.prenom+' '+em.nom;document.getElementById('sap').value=em.prenom;document.getElementById('san').value=em.nom;document.getElementById('sar').value=em.restaurant_id;document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
+
+async function saveSal(){
+  var p=document.getElementById('sap').value.trim();
+  var n=document.getElementById('san').value.trim();
+  var resto=document.getElementById('sar').value;
+  var pin=document.getElementById('sapin').value.trim();
+  if(!p||!n){alert('Prénom et nom requis');return;}
+  if(curSal){
+    var upd={prenom:p,nom:n,restaurant_id:resto};
+    if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
+    await db.from('employees').update(upd).eq('id',curSal);
+  }else{
+    if(pin.length!==4){alert('PIN 4 chiffres requis');return;}
+    var hr2=await db.rpc('hash_pin',{p_pin:pin});
+    await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true});
+  }
+  closeM('msa');
+  await loadEmps();
+  renderSal();
+}
+
+async function togSal(id,actif){
+  await db.from('employees').update({actif:!actif}).eq('id',id);
+  await loadEmps();renderSal();
+}
+
+function openAddSalFromPlan(){openAddSal();}
 
 async function init(){
   await loadEmps();
