@@ -335,11 +335,11 @@ function renderEmps(){
       if(!crs.length)h+='<div class="off-lbl">Off</div>';
       crs.forEach(function(cr,ci){
         h+='<div class="creneau">';
-        h+='<button class="cr-del" onclick="delCr('+emp.id+',''+dstr+'','+ci+')">&#10005;</button>';
+        h+='<button class="cr-del" data-eid="'+emp.id+'" data-d="'+dstr+'" data-i="'+ci+'" onclick="delCrBtn(this)">&#10005;</button>';
         h+='<div class="cr-time">'+cr.start+'<br>'+cr.end+'</div>';
         h+='</div>';
       });
-      h+='<button class="add-cr" onclick="openCr('+emp.id+',''+dstr+'')">+</button>';
+      h+='<button class="add-cr" data-eid="'+emp.id+'" data-d="'+dstr+'" onclick="openCrBtn(this)">+</button>';
       h+='</div>';
     });
     h+='</div>';
@@ -671,6 +671,8 @@ async function saveSal(){
   renderEmps();
 }
 
+function delCrBtn(btn){delCr(parseInt(btn.dataset.eid),btn.dataset.d,parseInt(btn.dataset.i));}
+function openCrBtn(btn){openCr(parseInt(btn.dataset.eid),btn.dataset.d);}
 init();
 </script>
 </body>
