@@ -563,19 +563,21 @@ function openPDFMonth(){
 }
 
 async function exportMonthPDF(){
-  if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
+  if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez dans 2 secondes');return;}
   var val=document.getElementById('pdf-month').value;
   if(!val){alert('S\u00e9lectionnez un mois');return;}
+  var filtered=getFiltered();
+  if(!filtered.length){alert('Aucun salari\u00e9 sur ce restaurant');closeM('modal-pdf-month');return;}
   closeM('modal-pdf-month');
   var jsPDF=window.jspdf.jsPDF;
   var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
   var firstDay=new Date(year,month,1);var lastDay=new Date(year,month+1,0);
   var weeks=[];var cur=monOf(firstDay);
   while(ds(cur)<=ds(lastDay)){weeks.push(new Date(cur));cur=addD(cur,7);}
-  var filtered=getFiltered();
   var rl=curResto==='port'?'Port - Bavastro':'Dabray';
   var monthLabel=MONTHS[month]+' '+year;
-  var allCrs=await db.from('planning_creneaux').select('*').gte('date',ds(firstDay)).lte('date',ds(lastDay)).in('employee_id',filtered.map(function(e){return e.id;}));
+  var empIds=filtered.map(function(e){return e.id;});
+  var allCrs=await db.from('planning_creneaux').select('*').gte('date',ds(firstDay)).lte('date',ds(lastDay)).in('employee_id',empIds);
   var mplan={};
   (allCrs.data||[]).forEach(function(c){
     if(!mplan[c.employee_id])mplan[c.employee_id]={};
@@ -583,89 +585,73 @@ async function exportMonthPDF(){
     mplan[c.employee_id][c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5)});
   });
   var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  var pageW=297;var isFirst=true;
+  var PW=297;var isFirst=true;
   weeks.forEach(function(wk){
     if(!isFirst)doc.addPage();isFirst=false;
     var dates=[];for(var i=0;i<7;i++)dates.push(addD(wk,i));
-    var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
-    drawPDFHeader(doc,'Milo\'s Pizza \u2014 Planning '+rl+' \u2014 '+monthLabel,wlbl,pageW);
-    // Colonnes: Salarié + 7 jours (pas de colonne secteur sur le général)
-    var colW=[40,32,32,32,32,32,32,33];
-    var hdrs=['Salari\u00e9'].concat(dates.map(function(d,i){return DAYSFULL[i].slice(0,3)+'\n'+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}));
-    var startY=22;
-    // Légende secteurs
-    var legendX=8;var legendY=startY-3;
-    doc.setFontSize(7);doc.setFont('helvetica','bold');
-    doc.setTextColor(185,30,38);doc.text('\u25A0 Cuisine',8,18.5);
-    doc.setTextColor(146,97,10);doc.text('\u25A0 Salle',lx+26,18.5);
-    doc.setTextColor(39,103,73);doc.text('\u25A0 Livraison',lx+48,18.5);
-    drawPDFTableHeader(doc,hdrs,colW,startY,8);
-    var y=startY+10;var lastSec='';var rowIdx=0;
-    filtered.forEach(function(em){
-      var sec=em.secteur||'salle';
-      // Ligne fine de séparation de secteur
-      if(sec!==lastSec){
-        if(lastSec!==''){
-          var scBg={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
-          var sc2=SECTEUR_PDF_COLORS[sec]||[122,74,53];
-          doc.setFillColor(scBg[sec]||[242,224,192]);doc.setDrawColor(216,197,167);
-          doc.rect(8,y,pageW-16,5,'FD');
-          doc.setFillColor(sc2[0],sc2[1],sc2[2]);
-          doc.setTextColor(sc2[0],sc2[1],sc2[2]);doc.setFontSize(7);doc.setFont('helvetica','bold');
-          doc.text((SECTEUR_LABELS[sec]||sec).toUpperCase(),15,y+3.5);
-          y+=5;
-        }
-        lastSec=sec;
+    var wlbl='Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    // Header
+    doc.setFillColor(185,30,38);doc.rect(0,0,PW,16,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(12);doc.setFont('helvetica','bold');
+    doc.text('Milo\'s Pizza - Planning '+rl+' - '+monthLabel,8,10);
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.text(wlbl,8,15);
+    // En-tete tableau
+    var cW=[40,32,32,32,32,32,32,33];
+    var y=20;var x=8;
+    doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);doc.setTextColor(122,74,53);
+    doc.setFontSize(8);doc.setFont('helvetica','bold');
+    cW.forEach(function(w,i){
+      doc.rect(x,y,w,9,'FD');
+      if(i===0){doc.text('Salari\u00e9',x+2,y+6);}
+      else{
+        doc.text(DAYSFULL[i-1].slice(0,3),x+2,y+4);
+        doc.setFontSize(7);doc.text(dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x+2,y+8);
+        doc.setFontSize(8);
       }
+      x+=w;
+    });
+    y+=9;
+    // Lignes salaries
+    filtered.forEach(function(em,ri){
       var empPlan=mplan[em.id]||{};
       var maxCr=0;
       dates.forEach(function(d){var c=empPlan[ds(d)]||[];if(c.length>maxCr)maxCr=c.length;});
-      var rh=Math.max(9,maxCr*5+4);
-      var sc=SECTEUR_PDF_COLORS[sec]||[122,74,53];
-      var x=8;
-      if(rowIdx%2===0)doc.setFillColor(255,253,248);else doc.setFillColor(250,244,235);
+      var rh=Math.max(8,maxCr*5+3);
+      var x2=8;
+      if(ri%2===0)doc.setFillColor(255,253,248);else doc.setFillColor(250,244,235);
       doc.setDrawColor(216,197,167);
-      colW.forEach(function(w,ci){
-        doc.rect(x,y,w,rh,'FD');
+      cW.forEach(function(w,ci){
+        doc.rect(x2,y,w,rh,'FD');
         if(ci===0){
-          // Pastille couleur secteur
-          doc.setFillColor(sc[0],sc[1],sc[2]);
-          
-          // Nom salarié
           doc.setTextColor(42,10,11);doc.setFontSize(8);doc.setFont('helvetica','bold');
-          doc.text(em.prenom+' '+em.nom,x+6,y+5.5);
+          doc.text(em.prenom+' '+em.nom,x2+2,y+rh/2+1.5);
         }else{
           var crs=empPlan[ds(dates[ci-1])]||[];
           doc.setFont('helvetica','normal');
-          if(!crs.length){doc.setTextColor(176,128,96);doc.setFontSize(7);doc.text('Off',x+2,y+5.5);}
-          else{doc.setTextColor(sc[0],sc[1],sc[2]);doc.setFontSize(7);crs.forEach(function(cr,k){doc.text(cr.start+'-'+cr.end,x+2,y+4.5+(k*5));});}
+          if(!crs.length){
+            doc.setTextColor(200,180,160);doc.setFontSize(7);
+            doc.text('Off',x2+2,y+rh/2+1.5);
+          }else{
+            doc.setTextColor(185,30,38);doc.setFontSize(7);doc.setFont('helvetica','bold');
+            crs.forEach(function(cr,k){doc.text(cr.start+'-'+cr.end,x2+2,y+4.5+(k*5));});
+          }
         }
-        x+=w;
+        x2+=w;
       });
-      y+=rh;rowIdx++;
-      if(y>195){doc.addPage();y=15;}
+      y+=rh;
+      if(y>195){doc.addPage();y=10;}
     });
     // Footer
     doc.setFontSize(7);doc.setTextColor(176,128,96);
-    doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milo\'s Pizza',8,204);
+    doc.text('Genere le '+new Date().toLocaleDateString('fr-FR')+' - Milo\'s Pizza',8,204);
   });
   var t=new Date();
   var fname=t.getFullYear()+'_'+pad(t.getMonth()+1)+'_'+pad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf';
-  // iOS Safari: ouvrir dans nouvel onglet (doc.save bloqué en async)
-  var ua=navigator.userAgent;
-  if(/iPad|iPhone|iPod/.test(ua)){
+  if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
     doc.output('dataurlnewwindow',{filename:fname});
   }else{
     doc.save(fname);
   }
-}
-
-// ── PDF INDIVIDUEL MENSUEL ─────────────────────────────────────
-function openPDFIndiv(empId){
-  var now=new Date();
-  document.getElementById('pdf-indiv-month').value=now.getFullYear()+'-'+pad(now.getMonth()+1);
-  document.getElementById('pdf-indiv-emp').value=empId;
-  document.getElementById('modal-pdf-indiv').classList.add('op');
 }
 
 async function exportIndivPDF(){
