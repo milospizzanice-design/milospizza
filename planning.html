@@ -596,7 +596,7 @@ async function exportMonthPDF(){
     // Légende secteurs
     var legendX=8;var legendY=startY-3;
     doc.setFontSize(7);doc.setFont('helvetica','bold');
-    doc.setTextColor(185,30,38);doc.text('\u25A0 Cuisine',lx,18.5);
+    doc.setTextColor(185,30,38);doc.text('\u25A0 Cuisine',8,18.5);
     doc.setTextColor(146,97,10);doc.text('\u25A0 Salle',lx+26,18.5);
     doc.setTextColor(39,103,73);doc.text('\u25A0 Livraison',lx+48,18.5);
     drawPDFTableHeader(doc,hdrs,colW,startY,8);
