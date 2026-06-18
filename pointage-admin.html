@@ -391,12 +391,37 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pdf-month')">Annuler</button><button class="btn bp" onclick="exportMonthPDF()">G&#233;n&#233;rer PDF</button></div>
   </div>
 </div>
+<!-- Modal PDF individuel -->
+<div class="mb" id="modal-pdf-indiv">
+  <div class="md">
+    <div class="mdt">PDF individuel</div>
+    <input type="hidden" id="pdf-indiv-emp">
+    <div class="fr"><label class="fl2">Du mois</label><input type="month" class="fi" id="pdf-indiv-from"></div>
+    <div class="fr"><label class="fl2">Au mois</label><input type="month" class="fi" id="pdf-indiv-to"></div>
+    <div class="ma">
+      <button class="btn bs" onclick="closeM('modal-pdf-indiv')">Annuler</button>
+      <button class="btn bp" onclick="exportIndivPDF()">G&#233;n&#233;rer PDF</button>
+    </div>
+  </div>
+</div>
 <!-- Modal duplication planning -->
 <div class="mb" id="modal-plan-dupli">
   <div class="md">
-    <div class="mdt">Dupliquer vers semaine suivante</div>
-    <p style="font-size:12px;color:var(--txm);margin-bottom:10px">S&#233;lectionner les salari&#233;s :</p>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
+    <div class="mdt">Dupliquer le planning</div>
+    <div class="fr">
+      <label class="fl2">Semaine source</label>
+      <div id="plan-dupli-src" style="font-size:12px;color:var(--txm);font-weight:600;padding:6px 0"></div>
+    </div>
+    <div class="fr">
+      <label class="fl2">Dupliquer vers</label>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label style="font-size:10px;color:var(--txm);display:block;margin-bottom:3px">Du</label><input type="date" class="fi" id="dupli-date-from"></div>
+        <div style="flex:1"><label style="font-size:10px;color:var(--txm);display:block;margin-bottom:3px">Au</label><input type="date" class="fi" id="dupli-date-to"></div>
+      </div>
+      <div style="font-size:10px;color:var(--txm);margin-top:4px">Les semaines comprises dans cette plage seront remplac&#233;es</div>
+    </div>
+    <p style="font-size:12px;color:var(--txm);margin-bottom:8px">Salari&#233;s :</p>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
       <button class="btn bs sm" onclick="planChkAll(true)">Tout cocher</button>
       <button class="btn bs sm" onclick="planChkAll(false)">Tout d&#233;cocher</button>
     </div>
@@ -409,7 +434,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="md">
     <div class="mdt">&#9888; Confirmation</div>
     <p style="font-size:13px;margin-bottom:14px" id="plan-confirm-msg"></p>
-    <div class="ma"><button class="btn bs" onclick="closeM('modal-plan-confirm')">Annuler</button><button class="btn bp" onclick="doPlanDupli()">Écraser et dupliquer</button></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-plan-confirm')">Annuler</button><button class="btn br" onclick="doPlanDupli()">Écraser et dupliquer</button></div>
   </div>
 </div>
 
@@ -1002,8 +1027,22 @@ async function savePl(){
 // Duplication planning
 function openPlanDupli(){
   var filtered=planGetFiltered();var h='';
-  filtered.forEach(function(em){h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)"><input type="checkbox" id="pdup-'+em.id+'" checked style="width:16px;height:16px;accent-color:var(--bx)"><label for="pdup-'+em.id+'" style="font-size:13px;cursor:pointer">'+em.prenom+' '+em.nom+'</label></div>';});
+  filtered.forEach(function(em){
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">';
+    h+='<input type="checkbox" id="pdup-'+em.id+'" checked style="width:16px;height:16px;accent-color:var(--bx)">';
+    h+='<label for="pdup-'+em.id+'" style="font-size:13px;cursor:pointer">'+em.prenom+' '+em.nom+'</label>';
+    h+='</div>';
+  });
   document.getElementById('plan-dupli-list').innerHTML=h;
+  // Afficher la semaine source
+  var dates=planGetWeekDates();
+  var srcLabel='Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('plan-dupli-src').textContent=srcLabel;
+  // Par défaut: semaine suivante
+  var nextMon=planAddD(planWkStart,7);
+  var nextSun=planAddD(planWkStart,13);
+  document.getElementById('dupli-date-from').value=planDs(nextMon);
+  document.getElementById('dupli-date-to').value=planDs(nextSun);
   document.getElementById('modal-plan-dupli').classList.add('op');
 }
 function planChkAll(v){document.querySelectorAll('#plan-dupli-list input').forEach(function(cb){cb.checked=v;});}
