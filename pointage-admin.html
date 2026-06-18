@@ -1139,8 +1139,10 @@ async function exportMonthPDF(){
   var rl=planResto==='port'?'Port - Bavastro':'Dabray';
   var monthLabel=PLAN_MONTHS[month]+' '+year;
   var empIds=filtered.map(function(e){return e.id;});
-  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).in('employee_id',empIds);
-  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).in('employee_id',empIds);
+  var lastWeekEnd2=planAddD(planMonOf(lastDay),6);
+  var loadEnd2=planDs(lastDay)>planDs(lastWeekEnd2)?planDs(lastDay):planDs(lastWeekEnd2);
+  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds);
+  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds);
   var mplan={};
   (allCrs.data||[]).forEach(function(c){
     if(!mplan[c.employee_id])mplan[c.employee_id]={};
@@ -1284,7 +1286,6 @@ async function exportMonthPDF(){
     isFirst=false;
   }
   doc.setFontSize(5);doc.setTextColor(176,128,96);
-  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milos Pizza',MG,PH-2);
   var t=new Date();
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
 }
@@ -1306,8 +1307,11 @@ async function exportPlanIndivPDF(empId,val){
   var RESTO_BG={port:[219,234,254],dabray:[209,250,229]};
   var RESTO_TX={port:[30,64,175],dabray:[6,95,70]};
 
-  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).eq('employee_id',empId);
-  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).eq('employee_id',empId);
+  // Charger jusqu'à la fin de la dernière semaine (peut déborder sur le mois suivant)
+  var lastWeekEnd=planAddD(planMonOf(lastDay),6);
+  var loadEnd=planDs(lastDay)>planDs(lastWeekEnd)?planDs(lastDay):planDs(lastWeekEnd);
+  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd).eq('employee_id',empId);
+  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd).eq('employee_id',empId);
   var mplan2={};
   (allCrs.data||[]).forEach(function(c){
     if(!mplan2[c.date])mplan2[c.date]=[];
@@ -1439,7 +1443,6 @@ async function exportPlanIndivPDF(empId,val){
     doc.text((diffMin>=0?'+':'-')+dH+'h'+String(dM).padStart(2,'0')+' vs contrat',MG+65,y+5);
   }
   doc.setFontSize(6);doc.setTextColor(176,128,96);
-  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milos Pizza',MG,PH-3);
   var t=new Date();
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf');
 }
