@@ -1243,7 +1243,7 @@ async function exportMonthPDF(){
             var ytxt=y+6;
             crs.forEach(function(cr){
               doc.text(cr.start+'-'+cr.end,x+COLW/2,ytxt,{align:'center'});
-              if(cr.resto){
+              if(em.multi_site&&cr.resto&&cr.resto!==em.restaurant_id){
                 var rb=cr.resto==='port'?RESTO_BG.port:RESTO_BG.dabray;
                 var rt=cr.resto==='port'?RESTO_TX.port:RESTO_TX.dabray;
                 doc.setFillColor(rb[0],rb[1],rb[2]);
@@ -1324,9 +1324,9 @@ async function exportPlanIndivPDF(empId,val){
   var title='Milo\'s Pizza \u2014 Planning '+monthLabel+' \u2014 '+em.prenom+' '+em.nom;
   doc.text(title,PW/2,9,{align:'center'});
   doc.setFontSize(8);doc.setFont('helvetica','normal');
-  var sub=rl+' \u2022 '+(SECLABELS[em.secteur||'salle']||'');
+  var adrs={port:'9 rue Bavastro, 06300 Nice',dabray:'17 rue Dabray, 06000 Nice'};
+  var sub=(adrs[em.restaurant_id]||rl);
   if(em.heures_contrat)sub+=' \u2022 Contrat '+em.heures_contrat+'h/sem';
-  if(em.multi_site){sub+=' \u2022 Multi-site';}
   doc.text(sub,PW/2,15,{align:'center'});
 
   // ── TABLEAU: col0=semaine label, col1-7=jours ──────────────────────────
@@ -1394,7 +1394,7 @@ async function exportPlanIndivPDF(empId,val){
           crs.forEach(function(cr){
             doc.text(cr.start+'-'+cr.end,x+COLW/2,ytxt,{align:'center'});
             // Pastille restaurant
-            if(cr.resto){
+            if(em.multi_site&&cr.resto&&cr.resto!==em.restaurant_id){
               var rbg=cr.resto==='port'?RESTO_BG.port:RESTO_BG.dabray;
               var rtx=cr.resto==='port'?RESTO_TX.port:RESTO_TX.dabray;
               var rnm=cr.resto==='port'?'Port':'Dabray';
