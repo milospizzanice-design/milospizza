@@ -1508,7 +1508,8 @@ function getCheckedPostes(containerId){
 
 function renderSalPostesList(salId){
   var div=document.getElementById('sal-postes-list');if(!div)return;
-  var selected=getSalPostes(salId);
+  var key=salId||'new';
+  var selected=getSalPostes(key);
   var h='';
   postes.forEach(function(p){
     var isOn=selected.indexOf(p.id)>=0;
@@ -1518,18 +1519,20 @@ function renderSalPostesList(salId){
     var tx=isOn?(SCTX[p.secteur]||'#2A0A0B'):'#aaa';
     var brd=isOn?('1px solid '+(SCTX[p.secteur]||'#B91E26')):'1px solid #ddd';
     h+='<label style="display:inline-flex;align-items:center;gap:5px;background:'+bg+';border:'+brd+';border-radius:8px;padding:4px 8px;cursor:pointer;transition:all .15s">';
-    h+='<input type="checkbox" data-pid="'+p.id+'" '+(isOn?'checked':'')+' style="accent-color:#B91E26;width:14px;height:14px" onchange="toggleSalPoste(this,'+(salId||'null')+')">';
+    h+='<input type="checkbox" data-pid="'+p.id+'" data-key="'+key+'" '+(isOn?'checked':'')+' style="accent-color:#B91E26;width:14px;height:14px" onchange="toggleSalPosteBtn(this)">'
     h+='<span style="font-size:11px;font-weight:600;color:'+tx+'">'+p.nom+'</span></label>';
   });
   div.innerHTML=h||'<span style="color:#aaa;font-size:12px">Aucun poste défini dans Paramètres</span>';
 }
 
+function toggleSalPosteBtn(cb){toggleSalPoste(cb,cb.dataset.key||null);}
 function toggleSalPoste(cb,salId){
   var pid=parseInt(cb.dataset.pid);
-  var arr=getSalPostes(salId);
+  var key=salId||'new';
+  var arr=getSalPostes(key);
   if(cb.checked){if(arr.indexOf(pid)<0)arr.push(pid);}
   else{arr=arr.filter(function(x){return x!==pid;});}
-  setSalPostes(salId,arr);
+  setSalPostes(key,arr);
   // Mettre à jour visuellement
   var lbl=cb.parentElement;
   var p=postes.find(function(x){return x.id===pid;});
@@ -1592,7 +1595,14 @@ async function saveSal(){
   }else{
     if(pin.length!==4){alert('PIN 4 chiffres requis');return;}
     var hr2=await db.rpc('hash_pin',{p_pin:pin});
-    await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true});
+    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true}).select();
+    // Transférer les postes 'new' vers le vrai ID
+    if(insR.data&&insR.data[0]){
+      var newId=insR.data[0].id;
+      var newPostes=getSalPostes('new');
+      if(newPostes.length)setSalPostes(newId,newPostes);
+      localStorage.removeItem('sal_postes_new');
+    }
   }
   closeM('msa');
   await loadEmps();
@@ -1605,6 +1615,178 @@ async function togSal(id,actif){
 }
 
 function openAddSalFromPlan(){openAddSal();}
+
+async function loadRc(){
+  var resto=document.getElementById('rcr').value;
+  var period=document.getElementById('rcp').value;
+  var dr=getDR(period);
+  var les=emps.filter(function(e){return e.actif&&(resto==='all'||e.restaurant_id===resto);});
+  var pd=await db.from('time_entries').select('*').gte('timestamp',dr.s).lte('timestamp',dr.e);
+  var pld=await db.from('planning').select('*').gte('date',dr.s.slice(0,10)).lte('date',dr.e.slice(0,10));
+  var abd=await db.from('absences').select('*').gte('date_fin',dr.s.slice(0,10)).lte('date_debut',dr.e.slice(0,10));
+  var h='';
+  les.forEach(function(em){
+    var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
+    var epl=(pld.data||[]).filter(function(p){return p.employee_id===em.id;});
+    var ea=(abd.data||[]).filter(function(a){return a.employee_id===em.id;});
+    var w=calcW(ep);
+    var pl=epl.reduce(function(s,p){return s+phrs(p.horaire);},0);
+    var diff=w-pl;
+    var sa=diff>=180;
+    var dc=sa?'#991B1B':diff>=0?'#166534':'#991B1B';
+    var rl=em.restaurant_id==='port'?'Port':'Dabray';
+    var ats=[];ea.forEach(function(a){if(ats.indexOf(a.type)<0)ats.push(a.type);});
+    h+='<div class="card"><div style="display:flex;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
+    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+em.prenom+' '+em.nom+'</div>';
+    h+='<div style="margin-top:2px"><span class="bg '+em.restaurant_id+'">'+rl+'</span></div>';
+    h+='<div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">';
+    h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Prévu</div><div style="font-size:18px;font-weight:700;color:var(--txm)">'+toHM(pl)+'</div></div>';
+    h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Réel</div><div style="font-size:18px;font-weight:700;color:var(--bx)">'+toHM(w)+'</div></div>';
+    h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Diff</div><div style="font-size:18px;font-weight:700;color:'+dc+'">'+(diff>=0?'+':'')+toHM(diff)+'</div></div>';
+    h+='</div>';
+    if(sa)h+='<div style="margin-top:7px"><span class="bg sup al2">⚠ +3h sup détectées</span></div>';
+    if(ats.length){h+='<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">';ats.forEach(function(t){h+='<span class="bg '+t+'">'+t.toUpperCase()+'</span>';});h+='</div>';}
+    h+='</div></div></div>';
+  });
+  document.getElementById('rcb').innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
+}
+
+async function loadAb(){
+  var resto=document.getElementById('abr').value;
+  var r=await db.from('absences').select('*').order('date_debut',{ascending:false}).limit(100);
+  var data=(r.data||[]).filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
+  var labels={cp:'CP',rtt:'RTT',maladie:'Maladie',injustifie:'Injustifiée',ferie:'Férié',autre:'Autre'};
+  var tb=document.getElementById('abb');
+  if(!data.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr>';return;}
+  var h='';
+  data.forEach(function(a){
+    var em=emp(a.employee_id);
+    h+='<tr><td><strong>'+em.prenom+' '+em.nom+'</strong></td>';
+    h+='<td><span class="bg '+a.type+'">'+(labels[a.type]||a.type)+'</span></td>';
+    h+='<td>'+a.date_debut+'</td><td>'+a.date_fin+'</td>';
+    h+='<td>'+(a.note||'—')+'</td>';
+    h+='<td>'+(a.justif_b64?'<button class="btn bs sm">Voir</button>':'—')+'</td></tr>';
+  });
+  tb.innerHTML=h;
+}
+
+function openAb(){document.getElementById('abf').value=new Date().toISOString().slice(0,10);document.getElementById('abt2').value=new Date().toISOString().slice(0,10);document.getElementById('mab').classList.add('op');}
+
+async function saveAb(){
+  var eid=parseInt(document.getElementById('abe').value);
+  var type=document.getElementById('abt').value;
+  var from=document.getElementById('abf').value;
+  var to=document.getElementById('abt2').value;
+  var note=document.getElementById('abn').value;
+  var fi=document.getElementById('abfi');
+  var jb=null;
+  if(fi.files[0]){jb=await new Promise(function(res){var rd=new FileReader();rd.onload=function(e){res(e.target.result);};rd.readAsDataURL(fi.files[0]);});}
+  var r=await db.from('absences').insert({employee_id:eid,type:type,date_debut:from,date_fin:to,note:note,justif_b64:jb});
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  closeM('mab');
+  document.getElementById('abn').value='';fi.value='';
+  await loadAb();
+}
+
+function expRc(){
+  var rows=[['Prenom','Nom','Restaurant','Prevu','Reel','Diff']];
+  document.querySelectorAll('#rcb .card').forEach(function(card,i){
+    var em=emps.filter(function(e){return e.actif;})[i];if(!em)return;
+    var vals=card.querySelectorAll('[style*="font-size:18px"]');
+    if(vals.length>=3)rows.push([em.prenom,em.nom,em.restaurant_id,vals[0].textContent,vals[1].textContent,vals[2].textContent]);
+  });
+  var csv=rows.map(function(r){return r.join(';');}).join('\n');
+  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='recap_heures.csv';a.click();
+}
+
+function renderSal(){
+  var body=document.getElementById('sab');
+  var h='';
+  ['port','dabray'].forEach(function(resto){
+    var les=emps.filter(function(e){return e.restaurant_id===resto;});
+    h+='<div style="font-size:11px;font-weight:700;color:var(--bx);letter-spacing:.5px;text-transform:uppercase;margin:12px 0 7px">'+(resto==='port'?'Port (Bavastro)':'Dabray')+'</div>';
+    les.forEach(function(em){
+      var bg=em.actif?'var(--bx)':'#ccc';
+      var st=em.actif?'Actif':'Désactivé';
+      var bc=em.actif?'ba':'bg2';
+      var bl=em.actif?'Désactiver':'Réactiver';
+      h+='<div class="card" style="margin-bottom:7px"><div style="display:flex;align-items:center;gap:10px">';
+      h+='<div style="width:34px;height:34px;border-radius:50%;background:'+bg+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
+      h+='<div style="flex:1"><div style="font-weight:600;font-size:13px'+(em.actif?'':';color:#aaa')+'">'+em.prenom+' '+em.nom+'</div>';
+      h+='<div style="font-size:11px;color:var(--txm)">●●●● &nbsp;|&nbsp; '+st+'</div></div>';
+      h+='<div style="display:flex;gap:5px"><button class="btn bs sm" onclick="openEditSal('+em.id+')">Modifier</button>';
+      h+='<button class="btn '+bc+' sm" onclick="togSal('+em.id+','+(em.actif?'true':'false')+')">'+bl+'</button></div>';
+      h+='</div></div>';
+    });
+  });
+  body.innerHTML=h;
+}
+
+async function loadDem(){
+  var body=document.getElementById('dem-body');if(!body)return;
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
+  var r=await db.from('demandes_absence').select('*').order('created_at',{ascending:false}).limit(50);
+  var data=r.data||[];
+  if(!data.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Aucune demande</div>';return;}
+  var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var h='';
+  data.forEach(function(d){
+    var em2=emp(d.employee_id);var st=d.statut||'att';
+    var stL={att:'En attente',ok:'Accept\u00e9e',ko:'Refus\u00e9e'}[st]||st;
+    h+='<div class="dem-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">';
+    h+='<div><div style="font-weight:600;font-size:13px">'+em2.prenom+' '+em2.nom+'</div>';
+    h+='<div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TL[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div>';
+    if(d.message)h+='<div style="font-size:11px;color:var(--txm);margin-top:4px;font-style:italic">'+d.message+'</div>';
+    if(d.justif_b64){h+='<div style="margin-top:6px">';if(d.justif_b64.startsWith('data:image'))h+='<img src="'+d.justif_b64+'" style="max-width:100%;max-height:120px;border-radius:6px;border:1px solid var(--bd);cursor:pointer" onclick="showJustifFull(this.src)">';else h+='<a href="'+d.justif_b64+'" download="justificatif.pdf" style="font-size:11px;color:var(--bx);font-weight:600">T\u00e9l\u00e9charger</a>';h+='</div>';}
+    h+='<div style="font-size:10px;color:var(--txf);margin-top:4px">Re\u00e7ue le '+new Date(d.created_at).toLocaleDateString('fr-FR')+'</div>';
+    h+='</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
+    h+='<span class="dem-status '+st+'">'+stL+'</span>';
+    if(st==='att'){h+='<button class="btn bg2 sm" data-id="'+d.id+'" data-st="ok" onclick="traitDemBtn(this)">&#10003; Accepter</button>';h+='<button class="btn sm" style="background:#991B1B;color:#fff" data-id="'+d.id+'" data-st="ko" onclick="traitDemBtn(this)">&#10005; Refuser</button>';}
+    h+='</div></div></div>';
+  });
+  body.innerHTML=h;
+}
+
+async function loadAudit(){
+  var body=document.getElementById('au-body');if(!body)return;
+  body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr>';
+  var r=await db.from('audit_photos').select('*').order('consulte_le',{ascending:false}).limit(100);
+  var data=r.data||[];
+  if(!data.length){body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Aucune consultation</td></tr>';return;}
+  var teIds=data.map(function(a){return a.time_entry_id;}).filter(Boolean);
+  var teMap={};
+  if(teIds.length){var tr2=await db.from('time_entries').select('id,employee_id,type,timestamp').in('id',teIds);(tr2.data||[]).forEach(function(t){teMap[t.id]=t;});}
+  var h='';
+  data.forEach(function(a){
+    var te=teMap[a.time_entry_id]||{};var em2=te.employee_id?emp(te.employee_id):{prenom:'Inconnu',nom:''};
+    var tl=te.type==='entree'?'\u2197 Entr\u00e9e':te.type==='sortie'?'\u2199 Sortie':'\u2014';
+    var pd=te.timestamp?fmtF(te.timestamp):'\u2014';
+    var cd=new Date(a.consulte_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    h+='<tr><td><strong>'+em2.prenom+' '+em2.nom+'</strong></td><td><span class="bg '+(te.type||'')+'">'+tl+'</span> '+pd+'</td><td style="font-variant-numeric:tabular-nums">'+cd+'</td><td style="font-size:11px;color:var(--txm)">'+(a.motif||'\u2014')+'</td></tr>';
+  });
+  body.innerHTML=h;
+}
+
+async function traitDem(id,statut){await db.from('demandes_absence').update({statut:statut}).eq('id',id);await loadDem();}
+
+function traitDemBtn(btn,statut){traitDem(parseInt(btn.dataset.id),btn.dataset.st);}
+
+function showJustifFull(src){var w=window.open('','_blank');if(w)w.document.write('<img src="'+src+'" style="max-width:100%;height:auto">');}
+
+async function checkDemandesEnAttente(){
+  var r=await db.from('demandes_absence').select('*').eq('statut','att').order('created_at',{ascending:false});
+  var data=r.data||[];if(!data.length)return;
+  var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var h='<div style="font-size:12px;color:var(--txm);margin-bottom:10px">'+data.length+' demande(s) en attente :</div>';
+  data.slice(0,5).forEach(function(d){var em2=emp(d.employee_id);h+='<div style="background:#FAF4EC;border-radius:8px;padding:8px 10px;margin-bottom:6px"><div style="font-weight:600;font-size:13px">'+em2.prenom+' '+em2.nom+'</div><div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TL[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div></div>';});
+  if(data.length>5)h+='<div style="font-size:11px;color:var(--txm);text-align:center">...et '+(data.length-5)+' autre(s)</div>';
+  var ab=document.getElementById('alertes-dem-body');if(ab)ab.innerHTML=h;
+  var mo=document.getElementById('modal-alertes-dem');if(mo)mo.classList.add('op');
+}
+
+function goTabByName(name){var tabs=document.querySelectorAll('.tab');for(var i=0;i<tabs.length;i++){var oc=tabs[i].getAttribute('onclick')||'';if(oc.indexOf("'"+name+"'")>=0){goTab(name,tabs[i]);return;}}}
 
 async function init(){
   await loadEmps();
