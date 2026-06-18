@@ -331,6 +331,13 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="sal-postes-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
     </div>
     <div class="fr"><label class="fl2">PIN (4 chiffres)</label><input type="text" class="fi" id="sapin" maxlength="4" placeholder="Laisser vide = pas de changement"></div>
+    <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--bx);margin-bottom:6px">&#128197; Planning type hebdomadaire</div>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:8px">Définissez les horaires habituels. À la validation, ils seront dupliqués sur 12 semaines à partir de la date choisie.</div>
+      <div id="sal-planning-type"></div>
+      <div class="fr" style="margin-top:8px"><label class="fl2">Appliquer à partir du</label><input type="date" class="fi" id="sal-pt-start"></div>
+      <button class="btn ba sm" onclick="applyPlanningType()" style="width:100%;margin-top:6px">Générer le planning sur 12 semaines</button>
+    </div>
     <div class="ma"><button class="btn bs" onclick="closeM('msa')">Annuler</button><button class="btn bp" onclick="saveSal()">Enregistrer</button></div>
   </div>
 </div>
@@ -1641,7 +1648,7 @@ function exportIndivPDF(){
 }
 
 
-function openAddSal(){curSal=null;document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
+function openAddSal(){curSal=null;document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
 
 // ── POSTES PAR SALARIÉ ──────────────────────────────────────────────────────
 function getSalPostes(salId){
@@ -1675,6 +1682,90 @@ function getCheckedPostes(containerId){
   var div=document.getElementById(containerId);if(!div)return [];
   var checked=div.querySelectorAll('input[type=checkbox]:checked');
   return Array.from(checked).map(function(cb){return parseInt(cb.dataset.pid);});
+}
+
+
+
+// ── PLANNING TYPE HEBDOMADAIRE ──────────────────────────────────────────────
+var PT_DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+function renderPlanningType(salId){
+  var div=document.getElementById('sal-planning-type');if(!div)return;
+  var pt=getSalPlanningType(salId);
+  var h='<div style="display:flex;flex-direction:column;gap:4px">';
+  PT_DAYS.forEach(function(day,i){
+    var d=pt[i]||{on:false,start:'17:00',end:'23:30'};
+    h+='<div style="display:flex;align-items:center;gap:6px;font-size:11px">';
+    h+='<label style="display:flex;align-items:center;gap:4px;width:90px;cursor:pointer">';
+    h+='<input type="checkbox" data-day="'+i+'" '+(d.on?'checked':'')+' onchange="ptToggle(this)" style="accent-color:var(--bx);width:14px;height:14px">';
+    h+='<span style="font-weight:600">'+day.slice(0,3)+'</span></label>';
+    h+='<input type="time" data-day="'+i+'" data-f="start" value="'+d.start+'" onchange="ptTime(this)" style="font-size:11px;padding:3px;border:1px solid var(--bd);border-radius:4px;width:75px">';
+    h+='<span>-</span>';
+    h+='<input type="time" data-day="'+i+'" data-f="end" value="'+d.end+'" onchange="ptTime(this)" style="font-size:11px;padding:3px;border:1px solid var(--bd);border-radius:4px;width:75px">';
+    h+='</div>';
+  });
+  h+='</div>';
+  div.innerHTML=h;
+}
+
+function getSalPlanningType(salId){
+  var key=salId||'new';
+  try{return JSON.parse(localStorage.getItem('sal_pt_'+key)||'[]');}catch(e){return [];}
+}
+function setSalPlanningType(salId,arr){localStorage.setItem('sal_pt_'+(salId||'new'),JSON.stringify(arr));}
+
+function ptToggle(cb){
+  var day=parseInt(cb.dataset.day);
+  var salId=curSal||'new';
+  var pt=getSalPlanningType(salId);
+  if(!pt[day])pt[day]={on:false,start:'17:00',end:'23:30'};
+  pt[day].on=cb.checked;
+  setSalPlanningType(salId,pt);
+}
+
+function ptTime(inp){
+  var day=parseInt(inp.dataset.day);var f=inp.dataset.f;
+  var salId=curSal||'new';
+  var pt=getSalPlanningType(salId);
+  if(!pt[day])pt[day]={on:false,start:'17:00',end:'23:30'};
+  pt[day][f]=inp.value;
+  setSalPlanningType(salId,pt);
+}
+
+async function applyPlanningType(){
+  if(!curSal){alert('Enregistrez d\'abord le salari\u00e9, puis rouvrez sa fiche pour g\u00e9n\u00e9rer le planning.');return;}
+  var startVal=document.getElementById('sal-pt-start').value;
+  if(!startVal){alert('Choisissez la date de d\u00e9but');return;}
+  var pt=getSalPlanningType(curSal);
+  var activeDays=pt.filter(function(d){return d&&d.on;});
+  if(!activeDays.length){alert('Cochez au moins un jour de travail');return;}
+  if(!confirm('G\u00e9n\u00e9rer le planning sur 12 semaines \u00e0 partir du '+startVal+' ?\n\nCela remplacera les cr\u00e9neaux existants sur cette p\u00e9riode.'))return;
+  var em=emp(curSal);
+  var startDate=new Date(startVal+'T12:00:00');
+  var weekStart=planMonOf(startDate);
+  var err=0;var created=0;
+  for(var w=0;w<12;w++){
+    for(var d=0;d<7;d++){
+      var dayConfig=pt[d];
+      if(!dayConfig||!dayConfig.on)continue;
+      var crDate=planAddD(weekStart,w*7+d);
+      // Ne pas créer avant la date de début
+      if(planDs(crDate)<startVal)continue;
+      var dstr=planDs(crDate);
+      // Supprimer les créneaux existants ce jour
+      await db.from('planning_creneaux').delete().eq('employee_id',curSal).eq('date',dstr);
+      // Créer le nouveau créneau
+      var ri=await db.from('planning_creneaux').insert({
+        employee_id:curSal,date:dstr,
+        heure_debut:dayConfig.start,heure_fin:dayConfig.end,
+        restaurant_id:em?em.restaurant_id:'port'
+      });
+      if(ri.error)err++;else created++;
+    }
+  }
+  if(err>0)alert(err+' erreur(s). '+created+' cr\u00e9neaux cr\u00e9\u00e9s.');
+  else alert(created+' cr\u00e9neaux g\u00e9n\u00e9r\u00e9s sur 12 semaines !');
+  if(typeof loadPl==='function')await loadPl();
 }
 
 
@@ -1751,6 +1842,9 @@ function openEditSal(id){
   document.getElementById('sar').value=em.restaurant_id;
   document.getElementById('sapin').value='';
   renderSalPostesList(id);
+  renderPlanningType(id);
+  var ptStart=document.getElementById('sal-pt-start');
+  if(ptStart){var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}
   document.getElementById('msa').classList.add('op');
 }
 
