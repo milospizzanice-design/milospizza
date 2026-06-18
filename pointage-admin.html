@@ -1489,23 +1489,51 @@ async function exportPlanIndivPDF(empId,fromVal,toVal){
       }
     }
     y+=RH;
+    // Nouvelle page seulement si nécessaire ET pas la dernière semaine
+    if(y>PH-RH-15 && wi<weeks.length-1){doc.addPage();y=MG;}
   });
 
-  // Total heures
-  y+=3;
+  // Totaux par mois + total général
+  y+=4;
+  // Calculer les totaux par mois
+  var monthTotals={};
+  Object.keys(mplan2||{}).forEach(function(dstr){
+    var mo=dstr.slice(0,7);
+    if(!monthTotals[mo])monthTotals[mo]=0;
+    (mplan2[dstr]||[]).forEach(function(cr){
+      var ss=cr.start.split(':');var se=cr.end.split(':');
+      monthTotals[mo]+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+    });
+  });
+  var moKeys=Object.keys(monthTotals).sort();
+  var rowH=7;
+  // En-tête totaux
+  doc.setFillColor(185,30,38);doc.rect(MG,y,PW-MG*2,rowH,'F');
+  doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
+  doc.text('Récapitulatif des heures',MG+3,y+5);
+  y+=rowH;
+  var colMo=60;var colH=40;
+  moKeys.forEach(function(mo){
+    var mParts=mo.split('-');
+    var mLabel=PLAN_MONTHS[parseInt(mParts[1])-1]+' '+mParts[0];
+    var mMin=monthTotals[mo];
+    var mH=Math.floor(mMin/60);var mM=mMin%60;
+    doc.setFillColor(252,244,230);doc.setDrawColor(216,197,167);
+    doc.rect(MG,y,colMo+colH,rowH,'FD');
+    doc.setTextColor(42,10,11);doc.setFontSize(7);doc.setFont('helvetica','normal');
+    doc.text(mLabel,MG+3,y+5);
+    doc.setTextColor(185,30,38);doc.setFont('helvetica','bold');
+    doc.text(mH+'h'+String(mM).padStart(2,'0'),MG+colMo+3,y+5);
+    y+=rowH;
+  });
+  // Total général
   var tH=Math.floor(totalMin/60);var tM=totalMin%60;
-  doc.setFillColor(242,224,192);doc.rect(MG,y,60,7,'F');
-  doc.setTextColor(185,30,38);doc.setFontSize(8);doc.setFont('helvetica','bold');
-  doc.text('Total : '+tH+'h'+String(tM).padStart(2,'0'),MG+3,y+5);
-  if(em.heures_contrat){
-    var contractMin=em.heures_contrat*weeks.length*60;
-    var diffMin=totalMin-contractMin;
-    var dH=Math.floor(Math.abs(diffMin)/60);var dM=Math.abs(diffMin)%60;
-    var col=diffMin>=0?[6,95,70]:[153,27,27];
-    doc.setTextColor(col[0],col[1],col[2]);
-    doc.text((diffMin>=0?'+':'-')+dH+'h'+String(dM).padStart(2,'0')+' vs contrat',MG+65,y+5);
-  }
-  doc.setFontSize(6);doc.setTextColor(176,128,96);
+  doc.setFillColor(242,224,192);doc.setDrawColor(185,30,38);
+  doc.rect(MG,y,colMo+colH,rowH,'FD');
+  doc.setTextColor(42,10,11);doc.setFontSize(7);doc.setFont('helvetica','bold');
+  doc.text('TOTAL',MG+3,y+5);
+  doc.setTextColor(185,30,38);
+  doc.text(tH+'h'+String(tM).padStart(2,'0'),MG+colMo+3,y+5);
   var t=new Date();
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf');
 }
