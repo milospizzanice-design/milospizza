@@ -385,8 +385,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <!-- Modal PDF mensuel -->
 <div class="mb" id="modal-pdf-month">
   <div class="md">
-    <div class="mdt">PDF Planning mensuel</div>
-    <div class="fr"><label class="fl2">Mois</label><input type="month" class="fi" id="pdf-month"></div>
+    <div class="mdt">PDF Planning g&#233;n&#233;ral</div>
+    <div class="fr"><label class="fl2">Du mois</label><input type="month" class="fi" id="pdf-month-from"></div>
+    <div class="fr"><label class="fl2">Au mois</label><input type="month" class="fi" id="pdf-month-to"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pdf-month')">Annuler</button><button class="btn bp" onclick="exportMonthPDF()">G&#233;n&#233;rer PDF</button></div>
   </div>
 </div>
@@ -1035,7 +1036,9 @@ async function doPlanDupli(){
 // PDF Mensuel
 function openPDFMonth(){
   var now=new Date();
-  document.getElementById('pdf-month').value=now.getFullYear()+'-'+planPad(now.getMonth()+1);
+  var cur=now.getFullYear()+'-'+planPad(now.getMonth()+1);
+  document.getElementById('pdf-month-from').value=cur;
+  document.getElementById('pdf-month-to').value=cur;
   document.getElementById('modal-pdf-month').classList.add('op');
 }
 
@@ -1126,18 +1129,22 @@ function getPosteNom(id){
 // ── PDF GÉNÉRAL MENSUEL (couleurs tableau) ────────────────────────────────────
 async function exportMonthPDF(){
   if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
-  var val=document.getElementById('pdf-month').value;
-  if(!val){alert('S\u00e9lectionnez un mois');return;}
+  var from=document.getElementById('pdf-month-from').value;
+  var to=document.getElementById('pdf-month-to').value;
+  if(!from||!to){alert('Sélectionnez une période');return;}
   var filtered=planGetFiltered();
   if(!filtered.length){alert('Aucun salari\u00e9');closeM('modal-pdf-month');return;}
   closeM('modal-pdf-month');
+  var pf=from.split('-');var pt=to.split('-');
+  var firstDay=new Date(parseInt(pf[0]),parseInt(pf[1])-1,1);
+  var lastDay=new Date(parseInt(pt[0]),parseInt(pt[1]),0);
   var jsPDF=window.jspdf.jsPDF;
   var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
   var firstDay=new Date(year,month,1);var lastDay=new Date(year,month+1,0);
   var weeks=[];var cur=planMonOf(firstDay);
   while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
   var rl=planResto==='port'?'Port - Bavastro':'Dabray';
-  var monthLabel=PLAN_MONTHS[month]+' '+year;
+  var monthLabel=from===to?PLAN_MONTHS[parseInt(pf[1])-1]+' '+pf[0]:PLAN_MONTHS[parseInt(pf[1])-1]+' '+pf[0]+' - '+PLAN_MONTHS[parseInt(pt[1])-1]+' '+pt[0];
   var empIds=filtered.map(function(e){return e.id;});
   var lastWeekEnd2=planAddD(planMonOf(lastDay),6);
   var loadEnd2=planDs(lastDay)>planDs(lastWeekEnd2)?planDs(lastDay):planDs(lastWeekEnd2);
@@ -1182,16 +1189,17 @@ async function exportMonthPDF(){
     doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
     doc.rect(MG,y2,COL0,HDR_H,'F');
     doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
-    doc.text('Salari\u00e9',MG+COL0/2,y2+6.5,{align:'center'});
+    var slt='Salarié';doc.text(slt,MG+(COL0-doc.getTextWidth(slt))/2,y2+6.5);
     for(var d=0;d<7;d++){
       var x=MG+COL0+d*COLW;
       var dt=dates[d];
       doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
       doc.rect(x,y2,COLW,HDR_H,'F');
       doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
-      doc.text(DAYS7[d],x+COLW/2,y2+4,{align:'center'});
+      var dn=DAYS7[d];doc.text(dn,x+(COLW-doc.getTextWidth(dn))/2,y2+4);
       doc.setFontSize(5.5);doc.setFont('helvetica','normal');
-      doc.text(dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x+COLW/2,y2+8,{align:'center'});
+      var dtl=dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+      doc.text(dtl,x+(COLW-doc.getTextWidth(dtl))/2,y2+8);
     }
     return y2+HDR_H;
   }
@@ -1290,15 +1298,32 @@ async function exportMonthPDF(){
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
 }
 
-async function exportPlanIndivPDF(empId,val){
+async function exportPlanIndivPDFRange(empId,from,to){
+  // Construire la liste de mois entre from et to
+  var months=[];
+  var cur=new Date(parseInt(from.split('-')[0]),parseInt(from.split('-')[1])-1,1);
+  var end=new Date(parseInt(to.split('-')[0]),parseInt(to.split('-')[1]),0);
+  while(cur<=end){
+    months.push(cur.getFullYear()+'-'+planPad(cur.getMonth()+1));
+    cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+  }
+  // Générer un PDF par mois et les concaténer
+  // Pour simplifier: générer le PDF du premier mois puis ajouter les autres
+  await exportPlanIndivPDF(empId,months[0],months[months.length-1]);
+}
+
+async function exportPlanIndivPDF(empId,fromVal,toVal){
+  // fromVal et toVal peuvent être le même mois ou une plage
+  var valFrom=fromVal||toVal;var valTo=toVal||fromVal;
   if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
   var jsPDF=window.jspdf.jsPDF;
   var em=emps.find(function(e){return e.id===empId;});if(!em)return;
-  var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
-  var firstDay=new Date(year,month,1);var lastDay=new Date(year,month+1,0);
+  var pfrom=valFrom.split('-');var pto=valTo.split('-');
+  var firstDay=new Date(parseInt(pfrom[0]),parseInt(pfrom[1])-1,1);
+  var lastDay=new Date(parseInt(pto[0]),parseInt(pto[1]),0);
   var weeks=[];var cur=planMonOf(firstDay);
   while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
-  var monthLabel=PLAN_MONTHS[month]+' '+year;
+  var monthLabel=valFrom===valTo?PLAN_MONTHS[parseInt(pfrom[1])-1]+' '+pfrom[0]:PLAN_MONTHS[parseInt(pfrom[1])-1]+' '+pfrom[0]+' - '+PLAN_MONTHS[parseInt(pto[1])-1]+' '+pto[0];
   var rl=em.restaurant_id==='port'?'Port - Bavastro':'Dabray';
   var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
   var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
@@ -1352,14 +1377,14 @@ async function exportPlanIndivPDF(empId,val){
   doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
   doc.rect(MG,startY,COL0,HDR_H,'F');
   doc.setFontSize(6);doc.setFont('helvetica','bold');doc.setTextColor(242,224,192);
-  doc.text('Semaine',MG+COL0/2,startY+6.5,{align:'center'});
+  var smtxt='Semaine';doc.text(smtxt,MG+(COL0-doc.getTextWidth(smtxt))/2,startY+6.5);
   var DAYS_FULL=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
   for(var d=0;d<7;d++){
     var x=MG+COL0+d*COLW;
     doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
     doc.rect(x,startY,COLW,HDR_H,'F');
     doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
-    doc.text(DAYS_FULL[d],x+COLW/2,startY+4.5,{align:'center'});
+    var dfull=DAYS_FULL[d];doc.text(dfull,x+(COLW-doc.getTextWidth(dfull))/2,startY+4.5);
   }
 
   // Lignes semaines
@@ -1372,11 +1397,11 @@ async function exportPlanIndivPDF(empId,val){
     doc.setFillColor(185,30,38);doc.setDrawColor(216,197,167);
     doc.rect(MG,y,COL0,RH,'FD');
     doc.setTextColor(255,255,255);doc.setFontSize(5.5);doc.setFont('helvetica','bold');
-    doc.text(dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),MG+COL0/2,y+RH/2-1,{align:'center'});
+    var d0txt=dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'short'});doc.text(d0txt,MG+(COL0-doc.getTextWidth(d0txt))/2,y+RH/2-1);
     doc.setFont('helvetica','normal');doc.setFontSize(5);
-    doc.text('au',MG+COL0/2,y+RH/2+3,{align:'center'});
+    var autxt='au';doc.text(autxt,MG+(COL0-doc.getTextWidth(autxt))/2,y+RH/2+3);
     doc.setFont('helvetica','bold');doc.setFontSize(5.5);
-    doc.text(dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),MG+COL0/2,y+RH/2+7,{align:'center'});
+    var d6txt=dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'short'});doc.text(d6txt,MG+(COL0-doc.getTextWidth(d6txt))/2,y+RH/2+7);
 
     // Colonnes jours: fond blanc, texte bordeaux
     for(var di=0;di<7;di++){
@@ -1425,7 +1450,6 @@ async function exportPlanIndivPDF(empId,val){
       }
     }
     y+=RH;
-    if(y>PH-18){doc.addPage();y=MG;}
   });
 
   // Total heures
@@ -1449,10 +1473,20 @@ async function exportPlanIndivPDF(empId,val){
 
 function planOpenPDFIndiv(empId){
   var now=new Date();
-  var m=now.getFullYear()+'-'+planPad(now.getMonth()+1);
-  var val=prompt('Mois (YYYY-MM):',m);
-  if(!val)return;
-  exportPlanIndivPDF(empId,val);
+  var cur=now.getFullYear()+'-'+planPad(now.getMonth()+1);
+  document.getElementById('pdf-indiv-emp').value=empId;
+  document.getElementById('pdf-indiv-from').value=cur;
+  document.getElementById('pdf-indiv-to').value=cur;
+  document.getElementById('modal-pdf-indiv').classList.add('op');
+}
+
+function exportIndivPDF(){
+  var empId=parseInt(document.getElementById('pdf-indiv-emp').value);
+  var from=document.getElementById('pdf-indiv-from').value;
+  var to=document.getElementById('pdf-indiv-to').value;
+  if(!from||!to){alert('Sélectionnez une période');return;}
+  closeM('modal-pdf-indiv');
+  exportPlanIndivPDFRange(empId,from,to);
 }
 
 
