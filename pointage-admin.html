@@ -394,10 +394,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <!-- Modal PDF individuel -->
 <div class="mb" id="modal-pdf-indiv">
   <div class="md">
-    <div class="mdt">PDF individuel</div>
+    <div class="mdt" id="pdf-indiv-title">PDF individuel</div>
     <input type="hidden" id="pdf-indiv-emp">
-    <div class="fr"><label class="fl2">Du mois</label><input type="month" class="fi" id="pdf-indiv-from"></div>
-    <div class="fr"><label class="fl2">Au mois</label><input type="month" class="fi" id="pdf-indiv-to"></div>
+    <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="pdf-indiv-from"></div>
+    <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="pdf-indiv-to"></div>
     <div class="ma">
       <button class="btn bs" onclick="closeM('modal-pdf-indiv')">Annuler</button>
       <button class="btn bp" onclick="exportIndivPDF()">G&#233;n&#233;rer PDF</button>
@@ -1057,19 +1057,39 @@ function confirmPlanDupli(){
 }
 
 async function doPlanDupli(){
-  closeM('modal-plan-confirm');var dates=planGetWeekDates();var err=0;
-  for(var si=0;si<planDupliIds.length;si++){
-    var eid=planDupliIds[si];
-    for(var di=0;di<dates.length;di++){
-      var src2=planDs(dates[di]);var dst=planDs(planAddD(dates[di],7));
-      var crs=(planData[eid]&&planData[eid][src2])||[];
-      await db.from('planning_creneaux').delete().eq('employee_id',eid).eq('date',dst);
-      for(var ci=0;ci<crs.length;ci++){
-        if(!crs[ci]._del){await db.from('planning_creneaux').insert({employee_id:eid,date:dst,heure_debut:crs[ci].start,heure_fin:crs[ci].end});}
+  closeM('modal-plan-confirm');
+  var srcDates=planGetWeekDates();
+  var fromVal=document.getElementById('dupli-date-from').value;
+  var toVal=document.getElementById('dupli-date-to').value;
+  if(!fromVal||!toVal){alert('Indiquez la période cible');return;}
+  var targetWeeks=[];
+  var tCur=planMonOf(new Date(fromVal+'T12:00:00'));
+  var tEnd=new Date(toVal+'T12:00:00');
+  while(planDs(tCur)<=planDs(tEnd)){targetWeeks.push(new Date(tCur));tCur=planAddD(tCur,7);}
+  var err=0;
+  for(var wi=0;wi<targetWeeks.length;wi++){
+    var twk=targetWeeks[wi];
+    if(planDs(twk)===planDs(planWkStart))continue;
+    for(var si=0;si<planDupliIds.length;si++){
+      var eid=planDupliIds[si];
+      for(var di=0;di<7;di++){
+        var srcDate=planDs(srcDates[di]);
+        var dstDate=planDs(planAddD(twk,di));
+        var crs=(planData[eid]&&planData[eid][srcDate])||[];
+        var rd=await db.from('planning_creneaux').delete().eq('employee_id',eid).eq('date',dstDate);
+        if(rd.error)err++;
+        for(var ci=0;ci<crs.length;ci++){
+          if(!crs[ci]._del){
+            var ri=await db.from('planning_creneaux').insert({employee_id:eid,date:dstDate,heure_debut:crs[ci].start,heure_fin:crs[ci].end,restaurant_id:crs[ci].restaurant_id||planResto,postes:crs[ci].postes?JSON.stringify(crs[ci].postes):null});
+            if(ri.error)err++;
+          }
+        }
       }
     }
   }
-  alert('Planning dupliqu\u00e9 avec succ\u00e8s !');
+  if(err>0)alert(err+' erreur(s) lors de la duplication.');
+  else alert('Planning dupliqué sur '+targetWeeks.length+' semaine(s) !');
+  await loadPl();
 }
 
 // PDF Mensuel
@@ -1475,7 +1495,7 @@ async function exportPlanIndivPDF(empId,fromVal,toVal){
             ytxt+=7;
             // Total heures
             var ss=cr.start.split(':');var se=cr.end.split(':');
-            totalMin+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+            if(dstr>=dateFrom&&dstr<=dateTo)totalMin+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
           });
         }
         if(absCode){
@@ -1495,9 +1515,10 @@ async function exportPlanIndivPDF(empId,fromVal,toVal){
 
   // Totaux par mois + total général
   y+=4;
-  // Calculer les totaux par mois
+  // Calculer les totaux par mois (uniquement dans la plage dateFrom/dateTo)
   var monthTotals={};
   Object.keys(mplan2||{}).forEach(function(dstr){
+    if(dstr<dateFrom||dstr>dateTo)return; // hors plage = ignoré
     var mo=dstr.slice(0,7);
     if(!monthTotals[mo])monthTotals[mo]=0;
     (mplan2[dstr]||[]).forEach(function(cr){
