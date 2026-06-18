@@ -386,8 +386,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="modal-pdf-month">
   <div class="md">
     <div class="mdt">PDF Planning g&#233;n&#233;ral</div>
-    <div class="fr"><label class="fl2">Du mois</label><input type="month" class="fi" id="pdf-month-from"></div>
-    <div class="fr"><label class="fl2">Au mois</label><input type="month" class="fi" id="pdf-month-to"></div>
+    <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="pdf-month-from"></div>
+    <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="pdf-month-to"></div>
+    <div id="pdf-month-recap" style="font-size:11px;color:var(--txm);text-align:center;min-height:14px;margin:2px 0"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pdf-month')">Annuler</button><button class="btn bp" onclick="exportMonthPDF()">G&#233;n&#233;rer PDF</button></div>
   </div>
 </div>
@@ -1102,9 +1103,10 @@ async function doPlanDupli(){
 // PDF Mensuel
 function openPDFMonth(){
   var now=new Date();
-  var cur=now.getFullYear()+'-'+planPad(now.getMonth()+1);
-  document.getElementById('pdf-month-from').value=cur;
-  document.getElementById('pdf-month-to').value=cur;
+  var y=now.getFullYear();var m=now.getMonth();
+  document.getElementById('pdf-month-from').value=y+'-'+planPad(m+1)+'-01';
+  document.getElementById('pdf-month-to').value=y+'-'+planPad(m+1)+'-'+planPad(new Date(y,m+1,0).getDate());
+  var recap=document.getElementById('pdf-month-recap');if(recap)recap.textContent='';
   document.getElementById('modal-pdf-month').classList.add('op');
 }
 
@@ -1210,7 +1212,7 @@ async function exportMonthPDF(){
   var weeks=[];var cur=planMonOf(firstDay);
   while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
   var rl=planResto==='port'?'Port - Bavastro':'Dabray';
-  var monthLabel=from===to?PLAN_MONTHS[parseInt(pf[1])-1]+' '+pf[0]:PLAN_MONTHS[parseInt(pf[1])-1]+' '+pf[0]+' - '+PLAN_MONTHS[parseInt(pt[1])-1]+' '+pt[0];
+  var monthLabel=firstDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+lastDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   var empIds=filtered.map(function(e){return e.id;});
   var lastWeekEnd2=planAddD(planMonOf(lastDay),6);
   var loadEnd2=planDs(lastDay)>planDs(lastWeekEnd2)?planDs(lastDay):planDs(lastWeekEnd2);
@@ -1379,21 +1381,18 @@ async function exportPlanIndivPDF(empId,from,to){
 }
 
 async function exportPlanIndivPDF(empId,fromVal,toVal){
-  // fromVal et toVal peuvent être le même mois ou une plage
-  // fromVal/toVal peuvent être YYYY-MM ou YYYY-MM-DD
+  // Récupérer le salarié
+  var em=emps.find(function(e){return e.id===empId;});
+  if(!em){alert('Salarié introuvable');return;}
+  // Parsing dates: accepte YYYY-MM-DD ou YYYY-MM
   var valFrom=fromVal||toVal;var valTo=toVal||fromVal;
   var isFullDate=valFrom.length===10;
   var firstDay=isFullDate?new Date(valFrom+'T12:00:00'):new Date(parseInt(valFrom.split('-')[0]),parseInt(valFrom.split('-')[1])-1,1);
   var lastDay=isFullDate?new Date(valTo+'T12:00:00'):new Date(parseInt(valTo.split('-')[0]),parseInt(valTo.split('-')[1]),0);
-  var pfrom=valFrom.split('-');var pto=valTo.split('-');
-  var dateFrom=isFullDate?valFrom:planDs(firstDay);var dateTo=isFullDate?valTo:planDs(lastDay);
-  var monthLabel=isFullDate?(firstDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+lastDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})):(valFrom===valTo?PLAN_MONTHS[parseInt(pfrom[1])-1]+' '+pfrom[0]:PLAN_MONTHS[parseInt(pfrom[1])-1]+' '+pfrom[0]+' - '+PLAN_MONTHS[parseInt(pto[1])-1]+' '+pto[0]);
-  var pfrom=valFrom.split('-');var pto=valTo.split('-');
-  var firstDay=new Date(parseInt(pfrom[0]),parseInt(pfrom[1])-1,1);
-  var lastDay=new Date(parseInt(pto[0]),parseInt(pto[1]),0);
+  var dateFrom=planDs(firstDay);var dateTo=planDs(lastDay);
   var weeks=[];var cur=planMonOf(firstDay);
   while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
-  var monthLabel=valFrom===valTo?PLAN_MONTHS[parseInt(pfrom[1])-1]+' '+pfrom[0]:PLAN_MONTHS[parseInt(pfrom[1])-1]+' '+pfrom[0]+' - '+PLAN_MONTHS[parseInt(pto[1])-1]+' '+pto[0];
+  var monthLabel=isFullDate?(firstDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+lastDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})):(valFrom.slice(0,7)===valTo.slice(0,7)?PLAN_MONTHS[firstDay.getMonth()]+' '+firstDay.getFullYear():PLAN_MONTHS[firstDay.getMonth()]+' '+firstDay.getFullYear()+' - '+PLAN_MONTHS[lastDay.getMonth()]+' '+lastDay.getFullYear());
   var rl=em.restaurant_id==='port'?'Port - Bavastro':'Dabray';
   var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
   var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
