@@ -1149,65 +1149,57 @@ async function exportMonthPDF(){
   });
   var mabs={};
   (allAbs.data||[]).forEach(function(a){if(!mabs[a.employee_id])mabs[a.employee_id]={};mabs[a.employee_id][a.date]=a.code;});
-
-  // Couleurs par secteur identiques au tableau HTML
-  var SEC_BG={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
-  var SEC_TX={cuisine:[153,27,27],salle:[146,64,14],livraison:[6,95,70]};
-  var SEC_ROW_EVEN={cuisine:[255,245,245],salle:[255,252,240],livraison:[240,253,248]};
-  var SEC_ROW_ODD={cuisine:[255,235,235],salle:[254,248,220],livraison:[230,249,240]};
-  var SECLABELS={cuisine:'CUISINE',salle:'SALLE',livraison:'LIVRAISON'};
   var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
   var ABS_T={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
   var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
-  // Couleurs pastilles restaurant
+  var SEC_TX={cuisine:[153,27,27],salle:[146,64,14],livraison:[6,95,70]};
+  var SEC_BG={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
+  var SECLABELS={cuisine:'CUISINE',salle:'SALLE',livraison:'LIVRAISON'};
   var RESTO_BG={port:[219,234,254],dabray:[209,250,229]};
   var RESTO_TX={port:[30,64,175],dabray:[6,95,70]};
+  var DAYS7=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
   var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   var PW=297;var PH=210;var MG=5;
-  var cW=[36,32,32,32,32,32,32,32];
+  // Colonnes: nom salarié + 7 jours
+  var COL0=38;var COLW=Math.floor((PW-MG*2-COL0)/7);
+  var HDR_H=10;
 
-  function wkH(wk){
-    var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
-    var h=10+8;
-    filtered.forEach(function(em){
-      var maxCr=0;
-      dates.forEach(function(d){var c=(mplan[em.id]&&mplan[em.id][planDs(d)])||[];if(c.length>maxCr)maxCr=c.length;});
-      h+=Math.max(7,maxCr*5+3);
-    });
-    return h;
-  }
-
-  function drawWk(wk,sy){
+  function drawWeekHeader(wk,sy){
     var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
     var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
-    // Header bordeaux
+    // Header semaine: bordeaux pleine largeur
     doc.setFillColor(185,30,38);doc.rect(MG,sy,PW-MG*2,9,'F');
     doc.setTextColor(242,224,192);doc.setFontSize(9);doc.setFont('helvetica','bold');
-    var tw=doc.getTextWidth('Milo\'s Pizza - '+rl+' - '+monthLabel);
-    doc.text('Milo\'s Pizza - '+rl+' - '+monthLabel,(PW-tw)/2,sy+4);
-    doc.setFontSize(6);doc.setFont('helvetica','normal');
-    var lw=doc.getTextWidth(wlbl);doc.text(wlbl,(PW-lw)/2,sy+7.5);
-    // En-tête colonnes crème
-    var y=sy+9;var x=MG;
-    doc.setFillColor(242,224,192);doc.setDrawColor(216,197,167);
-    doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(122,74,53);
-    cW.forEach(function(w,i){
-      doc.rect(x,y,w,8,'FD');
-      if(i===0){doc.text('Salari\u00e9',x+2,y+5);}
-      else{
-        var dl=PLAN_DAYSFULL[i-1];var dtl=dates[i-1].toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
-        doc.setFontSize(6.5);var dlw=doc.getTextWidth(dl);doc.text(dl,x+w/2-dlw/2,y+3.5);
-        doc.setFontSize(5.5);var dtw=doc.getTextWidth(dtl);doc.text(dtl,x+w/2-dtw/2,y+7);
-        doc.setFontSize(6.5);
-      }
-      x+=w;
-    });
-    y+=8;
-    var lastSec='';var rowIdx=0;
+    doc.text('Milo\'s Pizza \u2014 '+rl+' \u2014 '+monthLabel,PW/2,sy+4,{align:'center'});
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+    doc.text(wlbl,PW/2,sy+7.5,{align:'center'});
+    var y2=sy+9;
+    // En-tête colonnes: bordeaux, texte blanc
+    // Col 0: Salarié
+    doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
+    doc.rect(MG,y2,COL0,HDR_H,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    doc.text('Salari\u00e9',MG+COL0/2,y2+6.5,{align:'center'});
+    for(var d=0;d<7;d++){
+      var x=MG+COL0+d*COLW;
+      var dt=dates[d];
+      doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
+      doc.rect(x,y2,COLW,HDR_H,'F');
+      doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
+      doc.text(DAYS7[d],x+COLW/2,y2+4,{align:'center'});
+      doc.setFontSize(5.5);doc.setFont('helvetica','normal');
+      doc.text(dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x+COLW/2,y2+8,{align:'center'});
+    }
+    return y2+HDR_H;
+  }
+
+  function drawWeekRows(wk,sy){
+    var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
+    var y=sy;var lastSec='';var rowIdx=0;
     filtered.forEach(function(em){
       var sec=em.secteur||'salle';
-      // Séparateur secteur avec couleur secteur
+      // Séparateur secteur
       if(sec!==lastSec){
         var sbg=SEC_BG[sec]||[242,224,192];var stx=SEC_TX[sec]||[122,74,53];
         doc.setFillColor(sbg[0],sbg[1],sbg[2]);doc.setDrawColor(216,197,167);
@@ -1219,79 +1211,84 @@ async function exportMonthPDF(){
       var ep=mplan[em.id]||{};var ea=mabs[em.id]||{};
       var maxCr=0;
       dates.forEach(function(d){var c=ep[planDs(d)]||[];if(c.length>maxCr)maxCr=c.length;});
-      var rh=Math.max(7,maxCr*5+3);
-      var x2=MG;
-      // Fond ligne selon secteur
-      // Fond crème alternée pour toutes les lignes
-      var bg=rowIdx%2===0?[255,252,245]:[242,224,192];
-      doc.setFillColor(bg[0],bg[1],bg[2]);doc.setDrawColor(216,197,167);
-      cW.forEach(function(w,ci){
-        doc.rect(x2,y,w,rh,'FD');
-        if(ci===0){
-          // Nom salarié en noir
-          doc.setTextColor(42,10,11);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
-          doc.text(em.prenom+' '+em.nom,x2+2,y+rh/2+1);
-          // Pastille restaurant si multi-site
-          if(em.multi_site){
-            var rbg=RESTO_BG[em.restaurant_id]||[219,234,254];
-            var rtx=RESTO_TX[em.restaurant_id]||[30,64,175];
-            var rl2=em.restaurant_id==='port'?'Port':'Dabray';
-            doc.setFillColor(rbg[0],rbg[1],rbg[2]);
-            doc.roundedRect(x2+2,y+rh-4,12,3,1,1,'F');
-            doc.setTextColor(rtx[0],rtx[1],rtx[2]);doc.setFontSize(4.5);doc.setFont('helvetica','bold');
-            doc.text(rl2,x2+3,y+rh-1.8);
-          }
+      var rh=Math.max(9,maxCr*6+3);
+      // Col 0: fond blanc, nom bordeaux
+      doc.setFillColor(255,255,255);doc.setDrawColor(216,197,167);
+      doc.rect(MG,y,COL0,rh,'FD');
+      doc.setTextColor(42,10,11);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
+      doc.text(em.prenom+' '+em.nom,MG+2,y+rh/2+1);
+      // Pastille restaurant si multi-site
+      if(em.multi_site){
+        var rbg=RESTO_BG[em.restaurant_id]||RESTO_BG.port;
+        var rtx=RESTO_TX[em.restaurant_id]||RESTO_TX.port;
+        var rnm=em.restaurant_id==='port'?'Port':'Dabray';
+        doc.setFillColor(rbg[0],rbg[1],rbg[2]);
+        doc.roundedRect(MG+2,y+rh-4,14,3,1,1,'F');
+        doc.setTextColor(rtx[0],rtx[1],rtx[2]);doc.setFontSize(4.5);
+        doc.text(rnm,MG+9,y+rh-1.8,{align:'center'});
+      }
+      // Colonnes jours: fond blanc, heures bordeaux
+      for(var di=0;di<7;di++){
+        var dstr=planDs(dates[di]);
+        var crs=ep[dstr]||[];var absCode=ea[dstr]||null;
+        var x=MG+COL0+di*COLW;
+        doc.setFillColor(255,255,255);doc.setDrawColor(216,197,167);
+        doc.rect(x,y,COLW,rh,'FD');
+        if(!crs.length&&!absCode){
+          doc.setTextColor(200,185,165);doc.setFontSize(6);doc.setFont('helvetica','normal');
+          doc.text('Off',x+COLW/2,y+rh/2+1,{align:'center'});
         }else{
-          var dstr=planDs(dates[ci-1]);
-          var crs=ep[dstr]||[];var absCode=ea[dstr]||null;
-          doc.setFont('helvetica','normal');
-          if(!crs.length&&!absCode){doc.setTextColor(200,185,165);doc.setFontSize(5.5);doc.text('Off',x2+w/2-2,y+rh/2+1);}
-          else{
-            if(crs.length){
-              doc.setTextColor(185,30,38);doc.setFontSize(5.5);doc.setFont('helvetica','bold');
-              crs.forEach(function(cr,k){
-                doc.text(cr.start+'-'+cr.end,x2+1,y+4+(k*5));
-                // Pastille si créneau sur autre restaurant
-                if(em.multi_site&&cr.resto&&cr.resto!==em.restaurant_id){
-                  var rb=RESTO_BG[cr.resto]||[219,234,254];var rt=RESTO_TX[cr.resto]||[30,64,175];
-                  var rnm=cr.resto==='port'?'P':'D';
-                  doc.setFillColor(rb[0],rb[1],rb[2]);doc.roundedRect(x2+w-6,y+3+(k*5),5,3,1,1,'F');
-                  doc.setTextColor(rt[0],rt[1],rt[2]);doc.setFontSize(4);doc.text(rnm,x2+w-5,y+5.5+(k*5));
-                  doc.setFontSize(5.5);
-                }
-              });
-            }
-            if(absCode){
-              var ac=ABS_C[absCode]||[238,238,238];var at=ABS_T[absCode]||[51,51,51];
-              doc.setFillColor(ac[0],ac[1],ac[2]);doc.rect(x2+1,y+rh-3.5,w-2,3,'F');
-              doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(4.5);doc.setFont('helvetica','bold');
-              var al=ABS_L[absCode]||absCode;var alw=doc.getTextWidth(al);
-              doc.text(al,x2+w/2-alw/2,y+rh-1.2);
-              doc.setFillColor(bg[0],bg[1],bg[2]);
-            }
+          if(crs.length){
+            doc.setTextColor(185,30,38);doc.setFontSize(6);doc.setFont('helvetica','bold');
+            var ytxt=y+6;
+            crs.forEach(function(cr){
+              doc.text(cr.start+'-'+cr.end,x+COLW/2,ytxt,{align:'center'});
+              if(cr.resto){
+                var rb=cr.resto==='port'?RESTO_BG.port:RESTO_BG.dabray;
+                var rt=cr.resto==='port'?RESTO_TX.port:RESTO_TX.dabray;
+                doc.setFillColor(rb[0],rb[1],rb[2]);
+                doc.roundedRect(x+COLW/2-7,ytxt+1,14,3,1,1,'F');
+                doc.setTextColor(rt[0],rt[1],rt[2]);doc.setFontSize(4.5);
+                doc.text(cr.resto==='port'?'Port':'Dabray',x+COLW/2,ytxt+3,{align:'center'});
+                doc.setFontSize(6);ytxt+=4;
+              }
+              ytxt+=6;
+            });
+          }
+          if(absCode){
+            var ac=ABS_C[absCode]||[238,238,238];var at=ABS_T[absCode]||[51,51,51];
+            doc.setFillColor(ac[0],ac[1],ac[2]);
+            doc.rect(x+1,y+rh-4.5,COLW-2,4,'F');
+            doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(5);doc.setFont('helvetica','bold');
+            doc.text(ABS_L[absCode]||absCode,x+COLW/2,y+rh-1.5,{align:'center'});
+            doc.setFillColor(255,255,255);
           }
         }
-        x2+=w;
-      });
+      }
       y+=rh;rowIdx++;
+      if(y>PH-10){doc.addPage();y=MG;}
     });
     return y;
   }
 
   var isFirst=true;var curY=MG;
   for(var wi=0;wi<weeks.length;wi++){
-    var wh=wkH(weeks[wi]);
-    if(!isFirst&&curY+wh+3>PH-MG){doc.addPage();curY=MG;}
-    if(!isFirst)curY+=3;
-    curY=drawWk(weeks[wi],curY)+2;isFirst=false;
+    if(!isFirst){
+      // Estimer si la semaine tient sur la page restante
+      var estH=9+HDR_H+(filtered.length*10)+20;
+      if(curY+estH>PH-10){doc.addPage();curY=MG;}
+      else curY+=3;
+    }
+    curY=drawWeekHeader(weeks[wi],curY);
+    curY=drawWeekRows(weeks[wi],curY)+2;
+    isFirst=false;
   }
   doc.setFontSize(5);doc.setTextColor(176,128,96);
-  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',MG,PH-1.5);
+  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milos Pizza',MG,PH-2);
   var t=new Date();
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
 }
 
-// ── PDF INDIVIDUEL MENSUEL (jours en colonnes) ────────────────────────────────
 async function exportPlanIndivPDF(empId,val){
   if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
   var jsPDF=window.jspdf.jsPDF;
@@ -1302,160 +1299,147 @@ async function exportPlanIndivPDF(empId,val){
   while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
   var monthLabel=PLAN_MONTHS[month]+' '+year;
   var rl=em.restaurant_id==='port'?'Port - Bavastro':'Dabray';
-  var sec=em.secteur||'salle';
-  var SEC_TX={cuisine:[153,27,27],salle:[146,64,14],livraison:[6,95,70]};
-  var SEC_BG2={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
-  var stx=SEC_TX[sec]||[122,74,53];var sbg=SEC_BG2[sec]||[242,224,192];
   var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
-  var RESTO_BG={port:[219,234,254],dabray:[209,250,229]};
-  var RESTO_TX={port:[30,64,175],dabray:[6,95,70]};
   var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
   var ABS_T={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
-  var ABS_L2={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
+  var RESTO_BG={port:[219,234,254],dabray:[209,250,229]};
+  var RESTO_TX={port:[30,64,175],dabray:[6,95,70]};
 
   var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).eq('employee_id',empId);
   var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',planDs(lastDay)).eq('employee_id',empId);
   var mplan2={};
-  (allCrs.data||[]).forEach(function(c){if(!mplan2[c.date])mplan2[c.date]=[];mplan2[c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5),resto:c.restaurant_id||null});});
+  (allCrs.data||[]).forEach(function(c){
+    if(!mplan2[c.date])mplan2[c.date]=[];
+    mplan2[c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5),resto:c.restaurant_id||null});
+  });
   var mabs2={};(allAbs.data||[]).forEach(function(a){mabs2[a.date]=a.code;});
 
-  // A4 paysage - colonnes = jours semaine, lignes = semaines
   var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  var PW=297;var PH=210;var MG=6;
+  var PW=297;var PH=210;var MG=8;
 
-  // Header
-  doc.setFillColor(185,30,38);doc.rect(0,0,PW,16,'F');
-  doc.setTextColor(242,224,192);doc.setFontSize(12);doc.setFont('helvetica','bold');
-  var htitle='Milo\'s Pizza \u2014 Planning '+monthLabel+' \u2014 '+em.prenom+' '+em.nom;
-  var htw=doc.getTextWidth(htitle);doc.text(htitle,(PW-htw)/2,9);
+  // ── HEADER ──────────────────────────────────────────────────────────────
+  doc.setFillColor(185,30,38);doc.rect(0,0,PW,18,'F');
+  doc.setTextColor(242,224,192);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  var title='Milo\'s Pizza \u2014 Planning '+monthLabel+' \u2014 '+em.prenom+' '+em.nom;
+  doc.text(title,PW/2,9,{align:'center'});
   doc.setFontSize(8);doc.setFont('helvetica','normal');
-  var hsub=rl+' \u2022 '+(SECLABELS[sec]||sec)+(em.heures_contrat?' \u2022 Contrat '+em.heures_contrat+'h/sem':'');
-  var hsw=doc.getTextWidth(hsub);doc.text(hsub,(PW-hsw)/2,14.5);
+  var sub=rl+' \u2022 '+(SECLABELS[em.secteur||'salle']||'');
+  if(em.heures_contrat)sub+=' \u2022 Contrat '+em.heures_contrat+'h/sem';
+  if(em.multi_site){sub+=' \u2022 Multi-site';}
+  doc.text(sub,PW/2,15,{align:'center'});
 
-  // Si multi-site: pastille restaurant principal
-  if(em.multi_site){
-    var rbg=RESTO_BG[em.restaurant_id]||[219,234,254];
-    var rtx=RESTO_TX[em.restaurant_id]||[30,64,175];
-    var rnm=em.restaurant_id==='port'?'Port':'Dabray';
-    doc.setFillColor(rbg[0],rbg[1],rbg[2]);doc.roundedRect(MG,19,18,4,2,2,'F');
-    doc.setTextColor(rtx[0],rtx[1],rtx[2]);doc.setFontSize(6);doc.setFont('helvetica','bold');
-    doc.text('Multi-site: '+rnm,MG+2,21.5);
+  // ── TABLEAU: col0=semaine label, col1-7=jours ──────────────────────────
+  // Calculer hauteur max de ligne pour tout le mois
+  var maxCrGlobal=1;
+  weeks.forEach(function(wk){
+    for(var i=0;i<7;i++){
+      var d=planAddD(wk,i);var c=mplan2[planDs(d)]||[];
+      if(c.length>maxCrGlobal)maxCrGlobal=c.length;
+    }
+  });
+  var RH=Math.max(14,maxCrGlobal*8+6); // hauteur ligne uniforme
+  var HDR_H=10; // hauteur header colonnes
+  var COL0=24; // largeur col semaine
+  var COLW=Math.floor((PW-MG*2-COL0)/7); // largeur chaque jour
+  var startY=22;
+
+  // En-tête jours: fond bordeaux texte blanc
+  doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
+  doc.rect(MG,startY,COL0,HDR_H,'F');
+  doc.setFontSize(6);doc.setFont('helvetica','bold');doc.setTextColor(242,224,192);
+  doc.text('Semaine',MG+COL0/2,startY+6.5,{align:'center'});
+  var DAYS_FULL=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  for(var d=0;d<7;d++){
+    var x=MG+COL0+d*COLW;
+    doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
+    doc.rect(x,startY,COLW,HDR_H,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    doc.text(DAYS_FULL[d],x+COLW/2,startY+4.5,{align:'center'});
   }
 
-  // Tableau: col 0 = label sem, col 1-7 = Lundi..Dimanche
-  var colW=[20,39,39,39,39,39,39,39];
-  var y=22;
-
-  // En-tête jours avec couleur secteur
-  var x=MG;
-  // En-tête : fond bordeaux, texte crème
-  doc.setFillColor(185,30,38);doc.setDrawColor(216,197,167);
-  doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(242,224,192);
-  colW.forEach(function(w,i){
-    doc.rect(x,y,w,9,'FD');
-    if(i===0){doc.text('Semaine',x+2,y+5.5);}
-    else{
-      var dl=PLAN_DAYSFULL[i-1];
-      var dlw=doc.getTextWidth(dl);doc.text(dl,x+w/2-dlw/2,y+5.5);
-    }
-    x+=w;
-  });
-  y+=9;
-
-  // Lignes = semaines du mois
+  // Lignes semaines
+  var y=startY+HDR_H;
   var totalMin=0;
   weeks.forEach(function(wk,wi){
     var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
-    // Calculer hauteur: max créneaux sur la semaine
-    var maxCr=0;
-    dates.forEach(function(d){
-      var c=mplan2[planDs(d)]||[];var abs=mabs2[planDs(d)]?1:0;
-      if(c.length+abs>maxCr)maxCr=c.length+abs;
-    });
-    var rh=Math.max(14,maxCr*7+5);
-    if(wi%2===0)doc.setFillColor(255,252,245);else doc.setFillColor(242,224,192);
-    doc.setDrawColor(216,197,167);
-    var x2=MG;
-    colW.forEach(function(w,ci){
-      doc.rect(x2,y,w,rh,'FD');
-      if(ci===0){
-        // Label semaine: du XX au XX
-        // Colonne label semaine: texte bordeaux
-        doc.setTextColor(122,74,53);doc.setFontSize(6);doc.setFont('helvetica','bold');
-        doc.text(dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x2+2,y+5);
-        doc.setFontSize(5.5);doc.setFont('helvetica','normal');doc.text('au',x2+2,y+9);
-        doc.setFontSize(6);doc.setFont('helvetica','bold');
-        doc.text(dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),x2+2,y+13);
+
+    // Col 0: fond bordeaux, texte blanc, label semaine
+    doc.setFillColor(185,30,38);doc.setDrawColor(216,197,167);
+    doc.rect(MG,y,COL0,RH,'FD');
+    doc.setTextColor(255,255,255);doc.setFontSize(5.5);doc.setFont('helvetica','bold');
+    doc.text(dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),MG+COL0/2,y+RH/2-1,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(5);
+    doc.text('au',MG+COL0/2,y+RH/2+3,{align:'center'});
+    doc.setFont('helvetica','bold');doc.setFontSize(5.5);
+    doc.text(dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),MG+COL0/2,y+RH/2+7,{align:'center'});
+
+    // Colonnes jours: fond blanc, texte bordeaux
+    for(var di=0;di<7;di++){
+      var dstr=planDs(dates[di]);
+      var crs=mplan2[dstr]||[];var absCode=mabs2[dstr]||null;
+      var x=MG+COL0+di*COLW;
+
+      doc.setFillColor(255,255,255);doc.setDrawColor(216,197,167);
+      doc.rect(x,y,COLW,RH,'FD');
+
+      if(!crs.length&&!absCode){
+        // Off: texte gris
+        doc.setTextColor(200,185,165);doc.setFontSize(7);doc.setFont('helvetica','normal');
+        doc.text('Off',x+COLW/2,y+RH/2+2,{align:'center'});
       }else{
-        var dstr=planDs(dates[ci-1]);
-        var crs=mplan2[dstr]||[];var absCode=mabs2[dstr]||null;
-        if(!crs.length&&!absCode){
-          doc.setTextColor(200,185,165);doc.setFontSize(7);doc.setFont('helvetica','normal');
-          doc.text('Off',x2+w/2-2,y+rh/2+1.5);
-        }else{
-          var ytxt=y+6;
-          if(crs.length){
-            doc.setTextColor(185,30,38);doc.setFontSize(7);doc.setFont('helvetica','bold');
-            crs.forEach(function(cr){
-              var crtext=cr.start+'-'+cr.end;
-              var crw=doc.getTextWidth(crtext);doc.text(crtext,x2+w/2-crw/2,ytxt);ytxt+=6;
-              // Pastille restaurant TOUJOURS (même restaurant principal)
-              if(cr.resto){
-                var rb=cr.resto==='port'?[219,234,254]:[209,250,229];
-                var rt=cr.resto==='port'?[30,64,175]:[6,95,70];
-                var rnm2=cr.resto==='port'?'Port':'Dabray';
-                doc.setFillColor(rb[0],rb[1],rb[2]);doc.roundedRect(x2+w/2-8,ytxt-4.5,16,3.5,1,1,'F');
-                doc.setTextColor(rt[0],rt[1],rt[2]);doc.setFontSize(5);
-                var rnw=doc.getTextWidth(rnm2);doc.text(rnm2,x2+w/2-rnw/2,ytxt-2);
-                doc.setFontSize(7);doc.setTextColor(185,30,38);ytxt+=4;
-              }
-              // Ancienne pastille si autre restaurant
-              if(em.multi_site&&cr.resto&&cr.resto!==em.restaurant_id){
-                var rb=RESTO_BG[cr.resto]||[219,234,254];var rt=RESTO_TX[cr.resto]||[30,64,175];
-                var rnm2=cr.resto==='port'?'Port':'Dabray';
-                doc.setFillColor(rb[0],rb[1],rb[2]);doc.roundedRect(x2+w/2-8,ytxt-5,16,3.5,1,1,'F');
-                doc.setTextColor(rt[0],rt[1],rt[2]);doc.setFontSize(5);
-                var rnw=doc.getTextWidth(rnm2);doc.text(rnm2,x2+w/2-rnw/2,ytxt-2.2);
-                doc.setFontSize(7);ytxt+=4;
-              }
-              // Calcul total heures
-              var ss=cr.start.split(':');var se=cr.end.split(':');
-              totalMin+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
-            });
-          }
-          if(absCode){
-            var ac=ABS_C[absCode]||[238,238,238];var at=ABS_T[absCode]||[51,51,51];
-            doc.setFillColor(ac[0],ac[1],ac[2]);doc.rect(x2+1,y+rh-5,w-2,4,'F');
-            doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(5.5);doc.setFont('helvetica','bold');
-            var al=ABS_L2[absCode]||absCode;var alw=doc.getTextWidth(al);
-            doc.text(al,x2+w/2-alw/2,y+rh-2.2);
-            doc.setFillColor(255,255,255);
-          }
+        var ytxt=y+7;
+        if(crs.length){
+          doc.setTextColor(185,30,38);doc.setFontSize(7);doc.setFont('helvetica','bold');
+          crs.forEach(function(cr){
+            doc.text(cr.start+'-'+cr.end,x+COLW/2,ytxt,{align:'center'});
+            // Pastille restaurant
+            if(cr.resto){
+              var rbg=cr.resto==='port'?RESTO_BG.port:RESTO_BG.dabray;
+              var rtx=cr.resto==='port'?RESTO_TX.port:RESTO_TX.dabray;
+              var rnm=cr.resto==='port'?'Port':'Dabray';
+              doc.setFillColor(rbg[0],rbg[1],rbg[2]);
+              doc.roundedRect(x+COLW/2-8,ytxt+1,16,3.5,1,1,'F');
+              doc.setTextColor(rtx[0],rtx[1],rtx[2]);doc.setFontSize(5);
+              doc.text(rnm,x+COLW/2,ytxt+3.5,{align:'center'});
+              doc.setFontSize(7);ytxt+=5;
+            }
+            ytxt+=7;
+            // Total heures
+            var ss=cr.start.split(':');var se=cr.end.split(':');
+            totalMin+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+          });
+        }
+        if(absCode){
+          var ac=ABS_C[absCode]||[238,238,238];var at=ABS_T[absCode]||[51,51,51];
+          doc.setFillColor(ac[0],ac[1],ac[2]);
+          doc.rect(x+2,y+RH-6,COLW-4,5,'F');
+          doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(6);doc.setFont('helvetica','bold');
+          doc.text(ABS_L[absCode]||absCode,x+COLW/2,y+RH-2.5,{align:'center'});
+          doc.setFillColor(255,255,255);
         }
       }
-      x2+=w;
-    });
-    y+=rh;
-    if(y>PH-12){doc.addPage();y=MG;}
+    }
+    y+=RH;
+    if(y>PH-18){doc.addPage();y=MG;}
   });
 
-  // Total heures du mois
+  // Total heures
   y+=3;
   var tH=Math.floor(totalMin/60);var tM=totalMin%60;
-  doc.setFillColor(sbg[0],sbg[1],sbg[2]);doc.rect(MG,y,80,7,'F');
-  doc.setTextColor(stx[0],stx[1],stx[2]);doc.setFontSize(8);doc.setFont('helvetica','bold');
-  doc.text('Total heures : '+tH+'h'+String(tM).padStart(2,'0'),MG+3,y+5);
+  doc.setFillColor(242,224,192);doc.rect(MG,y,60,7,'F');
+  doc.setTextColor(185,30,38);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text('Total : '+tH+'h'+String(tM).padStart(2,'0'),MG+3,y+5);
   if(em.heures_contrat){
     var contractMin=em.heures_contrat*weeks.length*60;
     var diffMin=totalMin-contractMin;
     var dH=Math.floor(Math.abs(diffMin)/60);var dM=Math.abs(diffMin)%60;
-    var dTxt=(diffMin>=0?'+':'-')+dH+'h'+String(dM).padStart(2,'0')+' vs contrat';
-    doc.setTextColor(diffMin>=0?6:153,diffMin>=0?95:27,diffMin>=0?70:27);
-    doc.text(dTxt,MG+3+85,y+5);
+    var col=diffMin>=0?[6,95,70]:[153,27,27];
+    doc.setTextColor(col[0],col[1],col[2]);
+    doc.text((diffMin>=0?'+':'-')+dH+'h'+String(dM).padStart(2,'0')+' vs contrat',MG+65,y+5);
   }
-
-  doc.setFontSize(5);doc.setTextColor(176,128,96);
-  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' - Milos Pizza',MG,PH-2);
+  doc.setFontSize(6);doc.setTextColor(176,128,96);
+  doc.text('G\u00e9n\u00e9r\u00e9 le '+new Date().toLocaleDateString('fr-FR')+' \u2014 Milos Pizza',MG,PH-3);
   var t=new Date();
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf');
 }
