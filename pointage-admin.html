@@ -1686,26 +1686,77 @@ function getCheckedPostes(containerId){
 
 
 
+
+// ── DÉDUCTION SECTEUR DEPUIS LES POSTES ─────────────────────────────────────
+function deduceSecteur(salId){
+  var posteIds=getSalPostes(salId);
+  if(!posteIds.length)return 'salle';
+  // Compter les secteurs des postes cochés
+  var counts={cuisine:0,salle:0,livraison:0};
+  posteIds.forEach(function(pid){
+    var p=postes.find(function(x){return x.id===pid;});
+    if(p&&p.secteur)counts[p.secteur]=(counts[p.secteur]||0)+1;
+  });
+  // Secteur majoritaire (priorité cuisine > livraison > salle en cas d'égalité)
+  var max=0;var sec='salle';
+  ['cuisine','livraison','salle'].forEach(function(s){
+    if(counts[s]>max){max=counts[s];sec=s;}
+  });
+  return sec;
+}
+
+
 // ── PLANNING TYPE HEBDOMADAIRE ──────────────────────────────────────────────
 var PT_DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
 function renderPlanningType(salId){
   var div=document.getElementById('sal-planning-type');if(!div)return;
   var pt=getSalPlanningType(salId);
-  var h='<div style="display:flex;flex-direction:column;gap:4px">';
+  var h='<div style="display:flex;flex-direction:column;gap:6px">';
   PT_DAYS.forEach(function(day,i){
-    var d=pt[i]||{on:false,start:'17:00',end:'23:30'};
-    h+='<div style="display:flex;align-items:center;gap:6px;font-size:11px">';
-    h+='<label style="display:flex;align-items:center;gap:4px;width:90px;cursor:pointer">';
-    h+='<input type="checkbox" data-day="'+i+'" '+(d.on?'checked':'')+' onchange="ptToggle(this)" style="accent-color:var(--bx);width:14px;height:14px">';
-    h+='<span style="font-weight:600">'+day.slice(0,3)+'</span></label>';
-    h+='<input type="time" data-day="'+i+'" data-f="start" value="'+d.start+'" onchange="ptTime(this)" style="font-size:11px;padding:3px;border:1px solid var(--bd);border-radius:4px;width:75px">';
-    h+='<span>-</span>';
-    h+='<input type="time" data-day="'+i+'" data-f="end" value="'+d.end+'" onchange="ptTime(this)" style="font-size:11px;padding:3px;border:1px solid var(--bd);border-radius:4px;width:75px">';
+    var slots=pt[i]||[];
+    h+='<div style="border:1px solid var(--bd);border-radius:6px;padding:6px;background:'+(slots.length?'#FFF8F0':'#fafafa')+'">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(slots.length?'4px':'0')+'">';
+    h+='<span style="font-weight:600;font-size:11px;color:'+(slots.length?'var(--bx)':'#999')+'">'+day+'</span>';
+    h+='<button class="btn bs sm" style="font-size:9px;padding:2px 8px" onclick="ptAddSlot('+i+')">+ Cr\u00e9neau</button>';
+    h+='</div>';
+    slots.forEach(function(slot,si){
+      h+='<div style="display:flex;align-items:center;gap:4px;margin-top:3px">';
+      h+='<input type="time" data-day="'+i+'" data-slot="'+si+'" data-f="start" value="'+slot.start+'" onchange="ptSlotTime(this)" style="font-size:11px;padding:3px;border:1px solid var(--bd);border-radius:4px;width:72px">';
+      h+='<span style="font-size:11px">-</span>';
+      h+='<input type="time" data-day="'+i+'" data-slot="'+si+'" data-f="end" value="'+slot.end+'" onchange="ptSlotTime(this)" style="font-size:11px;padding:3px;border:1px solid var(--bd);border-radius:4px;width:72px">';
+      h+='<button onclick="ptRemoveSlot('+i+','+si+')" style="background:#FEE2E2;color:#991B1B;border:none;border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:12px">&#10005;</button>';
+      h+='</div>';
+    });
     h+='</div>';
   });
   h+='</div>';
   div.innerHTML=h;
+}
+
+function ptAddSlot(day){
+  var salId=curSal||'new';
+  var pt=getSalPlanningType(salId);
+  if(!pt[day])pt[day]=[];
+  pt[day].push({start:'17:00',end:'23:30'});
+  setSalPlanningType(salId,pt);
+  renderPlanningType(curSal);
+}
+
+function ptRemoveSlot(day,si){
+  var salId=curSal||'new';
+  var pt=getSalPlanningType(salId);
+  if(pt[day])pt[day].splice(si,1);
+  setSalPlanningType(salId,pt);
+  renderPlanningType(curSal);
+}
+
+function ptSlotTime(inp){
+  var day=parseInt(inp.dataset.day);var si=parseInt(inp.dataset.slot);var f=inp.dataset.f;
+  var salId=curSal||'new';
+  var pt=getSalPlanningType(salId);
+  if(pt[day]&&pt[day][si])pt[day][si][f]=inp.value;
+  setSalPlanningType(salId,pt);
 }
 
 function getSalPlanningType(salId){
@@ -1714,31 +1765,13 @@ function getSalPlanningType(salId){
 }
 function setSalPlanningType(salId,arr){localStorage.setItem('sal_pt_'+(salId||'new'),JSON.stringify(arr));}
 
-function ptToggle(cb){
-  var day=parseInt(cb.dataset.day);
-  var salId=curSal||'new';
-  var pt=getSalPlanningType(salId);
-  if(!pt[day])pt[day]={on:false,start:'17:00',end:'23:30'};
-  pt[day].on=cb.checked;
-  setSalPlanningType(salId,pt);
-}
-
-function ptTime(inp){
-  var day=parseInt(inp.dataset.day);var f=inp.dataset.f;
-  var salId=curSal||'new';
-  var pt=getSalPlanningType(salId);
-  if(!pt[day])pt[day]={on:false,start:'17:00',end:'23:30'};
-  pt[day][f]=inp.value;
-  setSalPlanningType(salId,pt);
-}
-
 async function applyPlanningType(){
   if(!curSal){alert('Enregistrez d\'abord le salari\u00e9, puis rouvrez sa fiche pour g\u00e9n\u00e9rer le planning.');return;}
   var startVal=document.getElementById('sal-pt-start').value;
   if(!startVal){alert('Choisissez la date de d\u00e9but');return;}
   var pt=getSalPlanningType(curSal);
-  var activeDays=pt.filter(function(d){return d&&d.on;});
-  if(!activeDays.length){alert('Cochez au moins un jour de travail');return;}
+  var hasSlots=pt.some(function(d){return d&&d.length;});
+  if(!hasSlots){alert('Ajoutez au moins un cr\u00e9neau');return;}
   if(!confirm('G\u00e9n\u00e9rer le planning sur 12 semaines \u00e0 partir du '+startVal+' ?\n\nCela remplacera les cr\u00e9neaux existants sur cette p\u00e9riode.'))return;
   var em=emp(curSal);
   var startDate=new Date(startVal+'T12:00:00');
@@ -1746,21 +1779,20 @@ async function applyPlanningType(){
   var err=0;var created=0;
   for(var w=0;w<12;w++){
     for(var d=0;d<7;d++){
-      var dayConfig=pt[d];
-      if(!dayConfig||!dayConfig.on)continue;
+      var slots=pt[d];
+      if(!slots||!slots.length)continue;
       var crDate=planAddD(weekStart,w*7+d);
-      // Ne pas créer avant la date de début
       if(planDs(crDate)<startVal)continue;
       var dstr=planDs(crDate);
-      // Supprimer les créneaux existants ce jour
       await db.from('planning_creneaux').delete().eq('employee_id',curSal).eq('date',dstr);
-      // Créer le nouveau créneau
-      var ri=await db.from('planning_creneaux').insert({
-        employee_id:curSal,date:dstr,
-        heure_debut:dayConfig.start,heure_fin:dayConfig.end,
-        restaurant_id:em?em.restaurant_id:'port'
-      });
-      if(ri.error)err++;else created++;
+      for(var s=0;s<slots.length;s++){
+        var ri=await db.from('planning_creneaux').insert({
+          employee_id:curSal,date:dstr,
+          heure_debut:slots[s].start,heure_fin:slots[s].end,
+          restaurant_id:em?em.restaurant_id:'port'
+        });
+        if(ri.error)err++;else created++;
+      }
     }
   }
   if(err>0)alert(err+' erreur(s). '+created+' cr\u00e9neaux cr\u00e9\u00e9s.');
@@ -1855,19 +1887,23 @@ async function saveSal(){
   var pin=document.getElementById('sapin').value.trim();
   if(!p||!n){alert('Prénom et nom requis');return;}
   if(curSal){
-    var upd={prenom:p,nom:n,restaurant_id:resto};
+    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal)};
     if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
     await db.from('employees').update(upd).eq('id',curSal);
   }else{
     if(pin.length!==4){alert('PIN 4 chiffres requis');return;}
     var hr2=await db.rpc('hash_pin',{p_pin:pin});
-    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true}).select();
-    // Transférer les postes 'new' vers le vrai ID
+    var newSec=deduceSecteur('new');
+    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
       if(newPostes.length)setSalPostes(newId,newPostes);
       localStorage.removeItem('sal_postes_new');
+      // Transférer aussi le planning type
+      var newPt=getSalPlanningType('new');
+      if(newPt.length)setSalPlanningType(newId,newPt);
+      localStorage.removeItem('sal_pt_new');
     }
   }
   closeM('msa');
@@ -2000,17 +2036,22 @@ function renderSal(){
   h+='<button class="btn bp sm" onclick="openAddSal()">+ Nouveau salarie</button>';
   h+='<button class="btn bs sm" onclick="openArchives()">Archives</button>';
   h+='</div>';
-  ['port','dabray'].forEach(function(resto){
-    var les=emps.filter(function(e){return e.restaurant_id===resto&&!e.archive;});
+  var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
+  var SECCOL={cuisine:'#991B1B',salle:'#92400E',livraison:'#065F46'};
+  var actifs=emps.filter(function(e){return !e.archive;});
+  ['cuisine','salle','livraison'].forEach(function(sec){
+    var les=actifs.filter(function(e){return (e.secteur||'salle')===sec;});
     if(!les.length)return;
-    h+='<div style="font-size:11px;font-weight:700;color:var(--bx);letter-spacing:.5px;text-transform:uppercase;margin:12px 0 7px">'+(resto==='port'?'Port (Bavastro)':'Dabray')+'</div>';
+    les.sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');});
+    h+='<div style="font-size:11px;font-weight:700;color:'+SECCOL[sec]+';letter-spacing:.5px;text-transform:uppercase;margin:14px 0 7px;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:'+SECCOL[sec]+'"></span>'+SECLABELS[sec]+'</div>';
     les.forEach(function(em){
       var bg=em.actif!==false?'var(--bx)':'#ccc';
       var st=em.actif!==false?'Actif':'Desactive';
+      var rl=em.restaurant_id==='port'?'Port':'Dabray';
       h+='<div class="card" style="margin-bottom:7px"><div style="display:flex;align-items:center;gap:10px">';
       h+='<div style="width:34px;height:34px;border-radius:50%;background:'+bg+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
       h+='<div style="flex:1"><div style="font-weight:600;font-size:13px'+(em.actif!==false?'':';color:#aaa')+'">'+em.prenom+' '+em.nom+'</div>';
-      h+='<div style="font-size:11px;color:var(--txm)">'+(em.secteur||'salle')+' | '+st+'</div></div>';
+      h+='<div style="font-size:11px;color:var(--txm)">'+rl+' | '+st+'</div></div>';
       h+='<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end"><button class="btn bs sm" onclick="openEditSal('+em.id+')">Modifier</button>';
       h+='<button class="btn ba sm" onclick="openArchiveSal('+em.id+')">Archiver</button></div>';
       h+='</div></div>';
