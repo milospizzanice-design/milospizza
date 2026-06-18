@@ -509,6 +509,22 @@ function missingEx(entries){
   return Object.keys(ins).filter(function(id){return !outs[id];}).map(Number);
 }
 
+
+function empVisibleAt(em,dateStr){
+  if(!em.archive)return true;
+  if(!em.date_fin)return true;
+  return dateStr<=em.date_fin;
+}
+function empActifNow(em){
+  if(em.archive){
+    if(!em.date_fin)return false;
+    var today=new Date().toISOString().slice(0,10);
+    return today<=em.date_fin;
+  }
+  return em.actif!==false;
+}
+
+
 async function loadEmps(){
   var r=await db.from('employees').select('*').order('nom');
   if(r.data)emps=r.data;
@@ -634,7 +650,7 @@ async function loadPr(){
   var r=await db.from('time_entries').select('*').gte('timestamp',today+'T00:00:00').lte('timestamp',today+'T23:59:59').order('timestamp');
   var entries=r.data||[];
   var body=document.getElementById('prb');if(!body)return;
-  var actifs=emps.filter(function(e){return e.actif;});
+  var actifs=emps.filter(function(e){return empActifNow(e);});
   var h='';
   actifs.forEach(function(em){
     var ee=entries.filter(function(e){return e.employee_id===em.id;});
@@ -699,7 +715,13 @@ function planMarkDirty(){
 }
 
 function planGetFiltered(){
-  var list=emps.filter(function(e){return e.actif&&(e.restaurant_id===planResto||e.multi_site);});
+  var weekDates=planGetWeekDates();
+  var weekStart=planDs(weekDates[0]);
+  var list=emps.filter(function(e){
+    if(e.actif===false&&!e.archive)return false;
+    if(e.archive&&e.date_fin&&weekStart>e.date_fin)return false;
+    return (e.restaurant_id===planResto||e.multi_site);
+  });
   var SECS=['cuisine','salle','livraison'];
   list.sort(function(a,b){
     var ai=SECS.indexOf(a.secteur||'salle');var bi=SECS.indexOf(b.secteur||'salle');
@@ -1854,24 +1876,122 @@ function expRc(){
 function renderSal(){
   var body=document.getElementById('sab');
   var h='';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+  h+='<button class="btn bp sm" onclick="openAddSal()">+ Nouveau salarie</button>';
+  h+='<button class="btn bs sm" onclick="openArchives()">Archives</button>';
+  h+='</div>';
   ['port','dabray'].forEach(function(resto){
-    var les=emps.filter(function(e){return e.restaurant_id===resto;});
+    var les=emps.filter(function(e){return e.restaurant_id===resto&&!e.archive;});
+    if(!les.length)return;
     h+='<div style="font-size:11px;font-weight:700;color:var(--bx);letter-spacing:.5px;text-transform:uppercase;margin:12px 0 7px">'+(resto==='port'?'Port (Bavastro)':'Dabray')+'</div>';
     les.forEach(function(em){
-      var bg=em.actif?'var(--bx)':'#ccc';
-      var st=em.actif?'Actif':'Désactivé';
-      var bc=em.actif?'ba':'bg2';
-      var bl=em.actif?'Désactiver':'Réactiver';
+      var bg=em.actif!==false?'var(--bx)':'#ccc';
+      var st=em.actif!==false?'Actif':'Desactive';
       h+='<div class="card" style="margin-bottom:7px"><div style="display:flex;align-items:center;gap:10px">';
       h+='<div style="width:34px;height:34px;border-radius:50%;background:'+bg+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
-      h+='<div style="flex:1"><div style="font-weight:600;font-size:13px'+(em.actif?'':';color:#aaa')+'">'+em.prenom+' '+em.nom+'</div>';
-      h+='<div style="font-size:11px;color:var(--txm)">●●●● &nbsp;|&nbsp; '+st+'</div></div>';
-      h+='<div style="display:flex;gap:5px"><button class="btn bs sm" onclick="openEditSal('+em.id+')">Modifier</button>';
-      h+='<button class="btn '+bc+' sm" onclick="togSal('+em.id+','+(em.actif?'true':'false')+')">'+bl+'</button></div>';
+      h+='<div style="flex:1"><div style="font-weight:600;font-size:13px'+(em.actif!==false?'':';color:#aaa')+'">'+em.prenom+' '+em.nom+'</div>';
+      h+='<div style="font-size:11px;color:var(--txm)">'+(em.secteur||'salle')+' | '+st+'</div></div>';
+      h+='<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end"><button class="btn bs sm" onclick="openEditSal('+em.id+')">Modifier</button>';
+      h+='<button class="btn ba sm" onclick="openArchiveSal('+em.id+')">Archiver</button></div>';
       h+='</div></div>';
     });
   });
   body.innerHTML=h;
+}
+
+function openArchiveSal(id){
+  var em=emp(id);if(!em)return;
+  document.getElementById('arch-emp-id').value=id;
+  document.getElementById('arch-emp-name').textContent=em.prenom+' '+em.nom;
+  document.getElementById('arch-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('modal-archive').classList.add('op');
+}
+
+async function confirmArchiveSal(){
+  var id=parseInt(document.getElementById('arch-emp-id').value);
+  var dateFin=document.getElementById('arch-date').value;
+  if(!dateFin){alert('Indiquez le dernier jour de travail');return;}
+  var r=await db.from('employees').update({archive:true,date_fin:dateFin,actif:false}).eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  closeM('modal-archive');
+  await loadEmps();renderSal();
+  alert('Salarie archive. Il disparaitra des plannings apres le '+dateFin+'.');
+}
+
+function openArchives(){
+  document.getElementById('arch-search').value='';
+  renderArchivesList('');
+  document.getElementById('modal-archives-list').classList.add('op');
+}
+
+function renderArchivesList(query){
+  var div=document.getElementById('archives-results');if(!div)return;
+  var archived=emps.filter(function(e){return e.archive;});
+  if(query){var q=query.toLowerCase();archived=archived.filter(function(e){return (e.prenom+' '+e.nom).toLowerCase().indexOf(q)>=0;});}
+  if(!archived.length){div.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Aucun salarie archive</div>';return;}
+  var h='';
+  archived.forEach(function(em){
+    h+='<div class="card" style="margin-bottom:7px;cursor:pointer" onclick="openArchiveDetail('+em.id+')">';
+    h+='<div style="display:flex;align-items:center;gap:10px">';
+    h+='<div style="width:34px;height:34px;border-radius:50%;background:#999;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
+    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+em.prenom+' '+em.nom+'</div>';
+    h+='<div style="font-size:11px;color:var(--txm)">'+(em.restaurant_id==='port'?'Port':'Dabray')+' - Fin: '+(em.date_fin||'?')+'</div></div>';
+    h+='<span style="font-size:18px;color:#ccc">&#8250;</span></div></div>';
+  });
+  div.innerHTML=h;
+}
+
+async function openArchiveDetail(id){
+  var em=emp(id);if(!em)return;
+  document.getElementById('arch-detail-name').textContent=em.prenom+' '+em.nom;
+  document.getElementById('arch-detail-info').textContent=(em.restaurant_id==='port'?'Port - Bavastro':'Dabray')+' - Dernier jour: '+(em.date_fin||'?');
+  var body=document.getElementById('arch-detail-body');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  document.getElementById('modal-archive-detail').classList.add('op');
+  var pts=await db.from('time_entries').select('*').eq('employee_id',id).order('timestamp',{ascending:false}).limit(200);
+  var dems=await db.from('demandes_absence').select('*').eq('employee_id',id).order('created_at',{ascending:false});
+  var abss=await db.from('absences').select('*').eq('employee_id',id).order('date_debut',{ascending:false});
+  var h='';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--bx);margin:10px 0 6px">Pointages</div>';
+  var ptData=pts.data||[];
+  if(!ptData.length)h+='<div style="font-size:11px;color:#aaa;padding:4px">Aucun pointage</div>';
+  else{
+    var byMonth={};
+    ptData.forEach(function(p){var mo=p.timestamp.slice(0,7);if(!byMonth[mo])byMonth[mo]=[];byMonth[mo].push(p);});
+    Object.keys(byMonth).sort().reverse().forEach(function(mo){
+      var mp=mo.split('-');var mLabel=PLAN_MONTHS[parseInt(mp[1])-1]+' '+mp[0];
+      h+='<div style="font-size:11px;font-weight:600;color:var(--txm);margin:6px 0 3px">'+mLabel+' ('+byMonth[mo].length+' pointages)</div>';
+      byMonth[mo].slice(0,20).forEach(function(p){
+        var icon=p.type==='entree'?'(E)':'(S)';
+        h+='<div style="font-size:11px;padding:2px 0;border-bottom:1px solid #f0f0f0">'+icon+' '+fmtF(p.timestamp)+'</div>';
+      });
+    });
+  }
+  h+='<div style="font-size:12px;font-weight:700;color:var(--bx);margin:12px 0 6px">Demandes absence</div>';
+  var demData=dems.data||[];
+  if(!demData.length)h+='<div style="font-size:11px;color:#aaa;padding:4px">Aucune demande</div>';
+  else{
+    var TL={am:'Arret maladie',ai:'Abs. injustifiee',cp:'Conges payes',rec:'Recuperation'};
+    var SL={att:'En attente',ok:'Acceptee',ko:'Refusee'};
+    demData.forEach(function(d){
+      h+='<div style="font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0">'+(TL[d.type]||d.type)+' du '+d.date_debut+' au '+d.date_fin+' - <strong>'+(SL[d.statut]||d.statut)+'</strong></div>';
+    });
+  }
+  h+='<div style="font-size:12px;font-weight:700;color:var(--bx);margin:12px 0 6px">Absences enregistrees</div>';
+  var absData=abss.data||[];
+  if(!absData.length)h+='<div style="font-size:11px;color:#aaa;padding:4px">Aucune absence</div>';
+  else{absData.forEach(function(a){h+='<div style="font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0">'+a.type+' du '+a.date_debut+' au '+a.date_fin+(a.note?' - '+a.note:'')+'</div>';});}
+  h+='<div style="margin-top:14px"><button class="btn bg2 sm" onclick="restoreSal('+id+')">Reactiver ce salarie</button></div>';
+  body.innerHTML=h;
+}
+
+async function restoreSal(id){
+  if(!confirm('Reactiver ce salarie ? Il reapparaitra dans les plannings.'))return;
+  var r=await db.from('employees').update({archive:false,date_fin:null,actif:true}).eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  closeM('modal-archive-detail');closeM('modal-archives-list');
+  await loadEmps();renderSal();
+  alert('Salarie reactive.');
 }
 
 async function loadDem(){
@@ -1961,6 +2081,39 @@ init();
       <button class="btn bs" onclick="closeM('modal-poste')">Annuler</button>
       <button class="btn bp" onclick="savePoste()">Enregistrer</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal archivage salarié -->
+<div class="mb" id="modal-archive">
+  <div class="md">
+    <div class="mdt">Archiver un salari&#233;</div>
+    <input type="hidden" id="arch-emp-id">
+    <div style="font-size:13px;font-weight:600;text-align:center;margin-bottom:10px" id="arch-emp-name"></div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;text-align:center">Le salari&#233; dispara&#238;tra des plannings apr&#232;s son dernier jour de travail, mais restera accessible dans les archives.</div>
+    <div class="fr"><label class="fl2">Dernier jour de travail</label><input type="date" class="fi" id="arch-date"></div>
+    <div class="ma">
+      <button class="btn bs" onclick="closeM('modal-archive')">Annuler</button>
+      <button class="btn ba" onclick="confirmArchiveSal()">Archiver</button>
+    </div>
+  </div>
+</div>
+<!-- Modal liste archives -->
+<div class="mb" id="modal-archives-list">
+  <div class="md">
+    <div class="mdt">&#128230; Salari&#233;s archiv&#233;s</div>
+    <input type="text" class="fi" id="arch-search" placeholder="Rechercher un nom..." oninput="renderArchivesList(this.value)" style="margin-bottom:10px">
+    <div id="archives-results" style="max-height:50vh;overflow-y:auto"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-archives-list')">Fermer</button></div>
+  </div>
+</div>
+<!-- Modal détail archive -->
+<div class="mb" id="modal-archive-detail">
+  <div class="md" style="max-width:480px">
+    <div class="mdt" id="arch-detail-name"></div>
+    <div style="font-size:11px;color:var(--txm);text-align:center;margin-bottom:8px" id="arch-detail-info"></div>
+    <div id="arch-detail-body" style="max-height:55vh;overflow-y:auto"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-archive-detail')">Fermer</button></div>
   </div>
 </div>
 </body>
