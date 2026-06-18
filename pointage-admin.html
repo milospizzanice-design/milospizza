@@ -732,7 +732,7 @@ function planGetFiltered(){
 
 async function loadPl(){
   planUpdateLabel();
-  var ids=emps.filter(function(e){return e.actif;}).map(function(e){return e.id;});
+  var ids=emps.map(function(e){return e.id;});
   if(!ids.length){renderPlan();return;}
   var r=await db.from('planning_creneaux').select('*').gte('date',planDs(planWkStart)).lte('date',planDs(planAddD(planWkStart,6))).in('employee_id',ids);
   planData={};
@@ -1823,9 +1823,35 @@ async function loadRc(){
   document.getElementById('rcb').innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
 }
 
+var absAllData=[];
+
+function showAbsJustif(btn){
+  var aid=parseInt(btn.dataset.aid);
+  var a=absAllData.find(function(x){return x.id===aid;});
+  if(!a||!a.justif_b64){alert('Justificatif introuvable');return;}
+  if(a.justif_b64.startsWith('data:image')){
+    var w=window.open('','_blank');
+    if(w)w.document.write('<img src="'+a.justif_b64+'" style="max-width:100%;height:auto">');
+    else{
+      // Fallback: afficher dans une modale
+      document.getElementById('justif-img').src=a.justif_b64;
+      document.getElementById('justif-pdf').style.display='none';
+      document.getElementById('justif-img').style.display='block';
+      document.getElementById('modal-justif').classList.add('op');
+    }
+  }else{
+    // PDF: lien de téléchargement
+    var link=document.createElement('a');
+    link.href=a.justif_b64;link.download='justificatif.pdf';
+    document.body.appendChild(link);link.click();document.body.removeChild(link);
+  }
+}
+
+
 async function loadAb(){
   var resto=document.getElementById('abr').value;
   var r=await db.from('absences').select('*').order('date_debut',{ascending:false}).limit(100);
+  absAllData=r.data||[];
   var data=(r.data||[]).filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
   var labels={cp:'CP',rtt:'RTT',maladie:'Maladie',injustifie:'Injustifiée',ferie:'Férié',autre:'Autre'};
   var tb=document.getElementById('abb');
@@ -1837,7 +1863,7 @@ async function loadAb(){
     h+='<td><span class="bg '+a.type+'">'+(labels[a.type]||a.type)+'</span></td>';
     h+='<td>'+a.date_debut+'</td><td>'+a.date_fin+'</td>';
     h+='<td>'+(a.note||'—')+'</td>';
-    h+='<td>'+(a.justif_b64?'<button class="btn bs sm">Voir</button>':'—')+'</td></tr>';
+    h+='<td>'+(a.justif_b64?'<button class="btn bs sm" data-aid="'+a.id+'" onclick="showAbsJustif(this)">Voir</button>':'—')+'</td></tr>';
   });
   tb.innerHTML=h;
 }
