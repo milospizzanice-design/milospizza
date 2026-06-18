@@ -396,11 +396,17 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="md">
     <div class="mdt" id="pdf-indiv-title">PDF individuel</div>
     <input type="hidden" id="pdf-indiv-emp">
-    <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="pdf-indiv-from"></div>
-    <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="pdf-indiv-to"></div>
+    <div id="pdf-indiv-step1" style="text-align:center;padding:8px 0">
+      <div style="font-size:13px;font-weight:600;color:var(--bx);margin-bottom:6px">Sélectionnez la date de début</div>
+      <input type="date" class="fi" id="pdf-indiv-from" onchange="pdfIndivStep2()" style="font-size:15px;padding:10px">
+    </div>
+    <div id="pdf-indiv-step2" style="display:none;text-align:center;padding:8px 0">
+      <div style="font-size:12px;color:var(--txm);margin-bottom:4px">Du <strong id="pdf-indiv-from-lbl"></strong></div>
+      <div style="font-size:13px;font-weight:600;color:var(--bx);margin-bottom:6px">Sélectionnez la date de fin</div>
+      <input type="date" class="fi" id="pdf-indiv-to" onchange="pdfIndivGenerate()" style="font-size:15px;padding:10px">
+    </div>
     <div class="ma">
       <button class="btn bs" onclick="closeM('modal-pdf-indiv')">Annuler</button>
-      <button class="btn bp" onclick="exportIndivPDF()">G&#233;n&#233;rer PDF</button>
     </div>
   </div>
 </div>
@@ -1357,7 +1363,7 @@ async function exportMonthPDF(){
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
 }
 
-async function exportPlanIndivPDFRange(empId,from,to){
+async function exportPlanIndivPDF(empId,from,to){
   // Construire la liste de mois entre from et to
   var months=[];
   var cur=new Date(parseInt(from.split('-')[0]),parseInt(from.split('-')[1])-1,1);
@@ -1373,10 +1379,14 @@ async function exportPlanIndivPDFRange(empId,from,to){
 
 async function exportPlanIndivPDF(empId,fromVal,toVal){
   // fromVal et toVal peuvent être le même mois ou une plage
+  // fromVal/toVal peuvent être YYYY-MM ou YYYY-MM-DD
   var valFrom=fromVal||toVal;var valTo=toVal||fromVal;
-  if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
-  var jsPDF=window.jspdf.jsPDF;
-  var em=emps.find(function(e){return e.id===empId;});if(!em)return;
+  var isFullDate=valFrom.length===10;
+  var firstDay=isFullDate?new Date(valFrom+'T12:00:00'):new Date(parseInt(valFrom.split('-')[0]),parseInt(valFrom.split('-')[1])-1,1);
+  var lastDay=isFullDate?new Date(valTo+'T12:00:00'):new Date(parseInt(valTo.split('-')[0]),parseInt(valTo.split('-')[1]),0);
+  var pfrom=valFrom.split('-');var pto=valTo.split('-');
+  var dateFrom=isFullDate?valFrom:planDs(firstDay);var dateTo=isFullDate?valTo:planDs(lastDay);
+  var monthLabel=isFullDate?(firstDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+lastDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})):(valFrom===valTo?PLAN_MONTHS[parseInt(pfrom[1])-1]+' '+pfrom[0]:PLAN_MONTHS[parseInt(pfrom[1])-1]+' '+pfrom[0]+' - '+PLAN_MONTHS[parseInt(pto[1])-1]+' '+pto[0]);
   var pfrom=valFrom.split('-');var pto=valTo.split('-');
   var firstDay=new Date(parseInt(pfrom[0]),parseInt(pfrom[1])-1,1);
   var lastDay=new Date(parseInt(pto[0]),parseInt(pto[1]),0);
@@ -1559,12 +1569,41 @@ async function exportPlanIndivPDF(empId,fromVal,toVal){
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_'+em.nom.replace(/[^a-zA-Z]/g,'_')+'_'+em.prenom.replace(/[^a-zA-Z]/g,'_')+'.pdf');
 }
 
+
+function pdfIndivStep2(){
+  var from=document.getElementById('pdf-indiv-from').value;
+  if(!from)return;
+  var d=new Date(from+'T12:00:00');
+  document.getElementById('pdf-indiv-from-lbl').textContent=d.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('pdf-indiv-step1').style.display='none';
+  document.getElementById('pdf-indiv-step2').style.display='block';
+  // Pré-remplir la fin avec le dernier jour du même mois
+  var lastDay=new Date(d.getFullYear(),d.getMonth()+1,0);
+  document.getElementById('pdf-indiv-to').value=planDs(lastDay);
+}
+
+function pdfIndivGenerate(){
+  var empId=parseInt(document.getElementById('pdf-indiv-emp').value);
+  var from=document.getElementById('pdf-indiv-from').value;
+  var to=document.getElementById('pdf-indiv-to').value;
+  if(!from||!to)return;
+  if(to<from){
+    alert('La date de fin doit être après le début');
+    document.getElementById('pdf-indiv-to').value='';
+    return;
+  }
+  closeM('modal-pdf-indiv');
+  exportPlanIndivPDF(empId,from,to);
+}
+
 function planOpenPDFIndiv(empId){
-  var now=new Date();
-  var cur=now.getFullYear()+'-'+planPad(now.getMonth()+1);
+  var em=emps.find(function(e){return e.id===empId;});
   document.getElementById('pdf-indiv-emp').value=empId;
-  document.getElementById('pdf-indiv-from').value=cur;
-  document.getElementById('pdf-indiv-to').value=cur;
+  document.getElementById('pdf-indiv-from').value='';
+  document.getElementById('pdf-indiv-to').value='';
+  document.getElementById('pdf-indiv-step1').style.display='block';
+  document.getElementById('pdf-indiv-step2').style.display='none';
+  if(em)document.getElementById('pdf-indiv-title').textContent='PDF — '+em.prenom+' '+em.nom;
   document.getElementById('modal-pdf-indiv').classList.add('op');
 }
 
@@ -1574,7 +1613,7 @@ function exportIndivPDF(){
   var to=document.getElementById('pdf-indiv-to').value;
   if(!from||!to){alert('Sélectionnez une période');return;}
   closeM('modal-pdf-indiv');
-  exportPlanIndivPDFRange(empId,from,to);
+  exportPlanIndivPDF(empId,from,to);
 }
 
 
