@@ -1366,19 +1366,7 @@ async function exportMonthPDF(){
   doc.save(t.getFullYear()+'_'+planPad(t.getMonth()+1)+'_'+planPad(t.getDate())+'_planning_'+rl.replace(/[^a-zA-Z0-9]/g,'_')+'_'+monthLabel.replace(/ /g,'_')+'.pdf');
 }
 
-async function exportPlanIndivPDF(empId,from,to){
-  // Construire la liste de mois entre from et to
-  var months=[];
-  var cur=new Date(parseInt(from.split('-')[0]),parseInt(from.split('-')[1])-1,1);
-  var end=new Date(parseInt(to.split('-')[0]),parseInt(to.split('-')[1]),0);
-  while(cur<=end){
-    months.push(cur.getFullYear()+'-'+planPad(cur.getMonth()+1));
-    cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
-  }
-  // Générer un PDF par mois et les concaténer
-  // Pour simplifier: générer le PDF du premier mois puis ajouter les autres
-  await exportPlanIndivPDF(empId,months[0],months[months.length-1]);
-}
+
 
 async function exportPlanIndivPDF(empId,fromVal,toVal){
   // Récupérer le salarié
@@ -1603,11 +1591,17 @@ function pdfIndivGenerate(){
 function planOpenPDFIndiv(empId){
   var em=emps.find(function(e){return e.id===empId;});
   var now=new Date();
+  var y=now.getFullYear();var m=now.getMonth();
+  var from=y+'-'+planPad(m+1)+'-01';
+  var to=y+'-'+planPad(m+1)+'-'+planPad(new Date(y,m+1,0).getDate());
   document.getElementById('pdf-indiv-emp').value=empId;
-  // Pré-remplir from = 1er du mois courant, to = vide (l'utilisateur choisit)
-  document.getElementById('pdf-indiv-from').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
-  document.getElementById('pdf-indiv-to').value='';
-  var recap=document.getElementById('pdf-indiv-recap');if(recap)recap.textContent='';
+  document.getElementById('pdf-indiv-from').value=from;
+  document.getElementById('pdf-indiv-to').value=to;
+  var recap=document.getElementById('pdf-indiv-recap');
+  if(recap&&em){
+    var df=new Date(from+'T12:00:00');var dt=new Date(to+'T12:00:00');
+    recap.textContent='Du '+df.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+dt.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  }
   if(em)document.getElementById('pdf-indiv-title').textContent='PDF — '+em.prenom+' '+em.nom;
   document.getElementById('modal-pdf-indiv').classList.add('op');
 }
