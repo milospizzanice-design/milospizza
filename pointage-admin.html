@@ -1438,6 +1438,121 @@ async function drhGenerateData(){
   return {from:from,to:to,resto:resto,data:result,groups:groups};
 }
 
+
+// ── EXPORT PAIE INDIVIDUEL (1 salarié sur une période) ──────────────────────
+async function drhGenerateOne(empId,from,to){
+  var em=emp(empId);if(!em)return null;
+  var pd=await db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59').eq('employee_id',empId);
+  var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to).eq('employee_id',empId);
+  var ep=pd.data||[];var ea=abd.data||[];
+  var byDay={};
+  ep.forEach(function(p){var d=p.timestamp.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(p);});
+  var days=[];var cur=new Date(from+'T12:00:00');var end=new Date(to+'T12:00:00');
+  while(cur<=end){days.push(planDs(cur));cur=planAddD(cur,1);}
+  var rows=[];
+  days.forEach(function(dstr){
+    var shifts=drhDayShifts(byDay[dstr]||[]);
+    var totalMins=shifts.reduce(function(s,sh){return s+sh.mins;},0);
+    var abs=ea.find(function(a){return dstr>=a.date_debut&&dstr<=a.date_fin;});
+    var absLabel=abs?getMotifNom(abs.type):'';
+    if(shifts.length||absLabel)rows.push({date:dstr,shifts:shifts,totalMins:totalMins,repas:shifts.length,absence:absLabel,coupure:shifts.length>1});
+  });
+  return {em:em,rows:rows,from:from,to:to};
+}
+
+function ficheExportOpen(){
+  if(!ficheCurEmp)return;
+  var em=emp(ficheCurEmp);
+  var now=new Date();
+  document.getElementById('ficheexp-from').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
+  document.getElementById('ficheexp-to').value=planDs(now);
+  document.getElementById('ficheexp-name').textContent=em.prenom+' '+em.nom;
+  closeM('modal-absfiche');
+  document.getElementById('modal-ficheexp').classList.add('op');
+}
+
+async function ficheExportExcel(){
+  if(!window.XLSX){alert('Module Excel en cours de chargement');return;}
+  var from=document.getElementById('ficheexp-from').value;
+  var to=document.getElementById('ficheexp-to').value;
+  if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return;}
+  var emId=ficheCurEmp;
+  var emData=await drhGenerateOne(emId,from,to);
+  if(!emData)return;
+  closeM('modal-ficheexp');
+  var wb=XLSX.utils.book_new();
+  var em=emData.em;
+  var aoa=[];
+  aoa.push(['R\u00e9capitulatif paie - '+em.prenom+' '+em.nom]);
+  aoa.push(['P\u00e9riode: '+from+' au '+to+'  |  '+(em.restaurant_id==='port'?'Port':'Dabray')]);
+  aoa.push([]);
+  aoa.push(['Date','Jour','Entr\u00e9e','Sortie','Temps travail','Coupure','Repas','Absence']);
+  var weekTot=0,weekRepas=0,weekCp=0,monthTot=0,monthRepas=0,monthCp=0,curWeek=null;
+  var JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  emData.rows.forEach(function(r){
+    var dt=new Date(r.date+'T12:00:00');var wk=planDs(planMonOf(dt));
+    if(curWeek!==null&&wk!==curWeek){aoa.push(['','','','','TOTAL SEMAINE',fmtHM(weekTot),weekRepas+' repas',weekCp+' j CP']);aoa.push([]);weekTot=0;weekRepas=0;weekCp=0;}
+    curWeek=wk;
+    if(r.shifts.length){
+      r.shifts.forEach(function(sh,i){
+        aoa.push([i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in),fmtHr(sh.out),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?r.repas:'','']);
+      });
+      weekTot+=r.totalMins;monthTot+=r.totalMins;weekRepas+=r.repas;monthRepas+=r.repas;
+    }else if(r.absence){
+      aoa.push([r.date,JOURS[dt.getDay()],'','','','','',r.absence]);
+      if(r.absence.indexOf('Cong')>=0){weekCp++;monthCp++;}
+    }
+  });
+  aoa.push(['','','','','TOTAL SEMAINE',fmtHM(weekTot),weekRepas+' repas',weekCp+' j CP']);
+  aoa.push([]);
+  aoa.push(['','','','','TOTAL P\u00c9RIODE',fmtHM(monthTot),monthRepas+' repas',monthCp+' j CP']);
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:12},{wch:6},{wch:9},{wch:9},{wch:14},{wch:9},{wch:8},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws,(em.prenom+' '+em.nom).slice(0,31).replace(/[\\\/\?\*\[\]:]/g,''));
+  XLSX.writeFile(wb,'Paie_'+em.nom+'_'+em.prenom+'_'+from+'_'+to+'.xlsx');
+}
+
+async function ficheExportPDF(){
+  if(!window.jspdf){alert('PDF en cours de chargement');return;}
+  var jsPDF=window.jspdf.jsPDF;
+  var from=document.getElementById('ficheexp-from').value;
+  var to=document.getElementById('ficheexp-to').value;
+  if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return;}
+  var emData=await drhGenerateOne(ficheCurEmp,from,to);
+  if(!emData)return;
+  closeM('modal-ficheexp');
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var PW=210;var PH=297;var MG=12;var JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  var em=emData.em;
+  doc.setFillColor(185,30,38);doc.rect(0,0,PW,22,'F');
+  doc.setTextColor(242,224,192);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text(em.prenom+' '+em.nom,PW/2,10,{align:'center'});
+  doc.setFontSize(8);doc.setFont('helvetica','normal');
+  doc.text('Du '+from+' au '+to+'  -  '+(em.restaurant_id==='port'?'Port (Bavastro)':'Dabray'),PW/2,16,{align:'center'});
+  var y=28;
+  var cols=[{l:'Date',w:22},{l:'Jour',w:12},{l:'Entr\u00e9e',w:16},{l:'Sortie',w:16},{l:'Travail',w:20},{l:'Coup.',w:13},{l:'Repas',w:14},{l:'Absence',w:39}];
+  function drawH(yy){doc.setFillColor(185,30,38);doc.rect(MG,yy,PW-MG*2,7,'F');doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');var x=MG;cols.forEach(function(c){doc.text(c.l,x+1.5,yy+4.7);x+=c.w;});return yy+7;}
+  y=drawH(y);
+  var weekTot=0,weekRepas=0,weekCp=0,monthTot=0,monthRepas=0,monthCp=0,curWeek=null;
+  function weekRow(yy){doc.setFillColor(242,224,192);doc.rect(MG,yy,PW-MG*2,6,'F');doc.setTextColor(120,40,30);doc.setFontSize(7);doc.setFont('helvetica','bold');doc.text('Total semaine',MG+1.5,yy+4);doc.text(fmtHM(weekTot),MG+50,yy+4);doc.text(weekRepas+' repas',MG+90,yy+4);if(weekCp>0)doc.text(weekCp+' j CP',MG+120,yy+4);return yy+6;}
+  emData.rows.forEach(function(r){
+    var dt=new Date(r.date+'T12:00:00');var wk=planDs(planMonOf(dt));
+    if(curWeek!==null&&wk!==curWeek){y=weekRow(y);y+=1.5;weekTot=0;weekRepas=0;weekCp=0;}
+    curWeek=wk;
+    if(y>PH-30){doc.addPage();y=MG;y=drawH(y);}
+    doc.setTextColor(40,40,40);doc.setFontSize(7);doc.setFont('helvetica','normal');
+    if(r.shifts.length){
+      r.shifts.forEach(function(sh,i){var x=MG;var vals=[i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in),fmtHr(sh.out),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?String(r.repas):'',''];doc.setDrawColor(225,210,195);doc.line(MG,y,PW-MG,y);vals.forEach(function(v,ci){doc.text(v,x+1.5,y+4);x+=cols[ci].w;});y+=5.5;});
+      weekTot+=r.totalMins;monthTot+=r.totalMins;weekRepas+=r.repas;monthRepas+=r.repas;
+    }else if(r.absence){var x=MG;var vals=[r.date,JOURS[dt.getDay()],'','','','','',r.absence];doc.setFillColor(254,243,230);doc.rect(MG,y,PW-MG*2,5.5,'F');doc.setTextColor(150,80,20);vals.forEach(function(v,ci){doc.text(v,x+1.5,y+4);x+=cols[ci].w;});y+=5.5;if(r.absence.indexOf('Cong')>=0){weekCp++;monthCp++;}}
+  });
+  y=weekRow(y);y+=2;
+  doc.setFillColor(185,30,38);doc.rect(MG,y,PW-MG*2,8,'F');doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text('TOTAL P\u00c9RIODE',MG+1.5,y+5.3);doc.text(fmtHM(monthTot),MG+50,y+5.3);doc.text(monthRepas+' repas',MG+90,y+5.3);if(monthCp>0)doc.text(monthCp+' jours CP',MG+120,y+5.3);
+  doc.save('Paie_'+em.nom+'_'+em.prenom+'_'+from+'_'+to+'.pdf');
+}
+
+
 async function drhExportExcel(){
   if(!window.XLSX){alert('Module Excel en cours de chargement, r\u00e9essayez');return;}
   var d=await drhGenerateData();
@@ -3136,6 +3251,7 @@ init();
         <div class="mdt" id="absfiche-name" style="margin:0;text-align:left"></div>
         <div style="font-size:11px;color:var(--txm)" id="absfiche-sub"></div>
       </div>
+      <button class="btn bp sm" onclick="ficheExportOpen()" title="Export paie">&#128203;</button>
       <button class="btn bs sm" id="absfiche-edit" data-id="" onclick="absFicheEdit()" title="Param&#233;trer le salari&#233;">&#9998;</button>
     </div>
     <div style="display:flex;gap:4px;border-bottom:2px solid var(--bd);margin-bottom:10px">
@@ -3147,6 +3263,22 @@ init();
     <div id="fiche-pane-plan" style="max-height:50vh;overflow-y:auto;display:none"></div>
     <div id="fiche-pane-pt" style="max-height:50vh;overflow-y:auto;display:none"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-absfiche')">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Modal export paie individuel -->
+<div class="mb" id="modal-ficheexp">
+  <div class="md">
+    <div class="mdt">&#128203; Export paie</div>
+    <div style="font-size:12px;font-weight:600;text-align:center;margin-bottom:4px" id="ficheexp-name"></div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;text-align:center">D&#233;tail jour par jour, repas, absences et totaux pour la RH.</div>
+    <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="ficheexp-from"></div>
+    <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="ficheexp-to"></div>
+    <div class="ma" style="flex-wrap:wrap;gap:6px">
+      <button class="btn bs" onclick="closeM('modal-ficheexp')">Annuler</button>
+      <button class="btn bg2" onclick="ficheExportExcel()">&#128202; Excel</button>
+      <button class="btn bp" onclick="ficheExportPDF()">&#128196; PDF</button>
+    </div>
   </div>
 </div>
 </body>
