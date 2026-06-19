@@ -270,6 +270,13 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="pm-postes"></div>
     </div>
     <div class="card">
+      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>&#128203; Motifs d'absence</span>
+        <button class="btn bp sm" onclick="openAddMotif()">+ Ajouter</button>
+      </div>
+      <div id="pm-motifs"></div>
+    </div>
+    <div class="card">
       <div class="sec-title">&#128101; Secteurs</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;align-items:center;gap:8px"><span style="background:#FEE2E2;color:#991B1B;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Cuisine</span><span style="font-size:12px;color:var(--txm)">Pizzaiolo, Après cuisson, Labo, Barman</span></div>
@@ -640,6 +647,7 @@ async function saveCor(){
   closeM('mc');
   document.getElementById('ccn').value='';
   await loadPt();
+  loadMotifs();
 }
 
 function expCSV(){
@@ -1157,6 +1165,87 @@ var POSTES_DEFAULT=[
 ];
 var postes=JSON.parse(localStorage.getItem('rg_postes')||'null')||POSTES_DEFAULT;
 var curPosteId=null;
+
+// ── MOTIFS D'ABSENCE PERSONNALISABLES ───────────────────────────────────────
+var MOTIFS_DEFAULT=[
+  {id:'cp',nom:'Cong\u00e9s pay\u00e9s',couleur:'#5B21B6'},
+  {id:'rtt',nom:'RTT',couleur:'#1E40AF'},
+  {id:'maladie',nom:'Arr\u00eat maladie',couleur:'#991B1B'},
+  {id:'injustifie',nom:'Absence injustifi\u00e9e',couleur:'#1F2937'},
+  {id:'ferie',nom:'F\u00e9ri\u00e9',couleur:'#92400E'},
+  {id:'autre',nom:'Autre',couleur:'#6B7280'}
+];
+var motifs=JSON.parse(localStorage.getItem('rg_motifs')||'null')||MOTIFS_DEFAULT;
+var curMotifId=null;
+function saveMotifsLocal(){localStorage.setItem('rg_motifs',JSON.stringify(motifs));}
+function getMotifNom(id){var m=motifs.find(function(x){return x.id===id;});return m?m.nom:id;}
+function getMotifCouleur(id){var m=motifs.find(function(x){return x.id===id;});return m?m.couleur:'#6B7280';}
+
+function loadMotifs(){
+  var div=document.getElementById('pm-motifs');if(!div)return;
+  var h='';
+  motifs.forEach(function(m){
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)">';
+    h+='<span style="width:14px;height:14px;border-radius:50%;background:'+m.couleur+';flex-shrink:0"></span>';
+    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+m.nom+'</div></div>';
+    h+='<button class="btn bs sm" onclick="openEditMotif(\''+m.id+'\')">&#9998;</button>';
+    h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="delMotif(\''+m.id+'\')">&#10005;</button>';
+    h+='</div>';
+  });
+  div.innerHTML=h||'<div style="color:#aaa;text-align:center;padding:16px">Aucun motif</div>';
+  updateMotifSelects();
+}
+
+function openAddMotif(){
+  curMotifId=null;
+  document.getElementById('motif-nom').value='';
+  document.getElementById('motif-couleur').value='#6B7280';
+  document.getElementById('modal-motif-title').textContent='Nouveau motif';
+  document.getElementById('modal-motif').classList.add('op');
+}
+
+function openEditMotif(id){
+  var m=motifs.find(function(x){return x.id===id;});if(!m)return;
+  curMotifId=id;
+  document.getElementById('motif-nom').value=m.nom;
+  document.getElementById('motif-couleur').value=m.couleur;
+  document.getElementById('modal-motif-title').textContent='Modifier le motif';
+  document.getElementById('modal-motif').classList.add('op');
+}
+
+function saveMotif(){
+  var nom=document.getElementById('motif-nom').value.trim();
+  var couleur=document.getElementById('motif-couleur').value;
+  if(!nom){alert('Saisissez un nom de motif');return;}
+  if(curMotifId){
+    var m=motifs.find(function(x){return x.id===curMotifId;});
+    if(m){m.nom=nom;m.couleur=couleur;}
+  }else{
+    var newId='m'+Date.now();
+    motifs.push({id:newId,nom:nom,couleur:couleur});
+  }
+  saveMotifsLocal();closeM('modal-motif');loadMotifs();
+}
+
+function delMotif(id){
+  if(!confirm('Supprimer ce motif ?'))return;
+  motifs=motifs.filter(function(x){return x.id!==id;});
+  saveMotifsLocal();loadMotifs();
+}
+
+function updateMotifSelects(){
+  var sel=document.getElementById('abt');
+  if(sel){
+    var cur=sel.value;
+    sel.innerHTML='';
+    motifs.forEach(function(m){
+      var o=document.createElement('option');o.value=m.id;o.textContent=m.nom;sel.appendChild(o);
+    });
+    if(cur)sel.value=cur;
+  }
+}
+
+
 
 function savePostesLocal(){localStorage.setItem('rg_postes',JSON.stringify(postes));}
 
@@ -2190,7 +2279,7 @@ async function loadAb(){
   var r=await db.from('absences').select('*').order('date_debut',{ascending:false}).limit(100);
   absAllData=r.data||[];
   var data=(r.data||[]).filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
-  var labels={cp:'CP',rtt:'RTT',maladie:'Maladie',injustifie:'Injustifiée',ferie:'Férié',autre:'Autre'};
+  var labels={};motifs.forEach(function(m){labels[m.id]=m.nom;});
   var tb=document.getElementById('abb');
   if(!data.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr>';return;}
   var h='';
@@ -2207,6 +2296,7 @@ async function loadAb(){
 }
 
 function openAb(){
+  updateMotifSelects();
   document.getElementById('ab-edit-id').value='';
   document.getElementById('mab-title').textContent='Saisir une absence';
   document.getElementById('ab-del-btn').style.display='none';
@@ -2219,6 +2309,7 @@ function openAb(){
 function openEditAb(id){
   var a=absAllData.find(function(x){return x.id===id;});
   if(!a)return;
+  updateMotifSelects();
   document.getElementById('ab-edit-id').value=id;
   document.getElementById('mab-title').textContent='Modifier l\u0027absence';
   document.getElementById('ab-del-btn').style.display='inline-block';
@@ -2471,6 +2562,7 @@ console.log('Restoglobal version: v2026.06.18-PDF-FIX');
 async function init(){
   await loadEmps();
   await loadPt();
+  loadMotifs();
 }
 init();
 </script>
@@ -2548,6 +2640,19 @@ init();
       <button class="btn bs" onclick="closeM('modal-drh')">Annuler</button>
       <button class="btn bg2" onclick="drhExportExcel()">&#128202; Excel</button>
       <button class="btn bp" onclick="drhExportPDF()">&#128196; PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal motif d'absence -->
+<div class="mb" id="modal-motif">
+  <div class="md">
+    <div class="mdt" id="modal-motif-title">Nouveau motif</div>
+    <div class="fr"><label class="fl2">Nom du motif</label><input type="text" class="fi" id="motif-nom" placeholder="Ex: Cong&#233; paternit&#233;"></div>
+    <div class="fr"><label class="fl2">Couleur</label><input type="color" class="fi" id="motif-couleur" value="#6B7280" style="height:42px;padding:4px"></div>
+    <div class="ma">
+      <button class="btn bs" onclick="closeM('modal-motif')">Annuler</button>
+      <button class="btn bp" onclick="saveMotif()">Enregistrer</button>
     </div>
   </div>
 </div>
