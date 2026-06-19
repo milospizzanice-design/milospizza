@@ -251,7 +251,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="abs-arch-info" style="display:none;font-size:11px;color:var(--bx);margin-bottom:8px;text-align:center"></div>
       <div class="card" style="padding:0;overflow:hidden">
       <table class="tbl">
-        <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th><th>Modifier</th></tr></thead>
+        <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th></tr></thead>
         <tbody id="abb"><tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr></tbody>
       </table>
       </div>
@@ -290,6 +290,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bp sm" onclick="openAddMotif()">+ Ajouter</button>
       </div>
       <div id="pm-motifs"></div>
+    </div>
+    <div class="card">
+      <div class="sec-title">&#9888; Alerte d&#233;passement</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Un pop-up appara&#238;t &#224; la connexion si un salari&#233; d&#233;passe ses heures de contrat de plus que ce seuil (par semaine).</div>
+      <div class="fr"><label class="fl2">Seuil (heures)</label><input type="number" class="fi" id="pm-seuil" step="0.5" min="0" value="2" onchange="saveSeuilParam()"></div>
     </div>
     <div class="card">
       <div class="sec-title">&#128101; Secteurs</div>
@@ -348,6 +353,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr"><label class="fl2">Pr&#233;nom</label><input type="text" class="fi" id="sap"></div>
     <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="san"></div>
     <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="sar"><option value="port">Port</option><option value="dabray">Dabray</option></select></div>
+    <div class="fr"><label class="fl2">Heures contrat / semaine</label><input type="number" class="fi" id="saheures" step="0.5" min="0" placeholder="Ex: 16.5"></div>
     <div class="fr">
       <label class="fl2">Postes ma&#238;tris&#233;s</label>
       <div id="sal-postes-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
@@ -505,7 +511,7 @@ function goTab(name,el){
   if(name==='ab')abSubTab('dem');
   if(name==='sa')renderSal();
   if(name==='au')loadAudit();
-  if(name==='pm'){loadPostes();loadMotifs();}
+  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();}
 }
 
 function getDR(p){
@@ -660,6 +666,7 @@ async function saveCor(){
   await loadPt();
   loadMotifs();
   updateDemBadge();
+  checkDepassements();
 }
 
 function expCSV(){
@@ -1177,6 +1184,19 @@ var POSTES_DEFAULT=[
 ];
 var postes=JSON.parse(localStorage.getItem('rg_postes')||'null')||POSTES_DEFAULT;
 var curPosteId=null;
+
+
+// ── SEUIL DÉPASSEMENT HEURES ────────────────────────────────────────────────
+var seuilDepassement=parseFloat(localStorage.getItem('rg_seuil_depassement')||'2');
+function saveSeuilLocal(){localStorage.setItem('rg_seuil_depassement',String(seuilDepassement));}
+function loadSeuilParam(){
+  var inp=document.getElementById('pm-seuil');
+  if(inp)inp.value=seuilDepassement;
+}
+function saveSeuilParam(){
+  var inp=document.getElementById('pm-seuil');
+  if(inp){seuilDepassement=parseFloat(inp.value)||2;saveSeuilLocal();}
+}
 
 // ── MOTIFS D'ABSENCE PERSONNALISABLES ───────────────────────────────────────
 var MOTIFS_DEFAULT=[
@@ -1959,7 +1979,7 @@ function exportIndivPDF(){
 }
 
 
-function openAddSal(){curSal=null;document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
+function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
 
 // ── POSTES PAR SALARIÉ ──────────────────────────────────────────────────────
 function getSalPostes(salId){
@@ -2187,6 +2207,7 @@ function openEditSal(id){
   document.getElementById('sap').value=em.prenom;
   document.getElementById('san').value=em.nom;
   document.getElementById('sar').value=em.restaurant_id;
+  document.getElementById('saheures').value=em.heures_contrat||'';
   document.getElementById('sapin').value='';
   renderSalPostesList(id);
   renderPlanningType(id);
@@ -2202,14 +2223,16 @@ async function saveSal(){
   var pin=document.getElementById('sapin').value.trim();
   if(!p||!n){alert('Prénom et nom requis');return;}
   if(curSal){
-    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal)};
+    var hc=parseFloat(document.getElementById('saheures').value)||null;
+    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc};
     if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
     await db.from('employees').update(upd).eq('id',curSal);
   }else{
     if(pin.length!==4){alert('PIN 4 chiffres requis');return;}
     var hr2=await db.rpc('hash_pin',{p_pin:pin});
     var newSec=deduceSecteur('new');
-    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec}).select();
+    var hc2=parseFloat(document.getElementById('saheures').value)||null;
+    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
@@ -2352,14 +2375,50 @@ async function loadAb(){
   var h='';
   data.forEach(function(a){
     var em=emp(a.employee_id);
-    h+='<tr><td><strong>'+em.prenom+' '+em.nom+'</strong></td>';
-    h+='<td><span class="bg '+a.type+'">'+(labels[a.type]||a.type)+'</span></td>';
-    h+='<td>'+a.date_debut+'</td><td>'+a.date_fin+'</td>';
-    h+='<td>'+(a.note||'—')+'</td>';
-    h+='<td>'+(a.justif_b64?'<button class="btn bs sm" data-aid="'+a.id+'" onclick="showAbsJustif(this)">Voir</button>':'—')+'</td>';
-    h+='<td><button class="btn bs sm" onclick="openEditAb('+a.id+')">Modifier</button></td></tr>';
+    var col=getMotifCouleur(a.type);
+    h+='<tr style="cursor:pointer">';
+    h+='<td onclick="event.stopPropagation();openAbsEmpFiche('+a.employee_id+')" style="cursor:pointer"><strong style="color:var(--bx);text-decoration:underline">'+em.prenom+' '+em.nom+'</strong></td>';
+    h+='<td onclick="openEditAb('+a.id+')"><span style="background:'+col+'22;color:'+col+';padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">'+(labels[a.type]||a.type)+'</span></td>';
+    h+='<td onclick="openEditAb('+a.id+')">'+a.date_debut+'</td><td onclick="openEditAb('+a.id+')">'+a.date_fin+'</td>';
+    h+='<td onclick="openEditAb('+a.id+')">'+(a.note||'\u2014')+'</td>';
+    h+='<td>'+(a.justif_b64?'<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>':'\u2014')+'</td>';
+    h+='</tr>';
   });
   tb.innerHTML=h;
+}
+
+// Fiche récap absences d'un salarié
+function openAbsEmpFiche(empId){
+  var em=emp(empId);if(!em)return;
+  document.getElementById('absfiche-name').textContent=em.prenom+' '+em.nom;
+  document.getElementById('absfiche-sub').textContent=(em.restaurant_id==='port'?'Port':'Dabray')+' \u2022 '+(em.secteur||'salle');
+  document.getElementById('absfiche-edit').setAttribute('data-id',empId);
+  var body=document.getElementById('absfiche-body');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  document.getElementById('modal-absfiche').classList.add('op');
+  db.from('absences').select('*').eq('employee_id',empId).order('date_debut',{ascending:false}).then(function(r){
+    var abs=r.data||[];
+    if(!abs.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Aucune absence</div>';return;}
+    var h='';
+    abs.forEach(function(a){
+      var col=getMotifCouleur(a.type);
+      h+='<div class="card" style="margin-bottom:6px;cursor:pointer" onclick="closeM(\'modal-absfiche\');openEditAb('+a.id+')">';
+      h+='<div style="display:flex;align-items:center;gap:8px">';
+      h+='<span style="width:10px;height:10px;border-radius:50%;background:'+col+';flex-shrink:0"></span>';
+      h+='<div style="flex:1"><div style="font-weight:600;font-size:12px">'+getMotifNom(a.type)+'</div>';
+      h+='<div style="font-size:11px;color:var(--txm)">Du '+a.date_debut+' au '+a.date_fin+(a.note?' \u2022 '+a.note:'')+'</div></div>';
+      if(a.justif_b64)h+='<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>';
+      h+='</div></div>';
+    });
+    body.innerHTML=h;
+  });
+}
+
+function absFicheEdit(){
+  var id=parseInt(document.getElementById('absfiche-edit').getAttribute('data-id'));
+  closeM('modal-absfiche');
+  goTabByName('sa');
+  openEditSal(id);
 }
 
 function openAb(){
@@ -2613,6 +2672,42 @@ function traitDemBtn(btn,statut){traitDem(parseInt(btn.dataset.id),btn.dataset.s
 
 function showJustifFull(src){var w=window.open('','_blank');if(w)w.document.write('<img src="'+src+'" style="max-width:100%;height:auto">');}
 
+
+// ── ALERTE DÉPASSEMENT HEURES ───────────────────────────────────────────────
+async function checkDepassements(){
+  // Calcule pour chaque salarié les heures travaillées cette semaine vs contrat
+  var now=new Date();
+  var monday=monOf(now);
+  var sunday=new Date(monday);sunday.setDate(monday.getDate()+6);sunday.setHours(23,59,59);
+  var r=await db.from('time_entries').select('*').gte('timestamp',monday.toISOString()).lte('timestamp',sunday.toISOString());
+  var entries=r.data||[];
+  var alerts=[];
+  emps.forEach(function(em){
+    if(!em.heures_contrat||em.archive)return;
+    var ep=entries.filter(function(p){return p.employee_id===em.id;});
+    var workedMins=calcW(ep);
+    var contractMins=em.heures_contrat*60;
+    var seuilMins=seuilDepassement*60;
+    if(workedMins>contractMins+seuilMins){
+      var depassMins=workedMins-contractMins;
+      alerts.push({em:em,worked:workedMins,contract:contractMins,depass:depassMins});
+    }
+  });
+  if(alerts.length){
+    var h='<div style="font-size:13px;font-weight:600;color:#991B1B;margin-bottom:10px">\u26A0 Salari\u00e9s en d\u00e9passement cette semaine</div>';
+    alerts.forEach(function(a){
+      var dH=Math.floor(a.depass/60);var dM=a.depass%60;
+      h+='<div style="padding:8px;background:#FEE2E2;border-radius:8px;margin-bottom:6px">';
+      h+='<div style="font-weight:600;font-size:13px">'+a.em.prenom+' '+a.em.nom+'</div>';
+      h+='<div style="font-size:11px;color:#991B1B">Contrat: '+a.em.heures_contrat+'h - Travaill\u00e9: '+fmtHM(a.worked)+' (+' +dH+'h'+String(dM).padStart(2,'0')+')</div>';
+      h+='</div>';
+    });
+    document.getElementById('depass-body').innerHTML=h;
+    document.getElementById('modal-depass').classList.add('op');
+  }
+}
+
+
 async function checkDemandesEnAttente(){
   var r=await db.from('demandes_absence').select('*').eq('statut','att').order('created_at',{ascending:false});
   var data=r.data||[];if(!data.length)return;
@@ -2632,6 +2727,7 @@ async function init(){
   await loadPt();
   loadMotifs();
   updateDemBadge();
+  checkDepassements();
 }
 init();
 </script>
@@ -2723,6 +2819,30 @@ init();
       <button class="btn bs" onclick="closeM('modal-motif')">Annuler</button>
       <button class="btn bp" onclick="saveMotif()">Enregistrer</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal alerte dépassement -->
+<div class="mb" id="modal-depass">
+  <div class="md">
+    <div class="mdt">&#9888; Alerte heures</div>
+    <div id="depass-body"></div>
+    <div class="ma"><button class="btn bp" onclick="closeM('modal-depass')">Compris</button></div>
+  </div>
+</div>
+
+<!-- Modal fiche absences salarié -->
+<div class="mb" id="modal-absfiche">
+  <div class="md" style="max-width:460px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="flex:1">
+        <div class="mdt" id="absfiche-name" style="margin:0;text-align:left"></div>
+        <div style="font-size:11px;color:var(--txm)" id="absfiche-sub"></div>
+      </div>
+      <button class="btn bs sm" id="absfiche-edit" data-id="" onclick="absFicheEdit()" title="Modifier le salari&#233;">&#9998;</button>
+    </div>
+    <div id="absfiche-body" style="max-height:55vh;overflow-y:auto;margin-top:10px"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-absfiche')">Fermer</button></div>
   </div>
 </div>
 </body>
