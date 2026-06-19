@@ -699,7 +699,7 @@ async function loadPr(){
     var rl=em.restaurant_id==='port'?'Port':'Dabray';
     h+='<div class="card" style="margin-bottom:9px"><div style="display:flex;align-items:center;gap:10px">';
     h+='<div style="width:38px;height:38px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
-    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+em.prenom+' '+em.nom+'</div>';
+    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</div>';
     h+='<div style="font-size:11px;margin-top:2px"><span class="bg '+em.restaurant_id+'">'+rl+'</span></div></div>';
     h+='<div style="text-align:right">'+sb;
     if(li)h+='<div style="font-size:11px;color:var(--txm);margin-top:3px">↗ '+fmt(li.timestamp)+(lo?' &nbsp;↙ '+fmt(lo.timestamp):'')+'</div>';
@@ -2523,7 +2523,7 @@ async function loadRc(){
     var rl=em.restaurant_id==='port'?'Port':'Dabray';
     var ats=[];ea.forEach(function(a){if(ats.indexOf(a.type)<0)ats.push(a.type);});
     h+='<div class="card"><div style="display:flex;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
-    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+em.prenom+' '+em.nom+'</div>';
+    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</div>';
     h+='<div style="margin-top:2px"><span class="bg '+em.restaurant_id+'">'+rl+'</span></div>';
     h+='<div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">';
     h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Prévu</div><div style="font-size:18px;font-weight:700;color:var(--txm)">'+toHM(pl)+'</div></div>';
@@ -2634,27 +2634,78 @@ async function loadAb(){
 }
 
 // Fiche récap absences d'un salarié
+var ficheCurEmp=null;
 function openAbsEmpFiche(empId){
   var em=emp(empId);if(!em)return;
+  ficheCurEmp=empId;
   document.getElementById('absfiche-name').textContent=em.prenom+' '+em.nom;
-  document.getElementById('absfiche-sub').textContent=(em.restaurant_id==='port'?'Port':'Dabray')+' \u2022 '+(em.secteur||'salle');
+  document.getElementById('absfiche-sub').textContent=(em.restaurant_id==='port'?'Port':'Dabray')+' \u2022 '+(em.secteur||'salle')+(em.heures_contrat?' \u2022 '+em.heures_contrat+'h/sem':'');
   document.getElementById('absfiche-edit').setAttribute('data-id',empId);
-  var body=document.getElementById('absfiche-body');
-  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  ficheTab('abs');
   document.getElementById('modal-absfiche').classList.add('op');
-  db.from('absences').select('*').eq('employee_id',empId).order('date_debut',{ascending:false}).then(function(r){
+}
+
+function ficheTab(which){
+  ['abs','plan','pt'].forEach(function(t){
+    var pane=document.getElementById('fiche-pane-'+t);
+    var tab=document.getElementById('fiche-tab-'+t);
+    if(t===which){
+      pane.style.display='block';
+      tab.style.borderBottom='2px solid var(--bx)';tab.style.color='var(--bx)';
+    }else{
+      pane.style.display='none';
+      tab.style.borderBottom='none';tab.style.color='var(--txm)';
+    }
+  });
+  if(which==='abs')ficheLoadAbs();
+  else if(which==='plan')ficheLoadPlan();
+  else if(which==='pt')ficheLoadPt();
+}
+
+function ficheLoadAbs(){
+  var body=document.getElementById('fiche-pane-abs');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  db.from('absences').select('*').eq('employee_id',ficheCurEmp).order('date_debut',{ascending:false}).then(function(r){
     var abs=r.data||[];
     if(!abs.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Aucune absence</div>';return;}
     var h='';
     abs.forEach(function(a){
       var col=getMotifCouleur(a.type);
-      h+='<div class="card" style="margin-bottom:6px;cursor:pointer" onclick="closeM(\'modal-absfiche\');openEditAb('+a.id+')">';
+      h+='<div class="card" style="margin-bottom:6px">';
       h+='<div style="display:flex;align-items:center;gap:8px">';
       h+='<span style="width:10px;height:10px;border-radius:50%;background:'+col+';flex-shrink:0"></span>';
-      h+='<div style="flex:1"><div style="font-weight:600;font-size:12px">'+getMotifNom(a.type)+'</div>';
+      h+='<div style="flex:1" onclick="closeM(\'modal-absfiche\');openEditAb('+a.id+')"><div style="font-weight:600;font-size:12px">'+getMotifNom(a.type)+'</div>';
       h+='<div style="font-size:11px;color:var(--txm)">Du '+a.date_debut+' au '+a.date_fin+(a.note?' \u2022 '+a.note:'')+'</div></div>';
       if(a.justif_b64)h+='<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>';
+      else h+='<button class="btn bs sm" onclick="closeM(\'modal-absfiche\');openEditAb('+a.id+')">+ Justif</button>';
       h+='</div></div>';
+    });
+    body.innerHTML=h;
+  });
+}
+
+function ficheLoadPlan(){
+  var body=document.getElementById('fiche-pane-plan');
+  body.innerHTML='<div style="padding:8px"><button class="btn bp" style="width:100%;margin-bottom:8px" onclick="closeM(\'modal-absfiche\');goTabByName(\'pl\')">Ouvrir le planning g\u00e9n\u00e9ral</button><div style="font-size:11px;color:var(--txm);text-align:center">Le planning individuel et la duplication sont accessibles depuis l\'onglet Planning.</div></div>';
+}
+
+function ficheLoadPt(){
+  var body=document.getElementById('fiche-pane-pt');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  db.from('time_entries').select('*').eq('employee_id',ficheCurEmp).order('timestamp',{ascending:false}).limit(60).then(function(r){
+    var pts=r.data||[];
+    if(!pts.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Aucun pointage</div>';return;}
+    var byMonth={};
+    pts.forEach(function(p){var mo=p.timestamp.slice(0,7);if(!byMonth[mo])byMonth[mo]=[];byMonth[mo].push(p);});
+    var h='';
+    Object.keys(byMonth).sort().reverse().forEach(function(mo){
+      var mp=mo.split('-');var mLabel=PLAN_MONTHS[parseInt(mp[1])-1]+' '+mp[0];
+      h+='<div style="font-size:11px;font-weight:700;color:var(--bx);margin:8px 0 4px">'+mLabel+'</div>';
+      byMonth[mo].forEach(function(p){
+        var icon=p.type==='entree'?'\u2197':'\u2199';
+        var col=p.type==='entree'?'#065F46':'#991B1B';
+        h+='<div style="font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0"><span style="color:'+col+';font-weight:600">'+icon+'</span> '+fmtF(p.timestamp)+'</div>';
+      });
     });
     body.innerHTML=h;
   });
@@ -2806,7 +2857,7 @@ function renderArchivesList(query){
     h+='<div class="card" style="margin-bottom:7px;cursor:pointer" onclick="openArchiveDetail('+em.id+')">';
     h+='<div style="display:flex;align-items:center;gap:10px">';
     h+='<div style="width:34px;height:34px;border-radius:50%;background:#999;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
-    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+em.prenom+' '+em.nom+'</div>';
+    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</div>';
     h+='<div style="font-size:11px;color:var(--txm)">'+(em.restaurant_id==='port'?'Port':'Dabray')+' - Fin: '+(em.date_fin||'?')+'</div></div>';
     h+='<span style="font-size:18px;color:#ccc">&#8250;</span></div></div>';
   });
@@ -3079,15 +3130,22 @@ init();
 
 <!-- Modal fiche absences salarié -->
 <div class="mb" id="modal-absfiche">
-  <div class="md" style="max-width:460px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+  <div class="md" style="max-width:480px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <div style="flex:1">
         <div class="mdt" id="absfiche-name" style="margin:0;text-align:left"></div>
         <div style="font-size:11px;color:var(--txm)" id="absfiche-sub"></div>
       </div>
-      <button class="btn bs sm" id="absfiche-edit" data-id="" onclick="absFicheEdit()" title="Modifier le salari&#233;">&#9998;</button>
+      <button class="btn bs sm" id="absfiche-edit" data-id="" onclick="absFicheEdit()" title="Param&#233;trer le salari&#233;">&#9998;</button>
     </div>
-    <div id="absfiche-body" style="max-height:55vh;overflow-y:auto;margin-top:10px"></div>
+    <div style="display:flex;gap:4px;border-bottom:2px solid var(--bd);margin-bottom:10px">
+      <div class="fiche-tab on" id="fiche-tab-abs" onclick="ficheTab('abs')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Absences</div>
+      <div class="fiche-tab" id="fiche-tab-plan" onclick="ficheTab('plan')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Planning</div>
+      <div class="fiche-tab" id="fiche-tab-pt" onclick="ficheTab('pt')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Pointages</div>
+    </div>
+    <div id="fiche-pane-abs" style="max-height:50vh;overflow-y:auto"></div>
+    <div id="fiche-pane-plan" style="max-height:50vh;overflow-y:auto;display:none"></div>
+    <div id="fiche-pane-pt" style="max-height:50vh;overflow-y:auto;display:none"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-absfiche')">Fermer</button></div>
   </div>
 </div>
