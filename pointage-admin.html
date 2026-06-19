@@ -1114,48 +1114,71 @@ function openPlanDupli(){
 }
 function planChkAll(v){document.querySelectorAll('#plan-dupli-list input').forEach(function(cb){cb.checked=v;});}
 
+
+// Calcule les semaines (lundis) dont le lundi est dans la plage [from, to]
+function drhComputeTargetWeeks(fromVal,toVal){
+  // Prend la semaine contenant 'from' jusqu'à la semaine contenant 'to'
+  var weeks=[];
+  var monFrom=planMonOf(new Date(fromVal+'T12:00:00'));
+  var monTo=planMonOf(new Date(toVal+'T12:00:00'));
+  var cur=monFrom;
+  while(planDs(cur)<=planDs(monTo)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
+  return weeks;
+}
+
+
 function confirmPlanDupli(){
   planDupliIds=[];
   document.querySelectorAll('#plan-dupli-list input').forEach(function(cb){if(cb.checked)planDupliIds.push(parseInt(cb.id.replace('pdup-','')));});
   if(!planDupliIds.length){alert('S\u00e9lectionnez au moins un salari\u00e9');return;}
-  var next=planAddD(planWkStart,7);
-  document.getElementById('plan-confirm-msg').textContent='Le planning de '+planDupliIds.length+' salari\u00e9(s) sera copi\u00e9 sur la semaine du '+next.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+'. Les cr\u00e9neaux existants seront \u00e9cras\u00e9s.';
+  var fromVal=document.getElementById('dupli-date-from').value;
+  var toVal=document.getElementById('dupli-date-to').value;
+  if(!fromVal||!toVal){alert('Indiquez la p\u00e9riode cible (Du / Au)');return;}
+  if(toVal<fromVal){alert('La date de fin doit \u00eatre apr\u00e8s le d\u00e9but');return;}
+  var df=new Date(fromVal+'T12:00:00');var dt=new Date(toVal+'T12:00:00');
+  var nbJours=Math.round((dt-df)/86400000)+1;
+  document.getElementById('plan-confirm-msg').textContent='Le planning de '+planDupliIds.length+' salari\u00e9(s) sera copi\u00e9 jour par jour du '+df.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dt.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' ('+nbJours+' jour'+(nbJours>1?'s':'')+'). Chaque jour reprend l\'horaire du m\u00eame jour de la semaine source. Les cr\u00e9neaux existants sur ces jours seront \u00e9cras\u00e9s.';
   closeM('modal-plan-dupli');document.getElementById('modal-plan-confirm').classList.add('op');
 }
 
 async function doPlanDupli(){
   closeM('modal-plan-confirm');
-  var srcDates=planGetWeekDates();
+  var srcDates=planGetWeekDates(); // 7 jours de la semaine source (lundi->dimanche)
   var fromVal=document.getElementById('dupli-date-from').value;
   var toVal=document.getElementById('dupli-date-to').value;
-  if(!fromVal||!toVal){alert('Indiquez la période cible');return;}
-  var targetWeeks=[];
-  var tCur=planMonOf(new Date(fromVal+'T12:00:00'));
-  var tEnd=new Date(toVal+'T12:00:00');
-  while(planDs(tCur)<=planDs(tEnd)){targetWeeks.push(new Date(tCur));tCur=planAddD(tCur,7);}
-  var err=0;
-  for(var wi=0;wi<targetWeeks.length;wi++){
-    var twk=targetWeeks[wi];
-    if(planDs(twk)===planDs(planWkStart))continue;
-    for(var si=0;si<planDupliIds.length;si++){
-      var eid=planDupliIds[si];
-      for(var di=0;di<7;di++){
-        var srcDate=planDs(srcDates[di]);
-        var dstDate=planDs(planAddD(twk,di));
+  if(!fromVal||!toVal){alert('Indiquez la p\u00e9riode cible');return;}
+  if(toVal<fromVal){alert('La date de fin doit \u00eatre apr\u00e8s le d\u00e9but');return;}
+  // Construire un index du planning source par jour de semaine (0=lundi..6=dimanche)
+  // srcDates[i] correspond au jour de semaine i (0=lundi)
+  var err=0;var copied=0;
+  for(var si=0;si<planDupliIds.length;si++){
+    var eid=planDupliIds[si];
+    // Parcourir chaque jour de la plage cible
+    var cur=new Date(fromVal+'T12:00:00');
+    var end=new Date(toVal+'T12:00:00');
+    while(planDs(cur)<=planDs(end)){
+      var dstDate=planDs(cur);
+      // Jour de la semaine du jour cible (0=lundi..6=dimanche)
+      var dow=(cur.getDay()===0?6:cur.getDay()-1);
+      var srcDate=planDs(srcDates[dow]);
+      // Ne pas copier un jour source sur lui-même
+      if(dstDate!==srcDate){
         var crs=(planData[eid]&&planData[eid][srcDate])||[];
+        // Écraser le jour cible
         var rd=await db.from('planning_creneaux').delete().eq('employee_id',eid).eq('date',dstDate);
         if(rd.error)err++;
         for(var ci=0;ci<crs.length;ci++){
           if(!crs[ci]._del){
             var ri=await db.from('planning_creneaux').insert({employee_id:eid,date:dstDate,heure_debut:crs[ci].start,heure_fin:crs[ci].end,restaurant_id:crs[ci].restaurant_id||planResto,postes:crs[ci].postes?JSON.stringify(crs[ci].postes):null});
-            if(ri.error)err++;
+            if(ri.error)err++;else copied++;
           }
         }
       }
+      cur=planAddD(cur,1);
     }
   }
   if(err>0)alert(err+' erreur(s) lors de la duplication.');
-  else alert('Planning dupliqué sur '+targetWeeks.length+' semaine(s) !');
+  else alert('Planning dupliqu\u00e9 ! ('+copied+' cr\u00e9neaux copi\u00e9s)');
   await loadPl();
 }
 
