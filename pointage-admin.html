@@ -161,7 +161,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="tab" onclick="goTab('pl',this)">Planning</div>
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
   <div class="tab" onclick="goTab('ab',this)">Absences</div>
-  <div class="tab" onclick="goTab('dem',this)">Demandes</div>
   <div class="tab" onclick="goTab('au',this)">Audit</div>
   <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
   <div class="tab" onclick="goTab('pm',this)">&#9881; Paramètres</div>
@@ -231,15 +230,31 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="rcb"></div>
   </div>
   <div id="ab" style="display:none">
-    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-      <select class="fs" id="abr" onchange="loadAb()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
-      <button class="btn bp sm" onclick="openAb()">+ Absence</button>
+    <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd)">
+      <div class="subtab on" id="subtab-dem" onclick="abSubTab('dem')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Demandes <span id="dem-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
+      <div class="subtab" id="subtab-abs" onclick="abSubTab('abs')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Absences</div>
     </div>
-    <div class="card" style="padding:0;overflow:hidden">
+    <!-- Sous-onglet Demandes -->
+    <div id="ab-pane-dem">
+      <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Demandes de cong&#233;s et absences envoy&#233;es par les salari&#233;s</div>
+      <div id="dem-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
+    </div>
+    <!-- Sous-onglet Absences -->
+    <div id="ab-pane-abs" style="display:none">
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <select class="fs" id="abr" onchange="loadAb()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
+        <div style="display:flex;gap:6px">
+          <button class="btn bs sm" onclick="toggleAbsArchive()" id="abs-arch-btn">&#128230; Archives</button>
+          <button class="btn bp sm" onclick="openAb()">+ Absence</button>
+        </div>
+      </div>
+      <div id="abs-arch-info" style="display:none;font-size:11px;color:var(--bx);margin-bottom:8px;text-align:center"></div>
+      <div class="card" style="padding:0;overflow:hidden">
       <table class="tbl">
         <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th><th>Modifier</th></tr></thead>
         <tbody id="abb"><tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr></tbody>
       </table>
+      </div>
     </div>
   </div>
   <div id="sa" style="display:none">
@@ -285,10 +300,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
     </div>
   </div>
-  <div id="dem" style="display:none">
-    <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Demandes de cong&#233;s et absences envoy&#233;es par les salari&#233;s</div>
-    <div id="dem-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
-  </div>
+  
   <div id="au" style="display:none">
     <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Journal des consultations de photos de pointage</div>
     <div class="card" style="padding:0;overflow:hidden">
@@ -490,11 +502,10 @@ function goTab(name,el){
   if(name==='pr')loadPr();
   if(name==='pl'){planUpdateLabel();loadPl();}
   if(name==='rc')loadRc();
-  if(name==='ab')loadAb();
+  if(name==='ab')abSubTab('dem');
   if(name==='sa')renderSal();
-  if(name==='dem')loadDem();
   if(name==='au')loadAudit();
-  if(name==='pm')loadPostes();
+  if(name==='pm'){loadPostes();loadMotifs();}
 }
 
 function getDR(p){
@@ -648,6 +659,7 @@ async function saveCor(){
   document.getElementById('ccn').value='';
   await loadPt();
   loadMotifs();
+  updateDemBadge();
 }
 
 function expCSV(){
@@ -2258,6 +2270,54 @@ async function loadRc(){
 
 var absAllData=[];
 
+
+async function updateDemBadge(){
+  var r=await db.from('demandes_absence').select('id').eq('statut','att');
+  var n=(r.data||[]).length;
+  var badge=document.getElementById('dem-badge');
+  if(badge){
+    if(n>0){badge.style.display='inline-block';badge.textContent=n;}
+    else badge.style.display='none';
+  }
+}
+
+// ── SOUS-ONGLETS ABSENCES/DEMANDES ──────────────────────────────────────────
+var absShowArchive=false;
+function abSubTab(which){
+  var paneDem=document.getElementById('ab-pane-dem');
+  var paneAbs=document.getElementById('ab-pane-abs');
+  var tabDem=document.getElementById('subtab-dem');
+  var tabAbs=document.getElementById('subtab-abs');
+  if(which==='dem'){
+    paneDem.style.display='block';paneAbs.style.display='none';
+    tabDem.style.borderBottom='2px solid var(--bx)';tabDem.style.color='var(--bx)';
+    tabAbs.style.borderBottom='none';tabAbs.style.color='var(--txm)';
+    if(typeof loadDem==='function')loadDem();
+  }else{
+    paneDem.style.display='none';paneAbs.style.display='block';
+    tabAbs.style.borderBottom='2px solid var(--bx)';tabAbs.style.color='var(--bx)';
+    tabDem.style.borderBottom='none';tabDem.style.color='var(--txm)';
+    if(typeof loadAb==='function')loadAb();
+  }
+}
+
+function toggleAbsArchive(){
+  absShowArchive=!absShowArchive;
+  var btn=document.getElementById('abs-arch-btn');
+  var info=document.getElementById('abs-arch-info');
+  if(absShowArchive){
+    btn.textContent='\u2190 Mois en cours';
+    info.style.display='block';
+    info.textContent='Affichage des absences archiv\u00e9es (mois pr\u00e9c\u00e9dents)';
+  }else{
+    btn.innerHTML='\u{1F4E6} Archives';
+    info.style.display='none';
+  }
+  loadAb();
+}
+
+
+
 function showAbsJustif(btn){
   var aid=parseInt(btn.dataset.aid);
   var a=absAllData.find(function(x){return x.id===aid;});
@@ -2276,8 +2336,15 @@ function showAbsJustif(btn){
 
 async function loadAb(){
   var resto=document.getElementById('abr').value;
-  var r=await db.from('absences').select('*').order('date_debut',{ascending:false}).limit(100);
-  absAllData=r.data||[];
+  var r=await db.from('absences').select('*').order('date_debut',{ascending:false}).limit(300);
+  var allAbs=r.data||[];
+  // Filtrer: mois en cours OU archives (mois précédents)
+  var now=new Date();
+  var firstOfMonth=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
+  absAllData=allAbs.filter(function(a){
+    var isCurrent=a.date_fin>=firstOfMonth;
+    return absShowArchive?!isCurrent:isCurrent;
+  });
   var data=(r.data||[]).filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
   var labels={};motifs.forEach(function(m){labels[m.id]=m.nom;});
   var tb=document.getElementById('abb');
@@ -2539,7 +2606,8 @@ async function loadAudit(){
   body.innerHTML=h;
 }
 
-async function traitDem(id,statut){await db.from('demandes_absence').update({statut:statut}).eq('id',id);await loadDem();}
+async function traitDem(id,statut){await db.from('demandes_absence').update({statut:statut}).eq('id',id);await loadDem();  updateDemBadge();
+}
 
 function traitDemBtn(btn,statut){traitDem(parseInt(btn.dataset.id),btn.dataset.st);}
 
@@ -2563,6 +2631,7 @@ async function init(){
   await loadEmps();
   await loadPt();
   loadMotifs();
+  updateDemBadge();
 }
 init();
 </script>
