@@ -224,7 +224,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
       <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
       <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option></select>
-      <button class="btn bs sm" onclick="expRc()">&#8595; Export</button>
       <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
     </div>
     <div id="rcb"></div>
@@ -1381,18 +1380,15 @@ async function drhGenerateData(){
   var to=document.getElementById('drh-to').value;
   var resto=document.getElementById('drh-resto').value;
   if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return null;}
-  var les=emps.filter(function(e){return (resto==='all'||e.restaurant_id===resto);});
+  var les=emps.filter(function(e){return (resto==='all'||e.restaurant_id===resto||e.multi_site);});
   var pd=await db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59');
   var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to);
-  var ABSL={cp:'Cong\u00e9 pay\u00e9',rtt:'RTT',maladie:'Arr\u00eat maladie',injustifie:'Absence injustifi\u00e9e',ferie:'F\u00e9ri\u00e9',autre:'Autre'};
   var result=[];
   les.forEach(function(em){
     var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
     var ea=(abd.data||[]).filter(function(a){return a.employee_id===em.id;});
-    // Grouper pointages par jour
     var byDay={};
     ep.forEach(function(p){var d=p.timestamp.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(p);});
-    // Construire la liste des jours de la période
     var days=[];
     var cur=new Date(from+'T12:00:00');var end=new Date(to+'T12:00:00');
     while(cur<=end){days.push(planDs(cur));cur=planAddD(cur,1);}
@@ -1400,24 +1396,23 @@ async function drhGenerateData(){
     days.forEach(function(dstr){
       var shifts=drhDayShifts(byDay[dstr]||[]);
       var totalMins=shifts.reduce(function(s,sh){return s+sh.mins;},0);
-      var repas=shifts.length; // 1 repas par shift/créneau
-      // Absence ce jour ?
+      var repas=shifts.length;
       var abs=ea.find(function(a){return dstr>=a.date_debut&&dstr<=a.date_fin;});
-      var absLabel=abs?(ABSL[abs.type]||abs.type):'';
+      var absLabel=abs?getMotifNom(abs.type):'';
       if(shifts.length||absLabel){
-        rows.push({
-          date:dstr,
-          shifts:shifts,
-          totalMins:totalMins,
-          repas:repas,
-          absence:absLabel,
-          coupure:shifts.length>1
-        });
+        rows.push({date:dstr,shifts:shifts,totalMins:totalMins,repas:repas,absence:absLabel,coupure:shifts.length>1});
       }
     });
     result.push({em:em,rows:rows});
   });
-  return {from:from,to:to,resto:resto,data:result};
+  // Grouper par restaurant. Les multisite vont dans un groupe "multisite" séparé.
+  var groups={port:[],dabray:[],multi:[]};
+  result.forEach(function(rd){
+    if(rd.em.multi_site)groups.multi.push(rd);
+    else if(rd.em.restaurant_id==='port')groups.port.push(rd);
+    else groups.dabray.push(rd);
+  });
+  return {from:from,to:to,resto:resto,data:result,groups:groups};
 }
 
 async function drhExportExcel(){
@@ -1426,7 +1421,8 @@ async function drhExportExcel(){
   if(!d)return;
   closeM('modal-drh');
   var wb=XLSX.utils.book_new();
-  d.data.forEach(function(emData){
+  function addGroupSheets(groupData,prefix){
+    groupData.forEach(function(emData){
     var em=emData.em;
     var aoa=[];
     aoa.push(['R\u00e9capitulatif paie - '+em.prenom+' '+em.nom]);
@@ -1471,9 +1467,13 @@ async function drhExportExcel(){
     aoa.push(['','','','','TOTAL MOIS',fmtHM(monthTotMins),monthRepas+' repas',monthCp+' j CP']);
     var ws=XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols']=[{wch:12},{wch:6},{wch:9},{wch:9},{wch:14},{wch:9},{wch:8},{wch:20}];
-    var sheetName=(em.prenom+' '+em.nom).slice(0,31).replace(/[\\\/\?\*\[\]:]/g,'');
+    var sheetName=(prefix+' '+em.prenom+' '+em.nom).slice(0,31).replace(/[\\\/\?\*\[\]:]/g,'');
     XLSX.utils.book_append_sheet(wb,ws,sheetName);
-  });
+    });
+  }
+  addGroupSheets(d.groups.port,'Port');
+  addGroupSheets(d.groups.dabray,'Dab');
+  addGroupSheets(d.groups.multi,'Multi');
   XLSX.writeFile(wb,'Recap_paie_'+d.from+'_'+d.to+'.xlsx');
 }
 
@@ -1488,8 +1488,24 @@ async function drhExportPDF(){
   var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   var PW=210;var PH=297;var MG=12;
   var JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-  d.data.forEach(function(emData,ei){
-    if(ei>0)doc.addPage();
+  var firstPage=true;
+
+  function coverPage(restoNom){
+    if(!firstPage)doc.addPage();
+    firstPage=false;
+    doc.setFillColor(185,30,38);doc.rect(0,0,PW,PH,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(30);doc.setFont('helvetica','bold');
+    doc.text('Milo\u0027s Pizza',PW/2,PH/2-30,{align:'center'});
+    doc.setFontSize(24);
+    doc.text(restoNom,PW/2,PH/2-12,{align:'center'});
+    doc.setFontSize(13);doc.setFont('helvetica','normal');
+    doc.text('R\u00e9capitulatif paie',PW/2,PH/2+4,{align:'center'});
+    var df=new Date(d.from+'T12:00:00');var dt=new Date(d.to+'T12:00:00');
+    doc.text('Du '+df.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+dt.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}),PW/2,PH/2+14,{align:'center'});
+  }
+
+  function renderSalarie(emData){
+    doc.addPage();
     var em=emData.em;
     // Header
     doc.setFillColor(185,30,38);doc.rect(0,0,PW,22,'F');
@@ -1553,7 +1569,23 @@ async function drhExportPDF(){
     doc.text(fmtHM(monthTotMins),MG+50,y+5.3);
     doc.text(monthRepas+' repas',MG+90,y+5.3);
     if(monthCp>0)doc.text(monthCp+' jours CP',MG+120,y+5.3);
-  });
+  }
+
+  // Port
+  if(d.groups.port.length){
+    coverPage('Port - Bavastro');
+    d.groups.port.forEach(function(emData){renderSalarie(emData);});
+  }
+  // Dabray
+  if(d.groups.dabray.length){
+    coverPage('Dabray');
+    d.groups.dabray.forEach(function(emData){renderSalarie(emData);});
+  }
+  // Multisite (Port + Dabray fusionnés)
+  if(d.groups.multi.length){
+    coverPage('Multi-sites (Port + Dabray)');
+    d.groups.multi.forEach(function(emData){renderSalarie(emData);});
+  }
   doc.save('Recap_paie_'+d.from+'_'+d.to+'.pdf');
 }
 
