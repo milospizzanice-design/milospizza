@@ -813,7 +813,7 @@ function renderPlan(){
   // ── TABLEAU GÉNÉRAL ──────────────────────────────────────────────────────
   var tbl=document.getElementById('plan-main-tbl');
   if(tbl){
-    var th='<thead><tr><th style="background:var(--bx);color:#fff;text-align:left">Salarié</th><th style="background:var(--bx);color:#fff">Secteur</th>';
+    var th='<thead><tr><th style="background:var(--bx);color:#fff;text-align:left">Salarié</th>';
     dates.forEach(function(d,i){
       th+='<th style="background:var(--bx);color:#fff">'+PLAN_DAYSFULL[i].slice(0,3)+'<br><span style="font-weight:400;font-size:8px">'+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</span></th>';
     });
