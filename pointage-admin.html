@@ -7,6 +7,7 @@
 <title>Admin RH</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bx:#B91E26;--bxdk:#8B1118;--cr:#F2E0C0;--tx:#2A0A0B;--txm:#7A4A35;--txf:#B08060;--bd:#E8D5B5}
@@ -225,6 +226,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
       <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option></select>
       <button class="btn bs sm" onclick="expRc()">&#8595; Export</button>
+      <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
     </div>
     <div id="rcb"></div>
   </div>
@@ -1226,6 +1228,215 @@ function getPosteNom(id){
 }
 
 // ── PDF GÉNÉRAL MENSUEL (couleurs tableau) ────────────────────────────────────
+
+// ── EXPORT DRH (bulletins de paie) ──────────────────────────────────────────
+function openDrhExport(){
+  var now=new Date();
+  document.getElementById('drh-from').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
+  document.getElementById('drh-to').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-'+planPad(new Date(now.getFullYear(),now.getMonth()+1,0).getDate());
+  document.getElementById('modal-drh').classList.add('op');
+}
+
+// Calcule les shifts (créneaux travaillés) d'une journée à partir des pointages
+// Retourne [{in, out, mins}] - chaque paire entrée/sortie = 1 shift = 1 repas
+function drhDayShifts(entries){
+  var ins=entries.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+  var outs=entries.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+  var shifts=[];
+  ins.forEach(function(inn,i){
+    if(outs[i]){
+      var mins=Math.round((new Date(outs[i].timestamp)-new Date(inn.timestamp))/60000);
+      shifts.push({in:inn.timestamp,out:outs[i].timestamp,mins:mins});
+    }
+  });
+  return shifts;
+}
+
+function fmtHM(mins){var h=Math.floor(mins/60);var m=mins%60;return h+'h'+String(m).padStart(2,'0');}
+function fmtHr(ts){var d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+
+async function drhGenerateData(){
+  var from=document.getElementById('drh-from').value;
+  var to=document.getElementById('drh-to').value;
+  var resto=document.getElementById('drh-resto').value;
+  if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return null;}
+  var les=emps.filter(function(e){return (resto==='all'||e.restaurant_id===resto);});
+  var pd=await db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59');
+  var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to);
+  var ABSL={cp:'Cong\u00e9 pay\u00e9',rtt:'RTT',maladie:'Arr\u00eat maladie',injustifie:'Absence injustifi\u00e9e',ferie:'F\u00e9ri\u00e9',autre:'Autre'};
+  var result=[];
+  les.forEach(function(em){
+    var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
+    var ea=(abd.data||[]).filter(function(a){return a.employee_id===em.id;});
+    // Grouper pointages par jour
+    var byDay={};
+    ep.forEach(function(p){var d=p.timestamp.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(p);});
+    // Construire la liste des jours de la période
+    var days=[];
+    var cur=new Date(from+'T12:00:00');var end=new Date(to+'T12:00:00');
+    while(cur<=end){days.push(planDs(cur));cur=planAddD(cur,1);}
+    var rows=[];
+    days.forEach(function(dstr){
+      var shifts=drhDayShifts(byDay[dstr]||[]);
+      var totalMins=shifts.reduce(function(s,sh){return s+sh.mins;},0);
+      var repas=shifts.length; // 1 repas par shift/créneau
+      // Absence ce jour ?
+      var abs=ea.find(function(a){return dstr>=a.date_debut&&dstr<=a.date_fin;});
+      var absLabel=abs?(ABSL[abs.type]||abs.type):'';
+      if(shifts.length||absLabel){
+        rows.push({
+          date:dstr,
+          shifts:shifts,
+          totalMins:totalMins,
+          repas:repas,
+          absence:absLabel,
+          coupure:shifts.length>1
+        });
+      }
+    });
+    result.push({em:em,rows:rows});
+  });
+  return {from:from,to:to,resto:resto,data:result};
+}
+
+async function drhExportExcel(){
+  if(!window.XLSX){alert('Module Excel en cours de chargement, r\u00e9essayez');return;}
+  var d=await drhGenerateData();
+  if(!d)return;
+  closeM('modal-drh');
+  var wb=XLSX.utils.book_new();
+  d.data.forEach(function(emData){
+    var em=emData.em;
+    var aoa=[];
+    aoa.push(['R\u00e9capitulatif paie - '+em.prenom+' '+em.nom]);
+    aoa.push(['P\u00e9riode: '+d.from+' au '+d.to+'  |  '+(em.restaurant_id==='port'?'Port':'Dabray')]);
+    aoa.push([]);
+    aoa.push(['Date','Jour','Entr\u00e9e','Sortie','Temps travail','Coupure','Repas','Absence']);
+    var weekTotMins=0,weekRepas=0,weekCp=0;
+    var monthTotMins=0,monthRepas=0,monthCp=0;
+    var curWeek=null;
+    var JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+    emData.rows.forEach(function(r){
+      var dt=new Date(r.date+'T12:00:00');
+      var wk=planDs(planMonOf(dt));
+      if(curWeek!==null&&wk!==curWeek){
+        aoa.push(['','','','','TOTAL SEMAINE',fmtHM(weekTotMins),weekRepas+' repas',weekCp+' j CP']);
+        aoa.push([]);
+        weekTotMins=0;weekRepas=0;weekCp=0;
+      }
+      curWeek=wk;
+      // Entrées/sorties (peut y avoir plusieurs shifts)
+      if(r.shifts.length){
+        r.shifts.forEach(function(sh,i){
+          aoa.push([
+            i===0?r.date:'',
+            i===0?JOURS[dt.getDay()]:'',
+            fmtHr(sh.in),fmtHr(sh.out),fmtHM(sh.mins),
+            i===0&&r.coupure?'Oui':'',
+            i===0?r.repas:'',
+            ''
+          ]);
+        });
+        weekTotMins+=r.totalMins;monthTotMins+=r.totalMins;
+        weekRepas+=r.repas;monthRepas+=r.repas;
+      }else if(r.absence){
+        aoa.push([r.date,JOURS[dt.getDay()],'','','','','',r.absence]);
+        if(r.absence.indexOf('Cong')>=0){weekCp++;monthCp++;}
+      }
+    });
+    // Dernier total semaine
+    aoa.push(['','','','','TOTAL SEMAINE',fmtHM(weekTotMins),weekRepas+' repas',weekCp+' j CP']);
+    aoa.push([]);
+    aoa.push(['','','','','TOTAL MOIS',fmtHM(monthTotMins),monthRepas+' repas',monthCp+' j CP']);
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:12},{wch:6},{wch:9},{wch:9},{wch:14},{wch:9},{wch:8},{wch:20}];
+    var sheetName=(em.prenom+' '+em.nom).slice(0,31).replace(/[\\\/\?\*\[\]:]/g,'');
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+  XLSX.writeFile(wb,'Recap_paie_'+d.from+'_'+d.to+'.xlsx');
+}
+
+
+
+async function drhExportPDF(){
+  if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
+  var jsPDF=window.jspdf.jsPDF;
+  var d=await drhGenerateData();
+  if(!d)return;
+  closeM('modal-drh');
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var PW=210;var PH=297;var MG=12;
+  var JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  d.data.forEach(function(emData,ei){
+    if(ei>0)doc.addPage();
+    var em=emData.em;
+    // Header
+    doc.setFillColor(185,30,38);doc.rect(0,0,PW,22,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(13);doc.setFont('helvetica','bold');
+    doc.text(em.prenom+' '+em.nom,PW/2,10,{align:'center'});
+    doc.setFontSize(8);doc.setFont('helvetica','normal');
+    doc.text('Du '+d.from+' au '+d.to+'  -  '+(em.restaurant_id==='port'?'Port (Bavastro)':'Dabray'),PW/2,16,{align:'center'});
+    var y=28;
+    // En-tête colonnes
+    var cols=[{l:'Date',w:22},{l:'Jour',w:12},{l:'Entr\u00e9e',w:16},{l:'Sortie',w:16},{l:'Travail',w:20},{l:'Coup.',w:13},{l:'Repas',w:14},{l:'Absence',w:39}];
+    function drawHeader(yy){
+      doc.setFillColor(185,30,38);doc.rect(MG,yy,PW-MG*2,7,'F');
+      doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
+      var x=MG;
+      cols.forEach(function(c){doc.text(c.l,x+1.5,yy+4.7);x+=c.w;});
+      return yy+7;
+    }
+    y=drawHeader(y);
+    var weekTotMins=0,weekRepas=0,weekCp=0,monthTotMins=0,monthRepas=0,monthCp=0;
+    var curWeek=null;
+    function weekRow(yy){
+      doc.setFillColor(242,224,192);doc.rect(MG,yy,PW-MG*2,6,'F');
+      doc.setTextColor(120,40,30);doc.setFontSize(7);doc.setFont('helvetica','bold');
+      doc.text('Total semaine',MG+1.5,yy+4);
+      doc.text(fmtHM(weekTotMins),MG+50,yy+4);
+      doc.text(weekRepas+' repas',MG+90,yy+4);
+      if(weekCp>0)doc.text(weekCp+' j CP',MG+120,yy+4);
+      return yy+6;
+    }
+    emData.rows.forEach(function(r){
+      var dt=new Date(r.date+'T12:00:00');
+      var wk=planDs(planMonOf(dt));
+      if(curWeek!==null&&wk!==curWeek){y=weekRow(y);y+=1.5;weekTotMins=0;weekRepas=0;weekCp=0;}
+      curWeek=wk;
+      if(y>PH-30){doc.addPage();y=MG;y=drawHeader(y);}
+      doc.setTextColor(40,40,40);doc.setFontSize(7);doc.setFont('helvetica','normal');
+      if(r.shifts.length){
+        r.shifts.forEach(function(sh,i){
+          var x=MG;
+          var vals=[i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in),fmtHr(sh.out),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?String(r.repas):'',''];
+          doc.setDrawColor(225,210,195);doc.line(MG,y,PW-MG,y);
+          vals.forEach(function(v,ci){doc.text(v,x+1.5,y+4);x+=cols[ci].w;});
+          y+=5.5;
+        });
+        weekTotMins+=r.totalMins;monthTotMins+=r.totalMins;weekRepas+=r.repas;monthRepas+=r.repas;
+      }else if(r.absence){
+        var x=MG;
+        var vals=[r.date,JOURS[dt.getDay()],'','','','','',r.absence];
+        doc.setFillColor(254,243,230);doc.rect(MG,y,PW-MG*2,5.5,'F');
+        doc.setTextColor(150,80,20);
+        vals.forEach(function(v,ci){doc.text(v,x+1.5,y+4);x+=cols[ci].w;});
+        y+=5.5;
+        if(r.absence.indexOf('Cong')>=0){weekCp++;monthCp++;}
+      }
+    });
+    y=weekRow(y);y+=2;
+    // Total mois
+    doc.setFillColor(185,30,38);doc.rect(MG,y,PW-MG*2,8,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+    doc.text('TOTAL MOIS',MG+1.5,y+5.3);
+    doc.text(fmtHM(monthTotMins),MG+50,y+5.3);
+    doc.text(monthRepas+' repas',MG+90,y+5.3);
+    if(monthCp>0)doc.text(monthCp+' jours CP',MG+120,y+5.3);
+  });
+  doc.save('Recap_paie_'+d.from+'_'+d.to+'.pdf');
+}
+
+
 async function exportMonthPDF(){
   if(!window.jspdf){alert('PDF en cours de chargement, r\u00e9essayez');return;}
   var from=document.getElementById('pdf-month-from').value;
@@ -1238,8 +1449,6 @@ async function exportMonthPDF(){
   var firstDay=new Date(parseInt(pf[0]),parseInt(pf[1])-1,1);
   var lastDay=new Date(parseInt(pt[0]),parseInt(pt[1]),0);
   var jsPDF=window.jspdf.jsPDF;
-  var parts=val.split('-');var year=parseInt(parts[0]);var month=parseInt(parts[1])-1;
-  var firstDay=new Date(year,month,1);var lastDay=new Date(year,month+1,0);
   var weeks=[];var cur=planMonOf(firstDay);
   while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
   var rl=planResto==='port'?'Port - Bavastro':'Dabray';
@@ -1964,22 +2173,15 @@ function showAbsJustif(btn){
   var aid=parseInt(btn.dataset.aid);
   var a=absAllData.find(function(x){return x.id===aid;});
   if(!a||!a.justif_b64){alert('Justificatif introuvable');return;}
+  var img=document.getElementById('justif-img');
+  var pdf=document.getElementById('justif-pdf');
   if(a.justif_b64.startsWith('data:image')){
-    var w=window.open('','_blank');
-    if(w)w.document.write('<img src="'+a.justif_b64+'" style="max-width:100%;height:auto">');
-    else{
-      // Fallback: afficher dans une modale
-      document.getElementById('justif-img').src=a.justif_b64;
-      document.getElementById('justif-pdf').style.display='none';
-      document.getElementById('justif-img').style.display='block';
-      document.getElementById('modal-justif').classList.add('op');
-    }
+    img.src=a.justif_b64;img.style.display='block';pdf.style.display='none';
   }else{
-    // PDF: lien de téléchargement
-    var link=document.createElement('a');
-    link.href=a.justif_b64;link.download='justificatif.pdf';
-    document.body.appendChild(link);link.click();document.body.removeChild(link);
+    img.style.display='none';pdf.style.display='block';
+    pdf.innerHTML='<div style="text-align:center;padding:20px"><div style="font-size:13px;margin-bottom:12px">Justificatif PDF</div><a href="'+a.justif_b64+'" download="justificatif.pdf" class="btn bp" style="text-decoration:none">T\u00e9l\u00e9charger le PDF</a></div>';
   }
+  document.getElementById('modal-justif').classList.add('op');
 }
 
 
@@ -2321,6 +2523,32 @@ init();
     <div style="font-size:11px;color:var(--txm);text-align:center;margin-bottom:8px" id="arch-detail-info"></div>
     <div id="arch-detail-body" style="max-height:55vh;overflow-y:auto"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-archive-detail')">Fermer</button></div>
+  </div>
+</div>
+
+<div class="mb" id="modal-justif">
+  <div class="md" style="max-width:500px;position:relative">
+    <button onclick="closeM('modal-justif')" style="position:absolute;top:8px;right:8px;background:#FEE2E2;color:#991B1B;border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;z-index:10">&#10005;</button>
+    <div class="mdt">Justificatif</div>
+    <img id="justif-img" style="max-width:100%;border-radius:8px;display:none">
+    <div id="justif-pdf" style="display:none"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-justif')">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Modal export DRH -->
+<div class="mb" id="modal-drh">
+  <div class="md">
+    <div class="mdt">&#128203; Export Paie (DRH)</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px">Génère un récap détaillé par salarié (jour par jour, entrées/sorties, coupures, repas, absences, totaux semaine et mois) pour les bulletins de paie.</div>
+    <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="drh-resto"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select></div>
+    <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="drh-from"></div>
+    <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="drh-to"></div>
+    <div class="ma" style="flex-wrap:wrap;gap:6px">
+      <button class="btn bs" onclick="closeM('modal-drh')">Annuler</button>
+      <button class="btn bg2" onclick="drhExportExcel()">&#128202; Excel</button>
+      <button class="btn bp" onclick="drhExportPDF()">&#128196; PDF</button>
+    </div>
   </div>
 </div>
 </body>
