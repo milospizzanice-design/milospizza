@@ -724,7 +724,7 @@ var ABS_STYLES={am:'background:#FEE2E2;color:#991B1B',ai:'background:#111;color:
 
 function planMonOf(d){var x=new Date(d);var day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(0,0,0,0);return x;}
 function planAddD(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x;}
-function planDs(d){return d.toISOString().slice(0,10);}
+function planDs(d){var x=new Date(d);return x.getFullYear()+'-'+planPad(x.getMonth()+1)+'-'+planPad(x.getDate());}
 function planPad(n){return String(n).padStart(2,'0');}
 function planGetWeekDates(){var r=[];for(var i=0;i<7;i++)r.push(planAddD(planWkStart,i));return r;}
 
