@@ -1489,9 +1489,12 @@ async function drhExportPDF(){
   var PW=210;var PH=297;var MG=12;
   var JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   var firstPage=true;
+  var firstDay=new Date(d.from+'T12:00:00');
+  var lastDay=new Date(d.to+'T12:00:00');
+  var monthLabel=firstDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+lastDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
 
   function coverPage(restoNom){
-    if(!firstPage)doc.addPage();
+    if(!firstPage)doc.addPage('a4','portrait');
     firstPage=false;
     doc.setFillColor(185,30,38);doc.rect(0,0,PW,PH,'F');
     doc.setTextColor(242,224,192);doc.setFontSize(30);doc.setFont('helvetica','bold');
@@ -1500,12 +1503,11 @@ async function drhExportPDF(){
     doc.text(restoNom,PW/2,PH/2-12,{align:'center'});
     doc.setFontSize(13);doc.setFont('helvetica','normal');
     doc.text('R\u00e9capitulatif paie',PW/2,PH/2+4,{align:'center'});
-    var df=new Date(d.from+'T12:00:00');var dt=new Date(d.to+'T12:00:00');
-    doc.text('Du '+df.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+dt.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}),PW/2,PH/2+14,{align:'center'});
+    doc.text('Du '+monthLabel,PW/2,PH/2+14,{align:'center'});
   }
 
   function renderSalarie(emData){
-    doc.addPage();
+    doc.addPage('a4','portrait');
     var em=emData.em;
     // Header
     doc.setFillColor(185,30,38);doc.rect(0,0,PW,22,'F');
@@ -1571,22 +1573,211 @@ async function drhExportPDF(){
     if(monthCp>0)doc.text(monthCp+' jours CP',MG+120,y+5.3);
   }
 
-  // Port
-  if(d.groups.port.length){
-    coverPage('Port - Bavastro');
-    d.groups.port.forEach(function(emData){renderSalarie(emData);});
+  // Justificatifs d'un salarié, regroupés (4 par page)
+  async function renderJustificatifs(em){
+    var r=await db.from('absences').select('*').eq('employee_id',em.id).gte('date_fin',d.from).lte('date_debut',d.to);
+    var withJustif=(r.data||[]).filter(function(a){return a.justif_b64;});
+    if(!withJustif.length)return;
+    var images=withJustif.filter(function(a){return a.justif_b64.startsWith('data:image');});
+    var pdfs=withJustif.filter(function(a){return !a.justif_b64.startsWith('data:image');});
+    if(images.length){
+      var perPage=4;var cols=2;var cellW=(PW-MG*2)/cols;var cellH=(PH-MG-25)/2;
+      for(var i=0;i<images.length;i++){
+        if(i%perPage===0){
+          doc.addPage('a4','portrait');
+          doc.setFillColor(185,30,38);doc.rect(0,0,PW,16,'F');
+          doc.setTextColor(242,224,192);doc.setFontSize(11);doc.setFont('helvetica','bold');
+          doc.text('Justificatifs - '+em.prenom+' '+em.nom,PW/2,10,{align:'center'});
+        }
+        var pos=i%perPage;var col=pos%cols;var row=Math.floor(pos/cols);
+        var x=MG+col*cellW;var y=22+row*cellH;
+        var a=images[i];
+        doc.setTextColor(80,80,80);doc.setFontSize(8);doc.setFont('helvetica','normal');
+        doc.text(getMotifNom(a.type)+' ('+a.date_debut+')',x+2,y);
+        try{
+          var fmt=a.justif_b64.indexOf('png')>=0?'PNG':'JPEG';
+          doc.addImage(a.justif_b64,fmt,x+2,y+2,cellW-6,cellH-12,undefined,'FAST');
+        }catch(e){
+          doc.setFontSize(7);doc.text('(image illisible)',x+2,y+10);
+        }
+      }
+    }
+    if(pdfs.length){
+      doc.addPage('a4','portrait');
+      doc.setFillColor(185,30,38);doc.rect(0,0,PW,16,'F');
+      doc.setTextColor(242,224,192);doc.setFontSize(11);doc.setFont('helvetica','bold');
+      doc.text('Justificatifs PDF - '+em.prenom+' '+em.nom,PW/2,10,{align:'center'});
+      doc.setTextColor(60,60,60);doc.setFontSize(9);doc.setFont('helvetica','normal');
+      var yy=28;
+      pdfs.forEach(function(a){
+        doc.text('\u2022 '+getMotifNom(a.type)+' du '+a.date_debut+' au '+a.date_fin+' (PDF disponible s\u00e9par\u00e9ment)',MG,yy);
+        yy+=8;
+      });
+    }
   }
-  // Dabray
-  if(d.groups.dabray.length){
-    coverPage('Dabray');
-    d.groups.dabray.forEach(function(emData){renderSalarie(emData);});
+
+  async function renderResto(groupData,restoNom,withPlanning,restoId){
+    coverPage(restoNom);
+    if(withPlanning){
+      var empList=emps.filter(function(e){return (e.restaurant_id===restoId||e.multi_site)&&!e.archive;});
+      empList.sort(function(a,b){var so={cuisine:0,salle:1,livraison:2};return (so[a.secteur||'salle']-so[b.secteur||'salle'])||(a.nom||'').localeCompare(b.nom||'');});
+      if(empList.length){
+        doc.addPage([297,210],'landscape');
+        await drawPlanningOnDoc(doc,empList,firstDay,lastDay,restoNom,monthLabel);
+      }
+    }
+    for(var i=0;i<groupData.length;i++){
+      renderSalarie(groupData[i]);
+      await renderJustificatifs(groupData[i].em);
+    }
   }
-  // Multisite (Port + Dabray fusionnés)
-  if(d.groups.multi.length){
-    coverPage('Multi-sites (Port + Dabray)');
-    d.groups.multi.forEach(function(emData){renderSalarie(emData);});
-  }
+
+  if(d.groups.port.length)await renderResto(d.groups.port,'Port - Bavastro',true,'port');
+  if(d.groups.dabray.length)await renderResto(d.groups.dabray,'Dabray',true,'dabray');
+  if(d.groups.multi.length)await renderResto(d.groups.multi,'Multi-sites (Port + Dabray)',false,null);
   doc.save('Recap_paie_'+d.from+'_'+d.to+'.pdf');
+}
+
+
+
+// ── DESSIN PLANNING RÉUTILISABLE (pour PDF mensuel + DRH) ───────────────────
+async function drawPlanningOnDoc(doc,empList,firstDay,lastDay,rl,monthLabel){
+  if(!empList.length)return;
+  var weeks=[];var cur=planMonOf(firstDay);
+  while(planDs(cur)<=planDs(lastDay)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
+  var empIds=empList.map(function(e){return e.id;});
+  var lastWeekEnd2=planAddD(planMonOf(lastDay),6);
+  var loadEnd2=planDs(lastDay)>planDs(lastWeekEnd2)?planDs(lastDay):planDs(lastWeekEnd2);
+  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds);
+  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds);
+  var mplan={};
+  (allCrs.data||[]).forEach(function(c){
+    if(!mplan[c.employee_id])mplan[c.employee_id]={};
+    if(!mplan[c.employee_id][c.date])mplan[c.employee_id][c.date]=[];
+    mplan[c.employee_id][c.date].push({start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5),resto:c.restaurant_id||null});
+  });
+  var mabs={};
+  (allAbs.data||[]).forEach(function(a){if(!mabs[a.employee_id])mabs[a.employee_id]={};mabs[a.employee_id][a.date]=a.code;});
+  var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
+  var ABS_T={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
+  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
+  var SEC_TX={cuisine:[153,27,27],salle:[146,64,14],livraison:[6,95,70]};
+  var SEC_BG={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
+  var SECLABELS={cuisine:'CUISINE',salle:'SALLE',livraison:'LIVRAISON'};
+  var RESTO_BG={port:[219,234,254],dabray:[209,250,229]};
+  var RESTO_TX={port:[30,64,175],dabray:[6,95,70]};
+  var DAYS7=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var PW=297;var PH=210;var MG=5;
+  var COL0=38;var COLW=Math.floor((PW-MG*2-COL0)/7);
+  var HDR_H=10;
+  function drawWeekHeader(wk,sy){
+    var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
+    var wlbl='Semaine du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    doc.setFillColor(185,30,38);doc.rect(MG,sy,PW-MG*2,9,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text('Milo\'s Pizza \u2014 '+rl+' \u2014 '+monthLabel,PW/2,sy+4,{align:'center'});
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+    doc.text(wlbl,PW/2,sy+7.5,{align:'center'});
+    var y2=sy+9;
+    doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
+    doc.rect(MG,y2,COL0,HDR_H,'F');
+    doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    var slt='Salari\u00e9';doc.text(slt,MG+(COL0-doc.getTextWidth(slt))/2,y2+6.5);
+    for(var d=0;d<7;d++){
+      var x=MG+COL0+d*COLW;var dt=dates[d];
+      doc.setFillColor(185,30,38);doc.setDrawColor(185,30,38);
+      doc.rect(x,y2,COLW,HDR_H,'F');
+      doc.setTextColor(242,224,192);doc.setFontSize(7);doc.setFont('helvetica','bold');
+      var dn=DAYS7[d];doc.text(dn,x+(COLW-doc.getTextWidth(dn))/2,y2+4);
+      doc.setFontSize(5.5);doc.setFont('helvetica','normal');
+      var dtl=dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+      doc.text(dtl,x+(COLW-doc.getTextWidth(dtl))/2,y2+8);
+    }
+    return y2+HDR_H;
+  }
+  function drawWeekRows(wk,sy){
+    var dates=[];for(var i=0;i<7;i++)dates.push(planAddD(wk,i));
+    var y=sy;var lastSec='';
+    empList.forEach(function(em){
+      var sec=em.secteur||'salle';
+      if(sec!==lastSec){
+        var sbg=SEC_BG[sec]||[242,224,192];var stx=SEC_TX[sec]||[122,74,53];
+        doc.setFillColor(sbg[0],sbg[1],sbg[2]);doc.setDrawColor(216,197,167);
+        doc.rect(MG,y,PW-MG*2,5,'FD');
+        doc.setTextColor(stx[0],stx[1],stx[2]);doc.setFontSize(6);doc.setFont('helvetica','bold');
+        doc.text(SECLABELS[sec]||sec,MG+3,y+3.5);
+        y+=5;lastSec=sec;
+      }
+      var ep=mplan[em.id]||{};var ea=mabs[em.id]||{};
+      var maxCr=0;
+      dates.forEach(function(d){var c=ep[planDs(d)]||[];if(c.length>maxCr)maxCr=c.length;});
+      var rh=Math.max(9,maxCr*6+3);
+      doc.setFillColor(255,255,255);doc.setDrawColor(216,197,167);
+      doc.rect(MG,y,COL0,rh,'FD');
+      doc.setTextColor(42,10,11);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
+      doc.text(em.prenom+' '+em.nom,MG+2,y+rh/2+1);
+      if(em.multi_site){
+        var rbg=RESTO_BG[em.restaurant_id]||RESTO_BG.port;
+        var rtx=RESTO_TX[em.restaurant_id]||RESTO_TX.port;
+        var rnm=em.restaurant_id==='port'?'Port':'Dabray';
+        doc.setFillColor(rbg[0],rbg[1],rbg[2]);
+        doc.roundedRect(MG+2,y+rh-4,14,3,1,1,'F');
+        doc.setTextColor(rtx[0],rtx[1],rtx[2]);doc.setFontSize(4.5);
+        doc.text(rnm,MG+9,y+rh-1.8,{align:'center'});
+      }
+      for(var di=0;di<7;di++){
+        var dstr=planDs(dates[di]);
+        var crs=ep[dstr]||[];var absCode=ea[dstr]||null;
+        var x=MG+COL0+di*COLW;
+        doc.setFillColor(255,255,255);doc.setDrawColor(216,197,167);
+        doc.rect(x,y,COLW,rh,'FD');
+        if(!crs.length&&!absCode){
+          doc.setTextColor(200,185,165);doc.setFontSize(6);doc.setFont('helvetica','normal');
+          doc.text('Off',x+COLW/2,y+rh/2+1,{align:'center'});
+        }else{
+          if(crs.length){
+            doc.setTextColor(185,30,38);doc.setFontSize(6);doc.setFont('helvetica','bold');
+            var ytxt=y+6;
+            crs.forEach(function(cr){
+              doc.text(cr.start+'-'+cr.end,x+COLW/2,ytxt,{align:'center'});
+              if(em.multi_site&&cr.resto&&cr.resto!==em.restaurant_id){
+                var rb=cr.resto==='port'?RESTO_BG.port:RESTO_BG.dabray;
+                var rt=cr.resto==='port'?RESTO_TX.port:RESTO_TX.dabray;
+                doc.setFillColor(rb[0],rb[1],rb[2]);
+                doc.roundedRect(x+COLW/2-7,ytxt+1,14,3,1,1,'F');
+                doc.setTextColor(rt[0],rt[1],rt[2]);doc.setFontSize(4.5);
+                doc.text(cr.resto==='port'?'Port':'Dabray',x+COLW/2,ytxt+3,{align:'center'});
+                doc.setFontSize(6);ytxt+=4;
+              }
+              ytxt+=6;
+            });
+          }
+          if(absCode){
+            var ac=ABS_C[absCode]||[238,238,238];var at=ABS_T[absCode]||[51,51,51];
+            doc.setFillColor(ac[0],ac[1],ac[2]);
+            doc.rect(x+1,y+rh-4.5,COLW-2,4,'F');
+            doc.setTextColor(at[0],at[1],at[2]);doc.setFontSize(5);doc.setFont('helvetica','bold');
+            doc.text(ABS_L[absCode]||absCode,x+COLW/2,y+rh-1.5,{align:'center'});
+            doc.setFillColor(255,255,255);
+          }
+        }
+      }
+      y+=rh;
+      if(y>PH-10){doc.addPage();y=MG;}
+    });
+    return y;
+  }
+  var isFirst=true;var curY=MG;
+  for(var wi=0;wi<weeks.length;wi++){
+    if(!isFirst){
+      var estH=9+HDR_H+(empList.length*10)+20;
+      if(curY+estH>PH-10){doc.addPage();curY=MG;}
+      else curY+=3;
+    }
+    curY=drawWeekHeader(weeks[wi],curY);
+    curY=drawWeekRows(weeks[wi],curY)+2;
+    isFirst=false;
+  }
 }
 
 
