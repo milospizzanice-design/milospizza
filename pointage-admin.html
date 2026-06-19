@@ -235,7 +235,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <table class="tbl">
-        <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th></tr></thead>
+        <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th><th>Modifier</th></tr></thead>
         <tbody id="abb"><tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr></tbody>
       </table>
     </div>
@@ -308,14 +308,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <!-- Modal absence -->
 <div class="mb" id="mab">
   <div class="md">
-    <div class="mdt">Saisir une absence</div>
+    <div class="mdt" id="mab-title">Saisir une absence</div>
+    <input type="hidden" id="ab-edit-id">
     <div class="fr"><label class="fl2">Salari&#233;</label><select class="fi" id="abe"></select></div>
     <div class="fr"><label class="fl2">Type</label><select class="fi" id="abt"><option value="cp">Cong&#233;s pay&#233;s</option><option value="rtt">RTT</option><option value="maladie">Arr&#234;t maladie</option><option value="injustifie">Injustifi&#233;e</option><option value="ferie">F&#233;ri&#233;</option><option value="autre">Autre</option></select></div>
     <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="abf"></div>
     <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="abt2"></div>
     <div class="fr"><label class="fl2">Note</label><input type="text" class="fi" id="abn"></div>
     <div class="fr"><label class="fl2">Justificatif</label><input type="file" class="fi" id="abfi" accept="image/*,application/pdf" style="padding:5px"></div>
-    <div class="ma"><button class="btn bs" onclick="closeM('mab')">Annuler</button><button class="btn bp" onclick="saveAb()">Enregistrer</button></div>
+    <div class="ma"><button class="btn sm" id="ab-del-btn" onclick="deleteAb()" style="display:none;background:#FEE2E2;color:#991B1B">Supprimer</button><button class="btn bs" onclick="closeM('mab')">Annuler</button><button class="btn bp" onclick="saveAb()">Enregistrer</button></div>
   </div>
 </div>
 
@@ -1738,7 +1739,11 @@ function ptAddSlot(day){
   var salId=curSal||'new';
   var pt=getSalPlanningType(salId);
   if(!pt[day])pt[day]=[];
-  pt[day].push({start:'17:00',end:'23:30'});
+  var lastSlot=null;
+  if(pt[day].length){lastSlot=pt[day][pt[day].length-1];}
+  else{for(var d=6;d>=0;d--){if(pt[d]&&pt[d].length){lastSlot=pt[d][pt[d].length-1];break;}}}
+  if(lastSlot)pt[day].push({start:lastSlot.start,end:lastSlot.end});
+  else pt[day].push({start:'17:00',end:'23:30'});
   setSalPlanningType(salId,pt);
   renderPlanningType(curSal);
 }
@@ -1993,14 +1998,48 @@ async function loadAb(){
     h+='<td><span class="bg '+a.type+'">'+(labels[a.type]||a.type)+'</span></td>';
     h+='<td>'+a.date_debut+'</td><td>'+a.date_fin+'</td>';
     h+='<td>'+(a.note||'—')+'</td>';
-    h+='<td>'+(a.justif_b64?'<button class="btn bs sm" data-aid="'+a.id+'" onclick="showAbsJustif(this)">Voir</button>':'—')+'</td></tr>';
+    h+='<td>'+(a.justif_b64?'<button class="btn bs sm" data-aid="'+a.id+'" onclick="showAbsJustif(this)">Voir</button>':'—')+'</td>';
+    h+='<td><button class="btn bs sm" onclick="openEditAb('+a.id+')">Modifier</button></td></tr>';
   });
   tb.innerHTML=h;
 }
 
-function openAb(){document.getElementById('abf').value=new Date().toISOString().slice(0,10);document.getElementById('abt2').value=new Date().toISOString().slice(0,10);document.getElementById('mab').classList.add('op');}
+function openAb(){
+  document.getElementById('ab-edit-id').value='';
+  document.getElementById('mab-title').textContent='Saisir une absence';
+  document.getElementById('ab-del-btn').style.display='none';
+  document.getElementById('abf').value=new Date().toISOString().slice(0,10);
+  document.getElementById('abt2').value=new Date().toISOString().slice(0,10);
+  document.getElementById('abn').value='';
+  document.getElementById('abfi').value='';
+  document.getElementById('mab').classList.add('op');
+}
+function openEditAb(id){
+  var a=absAllData.find(function(x){return x.id===id;});
+  if(!a)return;
+  document.getElementById('ab-edit-id').value=id;
+  document.getElementById('mab-title').textContent='Modifier l\u0027absence';
+  document.getElementById('ab-del-btn').style.display='inline-block';
+  document.getElementById('abe').value=a.employee_id;
+  document.getElementById('abt').value=a.type;
+  document.getElementById('abf').value=a.date_debut;
+  document.getElementById('abt2').value=a.date_fin;
+  document.getElementById('abn').value=a.note||'';
+  document.getElementById('abfi').value='';
+  document.getElementById('mab').classList.add('op');
+}
+async function deleteAb(){
+  var id=parseInt(document.getElementById('ab-edit-id').value);
+  if(!id)return;
+  if(!confirm('Supprimer cette absence ?'))return;
+  var r=await db.from('absences').delete().eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  closeM('mab');
+  await loadAb();
+}
 
 async function saveAb(){
+  var editId=document.getElementById('ab-edit-id').value;
   var eid=parseInt(document.getElementById('abe').value);
   var type=document.getElementById('abt').value;
   var from=document.getElementById('abf').value;
@@ -2009,8 +2048,15 @@ async function saveAb(){
   var fi=document.getElementById('abfi');
   var jb=null;
   if(fi.files[0]){jb=await new Promise(function(res){var rd=new FileReader();rd.onload=function(e){res(e.target.result);};rd.readAsDataURL(fi.files[0]);});}
-  var r=await db.from('absences').insert({employee_id:eid,type:type,date_debut:from,date_fin:to,note:note,justif_b64:jb});
-  if(r.error){alert('Erreur: '+r.error.message);return;}
+  if(editId){
+    var upd={employee_id:eid,type:type,date_debut:from,date_fin:to,note:note};
+    if(jb)upd.justif_b64=jb;
+    var r=await db.from('absences').update(upd).eq('id',parseInt(editId));
+    if(r.error){alert('Erreur: '+r.error.message);return;}
+  }else{
+    var r2=await db.from('absences').insert({employee_id:eid,type:type,date_debut:from,date_fin:to,note:note,justif_b64:jb});
+    if(r2.error){alert('Erreur: '+r2.error.message);return;}
+  }
   closeM('mab');
   document.getElementById('abn').value='';fi.value='';
   await loadAb();
