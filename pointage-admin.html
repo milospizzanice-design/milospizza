@@ -840,8 +840,8 @@ function renderPlan(){
         var dstr=planDs(d);
         var crs=((planData[em.id]&&planData[em.id][dstr])||[]).filter(function(c){return !c._del;});
         var absCode=(planAbs[em.id]&&planAbs[em.id][dstr])||null;
-        th+='<td data-eid="'+em.id+'" data-d="'+dstr+'" onclick="planCellClickBtn(this)">';
-        if(!crs.length&&!absCode){th+='<span class="cr-off">Off</span>';}
+        th+='<td data-eid="'+em.id+'" data-d="'+dstr+'">';
+        if(!crs.length&&!absCode){th+='<span class="cr-off" data-eid="'+em.id+'" data-d="'+dstr+'" onclick="planCellClickBtn(this)" style="cursor:pointer;display:block;padding:6px 2px">Off</span>';}
         else{
           crs.forEach(function(cr){
             var tag='';
@@ -854,6 +854,7 @@ function renderPlan(){
             th+='<span class="cr-cell" style="cursor:pointer;display:block;padding:1px 2px;border-radius:3px" data-eid="'+em.id+'" data-d="'+dstr+'" data-i="'+crIdx+'" onclick="planTblEditCr(event,this)">'+cr.start+'-'+cr.end+tag+'</span>';
           });
           if(absCode)th+='<span class="cr-abs" style="'+(ABS_S[absCode]||'')+'">'+( ABS_L[absCode]||absCode)+'</span>';
+          th+='<span data-eid="'+em.id+'" data-d="'+dstr+'" onclick="planCellClickBtn(this)" style="display:block;text-align:center;cursor:pointer;color:#16A34A;font-weight:700;font-size:13px;margin-top:2px;border-top:1px dashed #ddd;padding-top:1px" title="Ajouter un créneau">+</span>';
         }
         th+='</td>';
       });
