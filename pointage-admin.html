@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Admin RH</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -354,6 +354,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="san"></div>
     <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="sar"><option value="port">Port</option><option value="dabray">Dabray</option></select></div>
     <div class="fr"><label class="fl2">Heures contrat / semaine</label><input type="number" class="fi" id="saheures" step="0.5" min="0" placeholder="Ex: 16.5"></div>
+    <div class="fr"><label class="fl2">Date d'entr&#233;e en poste</label><input type="date" class="fi" id="sadebut"></div>
     <div class="fr">
       <label class="fl2">Postes ma&#238;tris&#233;s</label>
       <div id="sal-postes-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
@@ -553,9 +554,11 @@ function missingEx(entries){
 
 
 function empVisibleAt(em,dateStr){
-  if(!em.archive)return true;
-  if(!em.date_fin)return true;
-  return dateStr<=em.date_fin;
+  // Avant la date d'entrée: invisible
+  if(em.date_debut&&dateStr<em.date_debut)return false;
+  // Après la date de fin (archivé): invisible
+  if(em.archive&&em.date_fin&&dateStr>em.date_fin)return false;
+  return true;
 }
 function empActifNow(em){
   if(em.archive){
@@ -762,9 +765,11 @@ function planMarkDirty(){
 function planGetFiltered(){
   var weekDates=planGetWeekDates();
   var weekStart=planDs(weekDates[0]);
+  var weekEnd=planDs(weekDates[6]);
   var list=emps.filter(function(e){
     if(e.actif===false&&!e.archive)return false;
     if(e.archive&&e.date_fin&&weekStart>e.date_fin)return false;
+    if(e.date_debut&&weekEnd<e.date_debut)return false;
     return (e.restaurant_id===planResto||e.multi_site);
   });
   var SECS=['cuisine','salle','livraison'];
@@ -2387,7 +2392,7 @@ function exportIndivPDF(){
 }
 
 
-function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';openM('msa');}
+function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';openM('msa');}
 
 // ── POSTES PAR SALARIÉ ──────────────────────────────────────────────────────
 function getSalPostes(salId){
@@ -2619,6 +2624,7 @@ function openEditSal(id){
   document.getElementById('san').value=em.nom;
   document.getElementById('sar').value=em.restaurant_id;
   document.getElementById('saheures').value=em.heures_contrat||'';
+  document.getElementById('sadebut').value=em.date_debut||'';
   document.getElementById('sapin').value='';
   renderSalPostesList(id);
   renderPlanningType(id);
@@ -2635,7 +2641,8 @@ async function saveSal(){
   if(!p||!n){alert('Prénom et nom requis');return;}
   if(curSal){
     var hc=parseFloat(document.getElementById('saheures').value)||null;
-    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc};
+    var dd=document.getElementById('sadebut').value||null;
+    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd};
     if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
     await db.from('employees').update(upd).eq('id',curSal);
   }else{
@@ -2643,7 +2650,8 @@ async function saveSal(){
     var hr2=await db.rpc('hash_pin',{p_pin:pin});
     var newSec=deduceSecteur('new');
     var hc2=parseFloat(document.getElementById('saheures').value)||null;
-    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2}).select();
+    var dd2=document.getElementById('sadebut').value||null;
+    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
