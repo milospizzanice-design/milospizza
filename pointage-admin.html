@@ -60,6 +60,7 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .sm{padding:4px 9px;font-size:11px}
 .mb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:14px}
 .mb.op{display:flex}
+body.modal-open{overflow:hidden;position:fixed;width:100%;height:100%}
 .md{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:360px;max-height:90vh;overflow-y:auto}
 .mdt{font-size:14px;font-weight:700;color:var(--bx);margin-bottom:14px}
 .fr{margin-bottom:10px}
@@ -494,7 +495,15 @@ function fmtD(ts){return new Date(ts).toLocaleDateString('fr-FR',{day:'2-digit',
 function fmtF(ts){return fmtD(ts)+' '+fmt(ts);}
 function toHM(m){var h=Math.floor(Math.abs(m)/60);var mn=Math.abs(m)%60;return(m<0?'-':'')+h+'h'+String(mn).padStart(2,'0');}
 function emp(id){return emps.find(function(e){return e.id===id;})||{prenom:'?',nom:'',restaurant_id:'?'};}
-function closeM(id){document.getElementById(id).classList.remove('op');}
+function closeM(id){
+  document.getElementById(id).classList.remove('op');
+  // Si plus aucune modale ouverte, débloquer le scroll du body
+  if(!document.querySelector('.mb.op'))document.body.classList.remove('modal-open');
+}
+function openM(id){
+  document.getElementById(id).classList.add('op');
+  document.body.classList.add('modal-open');
+}
 
 function goTab(name,el){
   document.querySelectorAll('[id^="pt"],[id="pr"],[id="pl"],[id="rc"],[id="ab"],[id="sa"],[id="dem"]').forEach(function(e){
@@ -644,12 +653,12 @@ async function showPh(id){
   document.getElementById('pht').textContent=em.prenom+' '+em.nom+' — '+fmtF(e.timestamp);
   document.getElementById('phi').src=e.photo_b64||'';
   document.getElementById('phi2').textContent=(e.type==='entree'?'Entrée':'Sortie')+' • '+e.ip_address;
-  document.getElementById('mph').classList.add('op');
+  openM('mph');
   await db.from('audit_photos').insert({time_entry_id:id,consulte_le:new Date().toISOString(),motif:'consultation admin'});
 }
 
-function openCor(){document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('mc').classList.add('op');}
-function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('mc').classList.add('op');}
+function openCor(){document.getElementById('ccd').value=new Date().toISOString().slice(0,16);openM('mc');}
+function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=new Date().toISOString().slice(0,16);openM('mc');}
 
 async function saveCor(){
   var eid=parseInt(document.getElementById('cce').value);
@@ -938,7 +947,7 @@ function planAbsClick(evt,el){
   var d=new Date(planAbsInfo.dstr+'T12:00:00');
   document.getElementById('pabs-title').textContent=em.prenom+' '+em.nom+' \u2014 '+d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('pabs-select').value=planAbsInfo.code;
-  document.getElementById('modal-pabs').classList.add('op');
+  openM('modal-pabs');
 }
 
 async function planAbsSave(){
@@ -993,7 +1002,7 @@ function planOpenEdit(el){
   document.getElementById('pedit-title').textContent='Modifier créneau — '+PLAN_DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
   // Afficher postes avec sélection actuelle
   renderPosteCheckboxes('pedit-postes-list',eid,cr.postes||[]);
-  document.getElementById('modal-pedit').classList.add('op');
+  openM('modal-pedit');
 }
 
 function savePlanEdit(){
@@ -1066,7 +1075,7 @@ function planOpenCr(eid,dstr){
   if(lbl)lbl.textContent=em&&em.multi_site?'Restaurant (multi-site)':'Restaurant';
   // Afficher les postes disponibles pour ce salarié
   renderPosteCheckboxes('pcr-postes-list',eid,[]);
-  document.getElementById('modal-pcr').classList.add('op');
+  openM('modal-pcr');
 }
 
 function savePCr(){
@@ -1142,7 +1151,7 @@ function openPlanDupli(){
   var nextSun=planAddD(planWkStart,13);
   document.getElementById('dupli-date-from').value=planDs(nextMon);
   document.getElementById('dupli-date-to').value=planDs(nextSun);
-  document.getElementById('modal-plan-dupli').classList.add('op');
+  openM('modal-plan-dupli');
 }
 function planChkAll(v){document.querySelectorAll('#plan-dupli-list input').forEach(function(cb){cb.checked=v;});}
 
@@ -1170,7 +1179,7 @@ function confirmPlanDupli(){
   var df=new Date(fromVal+'T12:00:00');var dt=new Date(toVal+'T12:00:00');
   var nbJours=Math.round((dt-df)/86400000)+1;
   document.getElementById('plan-confirm-msg').textContent='Le planning de '+planDupliIds.length+' salari\u00e9(s) sera copi\u00e9 jour par jour du '+df.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dt.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' ('+nbJours+' jour'+(nbJours>1?'s':'')+'). Chaque jour reprend l\'horaire du m\u00eame jour de la semaine source. Les cr\u00e9neaux existants sur ces jours seront \u00e9cras\u00e9s.';
-  closeM('modal-plan-dupli');document.getElementById('modal-plan-confirm').classList.add('op');
+  closeM('modal-plan-dupli');openM('modal-plan-confirm');
 }
 
 async function doPlanDupli(){
@@ -1221,7 +1230,7 @@ function openPDFMonth(){
   document.getElementById('pdf-month-from').value=y+'-'+planPad(m+1)+'-01';
   document.getElementById('pdf-month-to').value=y+'-'+planPad(m+1)+'-'+planPad(new Date(y,m+1,0).getDate());
   var recap=document.getElementById('pdf-month-recap');if(recap)recap.textContent='';
-  document.getElementById('modal-pdf-month').classList.add('op');
+  openM('modal-pdf-month');
 }
 
 
@@ -1287,7 +1296,7 @@ function openAddMotif(){
   document.getElementById('motif-nom').value='';
   document.getElementById('motif-couleur').value='#6B7280';
   document.getElementById('modal-motif-title').textContent='Nouveau motif';
-  document.getElementById('modal-motif').classList.add('op');
+  openM('modal-motif');
 }
 
 function openEditMotif(id){
@@ -1296,7 +1305,7 @@ function openEditMotif(id){
   document.getElementById('motif-nom').value=m.nom;
   document.getElementById('motif-couleur').value=m.couleur;
   document.getElementById('modal-motif-title').textContent='Modifier le motif';
-  document.getElementById('modal-motif').classList.add('op');
+  openM('modal-motif');
 }
 
 function saveMotif(){
@@ -1365,7 +1374,7 @@ function openAddPoste(){
   document.getElementById('poste-ttl').textContent='Nouveau poste';
   document.getElementById('poste-nom').value='';
   document.getElementById('poste-secteur').value='cuisine';
-  document.getElementById('modal-poste').classList.add('op');
+  openM('modal-poste');
 }
 
 function openEditPoste(id){
@@ -1374,7 +1383,7 @@ function openEditPoste(id){
   document.getElementById('poste-ttl').textContent='Modifier \u2014 '+p.nom;
   document.getElementById('poste-nom').value=p.nom;
   document.getElementById('poste-secteur').value=p.secteur;
-  document.getElementById('modal-poste').classList.add('op');
+  openM('modal-poste');
 }
 
 function savePoste(){
@@ -1409,7 +1418,7 @@ function openDrhExport(){
   var now=new Date();
   document.getElementById('drh-from').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
   document.getElementById('drh-to').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-'+planPad(new Date(now.getFullYear(),now.getMonth()+1,0).getDate());
-  document.getElementById('modal-drh').classList.add('op');
+  openM('modal-drh');
 }
 
 // Calcule les shifts (créneaux travaillés) d'une journée à partir des pointages
@@ -1502,7 +1511,7 @@ function ficheExportOpen(){
   document.getElementById('ficheexp-to').value=planDs(now);
   document.getElementById('ficheexp-name').textContent=em.prenom+' '+em.nom;
   closeM('modal-absfiche');
-  document.getElementById('modal-ficheexp').classList.add('op');
+  openM('modal-ficheexp');
 }
 
 async function ficheExportExcel(){
@@ -2365,7 +2374,7 @@ function planOpenPDFIndiv(empId){
     recap.textContent='Du '+df.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+dt.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   }
   if(em)document.getElementById('pdf-indiv-title').textContent='PDF — '+em.prenom+' '+em.nom;
-  document.getElementById('modal-pdf-indiv').classList.add('op');
+  openM('modal-pdf-indiv');
 }
 
 function exportIndivPDF(){
@@ -2378,7 +2387,7 @@ function exportIndivPDF(){
 }
 
 
-function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';document.getElementById('msa').classList.add('op');}
+function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';openM('msa');}
 
 // ── POSTES PAR SALARIÉ ──────────────────────────────────────────────────────
 function getSalPostes(salId){
@@ -2615,7 +2624,7 @@ function openEditSal(id){
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
   if(ptStart){var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}
-  document.getElementById('msa').classList.add('op');
+  openM('msa');
 }
 
 async function saveSal(){
@@ -2755,7 +2764,7 @@ function showAbsJustif(btn){
     img.style.display='none';pdf.style.display='block';
     pdf.innerHTML='<div style="text-align:center;padding:20px"><div style="font-size:13px;margin-bottom:12px">Justificatif PDF</div><a href="'+a.justif_b64+'" download="justificatif.pdf" class="btn bp" style="text-decoration:none">T\u00e9l\u00e9charger le PDF</a></div>';
   }
-  document.getElementById('modal-justif').classList.add('op');
+  openM('modal-justif');
 }
 
 
@@ -2798,7 +2807,7 @@ function openAbsEmpFiche(empId){
   document.getElementById('absfiche-sub').textContent=(em.restaurant_id==='port'?'Port':'Dabray')+' \u2022 '+(em.secteur||'salle')+(em.heures_contrat?' \u2022 '+em.heures_contrat+'h/sem':'');
   document.getElementById('absfiche-edit').setAttribute('data-id',empId);
   ficheTab('abs');
-  document.getElementById('modal-absfiche').classList.add('op');
+  openM('modal-absfiche');
 }
 
 function ficheTab(which){
@@ -2943,7 +2952,7 @@ function openAb(){
   document.getElementById('abt2').value=new Date().toISOString().slice(0,10);
   document.getElementById('abn').value='';
   document.getElementById('abfi').value='';
-  document.getElementById('mab').classList.add('op');
+  openM('mab');
 }
 function openEditAb(id){
   var a=absAllData.find(function(x){return x.id===id;});
@@ -2958,7 +2967,7 @@ function openEditAb(id){
   document.getElementById('abt2').value=a.date_fin;
   document.getElementById('abn').value=a.note||'';
   document.getElementById('abfi').value='';
-  document.getElementById('mab').classList.add('op');
+  openM('mab');
 }
 async function deleteAb(){
   var id=parseInt(document.getElementById('ab-edit-id').value);
@@ -3043,7 +3052,7 @@ function openArchiveSal(id){
   document.getElementById('arch-emp-id').value=id;
   document.getElementById('arch-emp-name').textContent=em.prenom+' '+em.nom;
   document.getElementById('arch-date').value=new Date().toISOString().slice(0,10);
-  document.getElementById('modal-archive').classList.add('op');
+  openM('modal-archive');
 }
 
 async function confirmArchiveSal(){
@@ -3060,7 +3069,7 @@ async function confirmArchiveSal(){
 function openArchives(){
   document.getElementById('arch-search').value='';
   renderArchivesList('');
-  document.getElementById('modal-archives-list').classList.add('op');
+  openM('modal-archives-list');
 }
 
 function renderArchivesList(query){
@@ -3086,7 +3095,7 @@ async function openArchiveDetail(id){
   document.getElementById('arch-detail-info').textContent=(em.restaurant_id==='port'?'Port - Bavastro':'Dabray')+' - Dernier jour: '+(em.date_fin||'?');
   var body=document.getElementById('arch-detail-body');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
-  document.getElementById('modal-archive-detail').classList.add('op');
+  openM('modal-archive-detail');
   var pts=await db.from('time_entries').select('*').eq('employee_id',id).order('timestamp',{ascending:false}).limit(200);
   var dems=await db.from('demandes_absence').select('*').eq('employee_id',id).order('created_at',{ascending:false});
   var abss=await db.from('absences').select('*').eq('employee_id',id).order('date_debut',{ascending:false});
@@ -3216,7 +3225,7 @@ async function checkDepassements(){
       h+='</div>';
     });
     document.getElementById('depass-body').innerHTML=h;
-    document.getElementById('modal-depass').classList.add('op');
+    openM('modal-depass');
   }
 }
 
@@ -3229,7 +3238,7 @@ async function checkDemandesEnAttente(){
   data.slice(0,5).forEach(function(d){var em2=emp(d.employee_id);h+='<div style="background:#FAF4EC;border-radius:8px;padding:8px 10px;margin-bottom:6px"><div style="font-weight:600;font-size:13px">'+em2.prenom+' '+em2.nom+'</div><div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TL[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div></div>';});
   if(data.length>5)h+='<div style="font-size:11px;color:var(--txm);text-align:center">...et '+(data.length-5)+' autre(s)</div>';
   var ab=document.getElementById('alertes-dem-body');if(ab)ab.innerHTML=h;
-  var mo=document.getElementById('modal-alertes-dem');if(mo)mo.classList.add('op');
+  var mo=document.getElementById('modal-alertes-dem');if(mo){mo.classList.add('op');document.body.classList.add('modal-open');}
 }
 
 function goTabByName(name){var tabs=document.querySelectorAll('.tab');for(var i=0;i<tabs.length;i++){var oc=tabs[i].getAttribute('onclick')||'';if(oc.indexOf("'"+name+"'")>=0){goTab(name,tabs[i]);return;}}}
