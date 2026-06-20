@@ -853,7 +853,7 @@ function renderPlan(){
             var crIdx=crs.indexOf(cr);
             th+='<span class="cr-cell" style="cursor:pointer;display:block;padding:1px 2px;border-radius:3px" data-eid="'+em.id+'" data-d="'+dstr+'" data-i="'+crIdx+'" onclick="planTblEditCr(event,this)">'+cr.start+'-'+cr.end+tag+'</span>';
           });
-          if(absCode)th+='<span class="cr-abs" style="'+(ABS_S[absCode]||'')+'">'+( ABS_L[absCode]||absCode)+'</span>';
+          if(absCode)th+='<span class="cr-abs" style="'+(ABS_S[absCode]||'')+';cursor:pointer" data-eid="'+em.id+'" data-d="'+dstr+'" data-code="'+absCode+'" onclick="planAbsClick(event,this)" title="Cliquer pour modifier/supprimer">'+( ABS_L[absCode]||absCode)+'</span>';
           th+='<span data-eid="'+em.id+'" data-d="'+dstr+'" onclick="planCellClickBtn(this)" style="display:block;text-align:center;cursor:pointer;color:#16A34A;font-weight:700;font-size:13px;margin-top:2px;border-top:1px dashed #ddd;padding-top:1px" title="Ajouter un créneau">+</span>';
         }
         th+='</td>';
@@ -927,6 +927,37 @@ function planTblEditCr(evt,el){
 function planCellClickBtn(td){
   planCellClick(parseInt(td.dataset.eid),td.dataset.d);
 }
+
+
+// ── GESTION ABSENCE PLANNING (Récup, CP, etc. dans le tableau) ──────────────
+var planAbsInfo=null;
+function planAbsClick(evt,el){
+  evt.stopPropagation();
+  planAbsInfo={eid:parseInt(el.dataset.eid),dstr:el.dataset.d,code:el.dataset.code};
+  var em=emp(planAbsInfo.eid);
+  var d=new Date(planAbsInfo.dstr+'T12:00:00');
+  document.getElementById('pabs-title').textContent=em.prenom+' '+em.nom+' \u2014 '+d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('pabs-select').value=planAbsInfo.code;
+  document.getElementById('modal-pabs').classList.add('op');
+}
+
+async function planAbsSave(){
+  if(!planAbsInfo)return;
+  var newCode=document.getElementById('pabs-select').value;
+  if(newCode==='none'){
+    // Supprimer l'absence
+    await db.from('absences_planning').delete().eq('employee_id',planAbsInfo.eid).eq('date',planAbsInfo.dstr);
+    if(planAbs[planAbsInfo.eid])delete planAbs[planAbsInfo.eid][planAbsInfo.dstr];
+  }else{
+    // Modifier le code
+    await db.from('absences_planning').upsert({employee_id:planAbsInfo.eid,date:planAbsInfo.dstr,code:newCode},{onConflict:'employee_id,date'});
+    if(!planAbs[planAbsInfo.eid])planAbs[planAbsInfo.eid]={};
+    planAbs[planAbsInfo.eid][planAbsInfo.dstr]=newCode;
+  }
+  closeM('modal-pabs');
+  renderPlan();
+}
+
 
 function planCellClick(empId,dstr){
   planOpenCr(empId,dstr);
@@ -3280,6 +3311,23 @@ init();
       <button class="btn bg2" onclick="ficheExportExcel()">&#128202; Excel</button>
       <button class="btn bp" onclick="ficheExportPDF()">&#128196; PDF</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal gestion absence planning -->
+<div class="mb" id="modal-pabs">
+  <div class="md">
+    <div class="mdt" id="pabs-title">Absence</div>
+    <div class="fr"><label class="fl2">Statut du jour</label>
+      <select class="fi" id="pabs-select">
+        <option value="none">Aucune absence (retirer)</option>
+        <option value="cp">Cong&#233;s pay&#233;s (CP)</option>
+        <option value="rec">R&#233;cup&#233;ration</option>
+        <option value="am">Arr&#234;t maladie (AM)</option>
+        <option value="ai">Absence injustifi&#233;e (AI)</option>
+      </select>
+    </div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-pabs')">Annuler</button><button class="btn bp" onclick="planAbsSave()">Valider</button></div>
   </div>
 </div>
 </body>
