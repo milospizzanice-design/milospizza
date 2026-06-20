@@ -2839,7 +2839,54 @@ function ficheLoadAbs(){
 
 function ficheLoadPlan(){
   var body=document.getElementById('fiche-pane-plan');
-  body.innerHTML='<div style="padding:8px"><button class="btn bp" style="width:100%;margin-bottom:8px" onclick="closeM(\'modal-absfiche\');goTabByName(\'pl\')">Ouvrir le planning g\u00e9n\u00e9ral</button><div style="font-size:11px;color:var(--txm);text-align:center">Le planning individuel et la duplication sont accessibles depuis l\'onglet Planning.</div></div>';
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  var em=emp(ficheCurEmp);
+  // Charger les créneaux des 4 prochaines semaines (à partir du lundi de cette semaine)
+  var today=new Date();
+  var monday=planMonOf(today);
+  var endDate=planAddD(monday,27); // 4 semaines
+  var fromS=planDs(monday);var toS=planDs(endDate);
+  Promise.all([
+    db.from('planning_creneaux').select('*').eq('employee_id',ficheCurEmp).gte('date',fromS).lte('date',toS).order('date'),
+    db.from('absences_planning').select('*').eq('employee_id',ficheCurEmp).gte('date',fromS).lte('date',toS)
+  ]).then(function(res){
+    var crs=res[0].data||[];var abs=res[1].data||[];
+    var byDate={};
+    crs.forEach(function(c){if(!byDate[c.date])byDate[c.date]=[];byDate[c.date].push(c);});
+    var absByDate={};abs.forEach(function(a){absByDate[a.date]=a.code;});
+    var ABS_L={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup'};
+    var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+    var h='<div style="margin-bottom:8px"><button class="btn bp sm" style="width:100%" onclick="closeM(\'modal-absfiche\');goTabByName(\'pl\')">\u270E Modifier dans le planning</button></div>';
+    var hasAny=false;
+    for(var w=0;w<4;w++){
+      var wkStart=planAddD(monday,w*7);
+      var wkLabel='Semaine du '+wkStart.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+      var weekHtml='';var weekMins=0;
+      for(var dd=0;dd<7;dd++){
+        var dt=planAddD(wkStart,dd);var dstr=planDs(dt);
+        var dayCrs=byDate[dstr]||[];var absCode=absByDate[dstr];
+        if(dayCrs.length||absCode){
+          hasAny=true;
+          weekHtml+='<div style="display:flex;gap:8px;font-size:11px;padding:2px 0"><span style="width:70px;color:var(--txm)">'+DAYS[dd].slice(0,3)+' '+dt.getDate()+'</span><span style="flex:1">';
+          if(dayCrs.length){
+            weekHtml+=dayCrs.map(function(c){
+              var ss=c.heure_debut.slice(0,5).split(':');var se=c.heure_fin.slice(0,5).split(':');
+              weekMins+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+              return '<span style="color:var(--bx);font-weight:600">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</span>';
+            }).join(', ');
+          }
+          if(absCode)weekHtml+=(dayCrs.length?' ':'')+'<span style="background:#EDE9FE;color:#5B21B6;padding:1px 6px;border-radius:8px;font-size:10px">'+(ABS_L[absCode]||absCode)+'</span>';
+          weekHtml+='</span></div>';
+        }
+      }
+      if(weekHtml){
+        var wH=Math.floor(weekMins/60);var wM=weekMins%60;
+        h+='<div class="card" style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--bx);margin-bottom:4px"><span>'+wkLabel+'</span><span>'+wH+'h'+String(wM).padStart(2,'0')+'</span></div>'+weekHtml+'</div>';
+      }
+    }
+    if(!hasAny)h+='<div style="text-align:center;color:#aaa;padding:16px">Aucun cr\u00e9neau planifi\u00e9 sur les 4 prochaines semaines</div>';
+    body.innerHTML=h;
+  });
 }
 
 function ficheLoadPt(){
