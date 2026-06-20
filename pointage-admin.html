@@ -834,7 +834,7 @@ function renderPlan(){
         var rtnm=em.restaurant_id==='port'?'Port':'Dabray';
         restoTagTbl='<span style="background:'+rtbg+';color:'+rttx+';font-size:8px;font-weight:700;padding:1px 5px;border-radius:10px;margin-left:4px">'+rtnm+'</span>';
       }
-      th+='<td>'+em.prenom+' '+em.nom+restoTagTbl+'</td>';
+      th+='<td><span style="color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</span>'+restoTagTbl+'</td>';
       
       dates.forEach(function(d){
         var dstr=planDs(d);
@@ -2511,6 +2511,10 @@ async function applyPlanningType(){
   var startDate=new Date(startVal+'T12:00:00');
   var weekStart=planMonOf(startDate);
   var err=0;var created=0;
+  // 1. Supprimer TOUS les créneaux existants sur toute la période (12 semaines)
+  var endDate=planAddD(weekStart,12*7-1);
+  await db.from('planning_creneaux').delete().eq('employee_id',curSal).gte('date',startVal).lte('date',planDs(endDate));
+  // 2. Insérer uniquement les jours avec des créneaux dans le planning type
   for(var w=0;w<12;w++){
     for(var d=0;d<7;d++){
       var slots=pt[d];
@@ -2518,7 +2522,6 @@ async function applyPlanningType(){
       var crDate=planAddD(weekStart,w*7+d);
       if(planDs(crDate)<startVal)continue;
       var dstr=planDs(crDate);
-      await db.from('planning_creneaux').delete().eq('employee_id',curSal).eq('date',dstr);
       for(var s=0;s<slots.length;s++){
         var ri=await db.from('planning_creneaux').insert({
           employee_id:curSal,date:dstr,
