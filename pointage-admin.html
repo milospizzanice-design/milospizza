@@ -596,9 +596,9 @@ function renderPt(){
     var tl=e.type==='entree'?'↗ Entrée':'↙ Sortie';
     var iph=e.ip_ok?'<span class="iok">✓ '+e.ip_address+'</span>':'<span class="iba">⚠ '+e.ip_address+'</span>';
     var ph=e.photo_b64?'<button class="btn bs sm" onclick="showPh('+e.id+')">Voir</button>':'—';
-    var md=e.manuel?'<span class="bg sup">Manuel</span>':'<span style="color:#aaa;font-size:11px">Auto</span>';
-    h+='<tr>';
-    h+='<td><strong>'+em.prenom+' '+em.nom+'</strong></td>';
+    var md=e.manuel?'<span class="bg sup">Manuel</span>'+(e.motif?'<div style="font-size:9px;color:var(--txm);margin-top:2px">'+e.motif+'</div>':''):'<span style="color:#aaa;font-size:11px">Auto</span>';
+    h+='<tr'+(e.manuel?' style="background:rgba(254,243,199,.35)"':'')+'>';
+    h+='<td><strong style="color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+e.employee_id+')">'+em.prenom+' '+em.nom+'</strong></td>';
     h+='<td><span class="bg '+e.restaurant_id+'">'+rl+'</span></td>';
     h+='<td><span class="bg '+e.type+'">'+tl+'</span></td>';
     h+='<td style="font-variant-numeric:tabular-nums">'+fmtF(e.timestamp)+'</td>';
@@ -1421,7 +1421,9 @@ function drhDayShifts(entries){
   ins.forEach(function(inn,i){
     if(outs[i]){
       var mins=Math.round((new Date(outs[i].timestamp)-new Date(inn.timestamp))/60000);
-      shifts.push({in:inn.timestamp,out:outs[i].timestamp,mins:mins});
+      var manuel=inn.manuel||outs[i].manuel;
+      var motif=[inn.manuel?inn.motif:null,outs[i].manuel?outs[i].motif:null].filter(Boolean).join(' / ');
+      shifts.push({in:inn.timestamp,out:outs[i].timestamp,mins:mins,manuel:manuel,motif:motif});
     }
   });
   return shifts;
@@ -1527,7 +1529,7 @@ async function ficheExportExcel(){
     curWeek=wk;
     if(r.shifts.length){
       r.shifts.forEach(function(sh,i){
-        aoa.push([i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in),fmtHr(sh.out),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?r.repas:'','']);
+        aoa.push([i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in)+(sh.manuel?' (M)':''),fmtHr(sh.out)+(sh.manuel?' (M)':''),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?r.repas:'',sh.manuel&&sh.motif?'Ajout manuel: '+sh.motif:'']);
       });
       weekTot+=r.totalMins;monthTot+=r.totalMins;weekRepas+=r.repas;monthRepas+=r.repas;
     }else if(r.absence){
@@ -1574,7 +1576,7 @@ async function ficheExportPDF(){
     if(y>PH-30){doc.addPage();y=MG;y=drawH(y);}
     doc.setTextColor(40,40,40);doc.setFontSize(7);doc.setFont('helvetica','normal');
     if(r.shifts.length){
-      r.shifts.forEach(function(sh,i){var x=MG;var vals=[i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in),fmtHr(sh.out),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?String(r.repas):'',''];doc.setDrawColor(225,210,195);doc.line(MG,y,PW-MG,y);vals.forEach(function(v,ci){doc.text(v,x+1.5,y+4);x+=cols[ci].w;});y+=5.5;});
+      r.shifts.forEach(function(sh,i){var x=MG;var vals=[i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in)+(sh.manuel?'(M)':''),fmtHr(sh.out)+(sh.manuel?'(M)':''),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?String(r.repas):'',sh.manuel?'Manuel':''];doc.setDrawColor(225,210,195);doc.line(MG,y,PW-MG,y);vals.forEach(function(v,ci){doc.text(v,x+1.5,y+4);x+=cols[ci].w;});y+=5.5;});
       weekTot+=r.totalMins;monthTot+=r.totalMins;weekRepas+=r.repas;monthRepas+=r.repas;
     }else if(r.absence){var x=MG;var vals=[r.date,JOURS[dt.getDay()],'','','','','',r.absence];doc.setFillColor(254,243,230);doc.rect(MG,y,PW-MG*2,5.5,'F');doc.setTextColor(150,80,20);vals.forEach(function(v,ci){doc.text(v,x+1.5,y+4);x+=cols[ci].w;});y+=5.5;if(r.absence.indexOf('Cong')>=0){weekCp++;monthCp++;}}
   });
@@ -1618,10 +1620,10 @@ async function drhExportExcel(){
           aoa.push([
             i===0?r.date:'',
             i===0?JOURS[dt.getDay()]:'',
-            fmtHr(sh.in),fmtHr(sh.out),fmtHM(sh.mins),
+            fmtHr(sh.in)+(sh.manuel?'(M)':''),fmtHr(sh.out)+(sh.manuel?'(M)':''),fmtHM(sh.mins),
             i===0&&r.coupure?'Oui':'',
             i===0?r.repas:'',
-            ''
+            sh.manuel?'Manuel':''
           ]);
         });
         weekTotMins+=r.totalMins;monthTotMins+=r.totalMins;
@@ -1674,6 +1676,10 @@ async function drhExportPDF(){
     doc.setFontSize(13);doc.setFont('helvetica','normal');
     doc.text('R\u00e9capitulatif paie',PW/2,PH/2+4,{align:'center'});
     doc.text('Du '+monthLabel,PW/2,PH/2+14,{align:'center'});
+    doc.setFontSize(8);
+    doc.text('Document pr\u00e9paratoire \u2014 d\u00e9compte des heures',PW/2,PH-30,{align:'center'});
+    doc.text('(M) = pointage ajout\u00e9 manuellement. Les pointages badg\u00e9s ne sont jamais modifi\u00e9s.',PW/2,PH-24,{align:'center'});
+    doc.text('Les calculs l\u00e9gaux (majorations, avantages en nature) rel\u00e8vent de l\'\u00e9tablissement de la paie.',PW/2,PH-18,{align:'center'});
   }
 
   function renderSalarie(emData){
@@ -1717,7 +1723,7 @@ async function drhExportPDF(){
       if(r.shifts.length){
         r.shifts.forEach(function(sh,i){
           var x=MG;
-          var vals=[i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in),fmtHr(sh.out),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?String(r.repas):'',''];
+          var vals=[i===0?r.date:'',i===0?JOURS[dt.getDay()]:'',fmtHr(sh.in)+(sh.manuel?'(M)':''),fmtHr(sh.out)+(sh.manuel?'(M)':''),fmtHM(sh.mins),i===0&&r.coupure?'Oui':'',i===0?String(r.repas):'',sh.manuel?'Manuel':''];
           doc.setDrawColor(225,210,195);doc.line(MG,y,PW-MG,y);
           vals.forEach(function(v,ci){doc.text(v,x+1.5,y+4);x+=cols[ci].w;});
           y+=5.5;
@@ -2839,19 +2845,32 @@ function ficheLoadPlan(){
 function ficheLoadPt(){
   var body=document.getElementById('fiche-pane-pt');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
-  db.from('time_entries').select('*').eq('employee_id',ficheCurEmp).order('timestamp',{ascending:false}).limit(60).then(function(r){
+  db.from('time_entries').select('*').eq('employee_id',ficheCurEmp).order('timestamp',{ascending:false}).limit(80).then(function(r){
     var pts=r.data||[];
     if(!pts.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Aucun pointage</div>';return;}
+    var nbManuel=pts.filter(function(p){return p.manuel;}).length;
     var byMonth={};
     pts.forEach(function(p){var mo=p.timestamp.slice(0,7);if(!byMonth[mo])byMonth[mo]=[];byMonth[mo].push(p);});
     var h='';
+    if(nbManuel>0){
+      h+='<div style="font-size:10px;background:#FEF3C7;color:#92400E;padding:6px 8px;border-radius:6px;margin-bottom:8px">\u2139 '+nbManuel+' pointage(s) ajout\u00e9(s) manuellement (surlign\u00e9s). Les pointages badg\u00e9s automatiquement ne sont jamais modifi\u00e9s.</div>';
+    }
     Object.keys(byMonth).sort().reverse().forEach(function(mo){
       var mp=mo.split('-');var mLabel=PLAN_MONTHS[parseInt(mp[1])-1]+' '+mp[0];
       h+='<div style="font-size:11px;font-weight:700;color:var(--bx);margin:8px 0 4px">'+mLabel+'</div>';
       byMonth[mo].forEach(function(p){
         var icon=p.type==='entree'?'\u2197':'\u2199';
         var col=p.type==='entree'?'#065F46':'#991B1B';
-        h+='<div style="font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0"><span style="color:'+col+';font-weight:600">'+icon+'</span> '+fmtF(p.timestamp)+'</div>';
+        var bg=p.manuel?'background:rgba(254,243,199,.5);':'';
+        h+='<div style="font-size:11px;padding:4px 6px;border-bottom:1px solid #f0f0f0;'+bg+'border-radius:4px">';
+        h+='<span style="color:'+col+';font-weight:600">'+icon+'</span> '+fmtF(p.timestamp);
+        if(p.manuel){
+          h+=' <span style="background:#92400E;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;margin-left:4px">MANUEL</span>';
+          if(p.motif)h+='<div style="font-size:10px;color:var(--txm);margin-top:1px">Motif: '+p.motif+'</div>';
+        }else{
+          h+=' <span style="color:#aaa;font-size:9px">badg\u00e9</span>';
+        }
+        h+='</div>';
       });
     });
     body.innerHTML=h;
