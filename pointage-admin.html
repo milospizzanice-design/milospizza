@@ -157,9 +157,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="bar-d" id="bd"></div>
 </div>
 <div class="tabs">
-  <div class="tab on" onclick="goTab('pt',this)">Pointages</div>
+  <div class="tab" onclick="goTab('pt',this)">Pointages</div>
   <div class="tab" onclick="goTab('pr',this)">Pr&#233;sences</div>
-  <div class="tab" onclick="goTab('pl',this)">Planning</div>
+  <div class="tab on" onclick="goTab('pl',this)">Planning</div>
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
   <div class="tab" onclick="goTab('ab',this)">Absences</div>
   <div class="tab" onclick="goTab('au',this)">Audit</div>
@@ -167,7 +167,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="tab" onclick="goTab('pm',this)">&#9881; Paramètres</div>
 </div>
 <div class="page">
-  <div id="pt">
+  <div id="pt" style="display:none">
     <div id="alc"></div>
     <div class="stats">
       <div class="stat"><div class="sv" id="sp">-</div><div class="sl">Pr&#233;sents</div></div>
@@ -198,7 +198,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
   </div>
   <div id="pr" style="display:none"><div id="prb"></div></div>
-  <div id="pl" style="display:none">
+  <div id="pl">
     <div class="plan-rtabs">
       <div class="plan-rtab on" id="plr-port" onclick="switchPlanResto('port',this)">Port</div>
       <div class="plan-rtab" id="plr-dabray" onclick="switchPlanResto('dabray',this)">Dabray</div>
@@ -2629,7 +2629,7 @@ function openEditSal(id){
   renderSalPostesList(id);
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
-  if(ptStart){var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}
+  if(ptStart){if(em&&em.date_debut){ptStart.value=em.date_debut;}else{var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}}
   openM('msa');
 }
 
@@ -3258,6 +3258,7 @@ async function init(){
   loadMotifs();
   updateDemBadge();
   checkDepassements();
+  planUpdateLabel();await loadPl();
 }
 init();
 </script>
