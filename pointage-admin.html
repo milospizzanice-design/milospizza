@@ -233,6 +233,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd)">
       <div class="subtab on" id="subtab-dem" onclick="abSubTab('dem')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Demandes <span id="dem-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
       <div class="subtab" id="subtab-abs" onclick="abSubTab('abs')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Absences</div>
+      <div class="subtab" id="subtab-aco" onclick="abSubTab('aco')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Acomptes <span id="aco-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
     </div>
     <!-- Sous-onglet Demandes -->
     <div id="ab-pane-dem">
@@ -256,6 +257,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </table>
       </div>
     </div>
+    <!-- Sous-onglet Acomptes -->
+    <div id="ab-pane-aco" style="display:none">
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;color:var(--txm)">Demandes d'avance sur salaire (par virement)</div>
+        <button class="btn bs sm" onclick="toggleAcoArchive()" id="aco-arch-btn">&#128230; Historique</button>
+      </div>
+      <div id="aco-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
+    </div>
+
   </div>
   <div id="sa" style="display:none">
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
@@ -711,6 +721,7 @@ async function saveCor(){
   loadMotifs();
   updateDemBadge();
   checkDepassements();
+  db.from('demandes_acompte').select('*').then(function(r){acoAllData=r.data||[];updateAcoBadge();});
 }
 
 function expCSV(){
@@ -983,6 +994,86 @@ function planCellClickBtn(td){
   planCellClick(parseInt(td.dataset.eid),td.dataset.d);
 }
 
+
+
+// ── GESTION ACOMPTES (admin) ────────────────────────────────────────────────
+var acoShowArchive=false;var acoAllData=[];
+async function loadAco(){
+  var body=document.getElementById('aco-body');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
+  var r=await db.from('demandes_acompte').select('*').order('created_at',{ascending:false}).limit(200);
+  acoAllData=r.data||[];
+  var data=acoAllData.filter(function(a){return acoShowArchive?a.statut!=='att':a.statut==='att';});
+  if(!data.length){
+    body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">'+(acoShowArchive?'Aucun acompte trait\u00e9':'Aucune demande en attente')+'</div>';
+    updateAcoBadge();return;
+  }
+  var h='';
+  data.forEach(function(a){
+    var em=emp(a.employee_id);
+    var nom=em?em.prenom+' '+em.nom:'?';
+    var stColor=a.statut==='ok'?'#065F46':a.statut==='ko'?'#991B1B':'#92400E';
+    var stBg=a.statut==='ok'?'#D1FAE5':a.statut==='ko'?'#FEE2E2':'#FEF3C7';
+    var stLabel=a.statut==='ok'?'Accept\u00e9':a.statut==='ko'?'Refus\u00e9':'En attente';
+    h+='<div class="card" style="margin-bottom:8px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:start">';
+    h+='<div style="flex:1"><div style="font-weight:600;font-size:14px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+a.employee_id+')">'+nom+'</div>';
+    h+='<div style="font-size:13px;margin-top:3px"><b>'+a.montant+' \u20ac</b> par virement</div>';
+    h+='<div style="font-size:11px;color:var(--txm)">Souhait\u00e9 le '+a.date_souhaitee+'</div>';
+    if(a.note_admin&&a.statut==='att')h+='<div style="font-size:11px;color:var(--txm);margin-top:2px;font-style:italic">\u00ab '+a.note_admin+' \u00bb</div>';
+    if(a.montant_accorde&&a.montant_accorde!==a.montant)h+='<div style="font-size:11px;color:#065F46;margin-top:2px">Montant accord\u00e9: '+a.montant_accorde+' \u20ac</div>';
+    h+='</div>';
+    h+='<span style="background:'+stBg+';color:'+stColor+';padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap">'+stLabel+'</span>';
+    h+='</div>';
+    if(a.statut==='att'){
+      h+='<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">';
+      h+='<button class="btn bp sm" onclick="acoAction('+a.id+',\'ok\')">\u2713 Accepter</button>';
+      h+='<button class="btn bs sm" onclick="acoModif('+a.id+')">\u270E Modifier montant</button>';
+      h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="acoAction('+a.id+',\'ko\')">\u2715 Refuser</button>';
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  body.innerHTML=h;
+  updateAcoBadge();
+}
+
+async function acoAction(id,statut){
+  var a=acoAllData.find(function(x){return x.id===id;});
+  if(!a)return;
+  var note=null;
+  if(statut==='ko'){note=prompt('Motif du refus (communiqu\u00e9 au salari\u00e9) :');if(note===null)return;}
+  var upd={statut:statut};
+  if(statut==='ok'&&!a.montant_accorde)upd.montant_accorde=a.montant;
+  if(note)upd.note_admin=note;
+  var r=await db.from('demandes_acompte').update(upd).eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  loadAco();
+}
+
+async function acoModif(id){
+  var a=acoAllData.find(function(x){return x.id===id;});
+  if(!a)return;
+  var nv=prompt('Montant accord\u00e9 (\u20ac) :',a.montant);
+  if(nv===null)return;
+  var montant=parseFloat(nv);
+  if(!montant||montant<=0){alert('Montant invalide');return;}
+  var r=await db.from('demandes_acompte').update({montant_accorde:montant,statut:'ok'}).eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  loadAco();
+}
+
+function toggleAcoArchive(){
+  acoShowArchive=!acoShowArchive;
+  document.getElementById('aco-arch-btn').innerHTML=acoShowArchive?'\u2190 En attente':'\u{1F4E6} Historique';
+  loadAco();
+}
+
+async function updateAcoBadge(){
+  var n=acoAllData.filter(function(a){return a.statut==='att';}).length;
+  var badge=document.getElementById('aco-badge');
+  if(badge){if(n>0){badge.style.display='inline-block';badge.textContent=n;}else badge.style.display='none';}
+}
 
 // ── GESTION ABSENCE PLANNING (Récup, CP, etc. dans le tableau) ──────────────
 var planAbsInfo=null;
@@ -2863,6 +2954,24 @@ async function loadRc(){
     h+='</div></div></div>';
   });
   document.getElementById('rcb').innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
+  // Acomptes validés sur la période
+  loadRcAcomptes(dr);
+}
+
+async function loadRcAcomptes(dr){
+  var r=await db.from('demandes_acompte').select('*').eq('statut','ok').gte('date_souhaitee',dr.s.slice(0,10)).lte('date_souhaitee',dr.e.slice(0,10)).order('date_souhaitee');
+  var acos=r.data||[];
+  var existing=document.getElementById('rc-acomptes');
+  if(existing)existing.remove();
+  if(!acos.length)return;
+  var total=acos.reduce(function(s,a){return s+(parseFloat(a.montant_accorde||a.montant)||0);},0);
+  var h='<div id="rc-acomptes" class="card" style="margin-top:10px"><div class="sec-title">\u{1F4B0} Acomptes accord\u00e9s sur la p\u00e9riode</div>';
+  acos.forEach(function(a){
+    var em=emp(a.employee_id);var nom=em?em.prenom+' '+em.nom:'?';
+    h+='<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bd)"><span>'+nom+' \u2022 '+a.date_souhaitee+'</span><b>'+(a.montant_accorde||a.montant)+' \u20ac</b></div>';
+  });
+  h+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;font-weight:700;color:var(--bx)"><span>Total acomptes</span><span>'+total+' \u20ac</span></div></div>';
+  document.getElementById('rcb').insertAdjacentHTML('afterend',h);
 }
 
 var absAllData=[];
@@ -2881,21 +2990,20 @@ async function updateDemBadge(){
 // ── SOUS-ONGLETS ABSENCES/DEMANDES ──────────────────────────────────────────
 var absShowArchive=false;
 function abSubTab(which){
-  var paneDem=document.getElementById('ab-pane-dem');
-  var paneAbs=document.getElementById('ab-pane-abs');
-  var tabDem=document.getElementById('subtab-dem');
-  var tabAbs=document.getElementById('subtab-abs');
-  if(which==='dem'){
-    paneDem.style.display='block';paneAbs.style.display='none';
-    tabDem.style.borderBottom='2px solid var(--bx)';tabDem.style.color='var(--bx)';
-    tabAbs.style.borderBottom='none';tabAbs.style.color='var(--txm)';
-    if(typeof loadDem==='function')loadDem();
-  }else{
-    paneDem.style.display='none';paneAbs.style.display='block';
-    tabAbs.style.borderBottom='2px solid var(--bx)';tabAbs.style.color='var(--bx)';
-    tabDem.style.borderBottom='none';tabDem.style.color='var(--txm)';
-    if(typeof loadAb==='function')loadAb();
-  }
+  var panes={dem:'ab-pane-dem',abs:'ab-pane-abs',aco:'ab-pane-aco'};
+  var tabs={dem:'subtab-dem',abs:'subtab-abs',aco:'subtab-aco'};
+  Object.keys(panes).forEach(function(k){
+    var pane=document.getElementById(panes[k]);
+    var tab=document.getElementById(tabs[k]);
+    if(pane)pane.style.display=(k===which)?'block':'none';
+    if(tab){
+      tab.style.borderBottom=(k===which)?'2px solid var(--bx)':'none';
+      tab.style.color=(k===which)?'var(--bx)':'var(--txm)';
+    }
+  });
+  if(which==='dem'&&typeof loadDem==='function')loadDem();
+  else if(which==='abs'&&typeof loadAb==='function')loadAb();
+  else if(which==='aco'&&typeof loadAco==='function')loadAco();
 }
 
 function toggleAbsArchive(){
@@ -3413,6 +3521,7 @@ async function init(){
   loadMotifs();
   updateDemBadge();
   checkDepassements();
+  db.from('demandes_acompte').select('*').then(function(r){acoAllData=r.data||[];updateAcoBadge();});
   planUpdateLabel();await loadPl();
 }
 init();

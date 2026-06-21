@@ -73,6 +73,11 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cl">Demande d'absence</div>
         <div class="cs">Congés, maladie, récupération</div>
       </div>
+      <div class="cbtn" onclick="showAcoBtn()">
+        <div class="ci">&#128176;</div>
+        <div class="cl">Demande d'acompte</div>
+        <div class="cs">Avance sur salaire</div>
+      </div>
     </div>
     <div class="screen" id="s-pin">
       <div class="pl">Saisir votre code PIN</div>
@@ -165,6 +170,39 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div id="plan-content" style="width:100%;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"></div>
       <button onclick="reset()" style="width:100%;margin-top:12px;background:#B91E26;border:none;border-radius:12px;padding:16px;color:#fff;font-size:17px;font-weight:700;cursor:pointer">&#8592; Retour &#224; l'accueil</button>
     </div>
+    <div class="screen" id="s-aco-pin">
+      <div class="pl">PIN pour demander un acompte</div>
+      <div class="pd"><div id="qp0"></div><div id="qp1"></div><div id="qp2"></div><div id="qp3"></div></div>
+      <div class="np">
+        <button class="nb" onclick="qpk('1')">1</button><button class="nb" onclick="qpk('2')">2</button><button class="nb" onclick="qpk('3')">3</button>
+        <button class="nb" onclick="qpk('4')">4</button><button class="nb" onclick="qpk('5')">5</button><button class="nb" onclick="qpk('6')">6</button>
+        <button class="nb" onclick="qpk('7')">7</button><button class="nb" onclick="qpk('8')">8</button><button class="nb" onclick="qpk('9')">9</button>
+        <button class="nb" onclick="qpk('back')" style="font-size:18px">&#9003;</button>
+        <button class="nb" onclick="qpk('0')">0</button>
+        <button class="nb" id="qpc" onclick="acoConfirmPin()">&#10003;</button>
+      </div>
+      <button class="canc" onclick="reset()">Annuler</button>
+    </div>
+    <div class="screen" id="s-aco-form">
+      <div style="color:#fff;font-size:14px;font-weight:700;text-align:center;margin-bottom:11px" id="acoempname"></div>
+      <div class="af"><label class="albl">Montant souhait&#233; (&#8364;)</label>
+        <input type="number" id="aco-montant" class="ainp" min="0" step="10" placeholder="Ex: 200"></div>
+      <div class="af"><label class="albl">Date souhait&#233;e de r&#233;ception</label>
+        <input type="date" id="aco-date" class="ainp"></div>
+      <div class="af"><label class="albl">Message (optionnel)</label>
+        <textarea id="aco-msg" rows="2" class="ainp" style="resize:none" placeholder="Optionnel..."></textarea></div>
+      <button onclick="submitAco()" style="width:100%;background:#fff;color:#B91E26;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px">Envoyer la demande</button>
+      <button class="canc" onclick="reset()" style="margin-top:10px">Annuler</button>
+    </div>
+    <div class="screen" id="s-aco-ok">
+      <div style="text-align:center;color:#fff">
+        <div style="font-size:54px">&#9989;</div>
+        <div style="font-size:18px;font-weight:700;margin:10px 0">Demande envoy&#233;e !</div>
+        <div style="font-size:14px;opacity:.85" id="aco-ok-det"></div>
+      </div>
+      <button onclick="reset()" style="width:100%;margin-top:18px;background:#fff;color:#B91E26;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer">Retour</button>
+    </div>
+
 
   </div>
   <div class="rgpd">Photos conservées 90 jours &middot; Aucune reconnaissance faciale &middot; RGPD Art. 13</div>
@@ -188,6 +226,48 @@ tick();setInterval(tick,1000);
 function ss(name){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('s-'+name);if(el)el.classList.add('on');
+}
+
+
+// ── DEMANDE D'ACOMPTE (tablette) ────────────────────────────────────────────
+var acoPin='',acoEmp=null;
+function showAcoBtn(){
+  acoPin='';acoEmp=null;
+  for(var i=0;i<4;i++){var d=document.getElementById('qp'+i);if(d)d.classList.remove('f');}
+  var cf=document.getElementById('qpc');if(cf)cf.classList.remove('rdy');
+  ss('aco-pin');
+}
+function qpk(k){
+  if(k==='back')acoPin=acoPin.slice(0,-1);
+  else if(acoPin.length<4)acoPin+=k;
+  for(var i=0;i<4;i++){var d=document.getElementById('qp'+i);if(d)d.classList.toggle('f',acoPin.length>i);}
+  var cf=document.getElementById('qpc');if(cf)cf.classList.toggle('rdy',acoPin.length===4);
+}
+async function acoConfirmPin(){
+  if(acoPin.length!==4)return;
+  var r=await db.rpc('verify_pin',{p_pin:acoPin,p_restaurant:RESTAURANT_ID});
+  if(r.error||!r.data||r.data.length===0){acoPin='';for(var i=0;i<4;i++){var d=document.getElementById('qp'+i);if(d)d.classList.remove('f');}alert('PIN incorrect');return;}
+  acoEmp=r.data[0];
+  document.getElementById('acoempname').textContent=acoEmp.prenom+' '+acoEmp.nom;
+  document.getElementById('aco-montant').value='';
+  document.getElementById('aco-date').value='';
+  document.getElementById('aco-msg').value='';
+  ss('aco-form');
+}
+async function submitAco(){
+  if(!acoEmp)return;
+  var montant=parseFloat(document.getElementById('aco-montant').value);
+  var dateS=document.getElementById('aco-date').value;
+  var msg=document.getElementById('aco-msg').value.trim();
+  if(!montant||montant<=0){alert('Indiquez un montant valide');return;}
+  if(!dateS){alert('Indiquez la date souhait\u00e9e');return;}
+  var r=await db.from('demandes_acompte').insert({
+    employee_id:acoEmp.id,montant:montant,date_souhaitee:dateS,
+    moyen:'virement',statut:'att',note_admin:msg||null
+  });
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  document.getElementById('aco-ok-det').textContent=montant+' \u20ac par virement, souhait\u00e9 le '+dateS;
+  ss('aco-ok');
 }
 
 // ── CONSULTATION PLANNING SALARIÉ (tablette) ────────────────────────────────
@@ -277,7 +357,7 @@ async function loadSalariePlanning(){
 
 
 function reset(){
-  pin='';absPin='';planPin='';emp=null;absEmp=null;planEmp=null;
+  pin='';absPin='';planPin='';acoPin='';emp=null;absEmp=null;planEmp=null;acoEmp=null;
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
   
 // ── RGPD ─────────────────────────────────────────────────────────────────────
