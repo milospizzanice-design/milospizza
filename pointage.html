@@ -57,40 +57,40 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   <div class="datef" id="datef"></div>
   <div class="panel">
     <div class="screen on" id="s-idle">
-      <div class="panel-title">Faites votre choix</div>
-      <div class="cbtn" onclick="showPin()">
-        <div class="ci">&#128070;</div>
-        <div class="cl">Pointer mes heures</div>
-        <div class="cs">Entrée ou sortie</div>
-      </div>
-      <div class="cbtn" onclick="showPlanBtn()">
-        <div class="ci">&#128198;</div>
-        <div class="cl">Mon planning</div>
-        <div class="cs">Mes horaires des prochaines semaines</div>
-      </div>
-      <div class="cbtn" onclick="showAbsBtn()">
-        <div class="ci">&#128197;</div>
-        <div class="cl">Demande d'absence</div>
-        <div class="cs">Congés, maladie, récupération</div>
-      </div>
-      <div class="cbtn" onclick="showAcoBtn()">
-        <div class="ci">&#128176;</div>
-        <div class="cl">Demande d'acompte</div>
-        <div class="cs">Avance sur salaire</div>
-      </div>
-    </div>
-    <div class="screen" id="s-pin">
-      <div class="pl">Saisir votre code PIN</div>
+      <div class="pl">Entrez votre code PIN</div>
       <div class="pd"><div id="d0"></div><div id="d1"></div><div id="d2"></div><div id="d3"></div></div>
       <div class="np">
         <button class="nb" onclick="pk('1')">1</button><button class="nb" onclick="pk('2')">2</button><button class="nb" onclick="pk('3')">3</button>
         <button class="nb" onclick="pk('4')">4</button><button class="nb" onclick="pk('5')">5</button><button class="nb" onclick="pk('6')">6</button>
         <button class="nb" onclick="pk('7')">7</button><button class="nb" onclick="pk('8')">8</button><button class="nb" onclick="pk('9')">9</button>
-        <button class="nb" onclick="pk('back')" style="font-size:18px">&#9003;</button>
+        <button class="nb" style="visibility:hidden"></button>
         <button class="nb" onclick="pk('0')">0</button>
-        <button class="nb" id="pc" onclick="confirmPin()">&#10003;</button>
+        <button class="nb" onclick="pk('back')" style="font-size:18px">&#9003;</button>
       </div>
-      <button class="canc" onclick="reset()">Annuler</button>
+    </div>
+    <div class="screen" id="s-menu">
+      <div class="panel-title" id="menu-welcome" style="font-size:16px;color:#fff;margin-bottom:14px">Bienvenue</div>
+      <div class="cbtn" onclick="menuPointer()">
+        <div class="ci">&#128070;</div>
+        <div class="cl">Pointer mes heures</div>
+        <div class="cs">Entrée ou sortie</div>
+      </div>
+      <div class="cbtn" onclick="menuPlanning()">
+        <div class="ci">&#128198;</div>
+        <div class="cl">Mon planning</div>
+        <div class="cs">Mes horaires des prochaines semaines</div>
+      </div>
+      <div class="cbtn" onclick="menuAbsence()">
+        <div class="ci">&#128197;</div>
+        <div class="cl">Demande d'absence</div>
+        <div class="cs">Congés, maladie, récupération</div>
+      </div>
+      <div class="cbtn" onclick="menuAcompte()">
+        <div class="ci">&#128176;</div>
+        <div class="cl">Demande d'acompte</div>
+        <div class="cs">Avance sur salaire</div>
+      </div>
+      <button class="canc" onclick="reset()" style="margin-top:8px">D&#233;connexion</button>
     </div>
     <div class="screen" id="s-camera">
       <div class="pl" id="camname"></div>
@@ -390,22 +390,31 @@ checkRgpd();
 ss('idle');
 }
 
-function showPin(){pin='';upd();ss('pin');}
 function pk(k){
   if(k==='back')pin=pin.slice(0,-1);
   else if(pin.length<4)pin+=k;
-  upd();document.getElementById('pc').classList.toggle('rdy',pin.length===4);
+  upd();
+  if(pin.length===4)confirmPin(); // validation automatique
 }
 function upd(){for(var i=0;i<4;i++){var d=document.getElementById('d'+i);if(d)d.classList.toggle('f',pin.length>i);}}
 
 async function confirmPin(){
   if(pin.length!==4)return;
   var r=await db.rpc('verify_pin',{p_pin:pin,p_restaurant:RESTAURANT_ID});
-  if(r.error||!r.data||r.data.length===0){pin='';upd();alert('PIN incorrect');return;}
+  if(r.error||!r.data||r.data.length===0){pin='';upd();
+    var pl=document.querySelector('#s-idle .pl');
+    if(pl){var old=pl.textContent;pl.textContent='Code PIN incorrect';pl.style.color='#FCA5A5';setTimeout(function(){pl.textContent='Entrez votre code PIN';pl.style.color='';},1500);}
+    return;
+  }
   emp=r.data[0];
+  document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+  ss('menu');
+}
+
+// ── ACTIONS DU MENU (emp déjà identifié) ────────────────────────────────────
+async function menuPointer(){
   document.getElementById('camname').textContent=emp.prenom+' '+emp.nom;
   document.getElementById('camcnt').textContent='';
-  // Afficher le statut: prochaine action (entrée/sortie) selon le dernier badgeage
   var lr=await db.from('time_entries').select('type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
   var lastB=lr.data&&lr.data[0];
   var statusEl=document.getElementById('camstatus');
@@ -421,8 +430,25 @@ async function confirmPin(){
   }
   try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});document.getElementById('vid').srcObject=stream;}catch(e){}
   ss('camera');
-  var c=3;document.getElementById('camcnt').textContent=c;
-  var iv=setInterval(function(){c--;if(c>0){document.getElementById('camcnt').textContent=c;}else{clearInterval(iv);takePhoto();}},1000);
+}
+function menuPlanning(){
+  planEmp=emp;
+  document.getElementById('planempname').textContent=emp.prenom+' '+emp.nom;
+  document.getElementById('plan-content').innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
+  ss('plan-view');loadSalariePlanning();
+}
+function menuAbsence(){
+  absEmp=emp;
+  document.getElementById('absempname').textContent=emp.prenom+' '+emp.nom;
+  ss('abs-form');
+}
+function menuAcompte(){
+  acoEmp=emp;
+  document.getElementById('acoempname').textContent=emp.prenom+' '+emp.nom;
+  document.getElementById('aco-montant').value='';
+  document.getElementById('aco-date').value='';
+  document.getElementById('aco-msg').value='';
+  ss('aco-form');
 }
 
 function takePhoto(){
