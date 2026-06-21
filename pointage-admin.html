@@ -1453,24 +1453,47 @@ async function drhGenerateData(){
   var resto=document.getElementById('drh-resto').value;
   if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return null;}
   var les=emps.filter(function(e){return (resto==='all'||e.restaurant_id===resto||e.multi_site);});
+  var empIdsDrh=les.map(function(e){return e.id;});
   var pd=await db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59');
   var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to);
+  var crd=await db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh);
+  var apd=await db.from('absences_planning').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh);
   var result=[];
   les.forEach(function(em){
     var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
     var ea=(abd.data||[]).filter(function(a){return a.employee_id===em.id;});
+    var ecr=(crd.data||[]).filter(function(c){return c.employee_id===em.id;});
+    var eap=(apd.data||[]).filter(function(a){return a.employee_id===em.id;});
+    // Index planning par jour
+    var planByDay={};
+    ecr.forEach(function(c){if(!planByDay[c.date])planByDay[c.date]=[];planByDay[c.date].push(c);});
+    var absPlanByDay={};
+    eap.forEach(function(a){absPlanByDay[a.date]=a.code;});
     var byDay={};
     ep.forEach(function(p){var d=p.timestamp.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(p);});
     var days=[];
     var cur=new Date(from+'T12:00:00');var end=new Date(to+'T12:00:00');
     while(cur<=end){days.push(planDs(cur));cur=planAddD(cur,1);}
     var rows=[];
+    var ABSP_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
     days.forEach(function(dstr){
+      // Exclure les jours avant la date d'entrée du salarié
+      if(em.date_debut&&dstr<em.date_debut)return;
+      // Exclure les jours après la date de fin (archivé)
+      if(em.archive&&em.date_fin&&dstr>em.date_fin)return;
       var shifts=drhDayShifts(byDay[dstr]||[]);
       var totalMins=shifts.reduce(function(s,sh){return s+sh.mins;},0);
       var repas=shifts.length;
-      var abs=ea.find(function(a){return dstr>=a.date_debut&&dstr<=a.date_fin;});
-      var absLabel=abs?getMotifNom(abs.type):'';
+      var avaitCreneau=(planByDay[dstr]&&planByDay[dstr].length>0);
+      // Absence: priorité à l'absence planning (Récup/CP posée sur le planning)
+      var absLabel='';
+      if(absPlanByDay[dstr]){
+        absLabel=ABSP_L[absPlanByDay[dstr]]||absPlanByDay[dstr];
+      }else{
+        // Absence issue des demandes: ne compte QUE si un créneau était prévu ce jour
+        var abs=ea.find(function(a){return dstr>=a.date_debut&&dstr<=a.date_fin;});
+        if(abs&&avaitCreneau)absLabel=getMotifNom(abs.type);
+      }
       if(shifts.length||absLabel){
         rows.push({date:dstr,shifts:shifts,totalMins:totalMins,repas:repas,absence:absLabel,coupure:shifts.length>1});
       }
@@ -1493,17 +1516,30 @@ async function drhGenerateOne(empId,from,to){
   var em=emp(empId);if(!em)return null;
   var pd=await db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59').eq('employee_id',empId);
   var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to).eq('employee_id',empId);
+  var crd=await db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).eq('employee_id',empId);
+  var apd=await db.from('absences_planning').select('*').gte('date',from).lte('date',to).eq('employee_id',empId);
   var ep=pd.data||[];var ea=abd.data||[];
   var byDay={};
   ep.forEach(function(p){var d=p.timestamp.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(p);});
+  var planByDay={};(crd.data||[]).forEach(function(c){if(!planByDay[c.date])planByDay[c.date]=[];planByDay[c.date].push(c);});
+  var absPlanByDay={};(apd.data||[]).forEach(function(a){absPlanByDay[a.date]=a.code;});
+  var ABSP_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
   var days=[];var cur=new Date(from+'T12:00:00');var end=new Date(to+'T12:00:00');
   while(cur<=end){days.push(planDs(cur));cur=planAddD(cur,1);}
   var rows=[];
   days.forEach(function(dstr){
+    if(em.date_debut&&dstr<em.date_debut)return;
+    if(em.archive&&em.date_fin&&dstr>em.date_fin)return;
     var shifts=drhDayShifts(byDay[dstr]||[]);
     var totalMins=shifts.reduce(function(s,sh){return s+sh.mins;},0);
-    var abs=ea.find(function(a){return dstr>=a.date_debut&&dstr<=a.date_fin;});
-    var absLabel=abs?getMotifNom(abs.type):'';
+    var avaitCreneau=(planByDay[dstr]&&planByDay[dstr].length>0);
+    var absLabel='';
+    if(absPlanByDay[dstr]){
+      absLabel=ABSP_L[absPlanByDay[dstr]]||absPlanByDay[dstr];
+    }else{
+      var abs=ea.find(function(a){return dstr>=a.date_debut&&dstr<=a.date_fin;});
+      if(abs&&avaitCreneau)absLabel=getMotifNom(abs.type);
+    }
     if(shifts.length||absLabel)rows.push({date:dstr,shifts:shifts,totalMins:totalMins,repas:shifts.length,absence:absLabel,coupure:shifts.length>1});
   });
   return {em:em,rows:rows,from:from,to:to};
@@ -2725,7 +2761,7 @@ async function loadRc(){
   var dr=getDR(period);
   var les=emps.filter(function(e){return e.actif&&(resto==='all'||e.restaurant_id===resto);});
   var pd=await db.from('time_entries').select('*').gte('timestamp',dr.s).lte('timestamp',dr.e);
-  var pld=await db.from('planning').select('*').gte('date',dr.s.slice(0,10)).lte('date',dr.e.slice(0,10));
+  var pld=await db.from('planning_creneaux').select('*').gte('date',dr.s.slice(0,10)).lte('date',dr.e.slice(0,10));
   var abd=await db.from('absences').select('*').gte('date_fin',dr.s.slice(0,10)).lte('date_debut',dr.e.slice(0,10));
   var h='';
   les.forEach(function(em){
@@ -2733,7 +2769,10 @@ async function loadRc(){
     var epl=(pld.data||[]).filter(function(p){return p.employee_id===em.id;});
     var ea=(abd.data||[]).filter(function(a){return a.employee_id===em.id;});
     var w=calcW(ep);
-    var pl=epl.reduce(function(s,p){return s+phrs(p.horaire);},0);
+    var pl=epl.reduce(function(s,p){
+      var ss=p.heure_debut.slice(0,5).split(':');var se=p.heure_fin.slice(0,5).split(':');
+      return s+((parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1])));
+    },0);
     var diff=w-pl;
     var sa=diff>=180;
     var dc=sa?'#991B1B':diff>=0?'#166534':'#991B1B';
