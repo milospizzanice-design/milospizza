@@ -63,6 +63,11 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cl">Pointer mes heures</div>
         <div class="cs">Entrée ou sortie</div>
       </div>
+      <div class="cbtn" onclick="showPlanBtn()">
+        <div class="ci">&#128198;</div>
+        <div class="cl">Mon planning</div>
+        <div class="cs">Mes horaires des prochaines semaines</div>
+      </div>
       <div class="cbtn" onclick="showAbsBtn()">
         <div class="ci">&#128197;</div>
         <div class="cl">Demande d'absence</div>
@@ -141,6 +146,26 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="cfname">Demande envoyée !</div>
       <div class="cfdet" id="abs-ok-det"></div>
     </div>
+    <div class="screen" id="s-plan-pin">
+      <div class="pl">PIN pour consulter mon planning</div>
+      <div class="pd"><div id="pp0"></div><div id="pp1"></div><div id="pp2"></div><div id="pp3"></div></div>
+      <div class="np">
+        <button class="nb" onclick="ppk('1')">1</button><button class="nb" onclick="ppk('2')">2</button><button class="nb" onclick="ppk('3')">3</button>
+        <button class="nb" onclick="ppk('4')">4</button><button class="nb" onclick="ppk('5')">5</button><button class="nb" onclick="ppk('6')">6</button>
+        <button class="nb" onclick="ppk('7')">7</button><button class="nb" onclick="ppk('8')">8</button><button class="nb" onclick="ppk('9')">9</button>
+        <button class="nb" onclick="ppk('back')" style="font-size:18px">&#9003;</button>
+        <button class="nb" onclick="ppk('0')">0</button>
+        <button class="nb" id="ppc" onclick="planConfirmPin()">&#10003;</button>
+      </div>
+      <button class="canc" onclick="reset()">Annuler</button>
+    </div>
+    <div class="screen" id="s-plan-view">
+      <div class="pl" id="planempname" style="margin-bottom:6px"></div>
+      <div style="font-size:13px;color:#888;margin-bottom:10px">Vos horaires des 4 prochaines semaines</div>
+      <div id="plan-content" style="width:100%;max-width:420px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <button class="canc" onclick="reset()" style="margin-top:14px">Retour</button>
+    </div>
+
   </div>
   <div class="rgpd">Photos conservées 90 jours &middot; Aucune reconnaissance faciale &middot; RGPD Art. 13</div>
 </div>
@@ -164,8 +189,81 @@ function ss(name){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('s-'+name);if(el)el.classList.add('on');
 }
+
+// ── CONSULTATION PLANNING SALARIÉ (tablette) ────────────────────────────────
+var planPin='',planEmp=null;
+function showPlanBtn(){
+  planPin='';planEmp=null;
+  for(var i=0;i<4;i++){var d=document.getElementById('pp'+i);if(d)d.classList.remove('f');}
+  var cf=document.getElementById('ppc');if(cf)cf.classList.remove('rdy');
+  ss('plan-pin');
+}
+function ppk(k){
+  if(k==='back')planPin=planPin.slice(0,-1);
+  else if(planPin.length<4)planPin+=k;
+  for(var i=0;i<4;i++){var d=document.getElementById('pp'+i);if(d)d.classList.toggle('f',planPin.length>i);}
+  var cf=document.getElementById('ppc');if(cf)cf.classList.toggle('rdy',planPin.length===4);
+}
+async function planConfirmPin(){
+  if(planPin.length!==4)return;
+  var r=await db.rpc('verify_pin',{p_pin:planPin,p_restaurant:RESTAURANT_ID});
+  if(r.error||!r.data||r.data.length===0){planPin='';for(var i=0;i<4;i++){var d=document.getElementById('pp'+i);if(d)d.classList.remove('f');}alert('PIN incorrect');return;}
+  planEmp=r.data[0];
+  document.getElementById('planempname').textContent=planEmp.prenom+' '+planEmp.nom;
+  document.getElementById('plan-content').innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
+  ss('plan-view');
+  await loadSalariePlanning();
+}
+function pPad(n){return n<10?'0'+n:''+n;}
+function pDs(d){var x=new Date(d);return x.getFullYear()+'-'+pPad(x.getMonth()+1)+'-'+pPad(x.getDate());}
+function pMon(d){var x=new Date(d);var day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(12,0,0,0);return x;}
+function pAdd(d,n){var x=new Date(d);x.setDate(x.getDate()+n);x.setHours(12,0,0,0);return x;}
+async function loadSalariePlanning(){
+  var today=new Date();
+  var monday=pMon(today);
+  var endDate=pAdd(monday,27);
+  var fromS=pDs(monday),toS=pDs(endDate);
+  var cr=await db.from('planning_creneaux').select('*').eq('employee_id',planEmp.id).gte('date',fromS).lte('date',toS).order('date');
+  var ap=await db.from('absences_planning').select('*').eq('employee_id',planEmp.id).gte('date',fromS).lte('date',toS);
+  var crs=cr.data||[];var abs=ap.data||[];
+  var byDate={};crs.forEach(function(c){if(!byDate[c.date])byDate[c.date]=[];byDate[c.date].push(c);});
+  var absByDate={};abs.forEach(function(a){absByDate[a.date]=a.code;});
+  var ABS_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var h='';
+  for(var w=0;w<4;w++){
+    var wkStart=pAdd(monday,w*7);
+    var wkLabel='Semaine du '+wkStart.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+    var weekHtml='';var weekMins=0;var hasDay=false;
+    for(var dd=0;dd<7;dd++){
+      var dt=pAdd(wkStart,dd);var dstr=pDs(dt);
+      var dayCrs=byDate[dstr]||[];var absCode=absByDate[dstr];
+      if(dayCrs.length||absCode){
+        hasDay=true;
+        weekHtml+='<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #eee;font-size:15px"><span style="width:90px;color:#888;flex-shrink:0">'+DAYS[dd].slice(0,3)+' '+dt.getDate()+'</span><span style="flex:1">';
+        if(dayCrs.length){
+          weekHtml+=dayCrs.map(function(c){
+            var ss=c.heure_debut.slice(0,5).split(':');var se=c.heure_fin.slice(0,5).split(':');
+            weekMins+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+            return '<b style="color:#B91E26">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</b>';
+          }).join(' &nbsp; ');
+        }
+        if(absCode)weekHtml+=(dayCrs.length?' ':'')+'<span style="background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:10px;font-size:13px">'+(ABS_L[absCode]||absCode)+'</span>';
+        weekHtml+='</span></div>';
+      }
+    }
+    var wH=Math.floor(weekMins/60);var wM=weekMins%60;
+    h+='<div style="background:#fff;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">';
+    h+='<div style="display:flex;justify-content:space-between;font-weight:700;color:#B91E26;margin-bottom:6px"><span>'+wkLabel+'</span>'+(hasDay?'<span>'+wH+'h'+pPad(wM)+'</span>':'')+'</div>';
+    h+=hasDay?weekHtml:'<div style="color:#aaa;font-size:14px;padding:4px 0">Aucun horaire pr\u00e9vu</div>';
+    h+='</div>';
+  }
+  document.getElementById('plan-content').innerHTML=h;
+}
+
+
 function reset(){
-  pin='';absPin='';emp=null;absEmp=null;
+  pin='';absPin='';planPin='';emp=null;absEmp=null;planEmp=null;
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
   
 // ── RGPD ─────────────────────────────────────────────────────────────────────
@@ -242,8 +340,16 @@ function takePhoto(){
   badge(photo);
 }
 
-var DELAI_MIN_BADGE=60; // minutes minimum entre 2 badgeages
+var DELAI_MIN_BADGE=60; // minutes minimum entre 2 badgeages (chargé depuis app_config)
+async function loadDelaiBadge(){
+  try{
+    var r=await db.from('app_config').select('value').eq('key','delai_min_badge').single();
+    if(r.data&&r.data.value)DELAI_MIN_BADGE=parseInt(r.data.value)||60;
+  }catch(e){}
+}
+loadDelaiBadge();
 async function badge(photo){
+  await loadDelaiBadge();
   var r=await db.from('time_entries').select('id,type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
   var last=r.data&&r.data[0];
   // Contrôle du délai minimum entre 2 badgeages
