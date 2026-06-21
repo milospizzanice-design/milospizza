@@ -864,7 +864,7 @@ function renderPlan(){
               var cttx=cr.restaurant_id==='port'?'#1E40AF':'#065F46';
               tag='<span style="background:'+ctbg+';color:'+cttx+';font-size:7px;font-weight:700;padding:0 3px;border-radius:3px;margin-left:2px">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>';
             }
-            var crIdx=crs.indexOf(cr);
+            var crIdx=(planData[em.id]&&planData[em.id][dstr])?planData[em.id][dstr].indexOf(cr):crs.indexOf(cr);
             th+='<span class="cr-cell" style="cursor:pointer;display:block;padding:1px 2px;border-radius:3px" data-eid="'+em.id+'" data-d="'+dstr+'" data-i="'+crIdx+'" onclick="planTblEditCr(event,this)">'+cr.start+'-'+cr.end+tag+'</span>';
           });
           if(absCode)th+='<span class="cr-abs" style="'+(ABS_S[absCode]||'')+';cursor:pointer" data-eid="'+em.id+'" data-d="'+dstr+'" data-code="'+absCode+'" onclick="planAbsClick(event,this)" title="Cliquer pour modifier/supprimer">'+( ABS_L[absCode]||absCode)+'</span>';
@@ -911,7 +911,7 @@ function renderPlan(){
       crs.forEach(function(cr,ci){
         var restoTag=(emp.multi_site&&cr.restaurant_id&&cr.restaurant_id!==emp.restaurant_id)?'<span style="font-size:7px;background:rgba(185,30,38,.15);color:var(--bx);border-radius:3px;padding:1px 3px;display:block;text-align:center">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>':'';
         var posteNoms=getCrPosteNoms(cr);
-        h+='<div class="cr" style="cursor:pointer" data-eid="'+emp.id+'" data-d="'+dstr+'" data-i="'+ci+'" onclick="planOpenEdit(this)">';
+        h+='<div class="cr" style="cursor:pointer" data-eid="'+emp.id+'" data-d="'+dstr+'" data-i="'+((planData[emp.id]&&planData[emp.id][dstr])?planData[emp.id][dstr].indexOf(cr):ci)+'" onclick="planOpenEdit(this)">';
         h+='<div class="cr-t">'+cr.start+'<br>'+cr.end+restoTag+'</div>';
         if(posteNoms)h+='<div style="font-size:7px;color:#92610A;text-align:center;line-height:1.2;margin-top:2px">'+posteNoms+'</div>';
         h+='</div>';
