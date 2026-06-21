@@ -297,6 +297,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="fr"><label class="fl2">Seuil (heures)</label><input type="number" class="fi" id="pm-seuil" step="0.5" min="0" value="2" onchange="saveSeuilParam()"></div>
     </div>
     <div class="card">
+      <div class="sec-title">&#9201; Badgeage tablette</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">D&#233;lai minimum entre deux badgeages successifs. En de&#231;&#224;, le badgeage est bloqu&#233; (message &laquo; contacter un manager &raquo;). &#201;vite les doubles pointages accidentels.</div>
+      <div class="fr"><label class="fl2">D&#233;lai minimum (minutes)</label><input type="number" class="fi" id="pm-delai-badge" step="5" min="0" value="60" onchange="saveDelaiBadge()"></div>
+    </div>
+    <div class="card">
       <div class="sec-title">&#128101; Secteurs</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;align-items:center;gap:8px"><span style="background:#FEE2E2;color:#991B1B;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Cuisine</span><span style="font-size:12px;color:var(--txm)">Pizzaiolo, Après cuisson, Labo, Barman</span></div>
@@ -389,6 +394,13 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt" id="pedit-title">Modifier le créneau</div>
     <div class="fr"><label class="fl2">Début</label><input type="time" class="fi" id="pedit-s"></div>
     <div class="fr"><label class="fl2">Fin</label><input type="time" class="fi" id="pedit-e"></div>
+    <div class="fr">
+      <label class="fl2">Restaurant de ce cr&#233;neau</label>
+      <select class="fi" id="pedit-resto">
+        <option value="port">Port (Bavastro)</option>
+        <option value="dabray">Dabray</option>
+      </select>
+    </div>
     <div class="fr" id="pedit-postes-row">
       <label class="fl2">Poste(s) pour ce shift</label>
       <div id="pedit-postes-list" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px"></div>
@@ -406,8 +418,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt" id="pcr-title">Ajouter un cr&#233;neau</div>
     <div class="fr"><label class="fl2">D&#233;but</label><input type="time" class="fi" id="pcr-s" value="09:00"></div>
     <div class="fr"><label class="fl2">Fin</label><input type="time" class="fi" id="pcr-e" value="17:00"></div>
-    <div class="fr" id="pcr-resto-row" style="display:none">
-      <label class="fl2">Restaurant (multi-site)</label>
+    <div class="fr" id="pcr-resto-row">
+      <label class="fl2">Restaurant de ce cr&#233;neau</label>
       <select class="fi" id="pcr-resto">
         <option value="port">Port (Bavastro)</option>
         <option value="dabray">Dabray</option>
@@ -521,7 +533,7 @@ function goTab(name,el){
   if(name==='ab')abSubTab('dem');
   if(name==='sa')renderSal();
   if(name==='au')loadAudit();
-  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();}
+  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();}
 }
 
 function getDR(p){
@@ -1254,6 +1266,22 @@ var POSTES_DEFAULT=[
 var postes=JSON.parse(localStorage.getItem('rg_postes')||'null')||POSTES_DEFAULT;
 var curPosteId=null;
 
+
+
+// ── DÉLAI BADGEAGE (partagé avec la tablette via app_config) ─────────────────
+async function loadDelaiBadge(){
+  var inp=document.getElementById('pm-delai-badge');if(!inp)return;
+  try{
+    var r=await db.from('app_config').select('value').eq('key','delai_min_badge').single();
+    if(r.data&&r.data.value)inp.value=r.data.value;
+  }catch(e){}
+}
+async function saveDelaiBadge(){
+  var inp=document.getElementById('pm-delai-badge');if(!inp)return;
+  var val=parseInt(inp.value)||0;
+  var r=await db.from('app_config').upsert({key:'delai_min_badge',value:String(val)},{onConflict:'key'});
+  if(r.error)alert('Erreur sauvegarde: '+r.error.message);
+}
 
 // ── SEUIL DÉPASSEMENT HEURES ────────────────────────────────────────────────
 var seuilDepassement=parseFloat(localStorage.getItem('rg_seuil_depassement')||'2');
