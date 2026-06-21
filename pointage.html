@@ -160,10 +160,10 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <button class="canc" onclick="reset()">Annuler</button>
     </div>
     <div class="screen" id="s-plan-view">
-      <div class="pl" id="planempname" style="margin-bottom:6px"></div>
+      <div class="pl" id="planempname" style="margin-bottom:4px"></div>
       <div style="font-size:13px;color:#888;margin-bottom:10px">Vos horaires des 4 prochaines semaines</div>
-      <div id="plan-content" style="width:100%;max-width:420px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
-      <button class="canc" onclick="reset()" style="margin-top:14px">Retour</button>
+      <div id="plan-content" style="width:100%;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"></div>
+      <button onclick="reset()" style="width:100%;margin-top:12px;background:#B91E26;border:none;border-radius:12px;padding:16px;color:#fff;font-size:17px;font-weight:700;cursor:pointer">&#8592; Retour &#224; l'accueil</button>
     </div>
 
   </div>
@@ -227,6 +227,8 @@ async function loadSalariePlanning(){
   var ap=await db.from('absences_planning').select('*').eq('employee_id',planEmp.id).gte('date',fromS).lte('date',toS);
   var crs=cr.data||[];var abs=ap.data||[];
   var byDate={};crs.forEach(function(c){if(!byDate[c.date])byDate[c.date]=[];byDate[c.date].push(c);});
+  // Trier les créneaux de chaque jour par heure de début
+  Object.keys(byDate).forEach(function(d){byDate[d].sort(function(a,b){return a.heure_debut.localeCompare(b.heure_debut);});});
   var absByDate={};abs.forEach(function(a){absByDate[a.date]=a.code;});
   var ABS_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
   var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
@@ -245,8 +247,15 @@ async function loadSalariePlanning(){
           weekHtml+=dayCrs.map(function(c){
             var ss=c.heure_debut.slice(0,5).split(':');var se=c.heure_fin.slice(0,5).split(':');
             weekMins+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
-            return '<b style="color:#B91E26">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</b>';
-          }).join(' &nbsp; ');
+            var rtag='';
+            if(c.restaurant_id){
+              var rnm=c.restaurant_id==='port'?'Port':'Dabray';
+              var rbg=c.restaurant_id==='port'?'#DBEAFE':'#D1FAE5';
+              var rtx=c.restaurant_id==='port'?'#1E40AF':'#065F46';
+              rtag=' <span style="background:'+rbg+';color:'+rtx+';font-size:11px;font-weight:700;padding:1px 6px;border-radius:8px">'+rnm+'</span>';
+            }
+            return '<b style="color:#B91E26">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</b>'+rtag;
+          }).join('<br>');
         }
         if(absCode)weekHtml+=(dayCrs.length?' ':'')+'<span style="background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:10px;font-size:13px">'+(ABS_L[absCode]||absCode)+'</span>';
         weekHtml+='</span></div>';
