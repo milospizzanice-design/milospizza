@@ -226,7 +226,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
       <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option></select>
       <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
-      <button class="btn bs sm" onclick="openFillBadge()">&#9201; Remplir badgeages manquants</button>
     </div>
     <div id="rcb"></div>
   </div>
@@ -1522,105 +1521,6 @@ function ficheExportOpen(){
 }
 
 
-
-// ── REMPLISSAGE BADGEAGES MANQUANTS ─────────────────────────────────────────
-function openFillBadge(){
-  var now=new Date();
-  document.getElementById('fill-from').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
-  document.getElementById('fill-to').value=planDs(now);
-  document.getElementById('fill-preview').innerHTML='';
-  openM('modal-fillbadge');
-}
-
-// Calcule les badgeages à ajouter (sans les insérer)
-async function fillBadgeCompute(){
-  var from=document.getElementById('fill-from').value;
-  var to=document.getElementById('fill-to').value;
-  var resto=document.getElementById('fill-resto').value;
-  if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return null;}
-  var lesEmp=emps.filter(function(e){return resto==='all'||e.restaurant_id===resto||e.multi_site;});
-  var empIds=lesEmp.map(function(e){return e.id;});
-  // Charger les créneaux prévus et les pointages sur la période
-  var crsR=await db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).in('employee_id',empIds);
-  var ptR=await db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59').in('employee_id',empIds);
-  var crs=crsR.data||[];var pts=ptR.data||[];
-  // Indexer les pointages par employé+jour
-  var ptByKey={};
-  pts.forEach(function(p){
-    var key=p.employee_id+'|'+p.timestamp.slice(0,10);
-    if(!ptByKey[key])ptByKey[key]={entree:[],sortie:[]};
-    ptByKey[key][p.type].push(p);
-  });
-  var toAdd=[];
-  crs.forEach(function(cr){
-    var key=cr.employee_id+'|'+cr.date;
-    var dayPt=ptByKey[key]||{entree:[],sortie:[]};
-    var em=emp(cr.employee_id);
-    if(!em)return;
-    // Heures prévues
-    var prevIn=cr.date+'T'+cr.heure_debut.slice(0,5)+':00';
-    var prevOut=cr.date+'T'+cr.heure_fin.slice(0,5)+':00';
-    // Cas: aucun badgeage du tout ce jour -> ajouter entrée + sortie
-    var hasEntree=dayPt.entree.length>0;
-    var hasSortie=dayPt.sortie.length>0;
-    if(!hasEntree&&!hasSortie){
-      toAdd.push({eid:cr.employee_id,em:em,date:cr.date,type:'entree',ts:prevIn,resto:cr.restaurant_id||em.restaurant_id});
-      toAdd.push({eid:cr.employee_id,em:em,date:cr.date,type:'sortie',ts:prevOut,resto:cr.restaurant_id||em.restaurant_id});
-    }else if(hasEntree&&!hasSortie){
-      // Badgé entrée mais pas sortie -> ajouter la sortie prévue
-      toAdd.push({eid:cr.employee_id,em:em,date:cr.date,type:'sortie',ts:prevOut,resto:cr.restaurant_id||em.restaurant_id});
-    }else if(!hasEntree&&hasSortie){
-      // Badgé sortie mais pas entrée -> ajouter l'entrée prévue
-      toAdd.push({eid:cr.employee_id,em:em,date:cr.date,type:'entree',ts:prevIn,resto:cr.restaurant_id||em.restaurant_id});
-    }
-    // Si entrée ET sortie déjà badgées -> rien à faire
-  });
-  return {toAdd:toAdd,from:from,to:to};
-}
-
-async function fillBadgePreview(){
-  var res=await fillBadgeCompute();
-  if(!res)return;
-  var div=document.getElementById('fill-preview');
-  if(!res.toAdd.length){
-    div.innerHTML='<div style="color:#16A34A;padding:8px;background:#F0FDF4;border-radius:6px">Aucun badgeage manquant sur cette p\u00e9riode. Tout est complet.</div>';
-    return;
-  }
-  // Grouper par salarié
-  var byEmp={};
-  res.toAdd.forEach(function(a){
-    var k=a.em.prenom+' '+a.em.nom;
-    if(!byEmp[k])byEmp[k]=0;byEmp[k]++;
-  });
-  var h='<div style="background:#FEF3C7;padding:8px;border-radius:6px"><b>'+res.toAdd.length+' badgeage(s)</b> seront ajout\u00e9s :<div style="margin-top:4px">';
-  Object.keys(byEmp).forEach(function(nom){
-    h+='<div style="font-size:11px">\u2022 '+nom+' : '+byEmp[nom]+' pointage(s)</div>';
-  });
-  h+='</div></div>';
-  div.innerHTML=h;
-}
-
-async function fillBadgeApply(){
-  var res=await fillBadgeCompute();
-  if(!res)return;
-  if(!res.toAdd.length){alert('Aucun badgeage manquant \u00e0 remplir.');return;}
-  if(!confirm(res.toAdd.length+' badgeage(s) vont \u00eatre ajout\u00e9s avec le motif \u00ab absence de badgeage \u00bb. Continuer ?'))return;
-  var err=0;var done=0;
-  for(var i=0;i<res.toAdd.length;i++){
-    var a=res.toAdd[i];
-    var r=await db.from('time_entries').insert({
-      employee_id:a.eid,restaurant_id:a.resto,type:a.type,
-      timestamp:new Date(a.ts).toISOString(),
-      ip_address:'horaire-prevu',ip_ok:true,photo_b64:null,
-      manuel:true,motif:'absence de badgeage'
-    });
-    if(r.error)err++;else done++;
-  }
-  closeM('modal-fillbadge');
-  if(err>0)alert(done+' badgeage(s) ajout\u00e9s, '+err+' erreur(s).');
-  else alert(done+' badgeage(s) ajout\u00e9s avec succ\u00e8s (motif: absence de badgeage).');
-  loadRc();
-}
 
 // ── MAIL DE VALIDATION DES HEURES ───────────────────────────────────────────
 async function ficheMailValidation(){
@@ -3564,21 +3464,6 @@ init();
   </div>
 </div>
 
-<!-- Modal remplissage badgeages manquants -->
-<div class="mb" id="modal-fillbadge">
-  <div class="md">
-    <div class="mdt">&#9201; Remplir les badgeages manquants</div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px">Pour chaque jour avec un cr&#233;neau pr&#233;vu au planning mais sans badgeage complet, le syst&#232;me ajoute les horaires pr&#233;vus. Ces ajouts sont marqu&#233;s <b>&laquo; horaire pr&#233;vu &raquo;</b> avec le motif <b>&laquo; absence de badgeage &raquo;</b> (distincts des vrais badgeages).</div>
-    <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="fill-from"></div>
-    <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="fill-to"></div>
-    <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="fill-resto"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select></div>
-    <div id="fill-preview" style="font-size:11px;margin:8px 0"></div>
-    <div class="ma" style="flex-wrap:wrap;gap:6px">
-      <button class="btn bs" onclick="closeM('modal-fillbadge')">Annuler</button>
-      <button class="btn bg2" onclick="fillBadgePreview()">&#128065; Aper&#231;u</button>
-      <button class="btn bp" onclick="fillBadgeApply()">&#10003; Remplir</button>
-    </div>
-  </div>
-</div>
+
 </body>
 </html>
