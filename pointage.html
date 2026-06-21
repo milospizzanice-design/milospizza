@@ -168,7 +168,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="pl" id="planempname" style="margin-bottom:4px"></div>
       <div style="font-size:13px;color:#888;margin-bottom:10px">Vos horaires des 4 prochaines semaines</div>
       <div id="plan-content" style="width:100%;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"></div>
-      <button onclick="reset()" style="width:100%;margin-top:12px;background:#B91E26;border:none;border-radius:12px;padding:16px;color:#fff;font-size:17px;font-weight:700;cursor:pointer">&#8592; Retour &#224; l'accueil</button>
+      <button onclick="backToMenu()" style="width:100%;margin-top:12px;background:#B91E26;border:none;border-radius:12px;padding:16px;color:#fff;font-size:17px;font-weight:700;cursor:pointer">&#8592; Retour au menu</button>
     </div>
     <div class="screen" id="s-aco-pin">
       <div class="pl">PIN pour demander un acompte</div>
@@ -192,7 +192,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="af"><label class="albl">Message (optionnel)</label>
         <textarea id="aco-msg" rows="2" class="ainp" style="resize:none" placeholder="Optionnel..."></textarea></div>
       <button onclick="submitAco()" style="width:100%;background:#fff;color:#B91E26;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px">Envoyer la demande</button>
-      <button class="canc" onclick="reset()" style="margin-top:10px">Annuler</button>
+      <button class="canc" onclick="backToMenu()" style="margin-top:10px">Annuler</button>
     </div>
     <div class="screen" id="s-aco-ok">
       <div style="text-align:center;color:#fff">
@@ -200,7 +200,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div style="font-size:18px;font-weight:700;margin:10px 0">Demande envoy&#233;e !</div>
         <div style="font-size:14px;opacity:.85" id="aco-ok-det"></div>
       </div>
-      <button onclick="reset()" style="width:100%;margin-top:18px;background:#fff;color:#B91E26;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer">Retour</button>
+      <button onclick="backToMenu()" style="width:100%;margin-top:18px;background:#fff;color:#B91E26;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer">Retour au menu</button>
     </div>
 
 
@@ -357,6 +357,7 @@ async function loadSalariePlanning(){
 
 
 function reset(){
+  if(photoTimer){clearInterval(photoTimer);photoTimer=null;}
   pin='';absPin='';planPin='';acoPin='';emp=null;absEmp=null;planEmp=null;acoEmp=null;
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
   
@@ -409,6 +410,7 @@ async function confirmPin(){
   emp=r.data[0];
   document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
   ss('menu');
+  resetInactivity();
 }
 
 // ── ACTIONS DU MENU (emp déjà identifié) ────────────────────────────────────
@@ -428,8 +430,20 @@ async function menuPointer(){
       statusEl.style.background='#D1FAE5';statusEl.style.color='#065F46';
     }
   }
-  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});document.getElementById('vid').srcObject=stream;}catch(e){}
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});document.getElementById('vid').srcObject=stream;}catch(e){alert('Cam\u00e9ra non disponible');reset();return;}
   ss('camera');
+  startPhotoCountdown();
+}
+var photoTimer=null;
+function startPhotoCountdown(){
+  var n=3;var cnt=document.getElementById('camcnt');
+  if(cnt)cnt.textContent=n;
+  if(photoTimer)clearInterval(photoTimer);
+  photoTimer=setInterval(function(){
+    n--;
+    if(cnt)cnt.textContent=n>0?n:'\u{1F4F8}';
+    if(n<=0){clearInterval(photoTimer);photoTimer=null;takePhoto();}
+  },1000);
 }
 function menuPlanning(){
   planEmp=emp;
@@ -450,6 +464,30 @@ function menuAcompte(){
   document.getElementById('aco-msg').value='';
   ss('aco-form');
 }
+
+
+// ── RETOUR AU MENU + DÉCONNEXION AUTO ───────────────────────────────────────
+var inactivityTimer=null;
+function backToMenu(){
+  if(photoTimer){clearInterval(photoTimer);photoTimer=null;}
+  if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
+  pin='';absPin='';planPin='';acoPin='';
+  if(emp){
+    document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+    ss('menu');
+    resetInactivity();
+  }else{
+    reset();
+  }
+}
+function resetInactivity(){
+  if(inactivityTimer)clearTimeout(inactivityTimer);
+  inactivityTimer=setTimeout(function(){reset();},30000); // 30s
+}
+function clearInactivity(){
+  if(inactivityTimer){clearTimeout(inactivityTimer);inactivityTimer=null;}
+}
+
 
 function takePhoto(){
   var v=document.getElementById('vid');
@@ -478,7 +516,7 @@ async function badge(photo){
     if(diffMin<DELAI_MIN_BADGE){
       var reste=Math.ceil(DELAI_MIN_BADGE-diffMin);
       document.getElementById('em').innerHTML='Dur\u00e9e insuffisante depuis le dernier pointage.<br>Merci de contacter un manager.<br><span style="font-size:13px;opacity:.8">(encore '+reste+' min)</span>';
-      ss('error');setTimeout(reset,5000);return;
+      ss('error');setTimeout(backToMenu,5000);return;
     }
   }
   var type=(!last||last.type==='sortie')?'entree':'sortie';
@@ -488,10 +526,10 @@ async function badge(photo){
   var wl=(rr.data&&rr.data.ip_whitelist)||[];
   var ipOk=wl.length===0||wl.indexOf(ip)>=0;
   var ri=await db.from('time_entries').insert({employee_id:emp.id,restaurant_id:RESTAURANT_ID,type:type,timestamp:new Date().toISOString(),ip_address:ip,ip_ok:ipOk,photo_b64:photo,manuel:false,motif:null});
-  if(ri.error){document.getElementById('em').textContent=ri.error.message;ss('error');setTimeout(reset,3000);return;}
+  if(ri.error){document.getElementById('em').textContent=ri.error.message;ss('error');setTimeout(backToMenu,3000);return;}
   document.getElementById('cfname').textContent=emp.prenom+' '+emp.nom;
   document.getElementById('cfdet').innerHTML=(type==='entree'?'&#9650; Entrée':'&#9660; Sortie')+' enregistrée — '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  ss('ok');setTimeout(reset,4000);
+  ss('ok');setTimeout(backToMenu,3000);
 }
 
 function showAbsBtn(){
@@ -544,7 +582,7 @@ async function submitAbs(){
   if(ins.error){alert('Erreur: '+ins.error.message);return;}
   var TL={cp:'Conges payes',am:'Arret maladie',rec:'Recuperation',ai:'Absence injustifiee'};
   document.getElementById('abs-ok-det').textContent=(TL[type]||type)+' du '+from+' au '+to;
-  ss('abs-ok');setTimeout(reset,4000);
+  ss('abs-ok');setTimeout(backToMenu,3000);
 }
 
 
