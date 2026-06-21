@@ -401,6 +401,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <option value="dabray">Dabray</option>
       </select>
     </div>
+    <div class="fr">
+      <label class="fl2">Statut du cr&#233;neau</label>
+      <select class="fi" id="pedit-statut">
+        <option value="">Travaill&#233; (normal)</option>
+        <option value="cp">Cong&#233;s pay&#233;s</option>
+        <option value="rec">R&#233;cup&#233;ration</option>
+        <option value="am">Arr&#234;t maladie</option>
+        <option value="ai">Absence injustifi&#233;e</option>
+      </select>
+    </div>
     <div class="fr" id="pedit-postes-row">
       <label class="fl2">Poste(s) pour ce shift</label>
       <div id="pedit-postes-list" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px"></div>
@@ -423,6 +433,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <select class="fi" id="pcr-resto">
         <option value="port">Port (Bavastro)</option>
         <option value="dabray">Dabray</option>
+      </select>
+    </div>
+    <div class="fr">
+      <label class="fl2">Statut du cr&#233;neau</label>
+      <select class="fi" id="pcr-statut">
+        <option value="">Travaill&#233; (normal)</option>
+        <option value="cp">Cong&#233;s pay&#233;s</option>
+        <option value="rec">R&#233;cup&#233;ration</option>
+        <option value="am">Arr&#234;t maladie</option>
+        <option value="ai">Absence injustifi&#233;e</option>
       </select>
     </div>
     <div class="fr" id="pcr-postes-row">
@@ -803,7 +823,7 @@ async function loadPl(){
     if(!planData[c.employee_id])planData[c.employee_id]={};
     if(!planData[c.employee_id][c.date])planData[c.employee_id][c.date]=[];
     var crPostesLoaded=[];try{crPostesLoaded=c.postes?JSON.parse(c.postes):[];}catch(e){crPostesLoaded=[];}
-    planData[c.employee_id][c.date].push({id:c.id,start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5),restaurant_id:c.restaurant_id||null,postes:crPostesLoaded});
+    planData[c.employee_id][c.date].push({id:c.id,start:c.heure_debut.slice(0,5),end:c.heure_fin.slice(0,5),restaurant_id:c.restaurant_id||null,postes:crPostesLoaded,absence_code:c.absence_code||''});
   });
   Object.keys(planData).forEach(function(eid){
     Object.keys(planData[eid]).forEach(function(d){
@@ -878,7 +898,15 @@ function renderPlan(){
               tag='<span style="background:'+ctbg+';color:'+cttx+';font-size:7px;font-weight:700;padding:0 3px;border-radius:3px;margin-left:2px">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>';
             }
             var crIdx=(planData[em.id]&&planData[em.id][dstr])?planData[em.id][dstr].indexOf(cr):crs.indexOf(cr);
-            th+='<span class="cr-cell" style="cursor:pointer;display:block;padding:1px 2px;border-radius:3px" data-eid="'+em.id+'" data-d="'+dstr+'" data-i="'+crIdx+'" onclick="planTblEditCr(event,this)">'+cr.start+'-'+cr.end+tag+'</span>';
+            var absTag='';var crStyle='cursor:pointer;display:block;padding:1px 2px;border-radius:3px';
+            if(cr.absence_code){
+              var acL={cp:'CP',rec:'R\u00e9cup',am:'AM',ai:'AI'};
+              var acC={cp:'#5B21B6',rec:'#065F46',am:'#991B1B',ai:'#1F2937'};
+              var acB={cp:'#EDE9FE',rec:'#D1FAE5',am:'#FEE2E2',ai:'#E5E7EB'};
+              crStyle+=';background:'+(acB[cr.absence_code]||'#eee');
+              absTag=' <span style="font-size:7px;font-weight:700;color:'+(acC[cr.absence_code]||'#333')+'">'+(acL[cr.absence_code]||cr.absence_code)+'</span>';
+            }
+            th+='<span class="cr-cell" style="'+crStyle+'" data-eid="'+em.id+'" data-d="'+dstr+'" data-i="'+crIdx+'" onclick="planTblEditCr(event,this)"><span style="'+(cr.absence_code?'text-decoration:line-through;opacity:.6':'')+'">'+cr.start+'-'+cr.end+'</span>'+absTag+tag+'</span>';
           });
           if(absCode)th+='<span class="cr-abs" style="'+(ABS_S[absCode]||'')+';cursor:pointer" data-eid="'+em.id+'" data-d="'+dstr+'" data-code="'+absCode+'" onclick="planAbsClick(event,this)" title="Cliquer pour modifier/supprimer">'+( ABS_L[absCode]||absCode)+'</span>';
           th+='<span data-eid="'+em.id+'" data-d="'+dstr+'" onclick="planCellClickBtn(this)" style="display:block;text-align:center;cursor:pointer;color:#16A34A;font-weight:700;font-size:13px;margin-top:2px;border-top:1px dashed #ddd;padding-top:1px" title="Ajouter un créneau">+</span>';
@@ -1015,6 +1043,8 @@ function planOpenEdit(el){
     var em=emps.find(function(e){return e.id===eid;});
     restoEl.value=cr.restaurant_id||( em&&em.restaurant_id)||planResto;
   }
+  var statEl=document.getElementById('pedit-statut');
+  if(statEl)statEl.value=cr.absence_code||'';
   var d=new Date(dstr+'T12:00:00');
   var dayIdx=d.getDay()===0?6:d.getDay()-1;
   document.getElementById('pedit-title').textContent='Modifier créneau — '+PLAN_DAYSFULL[dayIdx]+' '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
@@ -1033,6 +1063,8 @@ function savePlanEdit(){
   cr.start=s;cr.end=e;
   var restoEl=document.getElementById('pedit-resto');
   if(restoEl)cr.restaurant_id=restoEl.value;
+  var statEl=document.getElementById('pedit-statut');
+  if(statEl)cr.absence_code=statEl.value;
   cr.postes=getCheckedPostes('pedit-postes-list');
   if(cr.id){cr._modified=true;}
   planData[eid][dstr].sort(function(a,b){return a.start.localeCompare(b.start);});
@@ -1106,7 +1138,9 @@ function savePCr(){
   var resto=restoSel?restoSel.value:((em&&em.restaurant_id)||planResto);
   if(!planData[eid])planData[eid]={};if(!planData[eid][d])planData[eid][d]=[];
   var crPostes=getCheckedPostes('pcr-postes-list');
-  planData[eid][d].push({start:s,end:e,_new:true,restaurant_id:resto,postes:crPostes});
+  var statSel=document.getElementById('pcr-statut');
+  var absC=statSel?statSel.value:'';
+  planData[eid][d].push({start:s,end:e,_new:true,restaurant_id:resto,postes:crPostes,absence_code:absC});
   planData[eid][d].sort(function(a,b){return a.start.localeCompare(b.start);});
   planMarkDirty();closeM('modal-pcr');
   var wasOpen=document.getElementById('epb-'+eid)&&document.getElementById('epb-'+eid).classList.contains('open');
@@ -1132,8 +1166,8 @@ async function savePl(){
       for(var i=0;i<crs.length;i++){
         var cr=crs[i];
         if(cr._del&&cr.id){var r=await db.from('planning_creneaux').delete().eq('id',cr.id);if(r.error)err++;}
-        else if(cr._modified&&cr.id&&!cr._del){var rm=await db.from('planning_creneaux').update({heure_debut:cr.start,heure_fin:cr.end,restaurant_id:cr.restaurant_id||planResto,postes:cr.postes?JSON.stringify(cr.postes):null}).eq('id',cr.id);if(rm.error)err++;else cr._modified=false;}
-        else if(cr._new&&!cr._del){var r2=await db.from('planning_creneaux').insert({employee_id:parseInt(eid),date:d,heure_debut:cr.start,heure_fin:cr.end,restaurant_id:cr.restaurant_id||planResto,postes:cr.postes?JSON.stringify(cr.postes):null});if(r2.error)err++;else cr._new=false;}
+        else if(cr._modified&&cr.id&&!cr._del){var rm=await db.from('planning_creneaux').update({heure_debut:cr.start,heure_fin:cr.end,restaurant_id:cr.restaurant_id||planResto,postes:cr.postes?JSON.stringify(cr.postes):null,absence_code:cr.absence_code||null}).eq('id',cr.id);if(rm.error)err++;else cr._modified=false;}
+        else if(cr._new&&!cr._del){var r2=await db.from('planning_creneaux').insert({employee_id:parseInt(eid),date:d,heure_debut:cr.start,heure_fin:cr.end,restaurant_id:cr.restaurant_id||planResto,postes:cr.postes?JSON.stringify(cr.postes):null,absence_code:cr.absence_code||null});if(r2.error)err++;else cr._new=false;}
       }
       planData[eid][d]=crs.filter(function(c){return !c._del;});
     }
@@ -1512,13 +1546,23 @@ async function drhGenerateData(){
       var shifts=drhDayShifts(byDay[dstr]||[]);
       var totalMins=shifts.reduce(function(s,sh){return s+sh.mins;},0);
       var repas=shifts.length;
-      var avaitCreneau=(planByDay[dstr]&&planByDay[dstr].length>0);
-      // Absence: priorité à l'absence planning (Récup/CP posée sur le planning)
+      var dayPlan=planByDay[dstr]||[];
+      var avaitCreneau=dayPlan.length>0;
+      // Créneaux marqués comme absence (ex: soir en CP) -> heures d'absence
+      var absCreneaux=dayPlan.filter(function(c){return c.absence_code;});
+      var absCrLabels=[];var absCrMins=0;
+      absCreneaux.forEach(function(c){
+        absCrLabels.push((ABSP_L[c.absence_code]||c.absence_code));
+        var ss=c.heure_debut.slice(0,5).split(':');var se=c.heure_fin.slice(0,5).split(':');
+        absCrMins+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+      });
+      // Absence jour entier: priorité à l'absence planning
       var absLabel='';
       if(absPlanByDay[dstr]){
         absLabel=ABSP_L[absPlanByDay[dstr]]||absPlanByDay[dstr];
+      }else if(absCrLabels.length){
+        absLabel=absCrLabels.join(', ')+' ('+Math.floor(absCrMins/60)+'h'+String(absCrMins%60).padStart(2,'0')+')';
       }else{
-        // Absence issue des demandes: ne compte QUE si un créneau était prévu ce jour
         var abs=ea.find(function(a){return dstr>=a.date_debut&&dstr<=a.date_fin;});
         if(abs&&avaitCreneau)absLabel=getMotifNom(abs.type);
       }

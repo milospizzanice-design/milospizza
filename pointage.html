@@ -246,13 +246,18 @@ async function loadSalariePlanning(){
         if(dayCrs.length){
           weekHtml+=dayCrs.map(function(c){
             var ss=c.heure_debut.slice(0,5).split(':');var se=c.heure_fin.slice(0,5).split(':');
-            weekMins+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+            // Ne compter dans le total que les créneaux travaillés (pas les absences)
+            if(!c.absence_code)weekMins+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
             var rtag='';
             if(c.restaurant_id){
               var rnm=c.restaurant_id==='port'?'Port':'Dabray';
               var rbg=c.restaurant_id==='port'?'#DBEAFE':'#D1FAE5';
               var rtx=c.restaurant_id==='port'?'#1E40AF':'#065F46';
               rtag=' <span style="background:'+rbg+';color:'+rtx+';font-size:11px;font-weight:700;padding:1px 6px;border-radius:8px">'+rnm+'</span>';
+            }
+            if(c.absence_code){
+              var acL={cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration',am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e'};
+              return '<span style="text-decoration:line-through;opacity:.6">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</span> <span style="background:#EDE9FE;color:#5B21B6;padding:1px 7px;border-radius:8px;font-size:12px">'+(acL[c.absence_code]||c.absence_code)+'</span>';
             }
             return '<b style="color:#B91E26">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</b>'+rtag;
           }).join('<br>');
