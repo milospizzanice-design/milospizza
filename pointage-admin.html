@@ -355,6 +355,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="sar"><option value="port">Port</option><option value="dabray">Dabray</option></select></div>
     <div class="fr"><label class="fl2">Heures contrat / semaine</label><input type="number" class="fi" id="saheures" step="0.5" min="0" placeholder="Ex: 16.5"></div>
     <div class="fr"><label class="fl2">Date d'entr&#233;e en poste</label><input type="date" class="fi" id="sadebut"></div>
+    <div class="fr"><label class="fl2">Email (pour validation des heures)</label><input type="email" class="fi" id="samail" placeholder="salarie@email.com"></div>
     <div class="fr">
       <label class="fl2">Postes ma&#238;tris&#233;s</label>
       <div id="sal-postes-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
@@ -1519,6 +1520,45 @@ function ficheExportOpen(){
   openM('modal-ficheexp');
 }
 
+
+// ── MAIL DE VALIDATION DES HEURES ───────────────────────────────────────────
+async function ficheMailValidation(){
+  var from=document.getElementById('ficheexp-from').value;
+  var to=document.getElementById('ficheexp-to').value;
+  if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return;}
+  var em=emp(ficheCurEmp);
+  if(!em.email){alert('Aucune adresse email enregistr\u00e9e pour ce salari\u00e9. Ajoutez-la dans sa fiche.');return;}
+  var emData=await drhGenerateOne(ficheCurEmp,from,to);
+  if(!emData)return;
+  // Construire le récapitulatif texte
+  var JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  var lignes=[];var totalMins=0;var nbManuel=0;
+  emData.rows.forEach(function(r){
+    var dt=new Date(r.date+'T12:00:00');
+    if(r.shifts.length){
+      var parts=r.shifts.map(function(sh){return fmtHr(sh.in)+'-'+fmtHr(sh.out)+(sh.manuel?' (ajout\u00e9 manuellement)':'');});
+      r.shifts.forEach(function(sh){if(sh.manuel)nbManuel++;});
+      lignes.push(JOURS[dt.getDay()]+' '+r.date+' : '+parts.join(', ')+' ('+fmtHM(r.totalMins)+')');
+      totalMins+=r.totalMins;
+    }else if(r.absence){
+      lignes.push(JOURS[dt.getDay()]+' '+r.date+' : '+r.absence);
+    }
+  });
+  var subject='Validation de tes heures - '+from+' au '+to+' - Milo\u0027s Pizza';
+  var body='Bonjour '+em.prenom+',\n\n';
+  body+='Voici le r\u00e9capitulatif de tes heures travaill\u00e9es du '+from+' au '+to+' :\n\n';
+  body+=lignes.join('\n');
+  body+='\n\n----------------------------------------\n';
+  body+='TOTAL : '+fmtHM(totalMins)+'\n';
+  if(nbManuel>0)body+='\nNote : '+nbManuel+' pointage(s) ont \u00e9t\u00e9 ajout\u00e9s manuellement (oubli de badgeage).\n';
+  body+='\nMerci de v\u00e9rifier ces informations et de R\u00c9PONDRE \u00c0 CE MAIL pour confirmer que tout est correct, ';
+  body+='ou de signaler toute erreur \u00e9ventuelle.\n\n';
+  body+='Bonne journ\u00e9e,\nLa direction - Milo\u0027s Pizza';
+  var mailto='mailto:'+encodeURIComponent(em.email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+  window.location.href=mailto;
+}
+
+
 async function ficheExportExcel(){
   if(!window.XLSX){alert('Module Excel en cours de chargement');return;}
   var from=document.getElementById('ficheexp-from').value;
@@ -2392,7 +2432,7 @@ function exportIndivPDF(){
 }
 
 
-function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';openM('msa');}
+function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';openM('msa');}
 
 // ── POSTES PAR SALARIÉ ──────────────────────────────────────────────────────
 function getSalPostes(salId){
@@ -2625,6 +2665,7 @@ function openEditSal(id){
   document.getElementById('sar').value=em.restaurant_id;
   document.getElementById('saheures').value=em.heures_contrat||'';
   document.getElementById('sadebut').value=em.date_debut||'';
+  document.getElementById('samail').value=em.email||'';
   document.getElementById('sapin').value='';
   renderSalPostesList(id);
   renderPlanningType(id);
@@ -2642,7 +2683,8 @@ async function saveSal(){
   if(curSal){
     var hc=parseFloat(document.getElementById('saheures').value)||null;
     var dd=document.getElementById('sadebut').value||null;
-    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd};
+    var mail=document.getElementById('samail').value||null;
+    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail};
     if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
     await db.from('employees').update(upd).eq('id',curSal);
   }else{
@@ -2651,7 +2693,8 @@ async function saveSal(){
     var newSec=deduceSecteur('new');
     var hc2=parseFloat(document.getElementById('saheures').value)||null;
     var dd2=document.getElementById('sadebut').value||null;
-    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2}).select();
+    var mail2=document.getElementById('samail').value||null;
+    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
@@ -3393,10 +3436,12 @@ init();
     <div style="font-size:11px;color:var(--txm);margin-bottom:10px;text-align:center">D&#233;tail jour par jour, repas, absences et totaux pour la RH.</div>
     <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="ficheexp-from"></div>
     <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="ficheexp-to"></div>
+    <div style="font-size:10px;color:var(--txm);background:#FEF3C7;padding:6px 8px;border-radius:6px;margin-bottom:8px">&#9993; Le mail demande au salari&#233; de confirmer ses heures par retour de mail (preuve d'accord).</div>
     <div class="ma" style="flex-wrap:wrap;gap:6px">
       <button class="btn bs" onclick="closeM('modal-ficheexp')">Annuler</button>
       <button class="btn bg2" onclick="ficheExportExcel()">&#128202; Excel</button>
       <button class="btn bp" onclick="ficheExportPDF()">&#128196; PDF</button>
+      <button class="btn" style="background:#1E40AF;color:#fff" onclick="ficheMailValidation()">&#9993; Mail validation</button>
     </div>
   </div>
 </div>
