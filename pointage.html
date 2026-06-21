@@ -84,6 +84,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     </div>
     <div class="screen" id="s-camera">
       <div class="pl" id="camname"></div>
+      <div id="camstatus" style="margin:8px auto;padding:8px 14px;border-radius:10px;font-size:14px;max-width:340px;text-align:center"></div>
       <div class="cambox"><video id="vid" autoplay playsinline muted></video><div class="camcnt" id="camcnt"></div></div>
       <button class="canc" onclick="reset()">Annuler</button>
     </div>
@@ -212,6 +213,20 @@ async function confirmPin(){
   emp=r.data[0];
   document.getElementById('camname').textContent=emp.prenom+' '+emp.nom;
   document.getElementById('camcnt').textContent='';
+  // Afficher le statut: prochaine action (entrée/sortie) selon le dernier badgeage
+  var lr=await db.from('time_entries').select('type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
+  var lastB=lr.data&&lr.data[0];
+  var statusEl=document.getElementById('camstatus');
+  if(statusEl){
+    if(lastB&&lastB.type==='entree'){
+      var h=new Date(lastB.timestamp).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      statusEl.innerHTML='\u2705 Vous \u00eates en service depuis '+h+'<br><b>Vous allez badger votre SORTIE</b>';
+      statusEl.style.background='#FEE2E2';statusEl.style.color='#991B1B';
+    }else{
+      statusEl.innerHTML='<b>Vous allez badger votre ENTR\u00c9E</b>';
+      statusEl.style.background='#D1FAE5';statusEl.style.color='#065F46';
+    }
+  }
   try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});document.getElementById('vid').srcObject=stream;}catch(e){}
   ss('camera');
   var c=3;document.getElementById('camcnt').textContent=c;
@@ -227,9 +242,19 @@ function takePhoto(){
   badge(photo);
 }
 
+var DELAI_MIN_BADGE=60; // minutes minimum entre 2 badgeages
 async function badge(photo){
-  var r=await db.from('time_entries').select('id,type').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
+  var r=await db.from('time_entries').select('id,type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
   var last=r.data&&r.data[0];
+  // Contrôle du délai minimum entre 2 badgeages
+  if(last&&last.timestamp){
+    var diffMin=(new Date()-new Date(last.timestamp))/60000;
+    if(diffMin<DELAI_MIN_BADGE){
+      var reste=Math.ceil(DELAI_MIN_BADGE-diffMin);
+      document.getElementById('em').innerHTML='Dur\u00e9e insuffisante depuis le dernier pointage.<br>Merci de contacter un manager.<br><span style="font-size:13px;opacity:.8">(encore '+reste+' min)</span>';
+      ss('error');setTimeout(reset,5000);return;
+    }
+  }
   var type=(!last||last.type==='sortie')?'entree':'sortie';
   var ip='';
   try{var ir=await fetch('https://api.ipify.org?format=json');ip=(await ir.json()).ip;}catch(e){}
