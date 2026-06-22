@@ -250,9 +250,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         </div>
       </div>
       <div id="abs-arch-info" style="display:none;font-size:11px;color:var(--bx);margin-bottom:8px;text-align:center"></div>
-      <div class="card" style="padding:0;overflow:hidden">
-      <table class="tbl">
-        <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th></tr></thead>
+      <div class="card" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table class="tbl" style="min-width:560px">
+        <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th><th>Action</th></tr></thead>
         <tbody id="abb"><tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr></tbody>
       </table>
       </div>
@@ -3109,6 +3109,14 @@ function showAbsJustif(btn){
 }
 
 
+
+async function delAbs(id){
+  if(!confirm('Supprimer d\u00e9finitivement cette absence ?'))return;
+  var r=await db.from('absences').delete().eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  loadAb();
+}
+
 async function loadAb(){
   var resto=document.getElementById('abr').value;
   var r=await db.from('absences').select('*').order('date_debut',{ascending:false}).limit(300);
@@ -3123,7 +3131,7 @@ async function loadAb(){
   var data=(r.data||[]).filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
   var labels={};motifs.forEach(function(m){labels[m.id]=m.nom;});
   var tb=document.getElementById('abb');
-  if(!data.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr>';return;}
+  if(!data.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr>';return;}
   var h='';
   data.forEach(function(a){
     var em=emp(a.employee_id);
@@ -3134,6 +3142,7 @@ async function loadAb(){
     h+='<td onclick="openEditAb('+a.id+')">'+a.date_debut+'</td><td onclick="openEditAb('+a.id+')">'+a.date_fin+'</td>';
     h+='<td onclick="openEditAb('+a.id+')">'+(a.note||'\u2014')+'</td>';
     h+='<td>'+(a.justif_b64?'<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>':'\u2014')+'</td>';
+    h+='<td><button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="event.stopPropagation();delAbs('+a.id+')">\u{1F5D1}</button></td>';
     h+='</tr>';
   });
   tb.innerHTML=h;
@@ -3152,7 +3161,7 @@ function openAbsEmpFiche(empId){
 }
 
 function ficheTab(which){
-  ['abs','plan','pt'].forEach(function(t){
+  ['abs','plan','pt','doc'].forEach(function(t){
     var pane=document.getElementById('fiche-pane-'+t);
     var tab=document.getElementById('fiche-tab-'+t);
     if(t===which){
@@ -3166,6 +3175,66 @@ function ficheTab(which){
   if(which==='abs')ficheLoadAbs();
   else if(which==='plan')ficheLoadPlan();
   else if(which==='pt')ficheLoadPt();
+  else if(which==='doc')ficheLoadDoc();
+}
+
+
+// ── DOCUMENTS RH (Supabase Storage) ─────────────────────────────────────────
+async function ficheLoadDoc(){
+  var body=document.getElementById('fiche-pane-doc');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  var r=await db.from('documents_rh').select('*').eq('employee_id',ficheCurEmp).order('uploaded_at',{ascending:false});
+  var docs=r.data||[];
+  var h='<div style="margin-bottom:10px">';
+  h+='<label style="display:block;background:var(--bx);color:#fff;border-radius:10px;padding:11px;text-align:center;cursor:pointer;font-size:13px;font-weight:600">';
+  h+='\u{1F4C4} Ajouter un document';
+  h+='<input type="file" id="doc-upload-input" style="display:none" accept="image/*,application/pdf,.doc,.docx" onchange="ficheUploadDoc(this)">';
+  h+='</label>';
+  h+='<div id="doc-upload-status" style="font-size:11px;color:var(--txm);text-align:center;margin-top:5px"></div></div>';
+  if(!docs.length){
+    h+='<div style="text-align:center;color:#aaa;padding:16px">Aucun document pour ce salari\u00e9</div>';
+  }else{
+    docs.forEach(function(d){
+      var dt=new Date(d.uploaded_at).toLocaleDateString('fr-FR');
+      var taille=d.taille?(d.taille>1048576?(d.taille/1048576).toFixed(1)+' Mo':Math.round(d.taille/1024)+' Ko'):'';
+      h+='<div class="card" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px">';
+      h+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.nom_fichier+'</div>';
+      h+='<div style="font-size:10px;color:var(--txm)">Ajout\u00e9 le '+dt+(taille?' \u2022 '+taille:'')+'</div></div>';
+      h+='<div style="display:flex;gap:4px;flex-shrink:0">';
+      h+='<button class="btn bs sm" onclick="ficheDownloadDoc(\''+d.chemin+'\',\''+d.nom_fichier.replace(/\u0027/g,"")+'\')">\u2913</button>';
+      h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="ficheDeleteDoc('+d.id+',\''+d.chemin+'\')">\u{1F5D1}</button>';
+      h+='</div></div>';
+    });
+  }
+  body.innerHTML=h;
+}
+
+async function ficheUploadDoc(input){
+  var f=input.files&&input.files[0];if(!f)return;
+  var status=document.getElementById('doc-upload-status');
+  status.textContent='Envoi en cours...';
+  var ext=f.name.split('.').pop();
+  var chemin=ficheCurEmp+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
+  var up=await db.storage.from('documents').upload(chemin,f,{contentType:f.type,upsert:false});
+  if(up.error){status.textContent='Erreur: '+up.error.message;return;}
+  var ins=await db.from('documents_rh').insert({employee_id:ficheCurEmp,nom_fichier:f.name,chemin:chemin,type_doc:f.type,taille:f.size});
+  if(ins.error){status.textContent='Erreur base: '+ins.error.message;return;}
+  status.textContent='';
+  ficheLoadDoc();
+}
+
+async function ficheDownloadDoc(chemin,nom){
+  var r=await db.storage.from('documents').createSignedUrl(chemin,3600);
+  if(r.error||!r.data){alert('Erreur: '+(r.error?r.error.message:'introuvable'));return;}
+  window.open(r.data.signedUrl,'_blank');
+}
+
+async function ficheDeleteDoc(id,chemin){
+  if(!confirm('Supprimer d\u00e9finitivement ce document ?'))return;
+  await db.storage.from('documents').remove([chemin]);
+  var r=await db.from('documents_rh').delete().eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  ficheLoadDoc();
 }
 
 function ficheLoadAbs(){
@@ -3242,10 +3311,15 @@ function ficheLoadPlan(){
     ficheAfficherLuPlanning();
   });
 }
+function lectureSemaineRef(){
+  var x=new Date();
+  if(x.getDay()===1&&x.getHours()<4){x.setDate(x.getDate()-7);}
+  var day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(12,0,0,0);return x;
+}
 async function ficheAfficherLuPlanning(){
   var body=document.getElementById('fiche-pane-plan');
   if(!body)return;
-  var monday=planMonOf(new Date());var semStr=planDs(monday);
+  var monday=lectureSemaineRef();var semStr=planDs(monday);
   var r=await db.from('planning_lectures').select('*').eq('employee_id',ficheCurEmp).eq('semaine_debut',semStr).order('lu_at',{ascending:false}).limit(1);
   var lu=r.data&&r.data[0];
   var banner;
@@ -3523,7 +3597,8 @@ async function loadDem(){
     h+='<div style="font-size:10px;color:var(--txf);margin-top:4px">Re\u00e7ue le '+new Date(d.created_at).toLocaleDateString('fr-FR')+'</div>';
     h+='</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
     h+='<span class="dem-status '+st+'">'+stL+'</span>';
-    if(st==='att'){h+='<button class="btn bg2 sm" data-id="'+d.id+'" data-st="ok" onclick="traitDemBtn(this)">&#10003; Accepter</button>';h+='<button class="btn sm" style="background:#991B1B;color:#fff" data-id="'+d.id+'" data-st="ko" onclick="traitDemBtn(this)">&#10005; Refuser</button>';}
+    if(st==='att'){h+='<button class="btn bp sm" onclick="demOpenModal('+d.id+')">G\u00e9rer la demande</button>';}
+    else{h+='<button class="btn bs sm" onclick="demOpenModal('+d.id+')">\u270E Voir / modifier</button>';if(d.note_admin)h+='<div style="font-size:10px;color:var(--tx);margin-top:4px;background:var(--bd);padding:4px 7px;border-radius:5px;max-width:160px">\u00ab '+d.note_admin+' \u00bb</div>';}
     h+='</div></div></div>';
   });
   body.innerHTML=h;
@@ -3550,6 +3625,41 @@ async function loadAudit(){
 }
 
 async function traitDem(id,statut){await db.from('demandes_absence').update({statut:statut}).eq('id',id);await loadDem();  updateDemBadge();
+}
+
+
+var demModalData=null;
+function demOpenModal(id){
+  db.from('demandes_absence').select('*').eq('id',id).single().then(function(r){
+    if(r.error||!r.data)return;
+    demModalData=r.data;var d=r.data;
+    var em2=emp(d.employee_id);var nom=em2?em2.prenom+' '+em2.nom:'?';
+    document.getElementById('dem-modal-info').innerHTML='<b>'+nom+'</b>'+(d.message?'<br>Message du salari\u00e9: \u00ab '+d.message+' \u00bb':'');
+    document.getElementById('dem-modal-type').value=d.type||'cp';
+    document.getElementById('dem-modal-from').value=d.date_debut||'';
+    document.getElementById('dem-modal-to').value=d.date_fin||'';
+    document.getElementById('dem-modal-note').value=d.note_admin||'';
+    var jz=document.getElementById('dem-modal-justif');
+    if(d.justif_b64){
+      if(d.justif_b64.indexOf('data:image')===0)jz.innerHTML='<label class="fl2">Justificatif</label><br><img src="'+d.justif_b64+'" style="max-width:100%;max-height:160px;border-radius:6px;cursor:pointer" onclick="showJustifFull(this.src)">';
+      else jz.innerHTML='<a href="'+d.justif_b64+'" download="justificatif.pdf" style="font-size:12px;color:var(--bx);font-weight:600">\u{1F4CE} T\u00e9l\u00e9charger le justificatif</a>';
+    }else jz.innerHTML='';
+    openM('modal-dem');
+  });
+}
+async function demModalSave(statut){
+  if(!demModalData)return;
+  var upd={
+    statut:statut,
+    type:document.getElementById('dem-modal-type').value,
+    date_debut:document.getElementById('dem-modal-from').value,
+    date_fin:document.getElementById('dem-modal-to').value,
+    note_admin:document.getElementById('dem-modal-note').value.trim()||null
+  };
+  var r=await db.from('demandes_absence').update(upd).eq('id',demModalData.id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  closeM('modal-dem');demModalData=null;
+  await loadDem();updateDemBadge();
 }
 
 function traitDemBtn(btn,statut){traitDem(parseInt(btn.dataset.id),btn.dataset.st);}
@@ -3732,10 +3842,12 @@ init();
       <div class="fiche-tab on" id="fiche-tab-abs" onclick="ficheTab('abs')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Absences</div>
       <div class="fiche-tab" id="fiche-tab-plan" onclick="ficheTab('plan')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Planning</div>
       <div class="fiche-tab" id="fiche-tab-pt" onclick="ficheTab('pt')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Pointages</div>
+      <div class="fiche-tab" id="fiche-tab-doc" onclick="ficheTab('doc')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Documents</div>
     </div>
     <div id="fiche-pane-abs" style="max-height:50vh;overflow-y:auto"></div>
     <div id="fiche-pane-plan" style="max-height:50vh;overflow-y:auto;display:none"></div>
     <div id="fiche-pane-pt" style="max-height:50vh;overflow-y:auto;display:none"></div>
+    <div id="fiche-pane-doc" style="max-height:50vh;overflow-y:auto;display:none"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-absfiche')">Fermer</button></div>
   </div>
 </div>
@@ -3794,6 +3906,32 @@ init();
       <button class="btn bp" onclick="acoModalSave('ok')">&#10003; Accepter</button>
       <button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="acoModalSave('ko')">&#10005; Refuser</button>
       <button class="btn bs" onclick="closeM('modal-aco')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="modal-dem">
+  <div class="md">
+    <div class="mdt">G&#233;rer la demande d'absence</div>
+    <div id="dem-modal-info" style="font-size:13px;color:var(--txm);margin-bottom:10px"></div>
+    <div class="fr"><label class="fl2">Type</label>
+      <select class="fi" id="dem-modal-type">
+        <option value="cp">Cong&#233;s pay&#233;s</option>
+        <option value="am">Arr&#234;t maladie</option>
+        <option value="rec">R&#233;cup&#233;ration</option>
+        <option value="ai">Absence injustifi&#233;e</option>
+      </select></div>
+    <div class="fr" style="display:flex;gap:8px">
+      <div style="flex:1"><label class="fl2">Du</label><input type="date" class="fi" id="dem-modal-from"></div>
+      <div style="flex:1"><label class="fl2">Au</label><input type="date" class="fi" id="dem-modal-to"></div>
+    </div>
+    <div class="fr"><label class="fl2">Commentaire (communiqu&#233; au salari&#233;)</label>
+      <textarea class="fi" id="dem-modal-note" rows="2" style="resize:none" placeholder="Ex: Accord&#233; mais d&#233;cal&#233; d'un jour pour raison de service."></textarea></div>
+    <div id="dem-modal-justif" style="margin-bottom:8px"></div>
+    <div class="ma">
+      <button class="btn bp" onclick="demModalSave('ok')">&#10003; Accepter</button>
+      <button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="demModalSave('ko')">&#10005; Refuser</button>
+      <button class="btn bs" onclick="closeM('modal-dem')">Annuler</button>
     </div>
   </div>
 </div>
