@@ -3568,8 +3568,11 @@ function expRc(){
   var a=document.createElement('a');a.href=url;a.download='recap_heures.csv';a.click();
 }
 
-function renderSal(){
+async function renderSal(){
   var body=document.getElementById('sab');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
+  // Calculer les indicateurs du jour pour tous les salariés
+  var indic=await computeSalIndicateurs();
   var h='';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
   h+='<button class="btn bp sm" onclick="openAddSal()">+ Nouveau salarie</button>';
@@ -3584,19 +3587,89 @@ function renderSal(){
     les.sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');});
     h+='<div style="font-size:11px;font-weight:700;color:'+SECCOL[sec]+';letter-spacing:.5px;text-transform:uppercase;margin:14px 0 7px;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:'+SECCOL[sec]+'"></span>'+SECLABELS[sec]+'</div>';
     les.forEach(function(em){
+      var info=indic[em.id]||{};
       var bg=em.actif!==false?'var(--bx)':'#ccc';
-      var st=em.actif!==false?'Actif':'Desactive';
       var rl=em.restaurant_id==='port'?'Port':'Dabray';
-      h+='<div class="card" style="margin-bottom:7px"><div style="display:flex;align-items:center;gap:10px">';
-      h+='<div style="width:34px;height:34px;border-radius:50%;background:'+bg+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
-      h+='<div style="flex:1"><div style="font-weight:600;font-size:13px'+(em.actif!==false?'':';color:#aaa')+'">'+em.prenom+' '+em.nom+'</div>';
-      h+='<div style="font-size:11px;color:var(--txm)">'+rl+' | '+st+'</div></div>';
-      h+='<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end"><button class="btn bs sm" onclick="openEditSal('+em.id+')">Modifier</button>';
-      h+='<button class="btn ba sm" onclick="openArchiveSal('+em.id+')">Archiver</button></div>';
+      h+='<div class="card" style="margin-bottom:7px;cursor:pointer" onclick="openEditSal('+em.id+')"><div style="display:flex;align-items:center;gap:10px">';
+      // Avatar avec pastille verte si en poste
+      h+='<div style="position:relative;flex-shrink:0">';
+      h+='<div style="width:38px;height:38px;border-radius:50%;background:'+bg+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">'+em.prenom[0]+'</div>';
+      if(info.enPoste)h+='<span style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#10B981;border:2px solid #fff"></span>';
+      h+='</div>';
+      // Nom + statut
+      h+='<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px'+(em.actif!==false?'':';color:#aaa')+'">'+em.prenom+' '+em.nom+'</div>';
+      if(info.enPoste){
+        h+='<div style="font-size:11px;color:#065F46;font-weight:600">\u2193 En poste depuis '+info.depuis+'</div>';
+      }else{
+        h+='<div style="font-size:11px;color:var(--txm)">'+rl+'</div>';
+      }
+      h+='</div>';
+      // Indicateurs (badges)
+      h+='<div style="display:flex;align-items:center;gap:5px;flex-shrink:0">';
+      if(info.urgent)h+='<span title="D\u00e9passement seuil" style="font-size:16px">\u2757</span>';
+      if(info.probleme)h+='<span title="Absence de badgeage" style="font-size:15px">\u26A0\uFE0F</span>';
+      if(info.taches>0)h+='<span style="background:#B91E26;color:#fff;border-radius:11px;min-width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;padding:0 5px">'+info.taches+'</span>';
+      h+='<span style="color:var(--txf);font-size:18px">\u203A</span>';
+      h+='</div>';
       h+='</div></div>';
     });
   });
   body.innerHTML=h;
+}
+
+async function computeSalIndicateurs(){
+  var indic={};
+  // S'assurer que les dépassements sont à jour
+  try{await checkDepassements(true);}catch(e){}
+  var actifs=emps.filter(function(e){return !e.archive;});
+  var ids=actifs.map(function(e){return e.id;});
+  if(!ids.length)return indic;
+  // Aujourd'hui
+  var now=new Date();
+  var todayStr=planDs(now);
+  var dayStart=todayStr+'T00:00:00';
+  var dayEnd=todayStr+'T23:59:59';
+  // Charger en parallèle: pointages du jour, créneaux du jour, demandes en attente, acomptes en attente
+  var res=await Promise.all([
+    db.from('time_entries').select('employee_id,type,timestamp').gte('timestamp',dayStart).lte('timestamp',dayEnd).in('employee_id',ids),
+    db.from('planning_creneaux').select('employee_id,heure_debut,heure_fin').eq('date',todayStr).in('employee_id',ids),
+    db.from('demandes_absence').select('employee_id,statut').eq('statut','att').in('employee_id',ids),
+    db.from('demandes_acompte').select('employee_id,statut').eq('statut','att').in('employee_id',ids)
+  ]);
+  var pts=res[0].data||[];var crs=res[1].data||[];var dabs=res[2].data||[];var daco=res[3].data||[];
+  var nowMin=now.getHours()*60+now.getMinutes();
+  actifs.forEach(function(em){
+    var info={enPoste:false,depuis:'',probleme:false,urgent:false,taches:0};
+    // Pointages du jour pour ce salarié, triés
+    var mine=pts.filter(function(p){return p.employee_id===em.id;}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+    var last=mine[mine.length-1];
+    if(last&&last.type==='entree'){
+      info.enPoste=true;
+      info.depuis=new Date(last.timestamp).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    }
+    // Créneaux prévus aujourd'hui
+    var mesCr=crs.filter(function(c){return c.employee_id===em.id;});
+    // Cas 1: créneau prévu, heure de début passée, mais aucune entrée badgée
+    mesCr.forEach(function(c){
+      var deb=c.heure_debut.slice(0,5).split(':');var debMin=parseInt(deb[0])*60+parseInt(deb[1]);
+      if(nowMin>debMin+15){ // 15 min de tolérance
+        var aBadge=mine.some(function(p){return p.type==='entree';});
+        if(!aBadge)info.probleme=true;
+      }
+    });
+    // Cas 2: entrée badgée mais pas de sortie, et tous les créneaux sont finis
+    if(last&&last.type==='entree'&&mesCr.length){
+      var maxFin=0;
+      mesCr.forEach(function(c){var f=c.heure_fin.slice(0,5).split(':');var fm=parseInt(f[0])*60+parseInt(f[1]);if(fm>maxFin)maxFin=fm;});
+      if(nowMin>maxFin+30)info.probleme=true; // 30 min après la fin théorique
+    }
+    // Tâches: demandes en attente
+    info.taches=dabs.filter(function(d){return d.employee_id===em.id;}).length+daco.filter(function(d){return d.employee_id===em.id;}).length;
+    // Urgent: dépassement seuil (réutilise la logique existante si dispo)
+    if(typeof salDepasseSeuil==='function'&&salDepasseSeuil(em.id))info.urgent=true;
+    indic[em.id]=info;
+  });
+  return indic;
 }
 
 function openArchiveSal(id){
@@ -3784,7 +3857,10 @@ function showJustifFull(src){var w=window.open('','_blank');if(w)w.document.writ
 
 
 // ── ALERTE DÉPASSEMENT HEURES ───────────────────────────────────────────────
-async function checkDepassements(){
+var salDepassementsIds={};
+function salDepasseSeuil(id){return !!salDepassementsIds[id];}
+async function checkDepassements(silencieux){
+  salDepassementsIds={};
   // Calcule pour chaque salarié les heures travaillées cette semaine vs contrat
   var now=new Date();
   var monday=monOf(now);
@@ -3799,6 +3875,7 @@ async function checkDepassements(){
     var contractMins=em.heures_contrat*60;
     var seuilMins=seuilDepassement*60;
     if(workedMins>contractMins+seuilMins){
+      salDepassementsIds[em.id]=true;
       var depassMins=workedMins-contractMins;
       alerts.push({em:em,worked:workedMins,contract:contractMins,depass:depassMins});
     }
@@ -3812,8 +3889,7 @@ async function checkDepassements(){
       h+='<div style="font-size:11px;color:#991B1B">Contrat: '+a.em.heures_contrat+'h - Travaill\u00e9: '+fmtHM(a.worked)+' (+' +dH+'h'+String(dM).padStart(2,'0')+')</div>';
       h+='</div>';
     });
-    document.getElementById('depass-body').innerHTML=h;
-    openM('modal-depass');
+    if(!silencieux){document.getElementById('depass-body').innerHTML=h;openM('modal-depass');}
   }
 }
 
