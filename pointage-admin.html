@@ -1027,10 +1027,14 @@ async function loadAco(){
     h+='</div>';
     if(a.statut==='att'){
       h+='<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">';
-      h+='<button class="btn bp sm" onclick="acoAction('+a.id+',\'ok\')">\u2713 Accepter</button>';
-      h+='<button class="btn bs sm" onclick="acoModif('+a.id+')">\u270E Modifier montant</button>';
-      h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="acoAction('+a.id+',\'ko\')">\u2715 Refuser</button>';
+      h+='<button class="btn bp sm" onclick="acoOpenModal('+a.id+')">G\u00e9rer la demande</button>';
       h+='</div>';
+    }else{
+      h+='<div style="margin-top:6px"><button class="btn bs sm" onclick="acoOpenModal('+a.id+')">\u270E Voir / modifier</button></div>';
+    }
+    // Afficher la preuve jointe si présente
+    if(a.justif_b64){
+      h+='<div style="margin-top:6px"><img src="'+a.justif_b64+'" style="max-width:120px;max-height:90px;border-radius:6px;cursor:pointer" onclick="window.open(\''+a.justif_b64+'\')"></div>';
     }
     h+='</div>';
   });
@@ -1038,29 +1042,43 @@ async function loadAco(){
   updateAcoBadge();
 }
 
-async function acoAction(id,statut){
+var acoModalId=null;var acoModalImg=null;
+function acoOpenModal(id){
   var a=acoAllData.find(function(x){return x.id===id;});
   if(!a)return;
-  var note=null;
-  if(statut==='ko'){note=prompt('Motif du refus (communiqu\u00e9 au salari\u00e9) :');if(note===null)return;}
-  var upd={statut:statut};
-  if(statut==='ok'&&!a.montant_accorde)upd.montant_accorde=a.montant;
-  if(note)upd.note_admin=note;
-  var r=await db.from('demandes_acompte').update(upd).eq('id',id);
-  if(r.error){alert('Erreur: '+r.error.message);return;}
-  loadAco();
+  acoModalId=id;acoModalImg=a.justif_b64||null;
+  var em=emp(a.employee_id);var nom=em?em.prenom+' '+em.nom:'?';
+  document.getElementById('aco-modal-info').innerHTML='<b>'+nom+'</b><br>Demande initiale: <b>'+a.montant+' \u20ac</b> \u2022 souhait\u00e9 le '+a.date_souhaitee+(a.note_admin?'<br>Message du salari\u00e9: \u00ab '+a.note_admin+' \u00bb':'');
+  document.getElementById('aco-modal-montant').value=a.montant_accorde||a.montant;
+  document.getElementById('aco-modal-note').value=(a.statut!=='att'&&a.note_admin)?a.note_admin:'';
+  var prev=document.getElementById('aco-modal-preview');
+  var lbl=document.getElementById('aco-modal-file-lbl');
+  if(acoModalImg){
+    prev.innerHTML='<img src="'+acoModalImg+'" style="max-width:100%;max-height:200px;border-radius:8px">';
+    lbl.innerHTML='\u{1F504} Remplacer l\u0027image';
+  }else{prev.innerHTML='';lbl.innerHTML='\u{1F4F7} Joindre une image (capture, photo)';}
+  openM('modal-aco');
 }
-
-async function acoModif(id){
-  var a=acoAllData.find(function(x){return x.id===id;});
-  if(!a)return;
-  var nv=prompt('Montant accord\u00e9 (\u20ac) :',a.montant);
-  if(nv===null)return;
-  var montant=parseFloat(nv);
-  if(!montant||montant<=0){alert('Montant invalide');return;}
-  var r=await db.from('demandes_acompte').update({montant_accorde:montant,statut:'ok'}).eq('id',id);
+function acoModalFileChg(input){
+  var f=input.files&&input.files[0];if(!f)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    acoModalImg=e.target.result;
+    document.getElementById('aco-modal-preview').innerHTML='<img src="'+acoModalImg+'" style="max-width:100%;max-height:200px;border-radius:8px">';
+    document.getElementById('aco-modal-file-lbl').innerHTML='\u{1F504} Remplacer l\u0027image';
+  };
+  reader.readAsDataURL(f);
+}
+async function acoModalSave(statut){
+  if(!acoModalId)return;
+  var montant=parseFloat(document.getElementById('aco-modal-montant').value);
+  var note=document.getElementById('aco-modal-note').value.trim();
+  if(statut==='ok'&&(!montant||montant<=0)){alert('Montant invalide');return;}
+  var upd={statut:statut,note_admin:note||null,justif_b64:acoModalImg||null};
+  if(statut==='ok')upd.montant_accorde=montant;
+  var r=await db.from('demandes_acompte').update(upd).eq('id',acoModalId);
   if(r.error){alert('Erreur: '+r.error.message);return;}
-  loadAco();
+  closeM('modal-aco');acoModalId=null;acoModalImg=null;loadAco();
 }
 
 function toggleAcoArchive(){
@@ -3681,6 +3699,29 @@ init();
       </select>
     </div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pabs')">Annuler</button><button class="btn bp" onclick="planAbsSave()">Valider</button></div>
+  </div>
+</div>
+
+<div class="mb" id="modal-aco">
+  <div class="md">
+    <div class="mdt" id="aco-modal-title">G&#233;rer la demande d'acompte</div>
+    <div id="aco-modal-info" style="font-size:13px;color:var(--txm);margin-bottom:10px"></div>
+    <div class="fr"><label class="fl2">Montant accord&#233; (&#8364;)</label>
+      <input type="number" class="fi" id="aco-modal-montant" step="10" min="0"></div>
+    <div class="fr"><label class="fl2">Observation / note (archiv&#233;e)</label>
+      <textarea class="fi" id="aco-modal-note" rows="3" style="resize:none" placeholder="Ex: Demande 500&#8364;, accord&#233; 200&#8364; car solde insuffisant. Accord du salari&#233; par SMS le 22/06."></textarea></div>
+    <div class="fr"><label class="fl2">Justificatif / preuve (image)</label>
+      <label style="display:block;background:var(--bd);border:1px dashed var(--txf);border-radius:8px;padding:10px;text-align:center;cursor:pointer;color:var(--txm);font-size:12px">
+        <span id="aco-modal-file-lbl">&#128247; Joindre une image (capture, photo)</span>
+        <input type="file" id="aco-modal-file" accept="image/*" style="display:none" onchange="acoModalFileChg(this)">
+      </label>
+      <div id="aco-modal-preview" style="margin-top:8px;text-align:center"></div>
+    </div>
+    <div class="ma">
+      <button class="btn bp" onclick="acoModalSave('ok')">&#10003; Accepter</button>
+      <button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="acoModalSave('ko')">&#10005; Refuser</button>
+      <button class="btn bs" onclick="closeM('modal-aco')">Annuler</button>
+    </div>
   </div>
 </div>
 
