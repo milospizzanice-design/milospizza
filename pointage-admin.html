@@ -3590,7 +3590,7 @@ async function renderSal(){
       var info=indic[em.id]||{};
       var bg=em.actif!==false?'var(--bx)':'#ccc';
       var rl=em.restaurant_id==='port'?'Port':'Dabray';
-      h+='<div class="card" style="margin-bottom:7px;cursor:pointer" onclick="openEditSal('+em.id+')"><div style="display:flex;align-items:center;gap:10px">';
+      h+='<div class="card" style="margin-bottom:7px;cursor:pointer" onclick="openAbsEmpFiche('+em.id+')"><div style="display:flex;align-items:center;gap:10px">';
       // Avatar avec pastille verte si en poste
       h+='<div style="position:relative;flex-shrink:0">';
       h+='<div style="width:38px;height:38px;border-radius:50%;background:'+bg+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">'+em.prenom[0]+'</div>';
