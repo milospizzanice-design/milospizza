@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pointage - Milo's Pizza</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bx:#B91E26;--cr:#F2E0C0}
@@ -133,6 +134,23 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cs">Avance sur salaire</div>
       </div>
       <button class="canc" onclick="reset()" style="margin-top:8px">D&#233;connexion</button>
+    </div>
+    <div class="screen" id="s-consent">
+      <div style="color:#fff;font-size:16px;font-weight:700;text-align:center;margin-bottom:8px">Document \u00e0 lire et signer</div>
+      <div style="color:rgba(255,255,255,.7);font-size:12px;text-align:center;margin-bottom:10px">Merci de lire le document jusqu\u0027en bas pour pouvoir signer</div>
+      <div id="consent-text" style="background:#fff;color:#222;border-radius:10px;padding:14px;max-height:42vh;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:12px;line-height:1.5"></div>
+      <div id="consent-sign-zone" style="display:none;margin-top:10px">
+        <input type="text" id="consent-nom" placeholder="Votre nom et pr\u00e9nom" style="width:100%;border:none;border-radius:8px;padding:11px;font-size:14px;box-sizing:border-box;margin-bottom:8px">
+        <div style="color:rgba(255,255,255,.85);font-size:12px;margin-bottom:4px">Signez ci-dessous avec votre doigt :</div>
+        <canvas id="consent-canvas" style="background:#fff;border-radius:8px;width:100%;height:140px;touch-action:none;display:block"></canvas>
+        <button onclick="consentClearSign()" style="background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;margin-top:6px">Effacer la signature</button>
+        <label style="display:flex;align-items:center;gap:8px;color:#fff;font-size:13px;margin-top:10px;cursor:pointer">
+          <input type="checkbox" id="consent-check" style="width:18px;height:18px;flex-shrink:0">
+          <span>J\u0027ai lu, compris et j\u0027accepte ce document (\u00ab Lu et approuv\u00e9 \u00bb)</span>
+        </label>
+        <button onclick="consentSubmit()" style="width:100%;margin-top:12px;background:#fff;color:#B91E26;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">Valider et signer</button>
+      </div>
+      <div id="consent-scroll-hint" style="text-align:center;color:rgba(255,255,255,.6);font-size:11px;margin-top:8px">\u2193 Faites d\u00e9filer jusqu\u0027en bas</div>
     </div>
     <div class="screen" id="s-camera">
       <div class="pl" id="camname"></div>
@@ -343,7 +361,7 @@ async function planAfficherLu(){
       zone.innerHTML='<div style="background:#D1FAE5;color:#065F46;border-radius:10px;padding:11px;text-align:center;font-size:13px;font-weight:600">\u2705 Planning accept\u00e9 le '+quand+'</div>';
     }
   }else{
-    zone.innerHTML='<button onclick="planAccepter()" style="width:100%;background:#10B981;color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">\u2713 J\u0027ai lu, compris et j\u0027accepte mon planning</button>'+
+    zone.innerHTML='<button onclick="planAccepter()" style="width:100%;background:#10B981;color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">\u2713 J\u0027ai lu les 4 semaines de planning \u00e0 venir, compris et j\u0027accepte</button>'+
       '<button onclick="planOuvrirReserve()" style="width:100%;background:#fff;color:#92400E;border:2px solid #F59E0B;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">\u26A0 J\u0027ai des r\u00e9serves sur ce planning</button>'+
       '<div id="plan-reserve-form" style="display:none;margin-top:8px">'+
         '<textarea id="plan-reserve-msg" rows="3" placeholder="Expliquez vos r\u00e9serves..." style="width:100%;border:1px solid #ccc;border-radius:8px;padding:9px;font-size:13px;resize:none;box-sizing:border-box"></textarea>'+
@@ -384,7 +402,10 @@ async function planConfirmPin(){
 }
 function pPad(n){return n<10?'0'+n:''+n;}
 function pDs(d){var x=new Date(d);return x.getFullYear()+'-'+pPad(x.getMonth()+1)+'-'+pPad(x.getDate());}
-function pMon(d){var x=new Date(d);var day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(12,0,0,0);return x;}
+function pMon(d){var x=new Date(d);
+  // Bascule de semaine le lundi à 4h: avant 4h le lundi, on reste sur la semaine précédente
+  if(x.getDay()===1&&x.getHours()<4){x.setDate(x.getDate()-7);}
+  var day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(12,0,0,0);return x;}
 function pAdd(d,n){var x=new Date(d);x.setDate(x.getDate()+n);x.setHours(12,0,0,0);return x;}
 async function loadSalariePlanning(){
   var today=new Date();
@@ -497,9 +518,153 @@ async function confirmPin(){
     return;
   }
   emp=r.data[0];
+  // Vérifier si le consentement a été signé
+  var cs=await db.from('employees').select('consentement_signe_at').eq('id',emp.id).single();
+  if(cs.data&&!cs.data.consentement_signe_at){
+    // Pas encore signé -> écran de consentement bloquant
+    consentInit();
+    return;
+  }
   document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
   ss('menu');
   resetInactivity();
+}
+
+
+// ── CONSENTEMENT ÉLECTRONIQUE (1ère connexion) ──────────────────────────────
+var CONSENT_TEXTE=[
+  {t:'SARL MILO\u2019S PIZZA',h:1},
+  {t:'Note d\u2019information et recueil de consentement',h:2},
+  {t:'Dispositif de badgeage des horaires avec photographie',i:1},
+  {t:'1. Objet du document',h:3},
+  {t:'La soci\u00e9t\u00e9 SARL Milo\u2019s Pizza met en place un dispositif de badgeage \u00e9lectronique permettant \u00e0 chaque salari\u00e9 d\u2019enregistrer ses heures d\u2019arriv\u00e9e et de d\u00e9part. Ce document a pour but de vous informer du fonctionnement de ce dispositif, des donn\u00e9es collect\u00e9es, de leur finalit\u00e9 et de vos droits, conform\u00e9ment au RGPD et \u00e0 la loi Informatique et Libert\u00e9s.'},
+  {t:'2. Fonctionnement du dispositif',h:3},
+  {t:'Pour enregistrer son temps de travail, le salari\u00e9 saisit un code personnel (code PIN) sur une tablette mise \u00e0 disposition dans l\u2019\u00e9tablissement. Au moment du badgeage (entr\u00e9e ou sortie), une photographie du salari\u00e9 est prise.'},
+  {t:'Cette photographie a pour unique but de constituer une preuve visuelle simple attestant que le badgeage a bien \u00e9t\u00e9 effectu\u00e9 par la personne concern\u00e9e, afin d\u2019\u00e9viter qu\u2019un salari\u00e9 puisse badger \u00e0 la place d\u2019un autre.'},
+  {t:'Le dispositif n\u2019utilise aucune technologie de reconnaissance faciale ; aucune donn\u00e9e biom\u00e9trique n\u2019est collect\u00e9e ni trait\u00e9e ; la photographie est une simple image.'},
+  {t:'3. Donn\u00e9es collect\u00e9es',h:3},
+  {t:'Identit\u00e9 du salari\u00e9 (nom, pr\u00e9nom) ; date et heure de chaque badgeage ; photographie prise au moment du badgeage ; le cas \u00e9ch\u00e9ant, le restaurant concern\u00e9.'},
+  {t:'4. Finalit\u00e9 du traitement',h:3},
+  {t:'Les donn\u00e9es sont collect\u00e9es exclusivement pour le d\u00e9compte exact du temps de travail effectif, l\u2019\u00e9tablissement de la paie et le suivi des heures, et la pr\u00e9vention des fraudes au badgeage. Elles ne sont utilis\u00e9es \u00e0 aucune autre fin et ne font l\u2019objet d\u2019aucune cession \u00e0 des tiers.'},
+  {t:'5. Dur\u00e9e de conservation',h:3},
+  {t:'Les photographies prises lors du badgeage sont automatiquement supprim\u00e9es au bout de 90 jours. Les donn\u00e9es relatives aux horaires sont conserv\u00e9es conform\u00e9ment aux obligations l\u00e9gales.'},
+  {t:'6. Acc\u00e8s aux donn\u00e9es',h:3},
+  {t:'Seuls le g\u00e9rant et les personnes habilit\u00e9es \u00e0 la gestion du personnel ont acc\u00e8s aux donn\u00e9es, h\u00e9berg\u00e9es de mani\u00e8re s\u00e9curis\u00e9e.'},
+  {t:'7. Vos droits',h:3},
+  {t:'Vous disposez d\u2019un droit d\u2019acc\u00e8s, de rectification, d\u2019effacement, de limitation et d\u2019opposition pour motif l\u00e9gitime. Pour les exercer, adressez-vous \u00e0 la direction. Vous pouvez aussi saisir la CNIL (www.cnil.fr).'},
+  {t:'8. Consentement',h:3},
+  {t:'En signant ci-dessous, je reconnais avoir \u00e9t\u00e9 inform\u00e9(e) du dispositif de badgeage avec photographie d\u00e9crit ci-dessus, en avoir compris le fonctionnement, la finalit\u00e9 et la dur\u00e9e de conservation des donn\u00e9es, ainsi que mes droits.'}
+];
+
+function consentRender(){
+  var c=document.getElementById('consent-text');
+  var h='';
+  CONSENT_TEXTE.forEach(function(p){
+    if(p.h===1)h+='<div style="font-size:16px;font-weight:700;color:#B91E26;text-align:center;margin-bottom:4px">'+p.t+'</div>';
+    else if(p.h===2)h+='<div style="font-size:13px;font-weight:700;text-align:center;margin-bottom:6px">'+p.t+'</div>';
+    else if(p.h===3)h+='<div style="font-size:13px;font-weight:700;color:#B91E26;margin-top:10px;margin-bottom:3px">'+p.t+'</div>';
+    else if(p.i)h+='<div style="font-style:italic;color:#666;text-align:center;margin-bottom:8px">'+p.t+'</div>';
+    else h+='<div style="margin-bottom:6px">'+p.t+'</div>';
+  });
+  c.innerHTML=h;
+}
+
+var consentScrolledBottom=false;
+function consentInit(){
+  consentScrolledBottom=false;
+  consentRender();
+  document.getElementById('consent-sign-zone').style.display='none';
+  document.getElementById('consent-scroll-hint').style.display='block';
+  document.getElementById('consent-nom').value=emp?(emp.prenom+' '+emp.nom):'';
+  document.getElementById('consent-check').checked=false;
+  var c=document.getElementById('consent-text');
+  c.scrollTop=0;
+  c.onscroll=function(){
+    if(c.scrollTop+c.clientHeight>=c.scrollHeight-20){
+      if(!consentScrolledBottom){
+        consentScrolledBottom=true;
+        document.getElementById('consent-sign-zone').style.display='block';
+        document.getElementById('consent-scroll-hint').style.display='none';
+        consentInitCanvas();
+      }
+    }
+  };
+  ss('consent');
+}
+
+var consentCanvas,consentCtx,consentDrawing=false,consentHasSign=false;
+function consentInitCanvas(){
+  consentCanvas=document.getElementById('consent-canvas');
+  if(!consentCanvas)return;
+  var rect=consentCanvas.getBoundingClientRect();
+  consentCanvas.width=rect.width;consentCanvas.height=140;
+  consentCtx=consentCanvas.getContext('2d');
+  consentCtx.strokeStyle='#1a1a2e';consentCtx.lineWidth=2.5;consentCtx.lineCap='round';consentCtx.lineJoin='round';
+  consentHasSign=false;
+  function pos(e){var r=consentCanvas.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
+  function start(e){e.preventDefault();consentDrawing=true;consentHasSign=true;var p=pos(e);consentCtx.beginPath();consentCtx.moveTo(p.x,p.y);}
+  function move(e){if(!consentDrawing)return;e.preventDefault();var p=pos(e);consentCtx.lineTo(p.x,p.y);consentCtx.stroke();}
+  function end(e){consentDrawing=false;}
+  consentCanvas.ontouchstart=start;consentCanvas.ontouchmove=move;consentCanvas.ontouchend=end;
+  consentCanvas.onmousedown=start;consentCanvas.onmousemove=move;consentCanvas.onmouseup=end;
+}
+function consentClearSign(){
+  if(consentCtx)consentCtx.clearRect(0,0,consentCanvas.width,consentCanvas.height);
+  consentHasSign=false;
+}
+
+async function consentSubmit(){
+  var nom=document.getElementById('consent-nom').value.trim();
+  if(!nom){alert('Veuillez saisir votre nom et pr\u00e9nom');return;}
+  if(!consentHasSign){alert('Veuillez signer dans le cadre');return;}
+  if(!document.getElementById('consent-check').checked){alert('Veuillez cocher la case d\u0027acceptation');return;}
+  if(!window.jspdf){alert('G\u00e9n\u00e9ration PDF indisponible, r\u00e9essayez');return;}
+  var maintenant=new Date();
+  var horodatage=maintenant.toLocaleDateString('fr-FR')+' \u00e0 '+maintenant.toLocaleTimeString('fr-FR');
+  var signImg=consentCanvas.toDataURL('image/png');
+  // Générer le PDF
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var MG=15;var y=18;var PW=210;
+  doc.setFontSize(14);doc.setTextColor(185,30,38);doc.setFont('helvetica','bold');
+  doc.text('SARL MILO\u0027S PIZZA',PW/2,y,{align:'center'});y+=6;
+  doc.setFontSize(11);doc.setTextColor(0,0,0);
+  doc.text('Consentement - Dispositif de badgeage avec photographie',PW/2,y,{align:'center'});y+=10;
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  CONSENT_TEXTE.forEach(function(p){
+    if(p.h===1||p.i)return;
+    if(p.h===3){doc.setFont('helvetica','bold');doc.setTextColor(185,30,38);y+=2;}
+    else{doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);}
+    var lines=doc.splitTextToSize(p.t,PW-MG*2);
+    if(y+lines.length*4>270){doc.addPage();y=18;}
+    doc.text(lines,MG,y);y+=lines.length*4+1.5;
+  });
+  // Bloc signature
+  if(y>235){doc.addPage();y=18;}
+  y+=6;doc.setDrawColor(150,150,150);doc.line(MG,y,PW-MG,y);y+=6;
+  doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.setFontSize(10);
+  doc.text('Sign\u00e9 \u00e9lectroniquement',MG,y);y+=6;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);
+  doc.text('Nom et pr\u00e9nom : '+nom,MG,y);y+=5;
+  doc.text('Date et heure : '+horodatage,MG,y);y+=5;
+  doc.text('Mention : Lu et approuv\u00e9, bon pour accord',MG,y);y+=8;
+  doc.text('Signature :',MG,y);y+=2;
+  try{doc.addImage(signImg,'PNG',MG,y,60,30);}catch(e){}
+  y+=34;
+  doc.setFontSize(7);doc.setTextColor(120,120,120);
+  doc.text('Document sign\u00e9 \u00e9lectroniquement via l\u0027application de pointage. Signature simple horodat\u00e9e.',MG,y);
+  // Upload du PDF
+  var pdfBlob=doc.output('blob');
+  var chemin=emp.id+'/consentement_'+Date.now()+'.pdf';
+  var up=await db.storage.from('documents').upload(chemin,pdfBlob,{contentType:'application/pdf',upsert:false});
+  if(up.error){alert('Erreur enregistrement: '+up.error.message);return;}
+  await db.from('documents_rh').insert({employee_id:emp.id,nom_fichier:'Consentement_badgeage.pdf',chemin:chemin,type_doc:'application/pdf',titre:'Consentement badgeage (sign\u00e9)'});
+  await db.from('employees').update({consentement_signe_at:maintenant.toISOString()}).eq('id',emp.id);
+  if(emp)emp.consentement_signe_at=maintenant.toISOString();
+  alert('Merci ! Votre consentement a \u00e9t\u00e9 enregistr\u00e9.');
+  // Aller au menu
+  document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+  ss('menu');resetInactivity();
 }
 
 // ── ACTIONS DU MENU (emp déjà identifié) ────────────────────────────────────
