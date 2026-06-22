@@ -631,11 +631,12 @@ async function consentSubmit(){
   doc.setFontSize(11);doc.setTextColor(0,0,0);
   doc.text('Consentement - Dispositif de badgeage avec photographie',PW/2,y,{align:'center'});y+=10;
   doc.setFontSize(9);doc.setFont('helvetica','normal');
+  function pdfClean(s){return s.replace(/\u2019/g,"'").replace(/\u2018/g,"'").replace(/\u201C/g,'"').replace(/\u201D/g,'"').replace(/\u00ab/g,'"').replace(/\u00bb/g,'"').replace(/\u2013/g,'-').replace(/\u2014/g,'-');}
   CONSENT_TEXTE.forEach(function(p){
     if(p.h===1||p.i)return;
     if(p.h===3){doc.setFont('helvetica','bold');doc.setTextColor(185,30,38);y+=2;}
     else{doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);}
-    var lines=doc.splitTextToSize(p.t,PW-MG*2);
+    var lines=doc.splitTextToSize(pdfClean(p.t),PW-MG*2);
     if(y+lines.length*4>270){doc.addPage();y=18;}
     doc.text(lines,MG,y);y+=lines.length*4+1.5;
   });
@@ -643,22 +644,22 @@ async function consentSubmit(){
   if(y>235){doc.addPage();y=18;}
   y+=6;doc.setDrawColor(150,150,150);doc.line(MG,y,PW-MG,y);y+=6;
   doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.setFontSize(10);
-  doc.text('Sign\u00e9 \u00e9lectroniquement',MG,y);y+=6;
+  doc.text(pdfClean('Signe electroniquement'),MG,y);y+=6;
   doc.setFont('helvetica','normal');doc.setFontSize(9);
-  doc.text('Nom et pr\u00e9nom : '+nom,MG,y);y+=5;
+  doc.text(pdfClean('Nom et pr\u00e9nom : '+nom),MG,y);y+=5;
   doc.text('Date et heure : '+horodatage,MG,y);y+=5;
-  doc.text('Mention : Lu et approuv\u00e9, bon pour accord',MG,y);y+=8;
+  doc.text(pdfClean('Mention : Lu et approuve, bon pour accord'),MG,y);y+=8;
   doc.text('Signature :',MG,y);y+=2;
   try{doc.addImage(signImg,'PNG',MG,y,60,30);}catch(e){}
   y+=34;
   doc.setFontSize(7);doc.setTextColor(120,120,120);
-  doc.text('Document sign\u00e9 \u00e9lectroniquement via l\u0027application de pointage. Signature simple horodat\u00e9e.',MG,y);
+  doc.text(pdfClean('Document signe electroniquement via l application de pointage. Signature simple horodatee.'),MG,y);
   // Upload du PDF
   var pdfBlob=doc.output('blob');
   var chemin=emp.id+'/consentement_'+Date.now()+'.pdf';
   var up=await db.storage.from('documents').upload(chemin,pdfBlob,{contentType:'application/pdf',upsert:false});
   if(up.error){alert('Erreur enregistrement: '+up.error.message);return;}
-  await db.from('documents_rh').insert({employee_id:emp.id,nom_fichier:'Consentement_badgeage.pdf',chemin:chemin,type_doc:'application/pdf',titre:'Consentement badgeage (sign\u00e9)'});
+  await db.from('documents_rh').insert({employee_id:emp.id,nom_fichier:'Consentement_badgeage_photo.pdf',chemin:chemin,type_doc:'application/pdf',titre:'Consentement badgeage photo'});
   await db.from('employees').update({consentement_signe_at:maintenant.toISOString()}).eq('id',emp.id);
   if(emp)emp.consentement_signe_at=maintenant.toISOString();
   alert('Merci ! Votre consentement a \u00e9t\u00e9 enregistr\u00e9.');
