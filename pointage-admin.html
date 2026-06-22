@@ -3832,6 +3832,90 @@ async function checkDemandesEnAttente(){
 function goTabByName(name){var tabs=document.querySelectorAll('.tab');for(var i=0;i<tabs.length;i++){var oc=tabs[i].getAttribute('onclick')||'';if(oc.indexOf("'"+name+"'")>=0){goTab(name,tabs[i]);return;}}}
 
 console.log('Restoglobal version: v2026.06.18-PDF-FIX');
+
+// ── TABLEAU DE BORD DES NOUVEAUTÉS ──────────────────────────────────────────
+async function showDashboard(){
+  var lastVisit=localStorage.getItem('rg_last_visit');
+  var now=new Date();
+  // Première visite: on prend les dernières 24h par défaut
+  var since=lastVisit?new Date(lastVisit):new Date(now.getTime()-86400000);
+  var sinceISO=since.toISOString();
+  var sinceDate=since.toLocaleDateString('fr-FR')+' \u00e0 '+since.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('dash-since').textContent='Depuis le '+sinceDate;
+
+  // Récupérer toutes les nouveautés en parallèle
+  var sinceDateOnly=since.toISOString().slice(0,10);
+  var results=await Promise.all([
+    db.from('time_entries').select('id,employee_id,type,timestamp,manuel').gte('timestamp',sinceISO).order('timestamp',{ascending:false}),
+    db.from('demandes_absence').select('*').gte('created_at',sinceISO).order('created_at',{ascending:false}),
+    db.from('demandes_acompte').select('*').gte('created_at',sinceISO).order('created_at',{ascending:false}),
+    db.from('planning_lectures').select('*').gte('lu_at',sinceISO).order('lu_at',{ascending:false})
+  ]);
+  var pointages=results[0].data||[];
+  var demAbs=results[1].data||[];
+  var demAco=results[2].data||[];
+  var lectures=results[3].data||[];
+
+  var h='';
+  function section(icone,titre,count,couleur){
+    return '<div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px"><span style="font-size:18px">'+icone+'</span><span style="font-weight:700;font-size:14px;color:'+couleur+'">'+titre+'</span><span style="background:'+couleur+';color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700">'+count+'</span></div>';
+  }
+
+  // Demandes d'absence en attente (priorité)
+  var absAtt=demAbs.filter(function(d){return (d.statut||'att')==='att';});
+  if(demAbs.length){
+    h+=section('\u{1F4C5}','Demandes d\u0027absence',demAbs.length,'#B91E26');
+    demAbs.slice(0,8).forEach(function(d){
+      var em2=emp(d.employee_id);var nom=em2?em2.prenom+' '+em2.nom:'?';
+      var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s',rec:'R\u00e9cup'};
+      var stB=(d.statut||'att')==='att'?'<span style="color:#92400E;font-weight:700"> \u2022 \u00c0 traiter</span>':'';
+      h+='<div style="font-size:12px;padding:3px 0 3px 26px;color:var(--tx)">'+nom+' \u2014 '+(TL[d.type]||d.type)+' du '+d.date_debut+' au '+d.date_fin+stB+'</div>';
+    });
+  }
+
+  // Acomptes
+  if(demAco.length){
+    h+=section('\u{1F4B0}','Demandes d\u0027acompte',demAco.length,'#92400E');
+    demAco.slice(0,8).forEach(function(d){
+      var em2=emp(d.employee_id);var nom=em2?em2.prenom+' '+em2.nom:'?';
+      var stB=(d.statut||'att')==='att'?'<span style="color:#92400E;font-weight:700"> \u2022 \u00c0 traiter</span>':'';
+      h+='<div style="font-size:12px;padding:3px 0 3px 26px;color:var(--tx)">'+nom+' \u2014 '+d.montant+' \u20ac'+stB+'</div>';
+    });
+  }
+
+  // Réserves sur planning
+  var reserves=lectures.filter(function(l){return l.statut==='reserve';});
+  if(reserves.length){
+    h+=section('\u26A0\uFE0F','R\u00e9serves sur planning',reserves.length,'#D97706');
+    reserves.slice(0,6).forEach(function(l){
+      var em2=emp(l.employee_id);var nom=em2?em2.prenom+' '+em2.nom:'?';
+      h+='<div style="font-size:12px;padding:3px 0 3px 26px;color:var(--tx)">'+nom+(l.reserve_message?' : \u00ab '+l.reserve_message+' \u00bb':'')+'</div>';
+    });
+  }
+
+  // Lectures/acceptations de planning
+  var acceptes=lectures.filter(function(l){return l.statut!=='reserve';});
+  if(acceptes.length){
+    h+=section('\u2705','Plannings accept\u00e9s',acceptes.length,'#065F46');
+  }
+
+  // Pointages
+  if(pointages.length){
+    var nbManuel=pointages.filter(function(p){return p.manuel;}).length;
+    h+=section('\u{1F557}','Pointages enregistr\u00e9s',pointages.length,'#1E40AF');
+    h+='<div style="font-size:11px;padding:0 0 3px 26px;color:var(--txm)">'+pointages.length+' badgeages'+(nbManuel?' dont '+nbManuel+' ajout\u00e9s manuellement':'')+'</div>';
+  }
+
+  if(!h)h='<div style="text-align:center;color:#aaa;padding:24px">Aucune nouveaut\u00e9 depuis votre derni\u00e8re visite</div>';
+  document.getElementById('dash-content').innerHTML=h;
+
+  // Enregistrer la visite actuelle
+  localStorage.setItem('rg_last_visit',now.toISOString());
+
+  openM('modal-dash');
+}
+
+
 async function init(){
   await loadEmps();
   await loadPt();
@@ -3840,6 +3924,7 @@ async function init(){
   checkDepassements();
   db.from('demandes_acompte').select('*').then(function(r){acoAllData=r.data||[];updateAcoBadge();});
   planUpdateLabel();await loadPl();
+  showDashboard();
 }
 init();
 </script>
@@ -4062,6 +4147,17 @@ init();
     <div class="ma">
       <button class="btn bp" onclick="saveRole()">Enregistrer</button>
       <button class="btn bs" onclick="closeM('modal-role')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="modal-dash">
+  <div class="md" style="max-width:480px">
+    <div class="mdt" style="display:flex;align-items:center;gap:8px">&#128276; Nouveaut&#233;s depuis votre derni&#232;re visite</div>
+    <div id="dash-since" style="font-size:11px;color:var(--txm);margin-bottom:12px"></div>
+    <div id="dash-content"></div>
+    <div class="ma" style="margin-top:14px">
+      <button class="btn bp" onclick="closeM('modal-dash')" style="width:100%">J'ai pris connaissance</button>
     </div>
   </div>
 </div>
