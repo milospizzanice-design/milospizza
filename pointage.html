@@ -45,6 +45,33 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .ainp option{background:var(--bx)}
 .af{margin-bottom:9px}
 .rgpd{color:#B08060;font-size:10px;text-align:center;margin-top:12px;line-height:1.5}
+
+/* Compactage automatique sur téléphone (hauteur réduite, mode app) */
+@media (max-height:850px){
+  .clock{font-size:38px;margin-bottom:2px}
+  .datef{font-size:11px;margin-bottom:10px}
+  .panel{padding:13px}
+  .cbtn{padding:11px 12px;margin-bottom:7px}
+  .ci{font-size:22px;margin-bottom:2px}
+  .cl{font-size:14px}
+  .cs{font-size:9px}
+  .panel-title{margin-bottom:9px !important}
+  .nb{padding:10px;font-size:18px}
+  .np{gap:6px;margin-bottom:9px}
+  .pd{margin-bottom:11px}
+  .pl{margin-bottom:10px}
+}
+@media (max-height:700px){
+  .clock{font-size:30px}
+  .datef{font-size:10px;margin-bottom:7px}
+  .panel{padding:10px}
+  .cbtn{padding:8px 10px;margin-bottom:5px}
+  .ci{font-size:18px;margin-bottom:1px}
+  .cl{font-size:13px}
+  .cs{font-size:8px}
+  .nb{padding:8px;font-size:16px}
+  .np{gap:5px;margin-bottom:7px}
+}
 </style>
 </head>
 <body>
