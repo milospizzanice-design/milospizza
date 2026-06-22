@@ -1020,8 +1020,9 @@ async function loadAco(){
     h+='<div style="flex:1"><div style="font-weight:600;font-size:14px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+a.employee_id+')">'+nom+'</div>';
     h+='<div style="font-size:13px;margin-top:3px"><b>'+a.montant+' \u20ac</b> par virement</div>';
     h+='<div style="font-size:11px;color:var(--txm)">Souhait\u00e9 le '+a.date_souhaitee+'</div>';
-    if(a.note_admin&&a.statut==='att')h+='<div style="font-size:11px;color:var(--txm);margin-top:2px;font-style:italic">\u00ab '+a.note_admin+' \u00bb</div>';
-    if(a.montant_accorde&&a.montant_accorde!==a.montant)h+='<div style="font-size:11px;color:#065F46;margin-top:2px">Montant accord\u00e9: '+a.montant_accorde+' \u20ac</div>';
+    if(a.note_admin&&a.statut==='att')h+='<div style="font-size:11px;color:var(--txm);margin-top:2px;font-style:italic">Message salari\u00e9: \u00ab '+a.note_admin+' \u00bb</div>';
+    if(a.montant_accorde&&a.montant_accorde!==a.montant)h+='<div style="font-size:12px;color:#065F46;margin-top:2px;font-weight:600">Montant accord\u00e9: '+a.montant_accorde+' \u20ac</div>';
+    if(a.note_admin&&a.statut!=='att')h+='<div style="font-size:11px;color:var(--tx);margin-top:4px;background:var(--bd);padding:5px 8px;border-radius:6px"><b>Observation:</b> '+a.note_admin+'</div>';
     h+='</div>';
     h+='<span style="background:'+stBg+';color:'+stColor+';padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap">'+stLabel+'</span>';
     h+='</div>';
@@ -1030,7 +1031,10 @@ async function loadAco(){
       h+='<button class="btn bp sm" onclick="acoOpenModal('+a.id+')">G\u00e9rer la demande</button>';
       h+='</div>';
     }else{
-      h+='<div style="margin-top:6px"><button class="btn bs sm" onclick="acoOpenModal('+a.id+')">\u270E Voir / modifier</button></div>';
+      h+='<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">';
+      h+='<button class="btn bs sm" onclick="acoOpenModal('+a.id+')">\u270E Voir / modifier</button>';
+      h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="acoDelete('+a.id+')">\u{1F5D1} Supprimer</button>';
+      h+='</div>';
     }
     // Afficher la preuve jointe si présente
     if(a.justif_b64){
@@ -1040,6 +1044,17 @@ async function loadAco(){
   });
   body.innerHTML=h;
   updateAcoBadge();
+}
+
+
+async function acoDelete(id){
+  var a=acoAllData.find(function(x){return x.id===id;});
+  if(!a)return;
+  var em=emp(a.employee_id);var nom=em?em.prenom+' '+em.nom:'?';
+  if(!confirm('Supprimer d\u00e9finitivement cette demande d\u0027acompte de '+nom+' ('+(a.montant_accorde||a.montant)+' \u20ac) ?\n\nCette action est irr\u00e9versible.'))return;
+  var r=await db.from('demandes_acompte').delete().eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  loadAco();
 }
 
 var acoModalId=null;var acoModalImg=null;
@@ -1812,6 +1827,17 @@ async function ficheExportExcel(){
   aoa.push(['','','','','TOTAL SEMAINE',fmtHM(weekTot),weekRepas+' repas',weekCp+' j CP']);
   aoa.push([]);
   aoa.push(['','','','','TOTAL P\u00c9RIODE',fmtHM(monthTot),monthRepas+' repas',monthCp+' j CP']);
+  // Acomptes versés sur la période
+  var acoR=await db.from('demandes_acompte').select('*').eq('employee_id',ficheCurEmp).eq('statut','ok').gte('date_souhaitee',from).lte('date_souhaitee',to).order('date_souhaitee');
+  var acos=acoR.data||[];
+  if(acos.length){
+    aoa.push([]);
+    aoa.push(['ACOMPTES VERS\u00c9S']);
+    aoa.push(['Date','Moyen','Montant','Observation']);
+    var acoTot=0;
+    acos.forEach(function(a){var mt=parseFloat(a.montant_accorde||a.montant)||0;acoTot+=mt;aoa.push([a.date_souhaitee,'Virement',mt.toFixed(2)+' EUR',a.note_admin||'']);});
+    aoa.push(['','Total',acoTot.toFixed(2)+' EUR','']);
+  }
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols']=[{wch:12},{wch:6},{wch:9},{wch:9},{wch:14},{wch:9},{wch:8},{wch:20}];
   XLSX.utils.book_append_sheet(wb,ws,(em.prenom+' '+em.nom).slice(0,31).replace(/[\\\/\?\*\[\]:]/g,''));
@@ -1855,6 +1881,32 @@ async function ficheExportPDF(){
   y=weekRow(y);y+=2;
   doc.setFillColor(185,30,38);doc.rect(MG,y,PW-MG*2,8,'F');doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
   doc.text('TOTAL P\u00c9RIODE',MG+1.5,y+5.3);doc.text(fmtHM(monthTot),MG+50,y+5.3);doc.text(monthRepas+' repas',MG+90,y+5.3);if(monthCp>0)doc.text(monthCp+' jours CP',MG+120,y+5.3);
+  y+=12;
+  // Section Acomptes versés sur la période
+  var acoR=await db.from('demandes_acompte').select('*').eq('employee_id',ficheCurEmp).eq('statut','ok').gte('date_souhaitee',from).lte('date_souhaitee',to).order('date_souhaitee');
+  var acos=acoR.data||[];
+  if(acos.length){
+    if(y>PH-40){doc.addPage();y=20;}
+    doc.setFillColor(185,30,38);doc.rect(MG,y,PW-MG*2,7,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text('ACOMPTES VERS\u00c9S SUR LA P\u00c9RIODE',MG+1.5,y+4.8);
+    y+=7;
+    doc.setTextColor(40,10,11);doc.setFontSize(8);doc.setFont('helvetica','normal');
+    var acoTot=0;
+    acos.forEach(function(a){
+      var mt=parseFloat(a.montant_accorde||a.montant)||0;acoTot+=mt;
+      doc.setDrawColor(225,210,195);doc.line(MG,y,PW-MG,y);
+      doc.text(a.date_souhaitee,MG+1.5,y+4);
+      doc.text('Virement',MG+50,y+4);
+      doc.text(mt.toFixed(2)+' EUR',MG+90,y+4);
+      if(a.note_admin){var nt=a.note_admin.length>45?a.note_admin.slice(0,45)+'...':a.note_admin;doc.setFontSize(6.5);doc.setTextColor(120,74,53);doc.text(nt,MG+120,y+4);doc.setFontSize(8);doc.setTextColor(40,10,11);}
+      y+=5.5;
+    });
+    doc.setFillColor(245,235,220);doc.rect(MG,y,PW-MG*2,6,'F');
+    doc.setFont('helvetica','bold');doc.setTextColor(185,30,38);
+    doc.text('Total acomptes',MG+1.5,y+4);doc.text(acoTot.toFixed(2)+' EUR',MG+90,y+4);
+    y+=6;
+  }
   doc.save('Paie_'+em.nom+'_'+em.prenom+'_'+from+'_'+to+'.pdf');
 }
 
