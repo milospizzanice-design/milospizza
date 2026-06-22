@@ -296,6 +296,14 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <div class="card">
       <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>&#128100; R&#244;les des salari&#233;s</span>
+        <button class="btn bp sm" onclick="openAddRole()">+ Ajouter</button>
+      </div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">D&#233;finissez les r&#244;les (ex: Pizzaiolo, T&#233;l&#233;phone, Livreur). Vous pourrez ensuite les attribuer à chaque salari&#233; depuis sa fiche.</div>
+      <div id="pm-roles"></div>
+    </div>
+    <div class="card">
+      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
         <span>&#128203; Motifs d'absence</span>
         <button class="btn bp sm" onclick="openAddMotif()">+ Ajouter</button>
       </div>
@@ -374,6 +382,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr">
       <label class="fl2">Postes ma&#238;tris&#233;s</label>
       <div id="sal-postes-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+    </div>
+    <div class="fr">
+      <label class="fl2">R&#244;les</label>
+      <div id="sal-roles-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
     </div>
     <div class="fr"><label class="fl2">PIN (4 chiffres)</label><input type="text" class="fi" id="sapin" maxlength="4" placeholder="Laisser vide = pas de changement"></div>
     <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px">
@@ -563,7 +575,7 @@ function goTab(name,el){
   if(name==='ab')abSubTab('dem');
   if(name==='sa')renderSal();
   if(name==='au')loadAudit();
-  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();}
+  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
 }
 
 function getDR(p){
@@ -1559,6 +1571,64 @@ function updatePosteSelects(){
   document.querySelectorAll('.poste-select').forEach(function(s){
     var val=s.value;s.innerHTML=opts;s.value=val;
   });
+}
+
+
+// ── GESTION DES RÔLES ───────────────────────────────────────────────────────
+var rolesData=[];var roleEditId=null;
+async function loadRoles(){
+  var r=await db.from('roles').select('*').order('nom');
+  rolesData=r.data||[];
+  var box=document.getElementById('pm-roles');
+  if(!box)return;
+  if(!rolesData.length){box.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0">Aucun r\u00f4le d\u00e9fini</div>';return;}
+  var h='';
+  rolesData.forEach(function(ro){
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">';
+    h+='<span style="width:14px;height:14px;border-radius:50%;background:'+(ro.couleur||'#B91E26')+';flex-shrink:0"></span>';
+    h+='<span style="flex:1;font-size:13px;font-weight:600">'+ro.nom+'</span>';
+    h+='<button class="btn bs sm" onclick="openEditRole('+ro.id+')">\u270E</button>';
+    h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="delRole('+ro.id+')">\u{1F5D1}</button>';
+    h+='</div>';
+  });
+  box.innerHTML=h;
+}
+function openAddRole(){
+  roleEditId=null;
+  document.getElementById('role-modal-title').textContent='Nouveau r\u00f4le';
+  document.getElementById('role-nom').value='';
+  document.getElementById('role-couleur').value='#B91E26';
+  openM('modal-role');
+}
+function openEditRole(id){
+  var ro=rolesData.find(function(x){return x.id===id;});
+  if(!ro)return;
+  roleEditId=id;
+  document.getElementById('role-modal-title').textContent='Modifier le r\u00f4le';
+  document.getElementById('role-nom').value=ro.nom;
+  document.getElementById('role-couleur').value=ro.couleur||'#B91E26';
+  openM('modal-role');
+}
+async function saveRole(){
+  var nom=document.getElementById('role-nom').value.trim();
+  var couleur=document.getElementById('role-couleur').value;
+  if(!nom){alert('Indiquez un nom');return;}
+  if(roleEditId){
+    var r=await db.from('roles').update({nom:nom,couleur:couleur}).eq('id',roleEditId);
+    if(r.error){alert('Erreur: '+r.error.message);return;}
+  }else{
+    var r2=await db.from('roles').insert({nom:nom,couleur:couleur});
+    if(r2.error){alert('Erreur: '+r2.error.message);return;}
+  }
+  closeM('modal-role');loadRoles();
+}
+async function delRole(id){
+  var ro=rolesData.find(function(x){return x.id===id;});
+  if(!ro)return;
+  if(!confirm('Supprimer le r\u00f4le \u00ab '+ro.nom+' \u00bb ?'))return;
+  var r=await db.from('roles').delete().eq('id',id);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  loadRoles();
 }
 
 function openAddPoste(){
@@ -2702,7 +2772,7 @@ function exportIndivPDF(){
 }
 
 
-function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderPlanningType(null);document.getElementById('sapin').value='';openM('msa');}
+function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderPlanningType(null);document.getElementById('sapin').value='';openM('msa');}
 
 // ── POSTES PAR SALARIÉ ──────────────────────────────────────────────────────
 function getSalPostes(salId){
@@ -2862,6 +2932,48 @@ async function applyPlanningType(){
 }
 
 
+
+// ── RÔLES DU SALARIÉ (attribution) ──────────────────────────────────────────
+var tmpSalRoles=[];
+function renderSalRolesList(salId){
+  var div=document.getElementById('sal-roles-list');if(!div)return;
+  // Initialiser la sélection
+  if(salId){
+    var em=emp(salId);
+    tmpSalRoles=(em&&em.roles)?(Array.isArray(em.roles)?em.roles.slice():[]):[];
+  }else{
+    tmpSalRoles=[];
+  }
+  if(!rolesData||!rolesData.length){
+    // Charger les rôles si pas encore fait
+    db.from('roles').select('*').order('nom').then(function(r){rolesData=r.data||[];renderSalRolesCheckboxes();});
+  }else{
+    renderSalRolesCheckboxes();
+  }
+}
+function renderSalRolesCheckboxes(){
+  var div=document.getElementById('sal-roles-list');if(!div)return;
+  if(!rolesData.length){div.innerHTML='<span style="color:#aaa;font-size:12px">Aucun r\u00f4le d\u00e9fini dans Param\u00e8tres</span>';return;}
+  var h='';
+  rolesData.forEach(function(ro){
+    var isOn=tmpSalRoles.indexOf(ro.id)>=0;
+    var bg=isOn?(ro.couleur||'#B91E26'):'#f5f5f5';
+    var tx=isOn?'#fff':'#aaa';
+    var brd=isOn?('1px solid '+(ro.couleur||'#B91E26')):'1px solid #ddd';
+    h+='<label style="display:inline-flex;align-items:center;gap:5px;background:'+bg+';border:'+brd+';border-radius:8px;padding:4px 8px;cursor:pointer">';
+    h+='<input type="checkbox" data-rid="'+ro.id+'" '+(isOn?'checked':'')+' style="accent-color:#fff;width:14px;height:14px" onchange="toggleSalRole(this)">';
+    h+='<span style="font-size:11px;font-weight:600;color:'+tx+'">'+ro.nom+'</span></label>';
+  });
+  div.innerHTML=h;
+}
+function toggleSalRole(cb){
+  var rid=parseInt(cb.dataset.rid);
+  var i=tmpSalRoles.indexOf(rid);
+  if(cb.checked&&i<0)tmpSalRoles.push(rid);
+  else if(!cb.checked&&i>=0)tmpSalRoles.splice(i,1);
+  renderSalRolesCheckboxes();
+}
+
 function renderSalPostesList(salId){
   var div=document.getElementById('sal-postes-list');if(!div)return;
   var key=salId||'new';
@@ -2937,7 +3049,7 @@ function openEditSal(id){
   document.getElementById('sadebut').value=em.date_debut||'';
   document.getElementById('samail').value=em.email||'';
   document.getElementById('sapin').value='';
-  renderSalPostesList(id);
+  renderSalPostesList(id);renderSalRolesList(id);
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
   if(ptStart){if(em&&em.date_debut){ptStart.value=em.date_debut;}else{var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}}
@@ -2954,7 +3066,7 @@ async function saveSal(){
     var hc=parseFloat(document.getElementById('saheures').value)||null;
     var dd=document.getElementById('sadebut').value||null;
     var mail=document.getElementById('samail').value||null;
-    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail};
+    var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles};
     if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
     await db.from('employees').update(upd).eq('id',curSal);
   }else{
@@ -2964,7 +3076,7 @@ async function saveSal(){
     var hc2=parseFloat(document.getElementById('saheures').value)||null;
     var dd2=document.getElementById('sadebut').value||null;
     var mail2=document.getElementById('samail').value||null;
-    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2}).select();
+    var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
@@ -3198,8 +3310,9 @@ async function ficheLoadDoc(){
       var dt=new Date(d.uploaded_at).toLocaleDateString('fr-FR');
       var taille=d.taille?(d.taille>1048576?(d.taille/1048576).toFixed(1)+' Mo':Math.round(d.taille/1024)+' Ko'):'';
       h+='<div class="card" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px">';
-      h+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.nom_fichier+'</div>';
-      h+='<div style="font-size:10px;color:var(--txm)">Ajout\u00e9 le '+dt+(taille?' \u2022 '+taille:'')+'</div></div>';
+      var titreAff=d.titre?d.titre:d.nom_fichier;
+      h+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+titreAff+'</div>';
+      h+='<div style="font-size:10px;color:var(--txm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(d.titre?d.nom_fichier+' \u2022 ':'')+'Ajout\u00e9 le '+dt+(taille?' \u2022 '+taille:'')+'</div></div>';
       h+='<div style="display:flex;gap:4px;flex-shrink:0">';
       h+='<button class="btn bs sm" onclick="ficheDownloadDoc(\''+d.chemin+'\',\''+d.nom_fichier.replace(/\u0027/g,"")+'\')">\u2913</button>';
       h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="ficheDeleteDoc('+d.id+',\''+d.chemin+'\')">\u{1F5D1}</button>';
@@ -3211,13 +3324,16 @@ async function ficheLoadDoc(){
 
 async function ficheUploadDoc(input){
   var f=input.files&&input.files[0];if(!f)return;
+  var titre=prompt('Titre du document (ex: Consentement badgeage, Contrat CDI, RIB...) :');
+  if(titre===null){input.value='';return;}
+  titre=titre.trim();
   var status=document.getElementById('doc-upload-status');
   status.textContent='Envoi en cours...';
   var ext=f.name.split('.').pop();
   var chemin=ficheCurEmp+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
   var up=await db.storage.from('documents').upload(chemin,f,{contentType:f.type,upsert:false});
   if(up.error){status.textContent='Erreur: '+up.error.message;return;}
-  var ins=await db.from('documents_rh').insert({employee_id:ficheCurEmp,nom_fichier:f.name,chemin:chemin,type_doc:f.type,taille:f.size});
+  var ins=await db.from('documents_rh').insert({employee_id:ficheCurEmp,nom_fichier:f.name,chemin:chemin,type_doc:f.type,taille:f.size,titre:titre||null});
   if(ins.error){status.textContent='Erreur base: '+ins.error.message;return;}
   status.textContent='';
   ficheLoadDoc();
@@ -3932,6 +4048,20 @@ init();
       <button class="btn bp" onclick="demModalSave('ok')">&#10003; Accepter</button>
       <button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="demModalSave('ko')">&#10005; Refuser</button>
       <button class="btn bs" onclick="closeM('modal-dem')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="modal-role">
+  <div class="md">
+    <div class="mdt" id="role-modal-title">Nouveau r&#244;le</div>
+    <div class="fr"><label class="fl2">Nom du r&#244;le</label>
+      <input type="text" class="fi" id="role-nom" placeholder="Ex: Pizzaiolo"></div>
+    <div class="fr"><label class="fl2">Couleur</label>
+      <input type="color" class="fi" id="role-couleur" value="#B91E26" style="height:42px"></div>
+    <div class="ma">
+      <button class="btn bp" onclick="saveRole()">Enregistrer</button>
+      <button class="btn bs" onclick="closeM('modal-role')">Annuler</button>
     </div>
   </div>
 </div>
