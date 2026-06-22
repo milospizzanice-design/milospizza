@@ -3252,9 +3252,13 @@ async function ficheAfficherLuPlanning(){
   if(lu){
     var dt=new Date(lu.lu_at);
     var quand=dt.toLocaleDateString('fr-FR')+' \u00e0 '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    banner='<div style="background:#D1FAE5;color:#065F46;border-radius:8px;padding:9px;font-size:12px;font-weight:600;margin-bottom:8px">\u2705 Planning de cette semaine lu le '+quand+'</div>';
+    if(lu.statut==='reserve'){
+      banner='<div style="background:#FEF3C7;color:#92400E;border-radius:8px;padding:9px;font-size:12px;font-weight:600;margin-bottom:8px">\u26A0 R\u00e9serves \u00e9mises le '+quand+(lu.reserve_message?'<br><span style="font-weight:400;font-style:italic">\u00ab '+lu.reserve_message+' \u00bb</span>':'')+'</div>';
+    }else{
+      banner='<div style="background:#D1FAE5;color:#065F46;border-radius:8px;padding:9px;font-size:12px;font-weight:600;margin-bottom:8px">\u2705 Planning lu et accept\u00e9 le '+quand+'</div>';
+    }
   }else{
-    banner='<div style="background:#FEF3C7;color:#92400E;border-radius:8px;padding:9px;font-size:12px;font-weight:600;margin-bottom:8px">\u26A0 Planning de cette semaine non encore confirm\u00e9 comme lu</div>';
+    banner='<div style="background:#FEF3C7;color:#92400E;border-radius:8px;padding:9px;font-size:12px;font-weight:600;margin-bottom:8px">\u26A0 Planning de cette semaine non encore valid\u00e9</div>';
   }
   body.innerHTML=banner+body.innerHTML;
 }

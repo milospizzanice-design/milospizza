@@ -331,22 +331,43 @@ function ppk(k){
 async function planAfficherLu(){
   var zone=document.getElementById('plan-lu-zone');
   if(!zone||!planEmp)return;
-  // Semaine courante (lundi) comme référence
   var monday=pMon(new Date());var semStr=pDs(monday);
   var r=await db.from('planning_lectures').select('*').eq('employee_id',planEmp.id).eq('semaine_debut',semStr).order('lu_at',{ascending:false}).limit(1);
   var derniere=r.data&&r.data[0];
   if(derniere){
     var dt=new Date(derniere.lu_at);
     var quand=dt.toLocaleDateString('fr-FR')+' \u00e0 '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    zone.innerHTML='<div style="background:#D1FAE5;color:#065F46;border-radius:10px;padding:11px;text-align:center;font-size:13px;font-weight:600">\u2705 Vous avez confirm\u00e9 la lecture le '+quand+'</div>';
+    if(derniere.statut==='reserve'){
+      zone.innerHTML='<div style="background:#FEF3C7;color:#92400E;border-radius:10px;padding:11px;text-align:center;font-size:13px;font-weight:600">\u26A0 R\u00e9serves transmises le '+quand+(derniere.reserve_message?'<br><span style="font-weight:400;font-style:italic">\u00ab '+derniere.reserve_message+' \u00bb</span>':'')+'</div>';
+    }else{
+      zone.innerHTML='<div style="background:#D1FAE5;color:#065F46;border-radius:10px;padding:11px;text-align:center;font-size:13px;font-weight:600">\u2705 Planning accept\u00e9 le '+quand+'</div>';
+    }
   }else{
-    zone.innerHTML='<button onclick="planConfirmerLu()" style="width:100%;background:#fff;color:#B91E26;border:2px solid #B91E26;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">\u2713 J\u0027ai lu mon planning</button>';
+    zone.innerHTML='<button onclick="planAccepter()" style="width:100%;background:#10B981;color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">\u2713 J\u0027ai lu, compris et j\u0027accepte mon planning</button>'+
+      '<button onclick="planOuvrirReserve()" style="width:100%;background:#fff;color:#92400E;border:2px solid #F59E0B;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">\u26A0 J\u0027ai des r\u00e9serves sur ce planning</button>'+
+      '<div id="plan-reserve-form" style="display:none;margin-top:8px">'+
+        '<textarea id="plan-reserve-msg" rows="3" placeholder="Expliquez vos r\u00e9serves..." style="width:100%;border:1px solid #ccc;border-radius:8px;padding:9px;font-size:13px;resize:none;box-sizing:border-box"></textarea>'+
+        '<button onclick="planEnvoyerReserve()" style="width:100%;margin-top:6px;background:#F59E0B;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer">Envoyer mes r\u00e9serves</button>'+
+      '</div>';
   }
 }
-async function planConfirmerLu(){
+async function planAccepter(){
   if(!planEmp)return;
   var monday=pMon(new Date());var semStr=pDs(monday);
-  var r=await db.from('planning_lectures').insert({employee_id:planEmp.id,semaine_debut:semStr});
+  var r=await db.from('planning_lectures').insert({employee_id:planEmp.id,semaine_debut:semStr,statut:'accepte'});
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  planAfficherLu();
+}
+function planOuvrirReserve(){
+  var f=document.getElementById('plan-reserve-form');
+  if(f)f.style.display=f.style.display==='none'?'block':'none';
+}
+async function planEnvoyerReserve(){
+  if(!planEmp)return;
+  var msg=document.getElementById('plan-reserve-msg').value.trim();
+  if(!msg){alert('Merci d\u0027expliquer vos r\u00e9serves');return;}
+  var monday=pMon(new Date());var semStr=pDs(monday);
+  var r=await db.from('planning_lectures').insert({employee_id:planEmp.id,semaine_debut:semStr,statut:'reserve',reserve_message:msg});
   if(r.error){alert('Erreur: '+r.error.message);return;}
   planAfficherLu();
 }
