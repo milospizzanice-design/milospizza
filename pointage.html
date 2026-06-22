@@ -209,8 +209,9 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div class="screen" id="s-plan-view">
       <div class="pl" id="planempname" style="margin-bottom:4px"></div>
       <div style="font-size:13px;color:#888;margin-bottom:10px">Vos horaires des 4 prochaines semaines</div>
-      <div id="plan-content" style="width:100%;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"></div>
-      <button onclick="backToMenu()" style="width:100%;margin-top:12px;background:#B91E26;border:none;border-radius:12px;padding:16px;color:#fff;font-size:17px;font-weight:700;cursor:pointer">&#8592; Retour au menu</button>
+      <div id="plan-content" style="width:100%;max-height:48vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"></div>
+      <div id="plan-lu-zone" style="margin-top:10px"></div>
+      <button onclick="backToMenu()" style="width:100%;margin-top:8px;background:#B91E26;border:none;border-radius:12px;padding:14px;color:#fff;font-size:16px;font-weight:700;cursor:pointer">&#8592; Retour au menu</button>
     </div>
     <div class="screen" id="s-aco-pin">
       <div class="pl">PIN pour demander un acompte</div>
@@ -326,6 +327,30 @@ function ppk(k){
   for(var i=0;i<4;i++){var d=document.getElementById('pp'+i);if(d)d.classList.toggle('f',planPin.length>i);}
   var cf=document.getElementById('ppc');if(cf)cf.classList.toggle('rdy',planPin.length===4);
 }
+
+async function planAfficherLu(){
+  var zone=document.getElementById('plan-lu-zone');
+  if(!zone||!planEmp)return;
+  // Semaine courante (lundi) comme référence
+  var monday=pMon(new Date());var semStr=pDs(monday);
+  var r=await db.from('planning_lectures').select('*').eq('employee_id',planEmp.id).eq('semaine_debut',semStr).order('lu_at',{ascending:false}).limit(1);
+  var derniere=r.data&&r.data[0];
+  if(derniere){
+    var dt=new Date(derniere.lu_at);
+    var quand=dt.toLocaleDateString('fr-FR')+' \u00e0 '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    zone.innerHTML='<div style="background:#D1FAE5;color:#065F46;border-radius:10px;padding:11px;text-align:center;font-size:13px;font-weight:600">\u2705 Vous avez confirm\u00e9 la lecture le '+quand+'</div>';
+  }else{
+    zone.innerHTML='<button onclick="planConfirmerLu()" style="width:100%;background:#fff;color:#B91E26;border:2px solid #B91E26;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">\u2713 J\u0027ai lu mon planning</button>';
+  }
+}
+async function planConfirmerLu(){
+  if(!planEmp)return;
+  var monday=pMon(new Date());var semStr=pDs(monday);
+  var r=await db.from('planning_lectures').insert({employee_id:planEmp.id,semaine_debut:semStr});
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  planAfficherLu();
+}
+
 async function planConfirmPin(){
   if(planPin.length!==4)return;
   var r=await db.rpc('verify_pin',{p_pin:planPin,p_restaurant:RESTAURANT_ID});
@@ -395,6 +420,7 @@ async function loadSalariePlanning(){
     h+='</div>';
   }
   document.getElementById('plan-content').innerHTML=h;
+  planAfficherLu();
 }
 
 

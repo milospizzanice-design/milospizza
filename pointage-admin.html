@@ -3239,7 +3239,24 @@ function ficheLoadPlan(){
     }
     if(!hasAny)h+='<div style="text-align:center;color:#aaa;padding:16px">Aucun cr\u00e9neau planifi\u00e9 sur les 4 prochaines semaines</div>';
     body.innerHTML=h;
+    ficheAfficherLuPlanning();
   });
+}
+async function ficheAfficherLuPlanning(){
+  var body=document.getElementById('fiche-pane-plan');
+  if(!body)return;
+  var monday=planMonOf(new Date());var semStr=planDs(monday);
+  var r=await db.from('planning_lectures').select('*').eq('employee_id',ficheCurEmp).eq('semaine_debut',semStr).order('lu_at',{ascending:false}).limit(1);
+  var lu=r.data&&r.data[0];
+  var banner;
+  if(lu){
+    var dt=new Date(lu.lu_at);
+    var quand=dt.toLocaleDateString('fr-FR')+' \u00e0 '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    banner='<div style="background:#D1FAE5;color:#065F46;border-radius:8px;padding:9px;font-size:12px;font-weight:600;margin-bottom:8px">\u2705 Planning de cette semaine lu le '+quand+'</div>';
+  }else{
+    banner='<div style="background:#FEF3C7;color:#92400E;border-radius:8px;padding:9px;font-size:12px;font-weight:600;margin-bottom:8px">\u26A0 Planning de cette semaine non encore confirm\u00e9 comme lu</div>';
+  }
+  body.innerHTML=banner+body.innerHTML;
 }
 
 function ficheLoadPt(){
