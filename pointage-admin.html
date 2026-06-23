@@ -3426,22 +3426,43 @@ async function ficheDeleteDoc(id,chemin){
   ficheLoadDoc();
 }
 
+
+function ficheCreerAbsence(){
+  if(!ficheCurEmp)return;
+  updateMotifSelects();
+  document.getElementById('ab-edit-id').value='';
+  document.getElementById('mab-title').textContent='Cr\u00e9er une absence';
+  document.getElementById('ab-del-btn').style.display='none';
+  var today=planDs(new Date());
+  document.getElementById('abe').value=ficheCurEmp;
+  document.getElementById('abf').value=today;
+  document.getElementById('abt2').value=today;
+  document.getElementById('abn').value='';
+  document.getElementById('abfi').value='';
+  // Garder une trace qu'on vient de la fiche pour rafraîchir au retour
+  ficheAbsRetour=true;
+  closeM('modal-absfiche');
+  openM('mab');
+}
+var ficheAbsRetour=false;
+
 function ficheLoadAbs(){
   var body=document.getElementById('fiche-pane-abs');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
   db.from('absences').select('*').eq('employee_id',ficheCurEmp).order('date_debut',{ascending:false}).then(function(r){
     var abs=r.data||[];
-    if(!abs.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Aucune absence</div>';return;}
-    var h='';
+    var btnAdd='<button class="btn bp sm" style="width:100%;margin-bottom:10px" onclick="ficheCreerAbsence()">+ Cr\u00e9er une absence</button>';
+    if(!abs.length){body.innerHTML=btnAdd+'<div style="text-align:center;color:#aaa;padding:16px">Aucune absence</div>';return;}
+    var h=btnAdd;
     abs.forEach(function(a){
       var col=getMotifCouleur(a.type);
       h+='<div class="card" style="margin-bottom:6px">';
       h+='<div style="display:flex;align-items:center;gap:8px">';
       h+='<span style="width:10px;height:10px;border-radius:50%;background:'+col+';flex-shrink:0"></span>';
-      h+='<div style="flex:1" onclick="closeM(\'modal-absfiche\');openEditAb('+a.id+')"><div style="font-weight:600;font-size:12px">'+getMotifNom(a.type)+'</div>';
+      h+='<div style="flex:1" onclick="ficheAbsRetour=true;closeM(\'modal-absfiche\');openEditAb('+a.id+')"><div style="font-weight:600;font-size:12px">'+getMotifNom(a.type)+'</div>';
       h+='<div style="font-size:11px;color:var(--txm)">Du '+a.date_debut+' au '+a.date_fin+(a.note?' \u2022 '+a.note:'')+'</div></div>';
       if(a.justif_b64)h+='<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>';
-      else h+='<button class="btn bs sm" onclick="closeM(\'modal-absfiche\');openEditAb('+a.id+')">+ Justif</button>';
+      else h+='<button class="btn bs sm" onclick="ficheAbsRetour=true;closeM(\'modal-absfiche\');openEditAb('+a.id+')">+ Justif</button>';
       h+='</div></div>';
     });
     body.innerHTML=h;
@@ -3602,6 +3623,7 @@ async function deleteAb(){
   if(r.error){alert('Erreur: '+r.error.message);return;}
   closeM('mab');
   await loadAb();
+  if(ficheAbsRetour){ficheAbsRetour=false;openM('modal-absfiche');ficheTab('abs');}
 }
 
 async function saveAb(){
@@ -3626,6 +3648,7 @@ async function saveAb(){
   closeM('mab');
   document.getElementById('abn').value='';fi.value='';
   await loadAb();
+  if(ficheAbsRetour){ficheAbsRetour=false;openM('modal-absfiche');ficheTab('abs');}
 }
 
 function expRc(){
