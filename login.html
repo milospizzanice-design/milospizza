@@ -29,7 +29,6 @@
     position: relative;
   }
 
-  /* Background decoration */
   body::before {
     content: '';
     position: fixed;
@@ -49,17 +48,9 @@
     pointer-events: none;
   }
 
-  .container {
-    width: 100%;
-    max-width: 420px;
-    padding: 20px;
-    animation: fadeUp 0.6s ease both;
-  }
+  .container { width: 100%; max-width: 420px; padding: 20px; animation: fadeUp 0.6s ease both; }
 
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(24px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 
   .card {
     background: white;
@@ -69,10 +60,7 @@
     border: 1px solid var(--border);
   }
 
-  .logo-wrap {
-    text-align: center;
-    margin-bottom: 32px;
-  }
+  .logo-wrap { text-align: center; margin-bottom: 32px; }
 
   .logo-circle {
     width: 72px; height: 72px;
@@ -85,52 +73,17 @@
     box-shadow: 0 8px 24px rgba(200,32,42,0.25);
   }
 
-  .logo-circle svg {
-    width: 36px; height: 36px;
-    fill: white;
-  }
+  .logo-circle svg { width: 36px; height: 36px; fill: white; }
 
-  .brand {
-    font-family: 'Playfair Display', serif;
-    font-size: 22px;
-    color: var(--dark);
-    letter-spacing: 0.02em;
-  }
+  .brand { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--dark); letter-spacing: 0.02em; }
+  .brand span { color: var(--red); }
+  .subtitle { font-size: 13px; color: var(--gray); margin-top: 4px; letter-spacing: 0.08em; text-transform: uppercase; }
 
-  .brand span {
-    color: var(--red);
-  }
+  .divider { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .divider span { font-size: 11px; color: var(--gray); letter-spacing: 0.1em; text-transform: uppercase; }
 
-  .subtitle {
-    font-size: 13px;
-    color: var(--gray);
-    margin-top: 4px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 28px;
-  }
-  .divider::before, .divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-  .divider span {
-    font-size: 11px;
-    color: var(--gray);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .field {
-    margin-bottom: 16px;
-  }
+  .field { margin-bottom: 16px; }
 
   label {
     display: block;
@@ -156,26 +109,14 @@
     -webkit-appearance: none;
   }
 
-  input:focus {
-    border-color: var(--red);
-    background: white;
-    box-shadow: 0 0 0 3px rgba(200,32,42,0.08);
-  }
-
+  input:focus { border-color: var(--red); background: white; box-shadow: 0 0 0 3px rgba(200,32,42,0.08); }
   input::placeholder { color: #c5bdb0; }
 
-  .password-wrap {
-    position: relative;
-  }
+  .password-wrap { position: relative; }
   .password-wrap input { padding-right: 48px; }
   .toggle-pw {
-    position: absolute;
-    right: 14px; top: 50%;
-    transform: translateY(-50%);
-    background: none; border: none;
-    cursor: pointer; padding: 4px;
-    color: var(--gray);
-    transition: color 0.2s;
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; padding: 4px; color: var(--gray); transition: color 0.2s;
   }
   .toggle-pw:hover { color: var(--dark); }
 
@@ -198,34 +139,17 @@
     overflow: hidden;
   }
 
-  .btn:hover {
-    background: var(--red-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(200,32,42,0.3);
-  }
-
+  .btn:hover { background: var(--red-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(200,32,42,0.3); }
   .btn:active { transform: translateY(0); }
-
-  .btn.loading {
-    pointer-events: none;
-    opacity: 0.8;
-  }
-
+  .btn.loading { pointer-events: none; opacity: 0.8; }
   .btn .spinner {
-    display: none;
-    width: 18px; height: 18px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+    display: none; width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   }
-
   .btn.loading .btn-text { opacity: 0; }
   .btn.loading .spinner { display: block; }
-
   @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
 
   .error-msg {
@@ -239,9 +163,7 @@
     margin-top: 14px;
     text-align: center;
   }
-
   .error-msg.show { display: block; animation: shake 0.4s ease; }
-
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20% { transform: translateX(-6px); }
@@ -250,18 +172,33 @@
     80% { transform: translateX(4px); }
   }
 
-  .footer {
+  .success-msg {
+    display: none;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 14px;
     text-align: center;
-    margin-top: 24px;
-    font-size: 12px;
-    color: var(--gray);
   }
+  .success-msg.show { display: block; }
 
-  .footer a {
-    color: var(--red);
+  .forgot-link {
+    display: block;
+    text-align: center;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--gray);
     text-decoration: none;
-    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s;
   }
+  .forgot-link:hover { color: var(--red); }
+
+  .footer { text-align: center; margin-top: 24px; font-size: 12px; color: var(--gray); }
+  .footer a { color: var(--red); text-decoration: none; font-weight: 500; }
 
   .back-link {
     display: block;
@@ -273,6 +210,49 @@
     transition: color 0.2s;
   }
   .back-link:hover { color: var(--dark); }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(26,18,8,0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+    padding: 20px;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal-box {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 380px;
+    width: 100%;
+    transform: scale(0.95);
+    transition: transform 0.2s;
+    box-shadow: 0 20px 60px rgba(26,18,8,0.2);
+  }
+  .modal-overlay.show .modal-box { transform: scale(1); }
+  .modal-box h3 { font-size: 17px; margin-bottom: 8px; font-family: 'Playfair Display', serif; }
+  .modal-box p.modal-desc { font-size: 13px; color: var(--gray); margin-bottom: 20px; }
+  .modal-close {
+    display: block;
+    text-align: center;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--gray);
+    cursor: pointer;
+  }
+  .modal-close:hover { color: var(--dark); }
+  .dev-code-box {
+    background: #fff3cd;
+    border: 1px solid #ffe69c;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
+    margin-top: 14px;
+    text-align: center;
+  }
+  .dev-code-box strong { font-size: 20px; letter-spacing: 0.1em; }
 </style>
 </head>
 <body>
@@ -317,6 +297,8 @@
 
     <div class="error-msg" id="errorMsg"></div>
 
+    <a class="forgot-link" onclick="openForgotModal()">Mot de passe oublié ?</a>
+
     <div class="footer">
       Problème de connexion ? <a href="mailto:milospizza.nice@gmail.com">Contacter le support</a>
     </div>
@@ -326,32 +308,71 @@
   <a href="index.html" class="back-link">← Retour au menu</a>
 </div>
 
+<div class="modal-overlay" id="forgotModal">
+  <div class="modal-box">
+    <div id="forgotStep1">
+      <h3>Mot de passe oublié</h3>
+      <p class="modal-desc">Entrez votre email, on vous envoie un code de réinitialisation.</p>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="forgotEmail" placeholder="votre@email.com" />
+      </div>
+      <button class="btn" onclick="requestReset()">
+        <span class="btn-text">Envoyer le code</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="error-msg" id="forgotError"></div>
+      <div class="dev-code-box" id="devCodeBox" style="display:none;"></div>
+    </div>
+
+    <div id="forgotStep2" style="display:none;">
+      <h3>Nouveau mot de passe</h3>
+      <p class="modal-desc">Entrez le code reçu et votre nouveau mot de passe.</p>
+      <div class="field">
+        <label>Code (6 chiffres)</label>
+        <input type="text" id="resetCode" placeholder="123456" maxlength="6" />
+      </div>
+      <div class="field">
+        <label>Nouveau mot de passe</label>
+        <input type="password" id="resetNewPwd" placeholder="••••••••" />
+      </div>
+      <button class="btn" onclick="confirmReset()">
+        <span class="btn-text">Réinitialiser le mot de passe</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="error-msg" id="resetError"></div>
+      <div class="success-msg" id="resetSuccess"></div>
+    </div>
+
+    <span class="modal-close" onclick="closeForgotModal()">Annuler</span>
+  </div>
+</div>
+
 <script>
   const WORKER = 'https://milos-github-proxy.milospizza-nice.workers.dev';
+  const LEGACY_PANEL_SLUGS = ['milo-s-pizza-nice', 'milos-pizza-nice'];
 
-  // Check if already logged in
   window.addEventListener('load', async () => {
     const token = localStorage.getItem('milos_token');
     if (token) {
       try {
-        const res = await fetch(`${WORKER}/auth/verify`, {
+        const res = await fetch(WORKER + '/auth/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
+          body: JSON.stringify({ token: token })
         });
         const data = await res.json();
-        if (data.valid) {
-          redirectAfterLogin(data.role);
-          return;
-        }
+        if (data.valid) { redirectAfterLogin(data.role, data.slug); return; }
       } catch(e) {}
       localStorage.removeItem('milos_token');
     }
   });
 
-  function redirectAfterLogin(role) {
+  function redirectAfterLogin(role, slug) {
     if (role === 'superadmin') {
       window.location.href = 'superadmin.html';
+    } else if (LEGACY_PANEL_SLUGS.indexOf(slug) !== -1) {
+      window.location.href = 'index.html?admin=1';
     } else {
       window.location.href = 'client-admin.html';
     }
@@ -377,18 +398,15 @@
 
     errorMsg.classList.remove('show');
 
-    if (!email || !password) {
-      showError('Veuillez remplir tous les champs');
-      return;
-    }
+    if (!email || !password) { showError('Veuillez remplir tous les champs'); return; }
 
     btn.classList.add('loading');
 
     try {
-      const res = await fetch(`${WORKER}/auth/login`, {
+      const res = await fetch(WORKER + '/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: email, password: password })
       });
       const data = await res.json();
 
@@ -397,7 +415,8 @@
         localStorage.setItem('milos_role', data.role);
         localStorage.setItem('milos_email', data.email);
         localStorage.setItem('milos_restaurant', data.restaurant);
-        redirectAfterLogin(data.role);
+        localStorage.setItem('milos_slug', data.slug || '');
+        redirectAfterLogin(data.role, data.slug);
       } else {
         showError(data.error || 'Email ou mot de passe incorrect');
       }
@@ -416,10 +435,99 @@
     el.classList.add('show');
   }
 
-  // Enter key
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !document.getElementById('forgotModal').classList.contains('show')) doLogin();
   });
+
+  function openForgotModal() {
+    document.getElementById('forgotModal').classList.add('show');
+    document.getElementById('forgotStep1').style.display = 'block';
+    document.getElementById('forgotStep2').style.display = 'none';
+    document.getElementById('forgotEmail').value = document.getElementById('email').value || '';
+  }
+
+  function closeForgotModal() {
+    document.getElementById('forgotModal').classList.remove('show');
+  }
+
+  let resetEmailCache = '';
+
+  async function requestReset() {
+    const email = document.getElementById('forgotEmail').value.trim();
+    const errorEl = document.getElementById('forgotError');
+    errorEl.classList.remove('show');
+
+    if (!email) { errorEl.textContent = 'Email requis'; errorEl.classList.add('show'); return; }
+
+    const btn = event.target.closest('button');
+    btn.classList.add('loading');
+
+    try {
+      const res = await fetch(WORKER + '/auth/reset-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        resetEmailCache = email;
+        document.getElementById('forgotStep2').style.display = 'block';
+
+        if (data.devCode) {
+          const devBox = document.getElementById('devCodeBox');
+          devBox.style.display = 'block';
+          devBox.innerHTML = 'Service email pas encore connecté.<br>Votre code : <strong>' + data.devCode + '</strong>';
+        }
+      } else {
+        errorEl.textContent = data.error || 'Erreur';
+        errorEl.classList.add('show');
+      }
+    } catch(e) {
+      errorEl.textContent = 'Erreur réseau';
+      errorEl.classList.add('show');
+    }
+
+    btn.classList.remove('loading');
+  }
+
+  async function confirmReset() {
+    const code = document.getElementById('resetCode').value.trim();
+    const newPassword = document.getElementById('resetNewPwd').value;
+    const errorEl = document.getElementById('resetError');
+    const successEl = document.getElementById('resetSuccess');
+    errorEl.classList.remove('show');
+    successEl.classList.remove('show');
+
+    if (!code || !newPassword) { errorEl.textContent = 'Tous les champs sont requis'; errorEl.classList.add('show'); return; }
+    if (newPassword.length < 8) { errorEl.textContent = '8 caractères minimum'; errorEl.classList.add('show'); return; }
+
+    const btn = event.target.closest('button');
+    btn.classList.add('loading');
+
+    try {
+      const res = await fetch(WORKER + '/auth/reset-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmailCache, code: code, newPassword: newPassword })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        successEl.textContent = '✅ Mot de passe changé ! Vous pouvez vous reconnecter.';
+        successEl.classList.add('show');
+        setTimeout(function() { closeForgotModal(); }, 2000);
+      } else {
+        errorEl.textContent = data.error || 'Erreur';
+        errorEl.classList.add('show');
+      }
+    } catch(e) {
+      errorEl.textContent = 'Erreur réseau';
+      errorEl.classList.add('show');
+    }
+
+    btn.classList.remove('loading');
+  }
 </script>
 </body>
 </html>
