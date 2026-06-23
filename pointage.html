@@ -154,9 +154,10 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     </div>
     <div class="screen" id="s-camera">
       <div class="pl" id="camname"></div>
-      <div id="camstatus" style="margin:8px auto;padding:8px 14px;border-radius:10px;font-size:14px;max-width:340px;text-align:center"></div>
-      <div class="cambox"><video id="vid" autoplay playsinline muted></video><div class="camcnt" id="camcnt"></div></div>
-      <button class="canc" onclick="reset()">Annuler</button>
+      <div id="camstatus" style="margin:14px auto;padding:14px 18px;border-radius:12px;font-size:16px;max-width:340px;text-align:center"></div>
+      <div id="camcnt" style="display:none"></div>
+      <button onclick="confirmBadge()" id="badge-btn" style="width:100%;max-width:340px;margin:10px auto;display:block;background:#fff;color:#B91E26;border:none;border-radius:14px;padding:18px;font-size:18px;font-weight:700;cursor:pointer">Valider mon badgeage</button>
+      <button class="canc" onclick="backToMenu()">Annuler</button>
     </div>
     <div class="screen" id="s-ok">
       <div class="cficon ok">&#10003;</div>
@@ -518,13 +519,6 @@ async function confirmPin(){
     return;
   }
   emp=r.data[0];
-  // Vérifier si le consentement a été signé
-  var cs=await db.from('employees').select('consentement_signe_at').eq('id',emp.id).single();
-  if(cs.data&&!cs.data.consentement_signe_at){
-    // Pas encore signé -> écran de consentement bloquant
-    consentInit();
-    return;
-  }
   document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
   ss('menu');
   resetInactivity();
@@ -685,9 +679,13 @@ async function menuPointer(){
       statusEl.style.background='#D1FAE5';statusEl.style.color='#065F46';
     }
   }
-  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});document.getElementById('vid').srcObject=stream;}catch(e){alert('Cam\u00e9ra non disponible');reset();return;}
+  var bb=document.getElementById('badge-btn');if(bb){bb.disabled=false;bb.textContent='Valider mon badgeage';}
   ss('camera');
-  startPhotoCountdown();
+}
+function confirmBadge(){
+  var btn=document.getElementById('badge-btn');
+  if(btn){btn.disabled=true;btn.textContent='Enregistrement...';}
+  badge(null);
 }
 var photoTimer=null;
 function startPhotoCountdown(){

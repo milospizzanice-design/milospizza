@@ -162,7 +162,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="tab on" onclick="goTab('pl',this)">Planning</div>
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
   <div class="tab" onclick="goTab('ab',this)">Demandes</div>
-  <div class="tab" onclick="goTab('au',this)">Audit</div>
   <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
   <div class="tab" onclick="goTab('pm',this)">&#9881; Paramètres</div>
 </div>
@@ -192,7 +191,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <table class="tbl">
-        <thead><tr><th>Salari&#233;</th><th>Resto</th><th>Type</th><th>Horodatage</th><th>IP</th><th>Photo</th><th>Mode</th></tr></thead>
+        <thead><tr><th>Salari&#233;</th><th>Resto</th><th>Type</th><th>Horodatage</th><th>IP</th><th>Mode</th></tr></thead>
         <tbody id="ptb"><tr><td colspan="7" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr></tbody>
       </table>
     </div>
@@ -329,16 +328,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
   </div>
   
-  <div id="au" style="display:none">
-    <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Journal des consultations de photos de pointage</div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <table class="tbl">
-        <thead><tr><th>Salari&#233;</th><th>Pointage</th><th>Consult&#233; le</th><th>Motif</th></tr></thead>
-        <tbody id="au-body"><tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-  <div class="rgpd">Photos conserv&#233;es 90 jours &#183; Acc&#232;s restreint direction &#183; RGPD Art. 13</div>
+  
+  
 </div>
 
 <!-- Modal correction -->
@@ -574,7 +565,7 @@ function goTab(name,el){
   if(name==='rc')loadRc();
   if(name==='ab')abSubTab('dem');
   if(name==='sa')renderSal();
-  if(name==='au')loadAudit();
+  
   if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
 }
 
@@ -662,7 +653,6 @@ function renderPt(){
     var rl=e.restaurant_id==='port'?'Port':'Dabray';
     var tl=e.type==='entree'?'↗ Entrée':'↙ Sortie';
     var iph=e.ip_ok?'<span class="iok">✓ '+e.ip_address+'</span>':'<span class="iba">⚠ '+e.ip_address+'</span>';
-    var ph=e.photo_b64?'<button class="btn bs sm" onclick="showPh('+e.id+')">Voir</button>':'—';
     var md=e.manuel?'<span class="bg sup">Manuel</span>'+(e.motif?'<div style="font-size:9px;color:var(--txm);margin-top:2px">'+e.motif+'</div>':''):'<span style="color:#aaa;font-size:11px">Auto</span>';
     h+='<tr'+(e.manuel?' style="background:rgba(254,243,199,.35)"':'')+'>';
     h+='<td><strong style="color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+e.employee_id+')">'+em.prenom+' '+em.nom+'</strong></td>';
@@ -670,7 +660,6 @@ function renderPt(){
     h+='<td><span class="bg '+e.type+'">'+tl+'</span></td>';
     h+='<td style="font-variant-numeric:tabular-nums">'+fmtF(e.timestamp)+'</td>';
     h+='<td>'+iph+'</td>';
-    h+='<td>'+ph+'</td>';
     h+='<td>'+md+'</td>';
     h+='</tr>';
   });
@@ -704,16 +693,8 @@ function renderAlerts(){
   });
 }
 
-async function showPh(id){
-  var e=pts.find(function(p){return p.id===id;});
-  if(!e)return;
-  var em=emp(e.employee_id);
-  document.getElementById('pht').textContent=em.prenom+' '+em.nom+' — '+fmtF(e.timestamp);
-  document.getElementById('phi').src=e.photo_b64||'';
-  document.getElementById('phi2').textContent=(e.type==='entree'?'Entrée':'Sortie')+' • '+e.ip_address;
-  openM('mph');
-  await db.from('audit_photos').insert({time_entry_id:id,consulte_le:new Date().toISOString(),motif:'consultation admin'});
-}
+async function showPh(){}
+
 
 function openCor(){document.getElementById('ccd').value=new Date().toISOString().slice(0,16);openM('mc');}
 function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=new Date().toISOString().slice(0,16);openM('mc');}
@@ -3889,25 +3870,8 @@ async function loadDem(){
   body.innerHTML=h;
 }
 
-async function loadAudit(){
-  var body=document.getElementById('au-body');if(!body)return;
-  body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr>';
-  var r=await db.from('audit_photos').select('*').order('consulte_le',{ascending:false}).limit(100);
-  var data=r.data||[];
-  if(!data.length){body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Aucune consultation</td></tr>';return;}
-  var teIds=data.map(function(a){return a.time_entry_id;}).filter(Boolean);
-  var teMap={};
-  if(teIds.length){var tr2=await db.from('time_entries').select('id,employee_id,type,timestamp').in('id',teIds);(tr2.data||[]).forEach(function(t){teMap[t.id]=t;});}
-  var h='';
-  data.forEach(function(a){
-    var te=teMap[a.time_entry_id]||{};var em2=te.employee_id?emp(te.employee_id):{prenom:'Inconnu',nom:''};
-    var tl=te.type==='entree'?'\u2197 Entr\u00e9e':te.type==='sortie'?'\u2199 Sortie':'\u2014';
-    var pd=te.timestamp?fmtF(te.timestamp):'\u2014';
-    var cd=new Date(a.consulte_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    h+='<tr><td><strong>'+em2.prenom+' '+em2.nom+'</strong></td><td><span class="bg '+(te.type||'')+'">'+tl+'</span> '+pd+'</td><td style="font-variant-numeric:tabular-nums">'+cd+'</td><td style="font-size:11px;color:var(--txm)">'+(a.motif||'\u2014')+'</td></tr>';
-  });
-  body.innerHTML=h;
-}
+function loadAudit(){}
+
 
 async function traitDem(id,statut){await db.from('demandes_absence').update({statut:statut}).eq('id',id);await loadDem();  updateDemBadge();
 }
