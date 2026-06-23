@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Test NFC - Milo's Pizza</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,system-ui,Roboto,sans-serif;background:#B91E26;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px}
+  h1{font-size:22px;margin-bottom:6px;text-align:center}
+  .sub{font-size:13px;opacity:.8;text-align:center;margin-bottom:24px}
+  .card{background:#fff;color:#222;border-radius:16px;padding:22px;width:100%;max-width:420px;margin-bottom:16px}
+  .btn{width:100%;background:#fff;color:#B91E26;border:none;border-radius:14px;padding:18px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:16px}
+  .btn:disabled{opacity:.5}
+  .status{font-size:14px;padding:14px;border-radius:10px;text-align:center;margin-bottom:12px}
+  .ok{background:#D1FAE5;color:#065F46}
+  .err{background:#FEE2E2;color:#991B1B}
+  .info{background:#FEF3C7;color:#92400E}
+  .uid{font-family:monospace;font-size:20px;font-weight:700;color:#B91E26;text-align:center;padding:18px;background:#FDF2F2;border-radius:12px;word-break:break-all;margin-top:8px}
+  .label{font-size:12px;color:#888;text-align:center;margin-bottom:4px}
+  .log{font-size:11px;color:#666;max-height:160px;overflow-y:auto;margin-top:10px;border-top:1px solid #eee;padding-top:10px}
+  .log div{padding:3px 0;border-bottom:1px solid #f3f3f3}
+</style>
+</head>
+<body>
+  <h1>&#128290; Test des badges NFC</h1>
+  <div class="sub">Milo's Pizza &mdash; v&eacute;rification du mat&eacute;riel</div>
+
+  <div class="card">
+    <div id="compat"></div>
+    <button class="btn" id="scanbtn" onclick="startScan()">D&eacute;marrer le scan</button>
+    <div id="result"></div>
+    <div class="log" id="log"></div>
+  </div>
+
+<script>
+function logMsg(t){
+  var l=document.getElementById('log');
+  var d=document.createElement('div');
+  var now=new Date().toLocaleTimeString('fr-FR');
+  d.textContent='['+now+'] '+t;
+  l.insertBefore(d,l.firstChild);
+}
+
+// Vérifier la compatibilité au chargement
+window.addEventListener('load',function(){
+  var c=document.getElementById('compat');
+  if('NDEFReader' in window){
+    c.innerHTML='<div class="status ok">\u2705 Votre appareil supporte le NFC web. Vous pouvez tester !</div>';
+  }else{
+    c.innerHTML='<div class="status err">\u274C Cet appareil ne supporte pas le NFC web.<br><br>Le test ne fonctionne que sur <b>Chrome pour Android</b>, avec le NFC activ\u00e9 dans les r\u00e9glages. Sur iPhone, ce n\u2019est pas possible.</div>';
+    document.getElementById('scanbtn').disabled=true;
+  }
+});
+
+async function startScan(){
+  var r=document.getElementById('result');
+  if(!('NDEFReader' in window)){
+    r.innerHTML='<div class="status err">NFC non support\u00e9 sur cet appareil.</div>';
+    return;
+  }
+  try{
+    r.innerHTML='<div class="status info">\u23F3 Approchez un badge du dos du t\u00e9l\u00e9phone...</div>';
+    logMsg('Scan d\u00e9marr\u00e9, en attente d\u2019un badge');
+    var ndef=new NDEFReader();
+    await ndef.scan();
+    ndef.onreading=function(event){
+      var uid=event.serialNumber||'(non disponible)';
+      r.innerHTML='<div class="status ok">\u2705 Badge d\u00e9tect\u00e9 !</div><div class="label">Identifiant unique (UID) du badge :</div><div class="uid">'+uid+'</div>';
+      logMsg('Badge lu : '+uid);
+      if(navigator.vibrate)navigator.vibrate(200);
+    };
+    ndef.onreadingerror=function(){
+      r.innerHTML='<div class="status err">Erreur de lecture. R\u00e9essayez en approchant bien le badge.</div>';
+      logMsg('Erreur de lecture du badge');
+    };
+  }catch(e){
+    r.innerHTML='<div class="status err">Impossible de d\u00e9marrer le scan : '+e.message+'<br><br>V\u00e9rifiez que le NFC est activ\u00e9 dans les r\u00e9glages du t\u00e9l\u00e9phone et que vous \u00eates sur Chrome.</div>';
+    logMsg('Erreur: '+e.message);
+  }
+}
+</script>
+</body>
+</html>
