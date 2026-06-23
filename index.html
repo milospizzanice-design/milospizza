@@ -2587,6 +2587,19 @@ async function init(){
   if (remoteHome) { homeConfig = remoteHome; try{localStorage.setItem('milos_home',JSON.stringify(remoteHome));}catch(e){} }
   renderMenu();
   showPopupIfNeeded();
+
+  // Auto-activate admin mode if redirected from login.html with ?admin=1
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('admin') === '1') {
+      const token = localStorage.getItem('milos_token');
+      if (token) {
+        document.getElementById('adminFab').style.display = 'block';
+        if (!isDraftMode) enterDraftMode();
+        showToast('🔐 Mode administration activé');
+      }
+    }
+  } catch(e) {}
 }
 init();
 
