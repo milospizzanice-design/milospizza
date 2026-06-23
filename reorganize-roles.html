@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Réorganiser les rôles</title>
+<style>
+  body { font-family: sans-serif; max-width: 420px; margin: 40px auto; padding: 20px; background: #f5f5f5; }
+  h2 { color: #d63031; }
+  h3 { font-size: 15px; margin-top: 24px; color: #333; }
+  input { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+  button { width: 100%; padding: 14px; background: #d63031; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 10px; }
+  .step { background: white; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  #result { margin-top: 20px; padding: 15px; border-radius: 8px; display: none; font-size: 13px; white-space: pre-wrap; }
+  .success { background: #d4edda; color: #155724; }
+  .error { background: #f8d7da; color: #721c24; }
+</style>
+</head>
+<body>
+<h2>🔄 Réorganisation des rôles</h2>
+
+<div class="step">
+  <h3>1. Connexion superadmin actuel</h3>
+  <input type="email" id="currentEmail" value="milospizza.nice@gmail.com" />
+  <input type="password" id="currentPwd" placeholder="Mot de passe actuel" />
+</div>
+
+<div class="step">
+  <h3>2. Créer le nouveau superadmin (RestoGlobal)</h3>
+  <input type="email" id="newAdminEmail" value="marouane.hamdan@gmail.com" />
+  <input type="password" id="newAdminPwd" value="Mhamdan1!" />
+</div>
+
+<div class="step">
+  <h3>3. Repasser Milo's Pizza en client</h3>
+  <input type="text" id="milosRestaurant" value="Milo's Pizza Nice" />
+</div>
+
+<button onclick="runAll()">Exécuter les 3 étapes</button>
+<div id="result"></div>
+
+<script>
+const WORKER = 'https://milos-github-proxy.milospizza-nice.workers.dev';
+
+async function runAll() {
+  const result = document.getElementById('result');
+  result.style.display = 'block';
+  result.className = '';
+  result.textContent = 'En cours...';
+
+  const currentEmail = document.getElementById('currentEmail').value.trim();
+  const currentPwd = document.getElementById('currentPwd').value;
+  const newAdminEmail = document.getElementById('newAdminEmail').value.trim();
+  const newAdminPwd = document.getElementById('newAdminPwd').value;
+  const milosRestaurant = document.getElementById('milosRestaurant').value.trim();
+
+  let log = [];
+
+  try {
+    // 1. Login as current superadmin
+    log.push('1. Connexion en tant que ' + currentEmail + '...');
+    const loginRes = await fetch(`${WORKER}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentEmail, password: currentPwd })
+    });
+    const loginData = await loginRes.json();
+    if (!loginRes.ok || !loginData.token) throw new Error('Connexion échouée: ' + (loginData.error || 'inconnue'));
+    log.push('✅ Connecté');
+
+    const token = loginData.token;
+
+    // 2. Create new superadmin
+    log.push('2. Création du compte ' + newAdminEmail + ' (superadmin)...');
+    const createRes = await fetch(`${WORKER}/admin/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ email: newAdminEmail, password: newAdminPwd, restaurant: 'RestoGlobal', role: 'superadmin' })
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok || !createData.success) throw new Error('Création échouée: ' + (createData.error || 'inconnue'));
+    log.push('✅ Superadmin créé: ' + newAdminEmail);
+
+    // 3. Demote Milo's to client
+    log.push('3. Passage de ' + currentEmail + ' en compte client...');
+    const demoteRes = await fetch(`${WORKER}/admin/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ email: currentEmail, password: currentPwd, restaurant: milosRestaurant, role: 'client' })
+    });
+    const demoteData = await demoteRes.json();
+    if (!demoteRes.ok || !demoteData.success) throw new Error('Changement de rôle échoué: ' + (demoteData.error || 'inconnue'));
+    log.push('✅ ' + currentEmail + ' est maintenant client (slug: ' + (demoteData.slug || '?') + ')');
+
+    log.push('');
+    log.push('🎉 Terminé ! Tu peux maintenant te connecter avec:');
+    log.push('  Superadmin: ' + newAdminEmail);
+    log.push('  Client Milo\\'s: ' + currentEmail);
+
+    result.className = 'success';
+    result.textContent = log.join('\\n');
+
+  } catch (e) {
+    log.push('❌ ' + e.message);
+    result.className = 'error';
+    result.textContent = log.join('\\n');
+  }
+}
+</script>
+</body>
+</html>
