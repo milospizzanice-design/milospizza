@@ -584,8 +584,8 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFileUpload(event)">
 
 <script>
-const CLOUD_NAME='dd2u4qgxj';
-const UPLOAD_PRESET='ml_default';
+// CLOUD_NAME et UPLOAD_PRESET ne sont plus exposés ici : l'upload passe désormais
+// par le Worker (route /admin/upload-image), qui signe la requête Cloudinary côté serveur.
 const PROXY_URL='https://milos-github-proxy.milospizza-nice.workers.dev';
 const GITHUB_REPO='milospizzanice-design/milospizza';
 const DATA_FILE='menudata.json';
@@ -1433,7 +1433,23 @@ function showToast(msg){
   setTimeout(()=>t.style.display='none',2500);
 }
 
-// Photo upload
+// Photo upload (sécurisé : passe par le Worker, jamais d'appel direct à Cloudinary depuis le navigateur)
+async function uploadImageSecure(file){
+  const token = localStorage.getItem('milos_token');
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(`${PROXY_URL}/admin/upload-image`, {
+    method: 'POST',
+    headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+    body: fd
+  });
+  const data = await res.json();
+  if(!res.ok || !data.secure_url){
+    throw new Error(data.error || 'Upload échoué');
+  }
+  return data.secure_url;
+}
+
 let currentUploadItemId=null;
 function triggerUpload(id){currentUploadItemId=id;document.getElementById('fileInput').click();}
 async function handleFileUpload(e){
@@ -1442,13 +1458,8 @@ async function handleFileUpload(e){
   const id=currentUploadItemId;
   const prog=document.getElementById('prog_'+id);
   if(prog)prog.style.display='inline';
-  const fd=new FormData();
-  fd.append('file',file);
-  fd.append('upload_preset',UPLOAD_PRESET);
   try{
-    const res=await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,{method:'POST',body:fd});
-    const data=await res.json();
-    const url=data.secure_url;
+    const url = await uploadImageSecure(file);
     if(id==='__home__'){
       const idx = currentHomeUploadIdx;
       const inp = document.getElementById('hc_photo_'+idx);
@@ -1802,18 +1813,16 @@ function triggerPopupUpload(id) {
   input.onchange = async e => {
     const file = e.target.files[0]; if(!file) return;
     showToast('📷 Upload...');
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('upload_preset', UPLOAD_PRESET);
-    const res = await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/image/upload',{method:'POST',body:fd});
-    const data = await res.json();
-    if(data.secure_url){
+    try {
+      const url = await uploadImageSecure(file);
       const inp = document.getElementById('pphoto_'+id);
-      if(inp) inp.value = data.secure_url;
+      if(inp) inp.value = url;
       const p = popups.find(x=>x.id===id);
-      if(p) p.photo = data.secure_url;
+      if(p) p.photo = url;
       renderPopupAdmin();
       showToast('📷 Photo sauvegardée !');
+    } catch(err) {
+      showToast('❌ Erreur upload');
     }
   };
   input.click();
@@ -2569,45 +2578,19 @@ function goHome() {
 // INIT
 // ═══════════════════════════════════════
 async function init(){
-  // Check FIRST, before any rendering, if we're coming from a direct SaaS login
-  let directAdminMode = false;
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === '1' && localStorage.getItem('milos_token')) {
-      directAdminMode = true;
-      window.cameFromDirectLogin = true;
-      isDraftMode = true;
-      // Clean the URL immediately so ?admin=1 doesn't re-trigger this later
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  } catch(e) {}
-
   // Load local first for instant display
   loadDesign();
   loadPopupConfig();
   loadSocialConfig();
   loadHomeConfig();
-
-  if (directAdminMode) {
-    // Skip the public site entirely - never show it, not even for a flash
-    document.querySelector('header').style.display = 'none';
-    document.getElementById('nav').style.display = 'none';
-    document.getElementById('main').style.display = 'none';
-    const footer = document.getElementById('footer');
-    if (footer) footer.style.display = 'none';
-    const homePage = document.getElementById('homePage');
-    if (homePage) homePage.style.display = 'none';
-  } else {
-    // Hide app chrome on start - show home page
-    document.querySelector('header').style.display = 'none';
-    document.getElementById('nav').style.display = 'none';
-    document.getElementById('main').style.display = 'none';
-    const footer = document.getElementById('footer');
-    if(footer) footer.style.display = 'none';
-    renderHomePage(currentLang);
-    document.getElementById('homePage').style.display = 'flex';
-  }
-
+  // Hide app chrome on start - show home page
+  document.querySelector('header').style.display = 'none';
+  document.getElementById('nav').style.display = 'none';
+  document.getElementById('main').style.display = 'none';
+  const footer = document.getElementById('footer');
+  if(footer) footer.style.display = 'none';
+  renderHomePage(currentLang);
+  document.getElementById('homePage').style.display = 'flex';
   // Then load from GitHub (overrides local if exists)
   await loadFromGithub();
   // Load other configs from GitHub
@@ -2625,17 +2608,34 @@ async function init(){
   }
   if (remoteSocial) { socialConfig = {...socialConfig, ...remoteSocial}; try{localStorage.setItem('milos_social',JSON.stringify(remoteSocial));}catch(e){} }
   if (remoteHome) { homeConfig = remoteHome; try{localStorage.setItem('milos_home',JSON.stringify(remoteHome));}catch(e){} }
+  renderMenu();
+  showPopupIfNeeded();
 
-  if (directAdminMode) {
-    // Go straight into the admin panel, never touching renderMenu/showPopupIfNeeded for the public view
-    openAdmin();
-  } else {
-    renderMenu();
-    showPopupIfNeeded();
-  }
+  // Auto-activate admin mode if redirected from login.html with ?admin=1
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('admin') === '1') {
+      const token = localStorage.getItem('milos_token');
+      if (token) {
+        window.cameFromDirectLogin = true;
+        isDraftMode = true; // needed so save buttons / data flow behave correctly
+        // Hide the entire public site, go straight to the admin panel
+        const homePage = document.getElementById('homePage');
+        if (homePage) homePage.style.display = 'none';
+        document.querySelector('header').style.display = 'none';
+        document.getElementById('nav').style.display = 'none';
+        document.getElementById('main').style.display = 'none';
+        const footer = document.getElementById('footer');
+        if (footer) footer.style.display = 'none';
+        openAdmin();
+      }
+      // Clean the URL so ?admin=1 doesn't re-trigger this on every init()
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  } catch(e) {}
 }
 init();
-
 
 
 // ═══════════════════════════════════════
@@ -2713,20 +2713,15 @@ function triggerSectionPhotoUpload(key){
     var file = e.target.files[0];
     if(!file) return;
     showToast('\ud83d\udcf7 Upload en cours...');
-    var fd = new FormData();
-    fd.append('file', file);
-    fd.append('upload_preset', UPLOAD_PRESET);
-    fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/image/upload', {method:'POST',body:fd})
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if(data.secure_url){
-          HOME_PHOTOS[HOME_GROUPS[key].photoKey] = data.secure_url;
-          var prev = document.getElementById('sec_prev_'+key);
-          if(prev){ prev.src=data.secure_url; prev.className='photo-preview visible'; }
-          renderHomePage(currentLang);
-          showToast('\ud83d\udcf7 Photo sauvegard\u00e9e !');
-        }
-      });
+    uploadImageSecure(file).then(function(url){
+      HOME_PHOTOS[HOME_GROUPS[key].photoKey] = url;
+      var prev = document.getElementById('sec_prev_'+key);
+      if(prev){ prev.src=url; prev.className='photo-preview visible'; }
+      renderHomePage(currentLang);
+      showToast('\ud83d\udcf7 Photo sauvegard\u00e9e !');
+    }).catch(function(){
+      showToast('\u274c Erreur upload');
+    });
   };
   input.click();
 }
