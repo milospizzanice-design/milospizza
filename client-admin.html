@@ -28,7 +28,6 @@
     min-height: 100vh;
   }
 
-  /* ── HEADER ── */
   header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -42,11 +41,7 @@
     z-index: 100;
   }
 
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
 
   .logo-mark {
     width: 32px; height: 32px;
@@ -66,16 +61,8 @@
     color: var(--text);
   }
 
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .user-email {
-    font-size: 12px;
-    color: var(--muted);
-  }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .user-email { font-size: 12px; color: var(--muted); }
 
   .btn-logout {
     padding: 6px 14px;
@@ -90,322 +77,97 @@
   }
   .btn-logout:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* ── TABS ── */
-  .tabs {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    padding: 0 20px;
-    overflow-x: auto;
-  }
+  .sync-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 500; transition: all 0.2s; }
+  .sync-saved { background: rgba(46,204,113,0.15); color: var(--green); }
+  .sync-saving { background: rgba(255,209,102,0.15); color: var(--accent2); }
+  .sync-error { background: rgba(231,76,60,0.15); color: var(--red); }
 
-  .tab {
-    padding: 14px 20px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-    white-space: nowrap;
-  }
-
+  .tabs { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 20px; overflow-x: auto; }
+  .tab { padding: 14px 20px; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
   .tab:hover:not(.active) { color: var(--text); }
 
-  /* ── MAIN ── */
-  main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 24px 16px;
-  }
-
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
   .panel { display: none; }
   .panel.active { display: block; }
 
-  /* ── SECTION TITLE ── */
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-  }
-
-  .section-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  /* ── CARDS ── */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 16px;
-  }
-
-  .card-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .card-title {
-    font-weight: 600;
-    font-size: 14px;
-  }
-
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-weight: 600; font-size: 14px; }
   .card-body { padding: 20px; }
 
-  /* ── FORM ── */
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-  }
-
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
 
-  .field label {
-    display: block;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-  }
-
+  .field label { display: block; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
   .field input, .field select, .field textarea {
-    width: 100%;
-    padding: 10px 14px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s;
-    -webkit-appearance: none;
+    width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
+    outline: none; transition: border-color 0.2s; -webkit-appearance: none;
   }
-
-  .field input:focus, .field select:focus, .field textarea:focus {
-    border-color: var(--accent);
-  }
-
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
   .field input::placeholder, .field textarea::placeholder { color: #555; }
   .field textarea { min-height: 80px; resize: vertical; }
 
-  /* ── BUTTONS ── */
-  .btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-primary {
-    background: var(--accent);
-    color: white;
-    box-shadow: 0 4px 12px rgba(255,107,53,0.3);
-  }
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: white; box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
   .btn-primary:hover { background: #e55a25; transform: translateY(-1px); }
-
-  .btn-secondary {
-    background: var(--surface2);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
   .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-
-  .btn-danger {
-    background: none;
-    color: var(--red);
-    border: 1px solid var(--border);
-  }
+  .btn-danger { background: none; color: var(--red); border: 1px solid var(--border); }
   .btn-danger:hover { border-color: var(--red); background: rgba(231,76,60,0.1); }
-
   .btn-sm { padding: 6px 12px; font-size: 12px; }
 
-  /* ── MENU LIST ── */
-  .menu-list { }
-
-  .menu-item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
-  }
+  .menu-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--border); transition: background 0.15s; }
   .menu-item:last-child { border-bottom: none; }
   .menu-item:hover { background: var(--surface2); }
-
-  .item-emoji {
-    width: 40px; height: 40px;
-    background: var(--surface2);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-    flex-shrink: 0;
-  }
-
+  .item-emoji { width: 40px; height: 40px; background: var(--surface2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
   .item-info { flex: 1; min-width: 0; }
+  .item-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-cat { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .item-price { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; color: var(--accent); flex-shrink: 0; }
+  .item-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
-  .item-name {
-    font-weight: 500;
-    font-size: 14px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .item-cat {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 2px;
-  }
-
-  .item-price {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 15px;
-    color: var(--accent);
-    flex-shrink: 0;
-  }
-
-  .item-actions {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  /* ── DESIGN PANEL ── */
-  .color-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-
-  .color-option {
-    aspect-ratio: 1;
-    border-radius: 10px;
-    cursor: pointer;
-    border: 3px solid transparent;
-    transition: all 0.2s;
-    position: relative;
-  }
-
+  .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .color-option { aspect-ratio: 1; border-radius: 10px; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; position: relative; }
   .color-option.selected { border-color: white; }
-  .color-option.selected::after {
-    content: '✓';
-    position: absolute;
-    inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 18px;
-  }
+  .color-option.selected::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; }
 
-  /* ── PREVIEW ── */
-  .preview-box {
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    margin-top: 16px;
-  }
+  .preview-box { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); margin-top: 16px; }
+  .preview-header { padding: 16px 20px; display: flex; align-items: center; gap: 10px; }
+  .preview-logo { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .preview-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; }
 
-  .preview-header {
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .preview-logo {
-    width: 40px; height: 40px;
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-  }
-
-  .preview-title {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-  }
-
-  /* ── TOAST ── */
   .toast {
-    position: fixed;
-    bottom: 24px; left: 50%;
-    transform: translateX(-50%) translateY(60px);
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-    padding: 12px 24px;
-    border-radius: 10px;
-    font-size: 14px;
-    transition: transform 0.3s;
-    z-index: 999;
-    white-space: nowrap;
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    padding: 12px 24px; border-radius: 10px; font-size: 14px; transition: transform 0.3s; z-index: 999; white-space: nowrap;
   }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.success { border-color: var(--green); color: var(--green); }
   .toast.error { border-color: var(--red); color: var(--red); }
 
-  /* ── BADGE ── */
-  .badge {
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-  }
+  .badge { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; }
   .badge-active { background: rgba(46,204,113,0.15); color: var(--green); }
 
-  /* ── STATS ── */
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
-  }
-
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
   @media (max-width: 480px) { .stats { grid-template-columns: 1fr; } }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+  .stat-val { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
 
-  .stat {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    text-align: center;
+  .publish-bar {
+    background: var(--surface); border: 1px solid var(--accent); border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
-
-  .stat-val {
-    font-family: 'Syne', sans-serif;
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--accent);
+  .publish-text { font-size: 13px; color: var(--muted); }
+  .loading-spin {
+    width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent);
+    border-radius: 50%; display: inline-block; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: middle;
   }
-
-  .stat-label {
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 4px;
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -416,6 +178,7 @@
     <span class="restaurant-name" id="restaurantName">Mon Restaurant</span>
   </div>
   <div class="header-right">
+    <span class="sync-badge sync-saved" id="syncBadge">✓ Synchronisé</span>
     <span class="user-email" id="userEmail">—</span>
     <button class="btn-logout" onclick="logout()">Déconnexion</button>
   </div>
@@ -429,51 +192,28 @@
 
 <main>
 
-  <!-- ── PANEL MENU ── -->
   <div class="panel active" id="panel-menu">
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-val" id="statPlats">0</div>
-        <div class="stat-label">Plats</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statCats">0</div>
-        <div class="stat-label">Catégories</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statPrix">0€</div>
-        <div class="stat-label">Prix moyen</div>
-      </div>
+    <div class="publish-bar">
+      <span class="publish-text" id="publishStatus">Vos modifications sont sauvegardées automatiquement sur GitHub.</span>
+      <button class="btn btn-primary btn-sm" id="publishBtn" onclick="publishMenu()">🚀 Publier le menu</button>
     </div>
 
-    <!-- Ajouter un plat -->
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="statPlats">0</div><div class="stat-label">Plats</div></div>
+      <div class="stat"><div class="stat-val" id="statCats">0</div><div class="stat-label">Catégories</div></div>
+      <div class="stat"><div class="stat-val" id="statPrix">0€</div><div class="stat-label">Prix moyen</div></div>
+    </div>
+
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">➕ Ajouter un plat</span>
-      </div>
+      <div class="card-header"><span class="card-title">➕ Ajouter un plat</span></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field">
-            <label>Nom du plat</label>
-            <input type="text" id="itemName" placeholder="Ex: Whopper" />
-          </div>
-          <div class="field">
-            <label>Catégorie</label>
-            <input type="text" id="itemCat" placeholder="Ex: Burgers" />
-          </div>
-          <div class="field">
-            <label>Prix (€)</label>
-            <input type="number" id="itemPrice" placeholder="0.00" step="0.10" min="0" />
-          </div>
-          <div class="field">
-            <label>Emoji</label>
-            <input type="text" id="itemEmoji" placeholder="🍔" maxlength="4" />
-          </div>
-          <div class="field" style="grid-column: 1 / -1;">
-            <label>Description</label>
-            <textarea id="itemDesc" placeholder="Description courte du plat..."></textarea>
-          </div>
+          <div class="field"><label>Nom du plat</label><input type="text" id="itemName" placeholder="Ex: Whopper" /></div>
+          <div class="field"><label>Catégorie</label><input type="text" id="itemCat" placeholder="Ex: Burgers" /></div>
+          <div class="field"><label>Prix (€)</label><input type="number" id="itemPrice" placeholder="0.00" step="0.10" min="0" /></div>
+          <div class="field"><label>Emoji</label><input type="text" id="itemEmoji" placeholder="🍔" maxlength="4" /></div>
+          <div class="field" style="grid-column: 1 / -1;"><label>Description</label><textarea id="itemDesc" placeholder="Description courte du plat..."></textarea></div>
         </div>
         <div style="margin-top: 14px;">
           <button class="btn btn-primary" onclick="addItem()">Ajouter au menu</button>
@@ -481,28 +221,23 @@
       </div>
     </div>
 
-    <!-- Liste des plats -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">📋 Plats du menu</span>
         <span class="badge badge-active" id="itemCount">0 plat</span>
       </div>
       <div class="menu-list" id="menuList">
-        <div style="padding: 32px; text-align: center; color: var(--muted); font-size: 14px;">
-          Aucun plat pour l'instant — ajoutez-en un ci-dessus !
+        <div id="loadingMenu" style="padding: 32px; text-align: center; color: var(--muted); font-size: 14px;">
+          <span class="loading-spin"></span> Chargement du menu...
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- ── PANEL DESIGN ── -->
   <div class="panel" id="panel-design">
-
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">🎨 Couleur principale</span>
-      </div>
+      <div class="card-header"><span class="card-title">🎨 Couleur principale</span></div>
       <div class="card-body">
         <div class="color-grid" id="colorGrid">
           <div class="color-option selected" style="background:#e8452c;" data-color="#e8452c" onclick="selectColor(this)"></div>
@@ -514,78 +249,42 @@
           <div class="color-option" style="background:#1a1a2e;" data-color="#1a1a2e" onclick="selectColor(this)"></div>
           <div class="color-option" style="background:#c9a84c;" data-color="#c9a84c" onclick="selectColor(this)"></div>
         </div>
-
         <div class="form-grid">
-          <div class="field">
-            <label>Nom du restaurant</label>
-            <input type="text" id="designName" placeholder="Burger King Test" oninput="updatePreview()" />
-          </div>
-          <div class="field">
-            <label>Emoji logo</label>
-            <input type="text" id="designEmoji" placeholder="🍔" maxlength="4" oninput="updatePreview()" />
-          </div>
-          <div class="field" style="grid-column: 1 / -1;">
-            <label>Slogan</label>
-            <input type="text" id="designSlogan" placeholder="Have it your way!" oninput="updatePreview()" />
-          </div>
+          <div class="field"><label>Nom du restaurant</label><input type="text" id="designName" placeholder="Burger King Test" oninput="updatePreview()" /></div>
+          <div class="field"><label>Emoji logo</label><input type="text" id="designEmoji" placeholder="🍔" maxlength="4" oninput="updatePreview()" /></div>
+          <div class="field" style="grid-column: 1 / -1;"><label>Slogan</label><input type="text" id="designSlogan" placeholder="Have it your way!" oninput="updatePreview()" /></div>
         </div>
-
         <div class="preview-box" id="previewBox">
           <div class="preview-header" id="previewHeader" style="background:#e8452c;">
             <div class="preview-logo" id="previewLogo">🍔</div>
-            <div>
-              <div class="preview-title" id="previewTitle">Mon Restaurant</div>
-              <div style="font-size:12px; opacity:0.8;" id="previewSlogan">Votre slogan ici</div>
-            </div>
+            <div><div class="preview-title" id="previewTitle">Mon Restaurant</div><div style="font-size:12px; opacity:0.8;" id="previewSlogan">Votre slogan ici</div></div>
           </div>
         </div>
-
-        <div style="margin-top: 16px;">
-          <button class="btn btn-primary" onclick="saveDesign()">Sauvegarder le design</button>
-        </div>
+        <div style="margin-top: 16px;"><button class="btn btn-primary" onclick="saveDesign()">Sauvegarder le design</button></div>
       </div>
     </div>
-
   </div>
 
-  <!-- ── PANEL SETTINGS ── -->
   <div class="panel" id="panel-settings">
-
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">🔐 Changer le mot de passe</span>
-      </div>
+      <div class="card-header"><span class="card-title">🔐 Changer le mot de passe</span></div>
       <div class="card-body">
         <div class="form-grid">
-          <div class="field">
-            <label>Ancien mot de passe</label>
-            <input type="password" id="oldPwd" placeholder="••••••••" />
-          </div>
-          <div class="field">
-            <label>Nouveau mot de passe</label>
-            <input type="password" id="newPwd" placeholder="••••••••" />
-          </div>
-          <div class="field">
-            <label>Confirmer</label>
-            <input type="password" id="confirmPwd" placeholder="••••••••" />
-          </div>
+          <div class="field"><label>Ancien mot de passe</label><input type="password" id="oldPwd" placeholder="••••••••" /></div>
+          <div class="field"><label>Nouveau mot de passe</label><input type="password" id="newPwd" placeholder="••••••••" /></div>
+          <div class="field"><label>Confirmer</label><input type="password" id="confirmPwd" placeholder="••••••••" /></div>
         </div>
-        <div style="margin-top: 14px;">
-          <button class="btn btn-primary" onclick="changePwd()">Changer le mot de passe</button>
-        </div>
+        <div style="margin-top: 14px;"><button class="btn btn-primary" onclick="changePwd()">Changer le mot de passe</button></div>
       </div>
     </div>
-
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">ℹ️ Informations du compte</span>
-      </div>
+      <div class="card-header"><span class="card-title">ℹ️ Informations du compte</span></div>
       <div class="card-body">
         <p style="font-size: 14px; color: var(--muted);">Email : <span id="infoEmail" style="color: var(--text);">—</span></p>
         <p style="font-size: 14px; color: var(--muted); margin-top: 8px;">Restaurant : <span id="infoRestaurant" style="color: var(--text);">—</span></p>
+        <p style="font-size: 14px; color: var(--muted); margin-top: 8px;">Identifiant menu (slug) : <span id="infoSlug" style="color: var(--text);">—</span></p>
       </div>
     </div>
-
   </div>
 
 </main>
@@ -595,15 +294,12 @@
 <script>
   const WORKER = 'https://milos-github-proxy.milospizza-nice.workers.dev';
   let token = localStorage.getItem('milos_token');
-  let menuItems = JSON.parse(localStorage.getItem('menu_items') || '[]');
+  let menuData = { cats: [], items: [], upsells: [] };
   let currentColor = '#e8452c';
+  let saveTimer = null;
 
-  // ── INIT ──
   window.addEventListener('load', async () => {
-    if (!token) {
-      window.location.href = 'login.html';
-      return;
-    }
+    if (!token) { window.location.href = 'login.html'; return; }
 
     try {
       const res = await fetch(`${WORKER}/auth/verify`, {
@@ -613,33 +309,99 @@
       });
       const data = await res.json();
 
-      if (!data.valid) {
-        localStorage.clear();
-        window.location.href = 'login.html';
-        return;
-      }
+      if (!data.valid) { localStorage.clear(); window.location.href = 'login.html'; return; }
+      if (data.role === 'superadmin') { window.location.href = 'superadmin.html'; return; }
 
-      // Superadmin → redirect to superadmin panel
-      if (data.role === 'superadmin') {
-        window.location.href = 'superadmin.html';
-        return;
-      }
-
-      // Set UI
       document.getElementById('userEmail').textContent = data.email;
       document.getElementById('restaurantName').textContent = data.restaurant || 'Mon Restaurant';
       document.getElementById('infoEmail').textContent = data.email;
       document.getElementById('infoRestaurant').textContent = data.restaurant || '—';
+      document.getElementById('infoSlug').textContent = data.slug || '—';
       document.getElementById('designName').value = data.restaurant || '';
 
-      renderMenu();
+      await loadMenuFromGitHub();
 
     } catch(e) {
       window.location.href = 'login.html';
     }
   });
 
-  // ── TABS ──
+  async function loadMenuFromGitHub() {
+    try {
+      const res = await fetch(`${WORKER}/client/menu`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        menuData = data.menu || { cats: [], items: [], upsells: [] };
+        if (!menuData.items) menuData.items = [];
+        renderMenu();
+      } else {
+        showToast(data.error || 'Erreur de chargement', 'error');
+      }
+    } catch(e) {
+      showToast('Erreur réseau au chargement', 'error');
+    }
+  }
+
+  function scheduleSave() {
+    setSyncBadge('saving');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveMenuToGitHub, 900);
+  }
+
+  async function saveMenuToGitHub() {
+    try {
+      const res = await fetch(`${WORKER}/client/menu`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ menu: menuData })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSyncBadge('saved');
+      } else {
+        setSyncBadge('error');
+        showToast(data.error || 'Erreur de sauvegarde', 'error');
+      }
+    } catch(e) {
+      setSyncBadge('error');
+      showToast('Erreur réseau pendant la sauvegarde', 'error');
+    }
+  }
+
+  function setSyncBadge(state) {
+    const badge = document.getElementById('syncBadge');
+    badge.className = 'sync-badge';
+    if (state === 'saving') { badge.classList.add('sync-saving'); badge.textContent = '⏳ Sauvegarde...'; }
+    else if (state === 'error') { badge.classList.add('sync-error'); badge.textContent = '⚠️ Erreur'; }
+    else { badge.classList.add('sync-saved'); badge.textContent = '✓ Synchronisé'; }
+  }
+
+  async function publishMenu() {
+    const btn = document.getElementById('publishBtn');
+    btn.disabled = true;
+    btn.textContent = 'Publication...';
+    try {
+      await saveMenuToGitHub();
+      const res = await fetch(`${WORKER}/client/menu/publish`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('🚀 Menu publié avec succès !', 'success');
+      } else {
+        showToast(data.error || 'Erreur de publication', 'error');
+      }
+    } catch(e) {
+      showToast('Erreur réseau pendant la publication', 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = '🚀 Publier le menu';
+  }
+
   function switchTab(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -647,7 +409,6 @@
     document.getElementById('panel-' + tab).classList.add('active');
   }
 
-  // ── MENU ──
   function addItem() {
     const name = document.getElementById('itemName').value.trim();
     const cat = document.getElementById('itemCat').value.trim();
@@ -657,30 +418,32 @@
 
     if (!name) { showToast('Nom requis', 'error'); return; }
 
-    menuItems.push({ id: Date.now(), name, cat, price, emoji, desc });
-    localStorage.setItem('menu_items', JSON.stringify(menuItems));
+    menuData.items.push({ id: 'i' + Date.now(), name, cat, price, emoji, desc });
 
-    // Clear form
     ['itemName','itemCat','itemPrice','itemEmoji','itemDesc'].forEach(id => {
       document.getElementById(id).value = '';
     });
 
     renderMenu();
+    scheduleSave();
     showToast('✅ Plat ajouté !', 'success');
   }
 
   function deleteItem(id) {
-    menuItems = menuItems.filter(i => i.id !== id);
-    localStorage.setItem('menu_items', JSON.stringify(menuItems));
+    menuData.items = menuData.items.filter(i => i.id !== id);
     renderMenu();
+    scheduleSave();
     showToast('Plat supprimé');
   }
 
   function renderMenu() {
+    const loading = document.getElementById('loadingMenu');
+    if (loading) loading.remove();
     const list = document.getElementById('menuList');
     const count = document.getElementById('itemCount');
+    const items = menuData.items || [];
 
-    if (menuItems.length === 0) {
+    if (items.length === 0) {
       list.innerHTML = '<div style="padding: 32px; text-align: center; color: var(--muted); font-size: 14px;">Aucun plat pour l\'instant — ajoutez-en un ci-dessus !</div>';
       count.textContent = '0 plat';
       document.getElementById('statPlats').textContent = '0';
@@ -689,31 +452,30 @@
       return;
     }
 
-    list.innerHTML = menuItems.map(item => `
+    list.innerHTML = items.map(item => `
       <div class="menu-item">
-        <div class="item-emoji">${item.emoji}</div>
+        <div class="item-emoji">${item.emoji || '🍽️'}</div>
         <div class="item-info">
           <div class="item-name">${item.name}</div>
           <div class="item-cat">${item.cat || 'Sans catégorie'}</div>
         </div>
-        <div class="item-price">${item.price.toFixed(2)}€</div>
+        <div class="item-price">${Number(item.price || 0).toFixed(2)}€</div>
         <div class="item-actions">
-          <button class="btn btn-danger btn-sm" onclick="deleteItem(${item.id})">✕</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteItem('${item.id}')">✕</button>
         </div>
       </div>
     `).join('');
 
-    count.textContent = `${menuItems.length} plat${menuItems.length > 1 ? 's' : ''}`;
-    document.getElementById('statPlats').textContent = menuItems.length;
+    count.textContent = `${items.length} plat${items.length > 1 ? 's' : ''}`;
+    document.getElementById('statPlats').textContent = items.length;
 
-    const cats = [...new Set(menuItems.map(i => i.cat).filter(Boolean))];
+    const cats = [...new Set(items.map(i => i.cat).filter(Boolean))];
     document.getElementById('statCats').textContent = cats.length;
 
-    const avg = menuItems.reduce((s, i) => s + i.price, 0) / menuItems.length;
+    const avg = items.reduce((s, i) => s + (i.price || 0), 0) / items.length;
     document.getElementById('statPrix').textContent = avg.toFixed(0) + '€';
   }
 
-  // ── DESIGN ──
   function selectColor(el) {
     document.querySelectorAll('.color-option').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
@@ -725,7 +487,6 @@
     const name = document.getElementById('designName').value || 'Mon Restaurant';
     const emoji = document.getElementById('designEmoji').value || '🍔';
     const slogan = document.getElementById('designSlogan').value || 'Votre slogan ici';
-
     document.getElementById('previewHeader').style.background = currentColor;
     document.getElementById('previewTitle').textContent = name;
     document.getElementById('previewLogo').textContent = emoji;
@@ -733,17 +494,16 @@
   }
 
   function saveDesign() {
-    const design = {
+    menuData.design = {
       color: currentColor,
       name: document.getElementById('designName').value,
       emoji: document.getElementById('designEmoji').value,
       slogan: document.getElementById('designSlogan').value
     };
-    localStorage.setItem('restaurant_design', JSON.stringify(design));
+    scheduleSave();
     showToast('✅ Design sauvegardé !', 'success');
   }
 
-  // ── CHANGE PASSWORD ──
   async function changePwd() {
     const oldPwd = document.getElementById('oldPwd').value;
     const newPwd = document.getElementById('newPwd').value;
@@ -760,7 +520,6 @@
         body: JSON.stringify({ token, oldPassword: oldPwd, newPassword: newPwd })
       });
       const data = await res.json();
-
       if (data.success) {
         showToast('✅ Mot de passe changé !', 'success');
         document.getElementById('oldPwd').value = '';
@@ -774,7 +533,6 @@
     }
   }
 
-  // ── LOGOUT ──
   async function logout() {
     try {
       await fetch(`${WORKER}/auth/logout`, {
@@ -787,7 +545,6 @@
     window.location.href = 'login.html';
   }
 
-  // ── TOAST ──
   function showToast(msg, type = '') {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
