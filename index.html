@@ -377,6 +377,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <h2>⚙️ Administration</h2>
       <div style="display:flex;gap:0.5rem;align-items:center;">
         <button onclick="saveAllAndClose()" style="background:#7D9B76;color:#fff;border:none;border-radius:8px;padding:0.4rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;cursor:pointer;">✓ Enregistrer</button>
+        <button onclick="publishDraft()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:0.4rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;cursor:pointer;">🚀 Publier</button>
         <button class="admin-close" onclick="closeAdmin()">×</button>
       </div>
     </div>
@@ -1041,7 +1042,14 @@ function openAdmin(){
   const hs = document.getElementById('as-sections');
   if(hs) hs.classList.add('active');
 }
-function closeAdmin(){document.getElementById('adminOverlay').classList.remove('open');const btn=document.getElementById('floatingSaveBtn');if(btn)btn.style.display='none';}
+function closeAdmin(){
+  document.getElementById('adminOverlay').classList.remove('open');
+  const btn=document.getElementById('floatingSaveBtn');
+  if(btn)btn.style.display='none';
+  if (window.cameFromDirectLogin) {
+    window.location.href = 'login.html';
+  }
+}
 
 async function saveAllAndClose(){
   await saveAll();
@@ -2091,6 +2099,12 @@ function enterDraftMode() {
 }
 
 function exitDraftMode() {
+  if (window.cameFromDirectLogin) {
+    // In direct-login admin mode there's no public-site fallback to show;
+    // just keep the admin panel open (publish already happened).
+    isDraftMode = false;
+    return;
+  }
   isDraftMode = false;
   // Hide draft bar
   document.getElementById('draftBar').classList.remove('visible');
@@ -2594,12 +2608,19 @@ async function init(){
     if (urlParams.get('admin') === '1') {
       const token = localStorage.getItem('milos_token');
       if (token) {
-        document.getElementById('adminFab').style.display = 'block';
-        if (!isDraftMode) enterDraftMode();
-        showToast('🔐 Mode administration activé');
+        window.cameFromDirectLogin = true;
+        isDraftMode = true; // needed so save buttons / data flow behave correctly
+        // Hide the entire public site, go straight to the admin panel
+        const homePage = document.getElementById('homePage');
+        if (homePage) homePage.style.display = 'none';
+        document.querySelector('header').style.display = 'none';
+        document.getElementById('nav').style.display = 'none';
+        document.getElementById('main').style.display = 'none';
+        const footer = document.getElementById('footer');
+        if (footer) footer.style.display = 'none';
+        openAdmin();
       }
-      // Clean the URL so ?admin=1 doesn't re-trigger draft mode on every init()
-      // (e.g. after clicking "Quitter", which calls init() again)
+      // Clean the URL so ?admin=1 doesn't re-trigger this on every init()
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
