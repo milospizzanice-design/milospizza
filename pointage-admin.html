@@ -1106,6 +1106,7 @@ async function acoModalSave(statut){
   var r=await db.from('demandes_acompte').update(upd).eq('id',acoModalId);
   if(r.error){alert('Erreur: '+r.error.message);return;}
   closeM('modal-aco');acoModalId=null;acoModalImg=null;loadAco();
+  if(document.getElementById('modal-absfiche').classList.contains('op')&&document.getElementById('fiche-pane-dem').style.display!=='none')ficheLoadDem();
 }
 
 function toggleAcoArchive(){
@@ -3273,7 +3274,7 @@ function openAbsEmpFiche(empId){
 }
 
 function ficheTab(which){
-  ['abs','plan','pt','doc'].forEach(function(t){
+  ['abs','dem','plan','pt','doc'].forEach(function(t){
     var pane=document.getElementById('fiche-pane-'+t);
     var tab=document.getElementById('fiche-tab-'+t);
     if(t===which){
@@ -3288,10 +3289,82 @@ function ficheTab(which){
   else if(which==='plan')ficheLoadPlan();
   else if(which==='pt')ficheLoadPt();
   else if(which==='doc')ficheLoadDoc();
+  else if(which==='dem')ficheLoadDem();
 }
 
 
 // ── DOCUMENTS RH (Supabase Storage) ─────────────────────────────────────────
+
+// ── DEMANDES DU SALARIÉ (dans la fiche) ─────────────────────────────────────
+async function ficheLoadDem(){
+  var body=document.getElementById('fiche-pane-dem');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  var res=await Promise.all([
+    db.from('demandes_absence').select('*').eq('employee_id',ficheCurEmp).order('created_at',{ascending:false}),
+    db.from('demandes_acompte').select('*').eq('employee_id',ficheCurEmp).order('created_at',{ascending:false})
+  ]);
+  var dabs=res[0].data||[];var daco=res[1].data||[];
+  var h='';
+  // Demandes d'absence
+  h+='<div style="font-size:12px;font-weight:700;color:#B91E26;margin:4px 0 8px">\u{1F4C5} Absences demand\u00e9es</div>';
+  if(!dabs.length){h+='<div style="color:#aaa;font-size:12px;padding:4px 0 12px">Aucune demande d\u0027absence</div>';}
+  else{
+    var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+    dabs.forEach(function(d){
+      var st=d.statut||'att';
+      var stInfo=st==='ok'?{t:'Accept\u00e9e',c:'#065F46',bg:'#D1FAE5'}:st==='ko'?{t:'Refus\u00e9e',c:'#991B1B',bg:'#FEE2E2'}:{t:'En attente',c:'#92400E',bg:'#FEF3C7'};
+      h+='<div class="card" style="margin-bottom:6px">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:start;gap:8px">';
+      h+='<div style="flex:1"><div style="font-size:13px;font-weight:600">'+(TL[d.type]||d.type)+'</div>';
+      h+='<div style="font-size:11px;color:var(--txm)">Du '+d.date_debut+' au '+d.date_fin+'</div>';
+      if(d.message)h+='<div style="font-size:11px;color:var(--tx);margin-top:3px;font-style:italic">\u00ab '+d.message+' \u00bb</div>';
+      if(d.note_admin)h+='<div style="font-size:11px;color:#065F46;margin-top:3px">R\u00e9ponse: '+d.note_admin+'</div>';
+      h+='</div>';
+      h+='<span style="background:'+stInfo.bg+';color:'+stInfo.c+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap">'+stInfo.t+'</span>';
+      h+='</div>';
+      h+='<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">';
+      h+='<button class="btn bp sm" onclick="demOpenModal('+d.id+')">G\u00e9rer</button>';
+      h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="ficheDelDemAbs('+d.id+')">\u{1F5D1}</button>';
+      h+='</div>';
+      h+='</div>';
+    });
+  }
+  // Demandes d'acompte
+  h+='<div style="font-size:12px;font-weight:700;color:#92400E;margin:14px 0 8px">\u{1F4B0} Acomptes demand\u00e9s</div>';
+  if(!daco.length){h+='<div style="color:#aaa;font-size:12px;padding:4px 0">Aucune demande d\u0027acompte</div>';}
+  else{
+    daco.forEach(function(d){
+      var st=d.statut||'att';
+      var stInfo=st==='ok'?{t:'Accord\u00e9',c:'#065F46',bg:'#D1FAE5'}:st==='ko'?{t:'Refus\u00e9',c:'#991B1B',bg:'#FEE2E2'}:{t:'En attente',c:'#92400E',bg:'#FEF3C7'};
+      h+='<div class="card" style="margin-bottom:6px">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:start;gap:8px">';
+      h+='<div style="flex:1"><div style="font-size:13px;font-weight:600">'+d.montant+' \u20ac demand\u00e9s'+(d.montant_accorde?' \u2192 '+d.montant_accorde+' \u20ac accord\u00e9s':'')+'</div>';
+      if(d.date_souhaitee)h+='<div style="font-size:11px;color:var(--txm)">Souhait\u00e9 le '+d.date_souhaitee+'</div>';
+      if(d.message)h+='<div style="font-size:11px;color:var(--tx);margin-top:3px;font-style:italic">\u00ab '+d.message+' \u00bb</div>';
+      if(d.note_admin)h+='<div style="font-size:11px;color:#065F46;margin-top:3px">R\u00e9ponse: '+d.note_admin+'</div>';
+      h+='</div>';
+      h+='<span style="background:'+stInfo.bg+';color:'+stInfo.c+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap">'+stInfo.t+'</span>';
+      h+='</div>';
+      h+='<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">';
+      h+='<button class="btn bp sm" onclick="acoOpenModal('+d.id+')">G\u00e9rer</button>';
+      h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="ficheDelDemAco('+d.id+')">\u{1F5D1}</button>';
+      h+='</div>';
+      h+='</div>';
+    });
+  }
+  body.innerHTML=h;
+}
+async function ficheDelDemAbs(id){
+  if(!confirm('Supprimer cette demande d\u0027absence ?'))return;
+  await db.from('demandes_absence').delete().eq('id',id);
+  ficheLoadDem();updateDemBadge();
+}
+async function ficheDelDemAco(id){
+  if(!confirm('Supprimer cette demande d\u0027acompte ?'))return;
+  await db.from('demandes_acompte').delete().eq('id',id);
+  ficheLoadDem();updateAcoBadge();
+}
+
 async function ficheLoadDoc(){
   var body=document.getElementById('fiche-pane-doc');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
@@ -3849,6 +3922,7 @@ async function demModalSave(statut){
   if(r.error){alert('Erreur: '+r.error.message);return;}
   closeM('modal-dem');demModalData=null;
   await loadDem();updateDemBadge();
+  if(document.getElementById('modal-absfiche').classList.contains('op')&&document.getElementById('fiche-pane-dem').style.display!=='none')ficheLoadDem();
 }
 
 function traitDemBtn(btn,statut){traitDem(parseInt(btn.dataset.id),btn.dataset.st);}
@@ -4117,11 +4191,13 @@ init();
     </div>
     <div style="display:flex;gap:4px;border-bottom:2px solid var(--bd);margin-bottom:10px">
       <div class="fiche-tab on" id="fiche-tab-abs" onclick="ficheTab('abs')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Absences</div>
+      <div class="fiche-tab" id="fiche-tab-dem" onclick="ficheTab('dem')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Demandes</div>
       <div class="fiche-tab" id="fiche-tab-plan" onclick="ficheTab('plan')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Planning</div>
       <div class="fiche-tab" id="fiche-tab-pt" onclick="ficheTab('pt')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Pointages</div>
       <div class="fiche-tab" id="fiche-tab-doc" onclick="ficheTab('doc')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Documents</div>
     </div>
     <div id="fiche-pane-abs" style="max-height:50vh;overflow-y:auto"></div>
+    <div id="fiche-pane-dem" style="max-height:50vh;overflow-y:auto;display:none"></div>
     <div id="fiche-pane-plan" style="max-height:50vh;overflow-y:auto;display:none"></div>
     <div id="fiche-pane-pt" style="max-height:50vh;overflow-y:auto;display:none"></div>
     <div id="fiche-pane-doc" style="max-height:50vh;overflow-y:auto;display:none"></div>
