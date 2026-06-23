@@ -2598,6 +2598,10 @@ async function init(){
         if (!isDraftMode) enterDraftMode();
         showToast('🔐 Mode administration activé');
       }
+      // Clean the URL so ?admin=1 doesn't re-trigger draft mode on every init()
+      // (e.g. after clicking "Quitter", which calls init() again)
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
     }
   } catch(e) {}
 }
