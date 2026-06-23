@@ -2569,19 +2569,45 @@ function goHome() {
 // INIT
 // ═══════════════════════════════════════
 async function init(){
+  // Check FIRST, before any rendering, if we're coming from a direct SaaS login
+  let directAdminMode = false;
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('admin') === '1' && localStorage.getItem('milos_token')) {
+      directAdminMode = true;
+      window.cameFromDirectLogin = true;
+      isDraftMode = true;
+      // Clean the URL immediately so ?admin=1 doesn't re-trigger this later
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  } catch(e) {}
+
   // Load local first for instant display
   loadDesign();
   loadPopupConfig();
   loadSocialConfig();
   loadHomeConfig();
-  // Hide app chrome on start - show home page
-  document.querySelector('header').style.display = 'none';
-  document.getElementById('nav').style.display = 'none';
-  document.getElementById('main').style.display = 'none';
-  const footer = document.getElementById('footer');
-  if(footer) footer.style.display = 'none';
-  renderHomePage(currentLang);
-  document.getElementById('homePage').style.display = 'flex';
+
+  if (directAdminMode) {
+    // Skip the public site entirely - never show it, not even for a flash
+    document.querySelector('header').style.display = 'none';
+    document.getElementById('nav').style.display = 'none';
+    document.getElementById('main').style.display = 'none';
+    const footer = document.getElementById('footer');
+    if (footer) footer.style.display = 'none';
+    const homePage = document.getElementById('homePage');
+    if (homePage) homePage.style.display = 'none';
+  } else {
+    // Hide app chrome on start - show home page
+    document.querySelector('header').style.display = 'none';
+    document.getElementById('nav').style.display = 'none';
+    document.getElementById('main').style.display = 'none';
+    const footer = document.getElementById('footer');
+    if(footer) footer.style.display = 'none';
+    renderHomePage(currentLang);
+    document.getElementById('homePage').style.display = 'flex';
+  }
+
   // Then load from GitHub (overrides local if exists)
   await loadFromGithub();
   // Load other configs from GitHub
@@ -2599,34 +2625,17 @@ async function init(){
   }
   if (remoteSocial) { socialConfig = {...socialConfig, ...remoteSocial}; try{localStorage.setItem('milos_social',JSON.stringify(remoteSocial));}catch(e){} }
   if (remoteHome) { homeConfig = remoteHome; try{localStorage.setItem('milos_home',JSON.stringify(remoteHome));}catch(e){} }
-  renderMenu();
-  showPopupIfNeeded();
 
-  // Auto-activate admin mode if redirected from login.html with ?admin=1
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === '1') {
-      const token = localStorage.getItem('milos_token');
-      if (token) {
-        window.cameFromDirectLogin = true;
-        isDraftMode = true; // needed so save buttons / data flow behave correctly
-        // Hide the entire public site, go straight to the admin panel
-        const homePage = document.getElementById('homePage');
-        if (homePage) homePage.style.display = 'none';
-        document.querySelector('header').style.display = 'none';
-        document.getElementById('nav').style.display = 'none';
-        document.getElementById('main').style.display = 'none';
-        const footer = document.getElementById('footer');
-        if (footer) footer.style.display = 'none';
-        openAdmin();
-      }
-      // Clean the URL so ?admin=1 doesn't re-trigger this on every init()
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
-  } catch(e) {}
+  if (directAdminMode) {
+    // Go straight into the admin panel, never touching renderMenu/showPopupIfNeeded for the public view
+    openAdmin();
+  } else {
+    renderMenu();
+    showPopupIfNeeded();
+  }
 }
 init();
+
 
 
 // ═══════════════════════════════════════
