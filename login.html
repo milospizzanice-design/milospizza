@@ -362,11 +362,54 @@
           body: JSON.stringify({ token: token })
         });
         const data = await res.json();
-        if (data.valid) { redirectAfterLogin(data.role, data.slug); return; }
+        if (data.valid) {
+          showAlreadyLoggedIn(data.email, data.role, data.slug);
+          return;
+        }
       } catch(e) {}
       localStorage.removeItem('milos_token');
     }
   });
+
+  function showAlreadyLoggedIn(email, role, slug) {
+    document.querySelector('.card').innerHTML = `
+      <div class="logo-wrap">
+        <div class="logo-circle">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+          </svg>
+        </div>
+        <div class="brand">Milo's <span>Admin</span></div>
+      </div>
+      <div class="divider"><span>Déjà connecté</span></div>
+      <p style="text-align:center; font-size:14px; color:var(--gray); margin-bottom:24px;">
+        Vous êtes connecté en tant que<br><strong style="color:var(--dark);">${email}</strong>
+      </p>
+      <button class="btn" onclick="continueToPanel('${role}','${slug}')">
+        <span class="btn-text">Continuer</span>
+      </button>
+      <button class="btn" style="background:var(--gray); margin-top:10px; box-shadow:none;" onclick="logoutAndReload()">
+        <span class="btn-text">Se déconnecter</span>
+      </button>
+    `;
+  }
+
+  function continueToPanel(role, slug) {
+    redirectAfterLogin(role, slug);
+  }
+
+  async function logoutAndReload() {
+    const token = localStorage.getItem('milos_token');
+    try {
+      await fetch(WORKER + '/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token })
+      });
+    } catch(e) {}
+    localStorage.clear();
+    window.location.reload();
+  }
 
   function redirectAfterLogin(role, slug) {
     if (role === 'superadmin') {
