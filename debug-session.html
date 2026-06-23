@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Debug session</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #000; padding: 16px; border-radius: 8px; }
+  button { padding: 12px 20px; background: #C8202A; color: white; border: none; border-radius: 8px; font-size: 14px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h2>🔍 Debug session</h2>
+<pre id="out">Chargement...</pre>
+<button onclick="clearAndReload()">Effacer la session et recharger</button>
+
+<script>
+const WORKER = 'https://milos-github-proxy.milospizza-nice.workers.dev';
+
+async function run() {
+  const out = document.getElementById('out');
+  const token = localStorage.getItem('milos_token');
+  let log = 'Token en localStorage: ' + (token ? token.substring(0,20)+'...' : 'AUCUN') + '\n\n';
+
+  if (token) {
+    try {
+      const res = await fetch(WORKER + '/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token })
+      });
+      const data = await res.json();
+      log += 'Réponse /auth/verify:\n' + JSON.stringify(data, null, 2);
+    } catch(e) {
+      log += 'Erreur: ' + e.message;
+    }
+  }
+
+  out.textContent = log;
+}
+
+function clearAndReload() {
+  localStorage.clear();
+  alert('Session effacée !');
+  location.reload();
+}
+
+run();
+</script>
+</body>
+</html>
