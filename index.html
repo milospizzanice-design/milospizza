@@ -1012,8 +1012,21 @@ function closeModalIfOutside(e){if(e.target===document.getElementById('modalOver
 
 // ADMIN
 // ═══════════════════════════════════════
+let tapCount=0,tapTimer=null;
 function handleLogoTap(){
-  window.location.href = 'login.html';
+  tapCount++;
+  clearTimeout(tapTimer);
+  if(tapCount >= 10){
+    tapCount = 0;
+    document.getElementById('adminFab').style.display = 'block';
+    setTimeout(()=>{ document.getElementById('adminFab').style.display='none'; }, 60000);
+    if(!isDraftMode) enterDraftMode();
+    showToast('🔐 Mode administration activé');
+    return;
+  }
+  tapTimer = setTimeout(()=>{
+    tapCount = 0;
+  }, 1500);
 }
 
 function openAdmin(){
