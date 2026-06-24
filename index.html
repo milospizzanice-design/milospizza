@@ -1046,6 +1046,20 @@ function closeAdmin(){
   document.getElementById('adminOverlay').classList.remove('open');
   const btn=document.getElementById('floatingSaveBtn');
   if(btn)btn.style.display='none';
+  if (window.cameFromDirectLogin) {
+    // Le flux "arrivée directe depuis login.html" masque tout le site public
+    // pour n'afficher que l'admin ; on restaure la vue normale (page d'accueil) en sortant.
+    const homePage = document.getElementById('homePage');
+    if (homePage) homePage.style.display = 'flex';
+    const header = document.querySelector('header');
+    if (header) header.style.display = '';
+    const nav = document.getElementById('nav');
+    if (nav) nav.style.display = '';
+    const main = document.getElementById('main');
+    if (main) main.style.display = 'none';
+    const footer = document.getElementById('footer');
+    if (footer) footer.style.display = '';
+  }
 }
 
 async function saveAllAndClose(){
@@ -1479,8 +1493,14 @@ async function handleFileUpload(e){
         it.photo = url;
         // Save to GitHub immediately
         const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
-        saveKeyToGithub(targetFile, {cats, items, upsells}).then(()=>{
-          showToast('📷 Photo sauvegardée automatiquement !');
+        saveKeyToGithub(targetFile, {cats, items, upsells}).then((result)=>{
+          if (result && result.content && result.content.sha) {
+            showToast('📷 Photo sauvegardée automatiquement !');
+          } else {
+            showToast('❌ Échec de la sauvegarde - réessayez');
+          }
+        }).catch(()=>{
+          showToast('❌ Échec de la sauvegarde - réessayez');
         });
       }
     }
