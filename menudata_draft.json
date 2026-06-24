@@ -15,6 +15,9 @@
       "archived": false,
       "extras": [
         "menu_enfant"
+      ],
+      "subcats": [
+        "Salade Bowl"
       ]
     },
     {
@@ -36,7 +39,8 @@
         "zh": "美味的烤卡门贝尔奶酪，融化柔滑，包裹在披萨面团中",
         "ru": "Вкусный запечённый камамбер, тающий и нежный, завёрнутый в тесто для пиццы"
       },
-      "archived": false
+      "archived": false,
+      "subcats": []
     },
     {
       "id": "veggie",
@@ -50,7 +54,8 @@
         "es": "Pizza Veggie"
       },
       "collapsible": false,
-      "archived": false
+      "archived": false,
+      "subcats": []
     },
     {
       "id": "charcuterie",
@@ -67,7 +72,8 @@
       "archived": false,
       "extras": [
         "supplements"
-      ]
+      ],
+      "subcats": []
     },
     {
       "id": "viandes",
@@ -81,7 +87,8 @@
         "es": "Pizza Carne & Pescado"
       },
       "collapsible": false,
-      "archived": false
+      "archived": false,
+      "subcats": []
     },
     {
       "id": "desserts",
@@ -95,7 +102,8 @@
         "es": "Los Postres"
       },
       "collapsible": false,
-      "archived": false
+      "archived": false,
+      "subcats": []
     },
     {
       "id": "boissons",
@@ -109,7 +117,14 @@
         "es": "Bebidas"
       },
       "collapsible": true,
-      "archived": false
+      "archived": false,
+      "subcats": [
+        "Chaud",
+        "Softs",
+        "Bières",
+        "Cocktails",
+        "Mocktails"
+      ]
     },
     {
       "id": "vins",
@@ -123,7 +138,30 @@
         "es": "Vinos & Licores"
       },
       "collapsible": true,
-      "archived": false
+      "archived": false,
+      "subcats": [
+        "Vins Blancs",
+        "Vins Rosés",
+        "Vins Rouges",
+        "Les Bulles",
+        "Alcools"
+      ]
+    },
+    {
+      "id": "cat_1782338479262",
+      "name": {
+        "fr": "Drinks",
+        "en": "Drinks",
+        "it": "Drinks",
+        "de": "Drinks",
+        "zh": "Drinks",
+        "ru": "Drinks"
+      },
+      "archived": false,
+      "subcats": [
+        "Bieres",
+        "Soft"
+      ]
     }
   ],
   "items": [
