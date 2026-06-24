@@ -2610,14 +2610,28 @@ async function init(){
   loadPopupConfig();
   loadSocialConfig();
   loadHomeConfig();
-  // Hide app chrome on start - show home page
+
+  // Détecter tout de suite si on doit aller direct en admin, pour ne JAMAIS
+  // afficher la page client dans ce cas (évite le flash avant bascule admin).
+  const urlParams = new URLSearchParams(window.location.search);
+  const goStraightToAdmin = urlParams.get('admin') === '1' && !!localStorage.getItem('milos_token');
+
+  // Hide app chrome on start
   document.querySelector('header').style.display = 'none';
   document.getElementById('nav').style.display = 'none';
   document.getElementById('main').style.display = 'none';
   const footer = document.getElementById('footer');
   if(footer) footer.style.display = 'none';
-  renderHomePage(currentLang);
-  document.getElementById('homePage').style.display = 'flex';
+
+  if (!goStraightToAdmin) {
+    // Flux client normal : afficher la page d'accueil tout de suite
+    renderHomePage(currentLang);
+    document.getElementById('homePage').style.display = 'flex';
+  } else {
+    const homePage = document.getElementById('homePage');
+    if (homePage) homePage.style.display = 'none';
+  }
+
   // Then load from GitHub (overrides local if exists)
   await loadFromGithub();
   // Load other configs from GitHub
@@ -2636,31 +2650,20 @@ async function init(){
   if (remoteSocial) { socialConfig = {...socialConfig, ...remoteSocial}; try{localStorage.setItem('milos_social',JSON.stringify(remoteSocial));}catch(e){} }
   if (remoteHome) { homeConfig = remoteHome; try{localStorage.setItem('milos_home',JSON.stringify(remoteHome));}catch(e){} }
   renderMenu();
-  showPopupIfNeeded();
 
-  // Auto-activate admin mode if redirected from login.html with ?admin=1
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === '1') {
-      const token = localStorage.getItem('milos_token');
-      if (token) {
-        window.cameFromDirectLogin = true;
-        enterDraftMode(); // active isDraftMode + affiche le bandeau "Mode brouillon" (Aperçu/Retour/Publier)
-        // Hide the entire public site, go straight to the admin panel
-        const homePage = document.getElementById('homePage');
-        if (homePage) homePage.style.display = 'none';
-        document.querySelector('header').style.display = 'none';
-        document.getElementById('nav').style.display = 'none';
-        document.getElementById('main').style.display = 'none';
-        const footer = document.getElementById('footer');
-        if (footer) footer.style.display = 'none';
-        openAdmin();
-      }
-      // Clean the URL so ?admin=1 doesn't re-trigger this on every init()
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
-  } catch(e) {}
+  if (goStraightToAdmin) {
+    window.cameFromDirectLogin = true;
+    enterDraftMode(); // active isDraftMode + affiche le bandeau "Mode brouillon" (Aperçu/Retour/Publier)
+    openAdmin();
+  } else {
+    showPopupIfNeeded();
+  }
+
+  // Clean the URL so ?admin=1 doesn't re-trigger this on every init()
+  if (urlParams.get('admin') === '1') {
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
 }
 init();
 
