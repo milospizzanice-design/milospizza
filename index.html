@@ -147,6 +147,13 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .floating-save{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--rouge);color:#fff;border:none;border-radius:30px;padding:0.85rem 2rem;font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 20px rgba(155,28,28,0.45);z-index:350;display:none;white-space:nowrap;transition:transform 0.2s,box-shadow 0.2s;}
 .floating-save:hover{transform:translateX(-50%) scale(1.04);box-shadow:0 6px 25px rgba(155,28,28,0.55);}
 .floating-save.draft-save{background:#E67E22;box-shadow:0 4px 20px rgba(230,126,34,0.45);}
+.filter-chips{display:flex;gap:0.4rem;overflow-x:auto;padding-bottom:0.5rem;margin-bottom:0.5rem;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.filter-chips::-webkit-scrollbar{display:none;}
+.filter-chip{flex-shrink:0;background:#fff;border:1px solid #ddd;border-radius:20px;padding:0.35rem 0.8rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;font-weight:600;color:#666;cursor:pointer;white-space:nowrap;}
+.filter-chip.active{background:var(--rouge);border-color:var(--rouge);color:#fff;}
+.filter-chip.sub{font-weight:500;font-size:0.66rem;background:#faf8f5;}
+.filter-chip.sub.active{background:var(--vert);border-color:var(--vert);color:#fff;}
+.quick-add-fab{display:none;position:fixed;bottom:1.6rem;right:1.2rem;width:48px;height:48px;border-radius:50%;background:var(--vert);color:#fff;border:none;font-size:1.6rem;line-height:1;box-shadow:0 4px 16px rgba(0,0,0,0.3);z-index:350;cursor:pointer;align-items:center;justify-content:center;}
 
 .toast{display:none;position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:var(--brun);color:#fff;padding:0.7rem 1.5rem;border-radius:20px;font-size:0.82rem;font-family:'Montserrat',sans-serif;z-index:400;white-space:nowrap;}
 
@@ -375,6 +382,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 <!-- ADMIN -->
 <div class="admin-overlay" id="adminOverlay" onclick="closeAdminIfOutside(event)">
   <button class="floating-save" id="floatingSaveBtn" onclick="saveAll()">✓ Enregistrer tout</button>
+  <button class="quick-add-fab" id="quickAddFab" onclick="quickAddClick()" title="Ajouter">+</button>
   <div class="admin-panel">
     <div class="admin-header">
       <h2>⚙️ Administration</h2>
@@ -413,6 +421,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <!-- PLATS -->
       <div class="admin-section active" id="as-plats">
         <input class="admin-search" type="text" placeholder="Rechercher un plat..." oninput="filterAdminItems(this.value)">
+        <div id="adminItemsFilterChips" class="filter-chips"></div>
         <div id="adminItemsList"></div>
         <div class="add-item-form">
           <h4>➕ Ajouter un plat</h4>
@@ -1072,6 +1081,7 @@ function openAdmin(){
   // Le bandeau "Mode brouillon" est destiné à la vue publique (aperçu), jamais à l'admin lui-même
   const db = document.getElementById('draftBar');
   if(db) db.classList.remove('visible');
+  updateQuickAddBtn();
 }
 function closeAdmin(){
   document.getElementById('adminOverlay').classList.remove('open');
@@ -1118,6 +1128,7 @@ function switchAdminTab(tab){
   if(section) section.classList.add('active');
   renderAdminContent();
   updateFloatingSaveBtn();
+  updateQuickAddBtn();
   // Scroll content to top
   const ac = document.getElementById('adminContent');
   if(ac) ac.scrollTop = 0;
@@ -1156,7 +1167,7 @@ function updateFloatingSaveBtn(){
 }
 
 function renderAdminContent(){
-  if(currentAdminTab==='plats') renderAdminItems(items.filter(i=>!i.archived));
+  if(currentAdminTab==='plats') { renderItemsFilterChips(); renderAdminItems(getFilteredAdminItems()); }
   if(currentAdminTab==='categories') renderAdminCats();
   if(currentAdminTab==='upsell') renderAdminUpsell();
   if(currentAdminTab==='archives') renderAdminArchives();
@@ -1258,9 +1269,67 @@ function confirmNewSubcat(id){
   showToast('✓ Sous-catégorie créée : ' + val);
 }
 
+let adminItemsSearchQuery = '';
+let adminItemsFilter = {cat: null, subcat: null};
+
+function getFilteredAdminItems(){
+  const f = adminItemsSearchQuery.toLowerCase();
+  return items.filter(i => {
+    if (i.archived) return false;
+    if (f && !(i.name.fr.toLowerCase().includes(f) || i.cat.includes(f))) return false;
+    if (adminItemsFilter.cat) {
+      if (i.cat !== adminItemsFilter.cat) return false;
+      if (adminItemsFilter.subcat && i.subcat !== adminItemsFilter.subcat) return false;
+    }
+    return true;
+  });
+}
+
 function filterAdminItems(q){
-  const f=q.toLowerCase();
-  renderAdminItems(items.filter(i=>!i.archived && (i.name.fr.toLowerCase().includes(f)||i.cat.includes(f))));
+  adminItemsSearchQuery = q;
+  renderAdminItems(getFilteredAdminItems());
+}
+
+function setAdminItemsFilter(catId, subcat){
+  adminItemsFilter = {cat: catId || null, subcat: subcat || null};
+  renderItemsFilterChips();
+  renderAdminItems(getFilteredAdminItems());
+}
+
+function renderItemsFilterChips(){
+  const el = document.getElementById('adminItemsFilterChips');
+  if(!el) return;
+  const activeCats = cats.filter(c=>!c.archived);
+  let html = `<button class="filter-chip ${!adminItemsFilter.cat?'active':''}" onclick="setAdminItemsFilter(null,null)">Toutes</button>`;
+  activeCats.forEach(cat=>{
+    const subcats = [...new Set(items.filter(i=>i.cat===cat.id && i.subcat).map(i=>i.subcat))];
+    const isCatActive = adminItemsFilter.cat===cat.id && !adminItemsFilter.subcat;
+    html += `<button class="filter-chip ${isCatActive?'active':''}" onclick="setAdminItemsFilter('${cat.id}',null)">${cat.name.fr}</button>`;
+    subcats.forEach(sc=>{
+      const isScActive = adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
+      html += `<button class="filter-chip sub ${isScActive?'active':''}" onclick="setAdminItemsFilter('${cat.id}','${sc}')">↳ ${sc}</button>`;
+    });
+  });
+  el.innerHTML = html;
+}
+
+function updateQuickAddBtn(){
+  const btn = document.getElementById('quickAddFab');
+  if(!btn) return;
+  btn.style.display = (currentAdminTab==='plats' || currentAdminTab==='categories') ? 'flex' : 'none';
+}
+
+function quickAddClick(){
+  if (currentAdminTab === 'categories') {
+    const el = document.getElementById('newCatName');
+    if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+  } else if (currentAdminTab === 'plats') {
+    const sel = document.getElementById('newItemCat');
+    // La catégorie est pré-sélectionnée si un filtre précis (pas "Toutes") est actif
+    if (sel && adminItemsFilter.cat) sel.value = adminItemsFilter.cat;
+    const el = document.getElementById('newItemName');
+    if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+  }
 }
 
 function renderAdminCats(){
@@ -2104,10 +2173,14 @@ function generateMenuPDF(){
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 18;
   const usableW = pageW - margin * 2;
+  const headerBottom = 40; // y de départ du contenu après l'en-tête
+  const pageUsableH = pageH - margin - headerBottom;
+  const MIN_SCALE = 0.8; // on accepte de resserrer jusqu'à 20%, pas plus (lisibilité)
+  const NAME_SIZE = 11, DESC_SIZE = 8.5;
 
   const activeCats = cats.filter(c => !c.archived);
   let isFirstPageEver = true;
-  let y = margin;
+  let y = headerBottom;
 
   function drawHeader(catName, continued){
     if (!isFirstPageEver) doc.addPage();
@@ -2122,49 +2195,69 @@ function generateMenuPDF(){
     doc.setFontSize(20);
     const title = (catName || '').toUpperCase() + (continued ? ' (suite)' : '');
     doc.text(title, pageW / 2, 19, { align: 'center' });
-    y = 40;
+    y = headerBottom;
   }
 
   let anyItems = false;
+
   activeCats.forEach(cat => {
     const catItems = items.filter(it => !it.archived && it.cat === cat.id);
     if (catItems.length === 0) return;
     anyItems = true;
-    drawHeader(cat.name.fr, false);
 
-    catItems.forEach(it => {
+    // Passe 1 : mesure du texte à taille normale, pour estimer la hauteur totale
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(NAME_SIZE);
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(DESC_SIZE);
+    const blocks = catItems.map(it => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(NAME_SIZE);
       const nameLines = doc.splitTextToSize(it.name.fr || '', usableW - 28);
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(DESC_SIZE);
       const descLines = it.desc.fr ? doc.splitTextToSize(it.desc.fr, usableW - 6) : [];
-      const blockHeight = nameLines.length * 5.5 + descLines.length * 4 + 7;
+      return { it, nameLines, descLines };
+    });
+    const heightAt = (scale) => blocks.reduce((sum, b) => {
+      return sum + b.nameLines.length * 5.5 * scale + (b.descLines.length ? b.descLines.length * 4 * scale + 2 * scale : 0) + 7 * scale;
+    }, 0);
 
+    const totalH = heightAt(1);
+    const naturalPages = Math.max(1, Math.ceil(totalH / pageUsableH));
+    let scale = 1;
+    if (naturalPages > 1) {
+      const targetPages = naturalPages - 1;
+      const requiredScale = (pageUsableH * targetPages) / totalH;
+      if (requiredScale >= MIN_SCALE) scale = requiredScale;
+    }
+
+    // Passe 2 : dessin réel à l'échelle retenue
+    drawHeader(cat.name.fr, false);
+    blocks.forEach(({ it, nameLines, descLines }) => {
+      const blockHeight = nameLines.length * 5.5 * scale + (descLines.length ? descLines.length * 4 * scale + 2 * scale : 0) + 7 * scale;
       if (y + blockHeight > pageH - margin) {
         drawHeader(cat.name.fr, true);
       }
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
+      doc.setFontSize(NAME_SIZE * scale);
       doc.setTextColor(61, 43, 31);
       doc.text(nameLines, margin, y);
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
       doc.setTextColor(107, 126, 90);
       doc.text(it.price || '', pageW - margin, y, { align: 'right' });
 
-      y += nameLines.length * 5.5 + 2;
+      y += nameLines.length * 5.5 * scale + 2 * scale;
 
       if (descLines.length) {
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8.5);
+        doc.setFontSize(DESC_SIZE * scale);
         doc.setTextColor(136, 136, 136);
         doc.text(descLines, margin, y);
-        y += descLines.length * 4;
+        y += descLines.length * 4 * scale;
       }
-      y += 4;
+      y += 4 * scale;
       doc.setDrawColor(230, 225, 216);
       doc.setLineWidth(0.2);
       doc.line(margin, y - 1, pageW - margin, y - 1);
-      y += 3;
+      y += 3 * scale;
     });
   });
 
@@ -2182,6 +2275,11 @@ async function analyzeMenuFile(){
   const area = document.getElementById('importPreviewArea');
   const btn = document.getElementById('importAnalyzeBtn');
   if(!file){ showToast('❌ Choisissez un fichier d\'abord'); return; }
+  const MAX_SIZE = 18 * 1024 * 1024; // 18 Mo
+  if (file.size > MAX_SIZE) {
+    showToast('❌ Fichier trop volumineux (' + Math.round(file.size/1024/1024) + ' Mo, max ~18 Mo) — compressez-le ou réduisez la résolution du scan');
+    return;
+  }
   btn.disabled = true; btn.textContent = '⏳ Analyse en cours...';
   area.innerHTML = '';
   try {
