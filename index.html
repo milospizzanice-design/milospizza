@@ -1046,9 +1046,6 @@ function closeAdmin(){
   document.getElementById('adminOverlay').classList.remove('open');
   const btn=document.getElementById('floatingSaveBtn');
   if(btn)btn.style.display='none';
-  if (window.cameFromDirectLogin) {
-    window.location.href = 'login.html';
-  }
 }
 
 async function saveAllAndClose(){
