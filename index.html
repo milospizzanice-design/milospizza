@@ -16,6 +16,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Milo's Pizza — Carte</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{--rouge:#9B1C1C;--rouge-clair:#C0392B;--creme:#F5F0E8;--creme-fonce:#EDE6D8;--vert:#6B7E5A;--brun:#3D2B1F;--texte:#2C2010;--gris:#888;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -398,6 +399,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <button class="admin-sidebar-btn" id="stab_popup" onclick="switchAdminTab('popup')">✨ Pop-up</button>
         <button class="admin-sidebar-btn" id="stab_social" onclick="switchAdminTab('social')">❤️ Réseaux</button>
         <div class="admin-sidebar-section">Système</div>
+        <button class="admin-sidebar-btn" id="stab_print" onclick="switchAdminTab('print')">🖨️ Impression</button>
         <button class="admin-sidebar-btn" id="stab_import" onclick="switchAdminTab('import')">📥 Import carte</button>
         <button class="admin-sidebar-btn" id="stab_history" onclick="switchAdminTab('history')">🕐 Historique</button>
       </div>
@@ -524,6 +526,17 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Personnalisez les cartes de la page d'accueil — photos, titres, ordre.</p>
         <div id="adminHomeList"></div>
         <button class="admin-save-btn" onclick="saveHomeConfig()">✓ Enregistrer l'accueil</button>
+      </div>
+
+      <!-- PRINT / PDF -->
+      <div class="admin-section" id="as-print">
+        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Générez un PDF imprimable de la carte actuellement affichée dans l'admin — une page par catégorie, avec saut de page automatique si besoin.</p>
+        <label class="admin-label">Format</label>
+        <div style="display:flex;gap:0.8rem;margin-bottom:1rem;">
+          <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;font-family:'Montserrat',sans-serif;"><input type="radio" name="pdfFormat" value="a4" checked> A4</label>
+          <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;font-family:'Montserrat',sans-serif;"><input type="radio" name="pdfFormat" value="a5"> A5</label>
+        </div>
+        <button class="admin-save-btn" onclick="generateMenuPDF()">🖨️ Générer le PDF</button>
       </div>
 
       <!-- IMPORT MENU -->
@@ -1154,6 +1167,7 @@ function renderAdminContent(){
   if(currentAdminTab==='social') initSocialPanel();
   if(currentAdminTab==='sections') renderAdminSections();
   if(currentAdminTab==='import') { /* statique, rien à pré-charger */ }
+  if(currentAdminTab==='print') { /* statique, rien à pré-charger */ }
   // Fill cat selects
   const opts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
   ['newItemCat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
@@ -2077,6 +2091,86 @@ async function saveVersionToHistory() {
     
     await saveKeyToGithub(HISTORY_FILE, history);
   } catch(e) { console.log('History save error', e); }
+}
+
+// ═══════════════════════════════════════
+// IMPRESSION PDF
+// ═══════════════════════════════════════
+function generateMenuPDF(){
+  if (typeof jspdf === 'undefined') { showToast('❌ Librairie PDF non chargée'); return; }
+  const format = (document.querySelector('input[name="pdfFormat"]:checked') || {}).value || 'a4';
+  const doc = new jspdf.jsPDF({ unit: 'mm', format });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 18;
+  const usableW = pageW - margin * 2;
+
+  const activeCats = cats.filter(c => !c.archived);
+  let isFirstPageEver = true;
+  let y = margin;
+
+  function drawHeader(catName, continued){
+    if (!isFirstPageEver) doc.addPage();
+    isFirstPageEver = false;
+    doc.setFillColor(245, 240, 232);
+    doc.rect(0, 0, pageW, 30, 'F');
+    doc.setDrawColor(155, 28, 28);
+    doc.setLineWidth(0.8);
+    doc.line(0, 30, pageW, 30);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(155, 28, 28);
+    doc.setFontSize(20);
+    const title = (catName || '').toUpperCase() + (continued ? ' (suite)' : '');
+    doc.text(title, pageW / 2, 19, { align: 'center' });
+    y = 40;
+  }
+
+  let anyItems = false;
+  activeCats.forEach(cat => {
+    const catItems = items.filter(it => !it.archived && it.cat === cat.id);
+    if (catItems.length === 0) return;
+    anyItems = true;
+    drawHeader(cat.name.fr, false);
+
+    catItems.forEach(it => {
+      const nameLines = doc.splitTextToSize(it.name.fr || '', usableW - 28);
+      const descLines = it.desc.fr ? doc.splitTextToSize(it.desc.fr, usableW - 6) : [];
+      const blockHeight = nameLines.length * 5.5 + descLines.length * 4 + 7;
+
+      if (y + blockHeight > pageH - margin) {
+        drawHeader(cat.name.fr, true);
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(61, 43, 31);
+      doc.text(nameLines, margin, y);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(107, 126, 90);
+      doc.text(it.price || '', pageW - margin, y, { align: 'right' });
+
+      y += nameLines.length * 5.5 + 2;
+
+      if (descLines.length) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8.5);
+        doc.setTextColor(136, 136, 136);
+        doc.text(descLines, margin, y);
+        y += descLines.length * 4;
+      }
+      y += 4;
+      doc.setDrawColor(230, 225, 216);
+      doc.setLineWidth(0.2);
+      doc.line(margin, y - 1, pageW - margin, y - 1);
+      y += 3;
+    });
+  });
+
+  if (!anyItems) { showToast('❌ Aucun plat à imprimer'); return; }
+  doc.save('carte-' + format + '.pdf');
+  showToast('✓ PDF généré !');
 }
 
 // ═══════════════════════════════════════
