@@ -97,7 +97,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .admin-section.active{display:block;min-height:100%;}
 
 /* Admin — plats */
-.admin-search{width:100%;padding:0.7rem 1rem;border:1px solid #ddd;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.85rem;margin-bottom:0.8rem;outline:none;}
+.admin-search{width:100%;padding:0.7rem 1rem;border:1px solid #ddd;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:1rem;margin-bottom:0.8rem;outline:none;}
 .admin-search:focus{border-color:var(--rouge);}
 .admin-item-card{border:1px solid #eee;border-radius:8px;padding:0.9rem;margin-bottom:0.6rem;background:#fff;}
 .admin-item-card.archived{background:#f9f9f9;opacity:0.7;}
@@ -111,7 +111,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .aic-btn.delete{color:#c0392b;border-color:#c0392b;}
 .aic-btn.up,.aic-btn.down{color:#555;}
 .admin-label{font-size:0.68rem;color:var(--gris);font-weight:500;letter-spacing:0.05em;text-transform:uppercase;display:block;margin-bottom:0.2rem;margin-top:0.4rem;}
-.admin-input{width:100%;padding:0.5rem 0.7rem;border:1px solid #ddd;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:0.8rem;outline:none;}
+.admin-input{width:100%;padding:0.5rem 0.7rem;border:1px solid #ddd;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:1rem;outline:none;}
 .admin-input:focus{border-color:var(--rouge);}
 .photo-upload-row{display:flex;gap:0.5rem;align-items:center;margin-top:0.4rem;}
 .photo-upload-btn{flex-shrink:0;background:var(--vert);color:#fff;border:none;border-radius:6px;padding:0.5rem 0.8rem;font-size:0.72rem;font-family:'Montserrat',sans-serif;cursor:pointer;white-space:nowrap;}
@@ -123,7 +123,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .add-item-form{background:#f8f8f8;border:1px dashed #ccc;border-radius:8px;padding:1rem;margin-top:0.8rem;}
 .add-item-form h4{font-family:'Montserrat',sans-serif;font-size:0.75rem;font-weight:600;color:var(--brun);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.8rem;}
 .add-btn{background:var(--vert);color:#fff;border:none;border-radius:8px;padding:0.7rem 1.2rem;font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:600;cursor:pointer;width:100%;margin-top:0.5rem;}
-.cat-select{width:100%;padding:0.5rem 0.7rem;border:1px solid #ddd;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:0.8rem;outline:none;margin-bottom:0.4rem;}
+.cat-select{width:100%;padding:0.5rem 0.7rem;border:1px solid #ddd;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:1rem;outline:none;margin-bottom:0.4rem;}
 
 /* Admin — catégories */
 .cat-card{border:1px solid #eee;border-radius:8px;padding:0.8rem 1rem;margin-bottom:0.6rem;display:flex;justify-content:space-between;align-items:center;background:#fff;}
@@ -147,13 +147,16 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .floating-save{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--rouge);color:#fff;border:none;border-radius:30px;padding:0.85rem 2rem;font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 20px rgba(155,28,28,0.45);z-index:350;display:none;white-space:nowrap;transition:transform 0.2s,box-shadow 0.2s;}
 .floating-save:hover{transform:translateX(-50%) scale(1.04);box-shadow:0 6px 25px rgba(155,28,28,0.55);}
 .floating-save.draft-save{background:#E67E22;box-shadow:0 4px 20px rgba(230,126,34,0.45);}
-.filter-chips{display:flex;gap:0.4rem;overflow-x:auto;padding-bottom:0.5rem;margin-bottom:0.5rem;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-.filter-chips::-webkit-scrollbar{display:none;}
-.filter-chip{flex-shrink:0;background:#fff;border:1px solid #ddd;border-radius:20px;padding:0.35rem 0.8rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;font-weight:600;color:#666;cursor:pointer;white-space:nowrap;}
-.filter-chip.active{background:var(--rouge);border-color:var(--rouge);color:#fff;}
-.filter-chip.sub{font-weight:500;font-size:0.66rem;background:#faf8f5;}
-.filter-chip.sub.active{background:var(--vert);border-color:var(--vert);color:#fff;}
+.sidebar-subcat{padding:0.45rem 0.9rem 0.45rem 1.9rem !important;font-size:0.62rem !important;color:#aaa !important;border-left:3px solid transparent;}
+.sidebar-subcat.active{color:var(--rouge) !important;background:#fff3f3;border-left-color:var(--rouge);}
 .quick-add-fab{display:none;position:fixed;bottom:1.6rem;right:1.2rem;width:48px;height:48px;border-radius:50%;background:var(--vert);color:#fff;border:none;font-size:1.6rem;line-height:1;box-shadow:0 4px 16px rgba(0,0,0,0.3);z-index:350;cursor:pointer;align-items:center;justify-content:center;}
+.plat-row{display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.2rem;border-bottom:1px solid #eee;}
+.plat-pos{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#f0ede8;border:none;color:#888;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;}
+.plat-row-name{flex:1;font-size:0.82rem;font-weight:600;color:var(--texte);cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Montserrat',sans-serif;}
+.plat-photo-btn{flex-shrink:0;position:relative;width:32px;height:32px;border-radius:8px;border:1.5px solid #ddd;background:#fff;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.plat-photo-btn.has-photo{border-color:var(--vert);background:#f3f6f1;}
+.plat-photo-btn .upload-progress{position:absolute;inset:0;background:rgba(255,255,255,0.92);display:none;align-items:center;justify-content:center;font-size:0.7rem;border-radius:8px;}
+.plat-price-bubble{flex-shrink:0;width:62px;text-align:center;border:1.5px solid var(--vert);border-radius:20px;padding:0.3rem 0.2rem;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;background:#fff;}
 
 .toast{display:none;position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:var(--brun);color:#fff;padding:0.7rem 1.5rem;border-radius:20px;font-size:0.82rem;font-family:'Montserrat',sans-serif;z-index:400;white-space:nowrap;}
 
@@ -331,6 +334,59 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
   </div>
 </div>
 
+<!-- MODALE ÉDITION PLAT (admin) -->
+<div class="modal-overlay" id="itemEditModalOverlay" style="z-index:600;" onclick="if(event.target===this)closeItemEditModal()">
+  <div class="modal-box" style="background:#fff;max-height:85vh;overflow-y:auto;padding:1.2rem;text-align:left;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.8rem;font-size:1rem;">✎ Personnaliser le plat</h4>
+    <div id="itemEditModalBody"></div>
+    <button class="add-btn" style="margin-top:0.8rem;" onclick="closeItemEditModal()">✓ Fermer</button>
+  </div>
+</div>
+
+<!-- MODALE AJOUT PLAT (admin) -->
+<div class="modal-overlay" id="addItemModalOverlay" style="z-index:600;" onclick="if(event.target===this)closeAddItemModal()">
+  <div class="modal-box" style="background:#fff;max-height:85vh;overflow-y:auto;padding:1.2rem;text-align:left;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.8rem;font-size:1rem;">➕ Ajouter un plat</h4>
+    <label class="admin-label">Catégorie</label>
+    <select class="cat-select" id="newItemCat"></select>
+    <label class="admin-label">Nom (FR)</label>
+    <input class="admin-input" id="newItemName" placeholder="Ex: La Truffe Noire">
+    <label class="admin-label">Description (FR)</label>
+    <input class="admin-input" id="newItemDesc" placeholder="Ingrédients...">
+    <label class="admin-label">Prix</label>
+    <input class="admin-input" id="newItemPrice" placeholder="Ex: 18€" style="max-width:100px">
+    <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+      <button class="add-btn" style="background:#aaa;" onclick="closeAddItemModal()">Annuler</button>
+      <button class="add-btn" onclick="addNewItem()">Ajouter ce plat</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE AJOUT CATÉGORIE (admin) -->
+<div class="modal-overlay" id="addCatModalOverlay" style="z-index:600;" onclick="if(event.target===this)closeAddCatModal()">
+  <div class="modal-box" style="background:#fff;padding:1.2rem;text-align:left;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.8rem;font-size:1rem;">➕ Nouvelle catégorie</h4>
+    <label class="admin-label">Nom de la catégorie</label>
+    <input class="admin-input" id="newCatName" placeholder="Ex: Pizzas Spéciales">
+    <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+      <button class="add-btn" style="background:#aaa;" onclick="closeAddCatModal()">Annuler</button>
+      <button class="add-btn" onclick="addNewCat()">Créer la catégorie</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE CHOIX DE POSITION (admin, réutilisée pour plats et catégories) -->
+<div class="modal-overlay" id="posPickerModalOverlay" style="z-index:600;" onclick="if(event.target===this)closePositionPicker()">
+  <div class="modal-box" style="background:#fff;padding:1.2rem;text-align:center;max-width:280px;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.8rem;font-size:1rem;" id="posPickerTitle">Choisir la position</h4>
+    <select class="cat-select" id="posPickerSelect" style="text-align:center;"></select>
+    <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+      <button class="add-btn" style="background:#aaa;" onclick="closePositionPicker()">Annuler</button>
+      <button class="add-btn" onclick="confirmPositionPicker()">✓ Valider</button>
+    </div>
+  </div>
+</div>
+
 <!-- DRAFT BAR -->
 <div class="draft-bar" id="draftBar">
   <span>✏️ Brouillon — non publié</span>
@@ -387,7 +443,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
     <div class="admin-header">
       <h2>⚙️ Administration</h2>
       <div style="display:flex;gap:0.5rem;align-items:center;">
-        <button onclick="saveAllAndClose()" title="Enregistrer" style="background:var(--creme);border:1.5px solid var(--vert);color:var(--vert);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">💾</button>
+        <button onclick="saveAll()" title="Enregistrer" style="background:var(--creme);border:1.5px solid var(--vert);color:var(--vert);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">💾</button>
         <button onclick="previewSite()" title="Aperçu" style="background:var(--creme);border:1.5px solid var(--rouge);color:var(--rouge);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">👁</button>
         <button class="publish-btn" onclick="publishDraft()" title="Publier" style="background:var(--vert);border:none;color:#fff;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">✅</button>
         <button class="admin-close" onclick="closeAdmin()">×</button>
@@ -398,7 +454,8 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <div class="admin-sidebar-section">Site</div>
         <button class="admin-sidebar-btn active" id="stab_sections" onclick="switchAdminTab('sections')">📄 Sections du site</button>
         <div class="admin-sidebar-section">Contenu</div>
-        <button class="admin-sidebar-btn" id="stab_plats" onclick="switchAdminTab('plats')">🍕 Plats</button>
+        <button class="admin-sidebar-btn" id="stab_plats" onclick="adminItemsFilter={cat:null,subcat:null};switchAdminTab('plats')">🍕 Plats</button>
+        <div id="platsSubcatNav"></div>
         <button class="admin-sidebar-btn" id="stab_categories" onclick="switchAdminTab('categories')">📂 Catégories</button>
         <button class="admin-sidebar-btn" id="stab_upsell" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
         <button class="admin-sidebar-btn" id="stab_archives" onclick="switchAdminTab('archives')">🌙 Archives</button>
@@ -421,33 +478,13 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <!-- PLATS -->
       <div class="admin-section active" id="as-plats">
         <input class="admin-search" type="text" placeholder="Rechercher un plat..." oninput="filterAdminItems(this.value)">
-        <div id="adminItemsFilterChips" class="filter-chips"></div>
         <div id="adminItemsList"></div>
-        <div class="add-item-form">
-          <h4>➕ Ajouter un plat</h4>
-          <select class="cat-select" id="newItemCat"></select>
-          <label class="admin-label">Nom (FR)</label>
-          <input class="admin-input" id="newItemName" placeholder="Ex: La Truffe Noire">
-          <label class="admin-label">Description (FR)</label>
-          <input class="admin-input" id="newItemDesc" placeholder="Ingrédients...">
-          <label class="admin-label">Prix</label>
-          <input class="admin-input" id="newItemPrice" placeholder="Ex: 18€" style="max-width:100px">
-          <button class="add-btn" onclick="addNewItem()">Ajouter ce plat</button>
-        </div>
-        <button class="admin-save-btn" onclick="saveAll()">✓ Enregistrer tout</button>
       </div>
 
       <!-- CATEGORIES -->
       <div class="admin-section" id="as-categories">
         <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Réordonnez, archivez ou supprimez des catégories.</p>
         <div id="adminCatList"></div>
-        <div class="add-item-form">
-          <h4>➕ Nouvelle catégorie</h4>
-          <label class="admin-label">Nom de la catégorie</label>
-          <input class="admin-input" id="newCatName" placeholder="Ex: Pizzas Spéciales">
-          <button class="add-btn" onclick="addNewCat()">Créer la catégorie</button>
-        </div>
-        <button class="admin-save-btn" onclick="saveAll()">✓ Enregistrer</button>
       </div>
 
       <!-- UPSELL -->
@@ -1082,6 +1119,7 @@ function openAdmin(){
   const db = document.getElementById('draftBar');
   if(db) db.classList.remove('visible');
   updateQuickAddBtn();
+  renderPlatsSubcatNav();
 }
 function closeAdmin(){
   document.getElementById('adminOverlay').classList.remove('open');
@@ -1129,6 +1167,7 @@ function switchAdminTab(tab){
   renderAdminContent();
   updateFloatingSaveBtn();
   updateQuickAddBtn();
+  renderPlatsSubcatNav();
   // Scroll content to top
   const ac = document.getElementById('adminContent');
   if(ac) ac.scrollTop = 0;
@@ -1137,7 +1176,7 @@ function switchAdminTab(tab){
 function updateFloatingSaveBtn(){
   const btn = document.getElementById('floatingSaveBtn');
   if (!btn) return;
-  const showTabs = ['plats','categories','upsell','design','home','popup','social'];
+  const showTabs = ['design','home','popup','social'];
   const actionMap = {
     plats: '✓ Enregistrer les plats',
     categories: '✓ Enregistrer les catégories',
@@ -1167,7 +1206,7 @@ function updateFloatingSaveBtn(){
 }
 
 function renderAdminContent(){
-  if(currentAdminTab==='plats') { renderItemsFilterChips(); renderAdminItems(getFilteredAdminItems()); }
+  if(currentAdminTab==='plats') { renderPlatsSubcatNav(); renderAdminItems(getFilteredAdminItems()); }
   if(currentAdminTab==='categories') renderAdminCats();
   if(currentAdminTab==='upsell') renderAdminUpsell();
   if(currentAdminTab==='archives') renderAdminArchives();
@@ -1185,56 +1224,93 @@ function renderAdminContent(){
 }
 
 function renderAdminItems(list){
-  const catOpts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
-  document.getElementById('adminItemsList').innerHTML = list.map(it=>{
-    const catSubcats = [...new Set(items.filter(i=>i.cat===it.cat&&i.subcat).map(i=>i.subcat))];
-    const subcatOpts = ['<option value="">— Aucune sous-catégorie —</option>',
-      ...catSubcats.map(s=>`<option value="${s}" ${it.subcat===s?'selected':''}>${s}</option>`),
-      '<option value="__new__">+ Nouvelle sous-catégorie...</option>'
-    ].join('');
-    return `<div class="admin-item-card" id="card_${it.id}">
-      <div class="aic-header">
-        <div class="aic-name">${it.name.fr}</div>
-        <div class="aic-actions">
-          <button class="aic-btn up" onclick="moveItem('${it.id}',-1)">↑</button>
-          <button class="aic-btn down" onclick="moveItem('${it.id}',1)">↓</button>
-          <button class="aic-btn archive ${it.archived?'active':''}" onclick="toggleArchiveItem('${it.id}')">${it.archived?'↩ Réactiver':'🌙 Archiver'}</button>
-          <button class="aic-btn delete" onclick="deleteItem('${it.id}')">✕</button>
-        </div>
-      </div>
-      <label class="admin-label">Catégorie</label>
-      <select class="cat-select" id="cat_${it.id}" onchange="changeItemCat('${it.id}',this.value)">${catOpts.replace(`value="${it.cat}"`,`value="${it.cat}" selected`)}</select>
-      <label class="admin-label">Sous-catégorie</label>
-      <select class="cat-select" id="subcat_${it.id}" onchange="changeItemSubcat('${it.id}',this.value)">${subcatOpts}</select>
-      <div id="newsubcat_${it.id}" style="display:none;margin-top:0.3rem;">
-        <input class="admin-input" id="newsubcatval_${it.id}" placeholder="Nom de la nouvelle sous-catégorie">
-        <button class="aic-btn" style="margin-top:0.3rem;background:#7D9B76;color:#fff;width:100%;" onclick="confirmNewSubcat('${it.id}')">✓ Créer</button>
-      </div>
-      <label class="admin-label">Nom (FR)</label>
-      <input class="admin-input" id="n_${it.id}" value="${it.name.fr||''}">
-      <label class="admin-label">Prix</label>
-      <input class="admin-input" style="max-width:100px" id="p_${it.id}" value="${it.price}">
-      <label class="admin-label">Description (FR)</label>
-      <input class="admin-input" id="d_${it.id}" value="${it.desc.fr||''}">
-      <label class="admin-label">Photo</label>
-      <div class="photo-upload-row">
-        <button class="photo-upload-btn" onclick="triggerUpload('${it.id}')">📷</button>
-        <input class="admin-input" id="ph_${it.id}" value="${it.photo||''}" placeholder="URL photo" style="flex:1">
-        <img id="prev_${it.id}" src="${it.photo||''}" class="photo-preview ${it.photo?'visible':''}" onerror="this.className='photo-preview'">
-        <span class="upload-progress" id="prog_${it.id}">Envoi...</span>
-      </div>
-      <label class="admin-label">Allergènes</label>
-      <div class="allergen-checks">
-        ${ALLERGEN_LIST.map(a=>{
-          const checked = getItemAllergens(it).includes(a.id);
-          return `<div class="allergen-check-item">
-            <input type="checkbox" id="al_${it.id}_${a.id}" ${checked?'checked':''}>
-            <label for="al_${it.id}_${a.id}">${a.icon} ${a.name}</label>
-          </div>`;
-        }).join('')}
-      </div>
+  document.getElementById('adminItemsList').innerHTML = list.map((it, idx)=>{
+    return `<div class="plat-row" id="row_${it.id}">
+      <button class="plat-pos" onclick="openPositionPicker('item','${it.id}')">${idx+1}</button>
+      <div class="plat-row-name" onclick="openItemEditModal('${it.id}')">${it.name.fr||'(sans nom)'}</div>
+      <button class="plat-photo-btn ${it.photo?'has-photo':''}" onclick="triggerUpload('${it.id}')">📷<span class="upload-progress" id="prog_${it.id}">⏳</span></button>
+      <input class="plat-price-bubble" id="p_${it.id}" value="${it.price||''}" inputmode="decimal">
     </div>`;
   }).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun plat</p>';
+}
+
+let _editModalItemId = null;
+
+function persistSingleItemEdits(itemId){
+  const it = items.find(i=>i.id===itemId);
+  if(!it) return;
+  const n=document.getElementById('n_'+itemId);
+  const d=document.getElementById('d_'+itemId);
+  const ph=document.getElementById('ph_'+itemId);
+  if(n && n.value.trim()) it.name.fr=n.value.trim();
+  if(d) it.desc.fr=d.value;
+  if(ph) it.photo=ph.value;
+  const als = ALLERGEN_LIST.map(a=>a.id).filter(aid=>{
+    const cb=document.getElementById('al_'+itemId+'_'+aid);
+    return cb && cb.checked;
+  });
+  if(als.length>0||document.getElementById('al_'+itemId+'_gluten')) it.allergens=als;
+}
+
+function openItemEditModal(itemId){
+  if (_editModalItemId && _editModalItemId !== itemId) persistSingleItemEdits(_editModalItemId);
+  // Récupère aussi le prix déjà tapé dans la ligne avant de rouvrir/changer d'item
+  if (_editModalItemId) {
+    const prevPriceEl = document.getElementById('p_'+_editModalItemId);
+    const prevIt = items.find(i=>i.id===_editModalItemId);
+    if(prevPriceEl && prevIt) prevIt.price = prevPriceEl.value;
+  }
+  _editModalItemId = itemId;
+  const it = items.find(i=>i.id===itemId);
+  if(!it) return;
+  const catOpts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}" ${c.id===it.cat?'selected':''}>${c.name.fr}</option>`).join('');
+  const catSubcats = [...new Set(items.filter(i=>i.cat===it.cat&&i.subcat).map(i=>i.subcat))];
+  const subcatOpts = ['<option value="">— Aucune sous-catégorie —</option>',
+    ...catSubcats.map(s=>`<option value="${s}" ${it.subcat===s?'selected':''}>${s}</option>`),
+    '<option value="__new__">+ Nouvelle sous-catégorie...</option>'
+  ].join('');
+  document.getElementById('itemEditModalBody').innerHTML = `
+    <label class="admin-label">Catégorie</label>
+    <select class="cat-select" id="cat_${it.id}" onchange="changeItemCat('${it.id}',this.value)">${catOpts}</select>
+    <label class="admin-label">Sous-catégorie</label>
+    <select class="cat-select" id="subcat_${it.id}" onchange="changeItemSubcat('${it.id}',this.value)">${subcatOpts}</select>
+    <div id="newsubcat_${it.id}" style="display:none;margin-top:0.3rem;">
+      <input class="admin-input" id="newsubcatval_${it.id}" placeholder="Nom de la nouvelle sous-catégorie">
+      <button class="aic-btn" style="margin-top:0.3rem;background:#7D9B76;color:#fff;width:100%;" onclick="confirmNewSubcat('${it.id}')">✓ Créer</button>
+    </div>
+    <label class="admin-label">Nom (FR)</label>
+    <input class="admin-input" id="n_${it.id}" value="${it.name.fr||''}">
+    <label class="admin-label">Description (FR)</label>
+    <input class="admin-input" id="d_${it.id}" value="${it.desc.fr||''}">
+    <label class="admin-label">Photo</label>
+    <div class="photo-upload-row">
+      <button class="photo-upload-btn" onclick="triggerUpload('${it.id}')">📷</button>
+      <input class="admin-input" id="ph_${it.id}" value="${it.photo||''}" placeholder="URL photo" style="flex:1">
+      <img id="prev_${it.id}" src="${it.photo||''}" class="photo-preview ${it.photo?'visible':''}" onerror="this.className='photo-preview'">
+    </div>
+    <label class="admin-label">Allergènes</label>
+    <div class="allergen-checks">
+      ${ALLERGEN_LIST.map(a=>{
+        const checked = getItemAllergens(it).includes(a.id);
+        return `<div class="allergen-check-item">
+          <input type="checkbox" id="al_${it.id}_${a.id}" ${checked?'checked':''}>
+          <label for="al_${it.id}_${a.id}">${a.icon} ${a.name}</label>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+      <button class="aic-btn archive" style="flex:1;" onclick="persistSingleItemEdits('${it.id}');toggleArchiveItem('${it.id}');closeItemEditModal();">${it.archived?'↩ Réactiver':'🌙 Archiver'}</button>
+      <button class="aic-btn delete" style="flex:1;" onclick="if(deleteItem('${it.id}'))closeItemEditModal();">✕ Supprimer</button>
+    </div>
+  `;
+  document.getElementById('itemEditModalOverlay').classList.add('open');
+}
+
+function closeItemEditModal(){
+  if (_editModalItemId) persistSingleItemEdits(_editModalItemId);
+  document.getElementById('itemEditModalOverlay').classList.remove('open');
+  _editModalItemId = null;
+  renderAdminItems(getFilteredAdminItems());
 }
 
 function changeItemCat(id, newCat){
@@ -1242,7 +1318,15 @@ function changeItemCat(id, newCat){
   if(!it) return;
   it.cat = newCat;
   it.subcat = '';
-  renderAdminItems(items.filter(i=>!i.archived));
+  const subcatSel = document.getElementById('subcat_'+id);
+  if (subcatSel) {
+    const catSubcats = [...new Set(items.filter(i=>i.cat===newCat&&i.subcat).map(i=>i.subcat))];
+    subcatSel.innerHTML = ['<option value="">— Aucune sous-catégorie —</option>',
+      ...catSubcats.map(s=>`<option value="${s}">${s}</option>`),
+      '<option value="__new__">+ Nouvelle sous-catégorie...</option>'
+    ].join('');
+  }
+  renderAdminItems(getFilteredAdminItems());
   renderMenu();
 }
 
@@ -1264,7 +1348,8 @@ function confirmNewSubcat(id){
   if(!it) return;
   it.subcat = val;
   document.getElementById('newsubcat_'+id).style.display = 'none';
-  renderAdminItems(items.filter(i=>!i.archived));
+  renderAdminItems(getFilteredAdminItems());
+  renderPlatsSubcatNav();
   renderMenu();
   showToast('✓ Sous-catégorie créée : ' + val);
 }
@@ -1290,27 +1375,25 @@ function filterAdminItems(q){
   renderAdminItems(getFilteredAdminItems());
 }
 
-function setAdminItemsFilter(catId, subcat){
-  adminItemsFilter = {cat: catId || null, subcat: subcat || null};
-  renderItemsFilterChips();
-  renderAdminItems(getFilteredAdminItems());
+function renderPlatsSubcatNav(){
+  const el = document.getElementById('platsSubcatNav');
+  if(!el) return;
+  const seen = new Map();
+  items.forEach(i=>{
+    if(i.subcat && !i.archived){
+      const key = i.cat+'|'+i.subcat;
+      if(!seen.has(key)) seen.set(key, {catId:i.cat, subcat:i.subcat});
+    }
+  });
+  el.innerHTML = [...seen.values()].map(e=>{
+    const active = currentAdminTab==='plats' && adminItemsFilter.cat===e.catId && adminItemsFilter.subcat===e.subcat;
+    return `<button class="admin-sidebar-btn sidebar-subcat ${active?'active':''}" onclick="selectPlatsSubcat('${e.catId}','${e.subcat}')">↳ ${e.subcat}</button>`;
+  }).join('');
 }
 
-function renderItemsFilterChips(){
-  const el = document.getElementById('adminItemsFilterChips');
-  if(!el) return;
-  const activeCats = cats.filter(c=>!c.archived);
-  let html = `<button class="filter-chip ${!adminItemsFilter.cat?'active':''}" onclick="setAdminItemsFilter(null,null)">Toutes</button>`;
-  activeCats.forEach(cat=>{
-    const subcats = [...new Set(items.filter(i=>i.cat===cat.id && i.subcat).map(i=>i.subcat))];
-    const isCatActive = adminItemsFilter.cat===cat.id && !adminItemsFilter.subcat;
-    html += `<button class="filter-chip ${isCatActive?'active':''}" onclick="setAdminItemsFilter('${cat.id}',null)">${cat.name.fr}</button>`;
-    subcats.forEach(sc=>{
-      const isScActive = adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
-      html += `<button class="filter-chip sub ${isScActive?'active':''}" onclick="setAdminItemsFilter('${cat.id}','${sc}')">↳ ${sc}</button>`;
-    });
-  });
-  el.innerHTML = html;
+function selectPlatsSubcat(catId, subcat){
+  adminItemsFilter = {cat:catId, subcat:subcat};
+  switchAdminTab('plats');
 }
 
 function updateQuickAddBtn(){
@@ -1321,20 +1404,33 @@ function updateQuickAddBtn(){
 
 function quickAddClick(){
   if (currentAdminTab === 'categories') {
-    const el = document.getElementById('newCatName');
-    if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+    document.getElementById('addCatModalOverlay').classList.add('open');
+    setTimeout(()=>document.getElementById('newCatName')?.focus(), 100);
   } else if (currentAdminTab === 'plats') {
     const sel = document.getElementById('newItemCat');
-    // La catégorie est pré-sélectionnée si un filtre précis (pas "Toutes") est actif
-    if (sel && adminItemsFilter.cat) sel.value = adminItemsFilter.cat;
-    const el = document.getElementById('newItemName');
-    if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+    if (sel) {
+      sel.innerHTML = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
+      // La catégorie est pré-sélectionnée si un filtre précis est actif
+      if (adminItemsFilter.cat) sel.value = adminItemsFilter.cat;
+    }
+    document.getElementById('addItemModalOverlay').classList.add('open');
+    setTimeout(()=>document.getElementById('newItemName')?.focus(), 100);
   }
+}
+function closeAddItemModal(){
+  document.getElementById('addItemModalOverlay').classList.remove('open');
+}
+function closeAddCatModal(){
+  document.getElementById('addCatModalOverlay').classList.remove('open');
 }
 
 function renderAdminCats(){
-  document.getElementById('adminCatList').innerHTML = cats.map((c,idx)=>`
+  const activeCats = cats.filter(c=>!c.archived);
+  document.getElementById('adminCatList').innerHTML = cats.map((c)=>{
+    const posInActive = activeCats.findIndex(ac=>ac.id===c.id);
+    return `
     <div class="cat-card ${c.archived?'archived':''}">
+      ${!c.archived ? `<button class="plat-pos" onclick="openPositionPicker('cat','${c.id}')">${posInActive+1}</button>` : ''}
       <div style="flex:1">
         <div style="font-size:0.68rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem">Nom de la catégorie</div>
         <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom FR" style="margin-bottom:0.3rem">
@@ -1346,11 +1442,10 @@ function renderAdminCats(){
         ${c.archived?'<span class="archived-badge">archivée</span>':''}
       </div>
       <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
-        <button class="aic-btn up" onclick="moveCat(${idx},-1)">↑</button>
-        <button class="aic-btn down" onclick="moveCat(${idx},1)">↓</button>
         <button class="aic-btn archive" onclick="toggleArchiveCat('${c.id}')">${c.archived?'↩':'🌙'}</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderAdminUpsell(){
@@ -1397,22 +1492,72 @@ function toggleArchiveItem(id){
   if(it){it.archived=!it.archived;renderAdminContent();}
 }
 function deleteItem(id){
-  if(confirm('Supprimer ce plat définitivement ?'))items=items.filter(i=>i.id!==id);
+  if(!confirm('Supprimer ce plat définitivement ?')) return false;
+  items=items.filter(i=>i.id!==id);
   renderAdminContent();
+  return true;
 }
-function moveItem(id,dir){
-  const idx=items.findIndex(i=>i.id===id);
-  const newIdx=idx+dir;
-  if(newIdx<0||newIdx>=items.length)return;
-  [items[idx],items[newIdx]]=[items[newIdx],items[idx]];
-  renderAdminContent();
+let _posPickerType = null;
+let _posPickerTargetId = null;
+
+function openPositionPicker(type, targetId){
+  _posPickerType = type;
+  _posPickerTargetId = targetId;
+  let list, idx;
+  if (type === 'item') {
+    list = getFilteredAdminItems();
+    idx = list.findIndex(i => i.id === targetId);
+    document.getElementById('posPickerTitle').textContent = 'Position du plat';
+  } else {
+    list = cats.filter(c => !c.archived);
+    idx = list.findIndex(c => c.id === targetId);
+    document.getElementById('posPickerTitle').textContent = 'Position de la catégorie';
+  }
+  const total = list.length;
+  const sel = document.getElementById('posPickerSelect');
+  sel.innerHTML = Array.from({length: total}, (_, i) => `<option value="${i+1}" ${i===idx?'selected':''}>${i+1} / ${total}</option>`).join('');
+  document.getElementById('posPickerModalOverlay').classList.add('open');
 }
-function moveCat(idx,dir){
-  const newIdx=idx+dir;
-  if(newIdx<0||newIdx>=cats.length)return;
-  [cats[idx],cats[newIdx]]=[cats[newIdx],cats[idx]];
-  renderAdminContent();
+
+function closePositionPicker(){
+  document.getElementById('posPickerModalOverlay').classList.remove('open');
+  _posPickerType = null;
+  _posPickerTargetId = null;
 }
+
+function confirmPositionPicker(){
+  const newPos = parseInt(document.getElementById('posPickerSelect').value, 10);
+  if (_posPickerType === 'item') moveItemToPosition(_posPickerTargetId, newPos);
+  else if (_posPickerType === 'cat') moveCatToPosition(_posPickerTargetId, newPos);
+  closePositionPicker();
+}
+
+function moveItemToPosition(itemId, newPos){
+  const visibleList = getFilteredAdminItems();
+  const fromIdx = visibleList.findIndex(i => i.id === itemId);
+  if (fromIdx === -1) return;
+  const [moved] = visibleList.splice(fromIdx, 1);
+  const clampedPos = Math.max(1, Math.min(newPos, visibleList.length + 1));
+  visibleList.splice(clampedPos - 1, 0, moved);
+  const visibleIds = new Set(visibleList.map(i => i.id));
+  let cursor = 0;
+  items = items.map(i => visibleIds.has(i.id) ? visibleList[cursor++] : i);
+  renderAdminItems(getFilteredAdminItems());
+}
+
+function moveCatToPosition(catId, newPos){
+  const visibleList = cats.filter(c => !c.archived);
+  const fromIdx = visibleList.findIndex(c => c.id === catId);
+  if (fromIdx === -1) return;
+  const [moved] = visibleList.splice(fromIdx, 1);
+  const clampedPos = Math.max(1, Math.min(newPos, visibleList.length + 1));
+  visibleList.splice(clampedPos - 1, 0, moved);
+  const visibleIds = new Set(visibleList.map(c => c.id));
+  let cursor = 0;
+  cats = cats.map(c => visibleIds.has(c.id) ? visibleList[cursor++] : c);
+  renderAdminCats();
+}
+
 function toggleArchiveCat(id){
   const c=cats.find(c=>c.id===id);
   if(c)c.archived=!c.archived;
@@ -1453,7 +1598,9 @@ function addNewItem(){
   document.getElementById('newItemName').value='';
   document.getElementById('newItemDesc').value='';
   document.getElementById('newItemPrice').value='';
+  closeAddItemModal();
   renderAdminContent();
+  showToast('✓ Plat ajouté');
 }
 
 function addNewCat(){
@@ -1463,7 +1610,9 @@ function addNewCat(){
   const empty={fr:name,en:name,it:name,de:name,zh:name,ru:name};
   cats.push({id,name:empty,archived:false});
   document.getElementById('newCatName').value='';
+  closeAddCatModal();
   renderAdminContent();
+  showToast('✓ Catégorie créée');
 }
 
 function addUpsell(){
@@ -1606,6 +1755,7 @@ async function handleFileUpload(e){
       const it = items.find(i=>i.id===id);
       if(it) {
         it.photo = url;
+        renderAdminItems(getFilteredAdminItems());
         // Save to GitHub immediately
         const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
         saveKeyToGithub(targetFile, {cats, items, upsells}).then((result)=>{
