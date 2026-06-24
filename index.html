@@ -126,7 +126,8 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .cat-select{width:100%;padding:0.5rem 0.7rem;border:1px solid #ddd;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:1rem;outline:none;margin-bottom:0.4rem;}
 
 /* Admin — catégories */
-.cat-card{border:1px solid #eee;border-radius:8px;padding:0.8rem 1rem;margin-bottom:0.6rem;display:flex;justify-content:space-between;align-items:center;background:#fff;}
+.cat-card{border:1px solid #eee;border-radius:8px;padding:0.8rem 1rem;margin-bottom:0.6rem;background:#fff;}
+.cat-card-row{display:flex;justify-content:space-between;align-items:center;}
 .cat-card.archived{background:#f9f9f9;opacity:0.7;}
 .cat-name{font-weight:600;font-size:0.82rem;color:var(--brun);}
 .cat-actions{display:flex;gap:0.4rem;}
@@ -157,6 +158,11 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .plat-photo-btn.has-photo{border-color:var(--vert);background:#f3f6f1;}
 .plat-photo-btn .upload-progress{position:absolute;inset:0;background:rgba(255,255,255,0.92);display:none;align-items:center;justify-content:center;font-size:0.7rem;border-radius:8px;}
 .plat-price-bubble{flex-shrink:0;width:62px;text-align:center;border:1.5px solid var(--vert);border-radius:20px;padding:0.3rem 0.2rem;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;background:#fff;}
+.subcat-manager{margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid #f0ede8;}
+.subcat-chip-list{display:flex;flex-wrap:wrap;gap:0.35rem;}
+.subcat-chip{display:inline-flex;align-items:center;gap:0.3rem;background:#faf8f5;border:1px solid #e5e0d8;border-radius:16px;padding:0.2rem 0.5rem 0.2rem 0.2rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;color:#555;}
+.subcat-chip-pos{width:18px;height:18px;border-radius:50%;background:var(--vert);color:#fff;border:none;font-size:0.58rem;font-weight:700;cursor:pointer;flex-shrink:0;}
+.subcat-chip-del{background:none;border:none;color:#c0392b;font-size:0.75rem;cursor:pointer;padding:0 0.1rem;flex-shrink:0;}
 
 .toast{display:none;position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:var(--brun);color:#fff;padding:0.7rem 1.5rem;border-radius:20px;font-size:0.82rem;font-family:'Montserrat',sans-serif;z-index:400;white-space:nowrap;}
 
@@ -1264,7 +1270,8 @@ function openItemEditModal(itemId){
   const it = items.find(i=>i.id===itemId);
   if(!it) return;
   const catOpts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}" ${c.id===it.cat?'selected':''}>${c.name.fr}</option>`).join('');
-  const catSubcats = [...new Set(items.filter(i=>i.cat===it.cat&&i.subcat).map(i=>i.subcat))];
+  const itCat = cats.find(c=>c.id===it.cat);
+  const catSubcats = itCat ? ensureCatSubcats(itCat) : [];
   const subcatOpts = ['<option value="">— Aucune sous-catégorie —</option>',
     ...catSubcats.map(s=>`<option value="${s}" ${it.subcat===s?'selected':''}>${s}</option>`),
     '<option value="__new__">+ Nouvelle sous-catégorie...</option>'
@@ -1320,7 +1327,8 @@ function changeItemCat(id, newCat){
   it.subcat = '';
   const subcatSel = document.getElementById('subcat_'+id);
   if (subcatSel) {
-    const catSubcats = [...new Set(items.filter(i=>i.cat===newCat&&i.subcat).map(i=>i.subcat))];
+    const newCatObj = cats.find(c=>c.id===newCat);
+    const catSubcats = newCatObj ? ensureCatSubcats(newCatObj) : [];
     subcatSel.innerHTML = ['<option value="">— Aucune sous-catégorie —</option>',
       ...catSubcats.map(s=>`<option value="${s}">${s}</option>`),
       '<option value="__new__">+ Nouvelle sous-catégorie...</option>'
@@ -1347,6 +1355,11 @@ function confirmNewSubcat(id){
   const it = items.find(i=>i.id===id);
   if(!it) return;
   it.subcat = val;
+  const cat = cats.find(c=>c.id===it.cat);
+  if(cat){
+    ensureCatSubcats(cat);
+    if(!cat.subcats.includes(val)) cat.subcats.push(val);
+  }
   document.getElementById('newsubcat_'+id).style.display = 'none';
   renderAdminItems(getFilteredAdminItems());
   renderPlatsSubcatNav();
@@ -1378,17 +1391,16 @@ function filterAdminItems(q){
 function renderPlatsSubcatNav(){
   const el = document.getElementById('platsSubcatNav');
   if(!el) return;
-  const seen = new Map();
-  items.forEach(i=>{
-    if(i.subcat && !i.archived){
-      const key = i.cat+'|'+i.subcat;
-      if(!seen.has(key)) seen.set(key, {catId:i.cat, subcat:i.subcat});
-    }
+  const activeCats = cats.filter(c=>!c.archived);
+  let html = '';
+  activeCats.forEach(cat=>{
+    const subcats = ensureCatSubcats(cat);
+    subcats.forEach(sc=>{
+      const active = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
+      html += `<button class="admin-sidebar-btn sidebar-subcat ${active?'active':''}" onclick="selectPlatsSubcat('${cat.id}','${sc}')">↳ ${sc}</button>`;
+    });
   });
-  el.innerHTML = [...seen.values()].map(e=>{
-    const active = currentAdminTab==='plats' && adminItemsFilter.cat===e.catId && adminItemsFilter.subcat===e.subcat;
-    return `<button class="admin-sidebar-btn sidebar-subcat ${active?'active':''}" onclick="selectPlatsSubcat('${e.catId}','${e.subcat}')">↳ ${e.subcat}</button>`;
-  }).join('');
+  el.innerHTML = html;
 }
 
 function selectPlatsSubcat(catId, subcat){
@@ -1424,26 +1436,96 @@ function closeAddCatModal(){
   document.getElementById('addCatModalOverlay').classList.remove('open');
 }
 
+function ensureCatSubcats(cat){
+  if(!cat.subcats){
+    cat.subcats = [...new Set(items.filter(i=>i.cat===cat.id && i.subcat).map(i=>i.subcat))];
+  }
+  return cat.subcats;
+}
+
+function addSubcatToCategory(catId){
+  const input = document.getElementById('newsubcat_for_'+catId);
+  if(!input) return;
+  const val = input.value.trim();
+  if(!val) return;
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat) return;
+  ensureCatSubcats(cat);
+  if(cat.subcats.includes(val)){ showToast('❌ Cette sous-catégorie existe déjà'); return; }
+  cat.subcats.push(val);
+  input.value='';
+  renderAdminCats();
+  renderPlatsSubcatNav();
+  showToast('✓ Sous-catégorie ajoutée');
+}
+
+function deleteSubcat(catId, subcatName){
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat || !cat.subcats) return;
+  const affected = items.filter(i=>i.cat===catId && i.subcat===subcatName).length;
+  const msg = affected>0
+    ? `Supprimer "${subcatName}" ? ${affected} plat(s) deviendront "sans sous-catégorie".`
+    : `Supprimer la sous-catégorie "${subcatName}" ?`;
+  if(!confirm(msg)) return;
+  cat.subcats = cat.subcats.filter(s=>s!==subcatName);
+  items.forEach(i=>{ if(i.cat===catId && i.subcat===subcatName) i.subcat=''; });
+  renderAdminCats();
+  renderPlatsSubcatNav();
+  renderAdminItems(getFilteredAdminItems());
+  showToast('✓ Sous-catégorie supprimée');
+}
+
+function moveSubcatToPosition(catId, subcatName, newPos){
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat || !cat.subcats) return;
+  const fromIdx = cat.subcats.indexOf(subcatName);
+  if(fromIdx===-1) return;
+  cat.subcats.splice(fromIdx,1);
+  const clamped = Math.max(1, Math.min(newPos, cat.subcats.length+1));
+  cat.subcats.splice(clamped-1,0,subcatName);
+  renderAdminCats();
+  renderPlatsSubcatNav();
+}
+
 function renderAdminCats(){
   const activeCats = cats.filter(c=>!c.archived);
   document.getElementById('adminCatList').innerHTML = cats.map((c)=>{
     const posInActive = activeCats.findIndex(ac=>ac.id===c.id);
+    const subcats = ensureCatSubcats(c);
     return `
     <div class="cat-card ${c.archived?'archived':''}">
-      ${!c.archived ? `<button class="plat-pos" onclick="openPositionPicker('cat','${c.id}')">${posInActive+1}</button>` : ''}
-      <div style="flex:1">
-        <div style="font-size:0.68rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem">Nom de la catégorie</div>
-        <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom FR" style="margin-bottom:0.3rem">
-        <div class="toggle-row" style="margin-top:0.4rem">
-          <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Sous-catégories déroulantes</span>
-          <label class="toggle"><input type="checkbox" id="catcoll_${c.id}" ${c.collapsible?'checked':''} onchange="toggleCatCollapsible('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
-        </div>
+      <div class="cat-card-row">
+        ${!c.archived ? `<button class="plat-pos" onclick="openPositionPicker('cat','${c.id}')">${posInActive+1}</button>` : ''}
+        <div style="flex:1">
+          <div style="font-size:0.68rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem">Nom de la catégorie</div>
+          <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom FR" style="margin-bottom:0.3rem">
+          <div class="toggle-row" style="margin-top:0.4rem">
+            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Sous-catégories déroulantes</span>
+            <label class="toggle"><input type="checkbox" id="catcoll_${c.id}" ${c.collapsible?'checked':''} onchange="toggleCatCollapsible('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
 
-        ${c.archived?'<span class="archived-badge">archivée</span>':''}
+          ${c.archived?'<span class="archived-badge">archivée</span>':''}
+        </div>
+        <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
+          <button class="aic-btn archive" onclick="toggleArchiveCat('${c.id}')">${c.archived?'↩':'🌙'}</button>
+        </div>
       </div>
-      <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
-        <button class="aic-btn archive" onclick="toggleArchiveCat('${c.id}')">${c.archived?'↩':'🌙'}</button>
-      </div>
+      ${!c.archived ? `
+      <div class="subcat-manager">
+        <div style="font-size:0.62rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;">Sous-catégories</div>
+        <div class="subcat-chip-list">
+          ${subcats.length ? subcats.map((sc,i)=>`
+            <span class="subcat-chip">
+              <button class="subcat-chip-pos" onclick="openPositionPicker('subcat','${c.id}::${sc}')">${i+1}</button>
+              ${sc}
+              <button class="subcat-chip-del" onclick="deleteSubcat('${c.id}','${sc}')">✕</button>
+            </span>`).join('') : '<span style="font-size:0.68rem;color:#aaa;">Aucune pour le moment</span>'}
+        </div>
+        <div style="display:flex;gap:0.3rem;margin-top:0.4rem;">
+          <input class="admin-input" id="newsubcat_for_${c.id}" placeholder="Nouvelle sous-catégorie" style="flex:1;margin-bottom:0;">
+          <button class="aic-btn" style="background:var(--vert);color:#fff;flex-shrink:0;" onclick="addSubcatToCategory('${c.id}')">+ Ajouter</button>
+        </div>
+      </div>` : ''}
     </div>`;
   }).join('');
 }
@@ -1508,6 +1590,12 @@ function openPositionPicker(type, targetId){
     list = getFilteredAdminItems();
     idx = list.findIndex(i => i.id === targetId);
     document.getElementById('posPickerTitle').textContent = 'Position du plat';
+  } else if (type === 'subcat') {
+    const [catId, subcatName] = targetId.split('::');
+    const cat = cats.find(c => c.id === catId);
+    list = (cat && cat.subcats) || [];
+    idx = list.indexOf(subcatName);
+    document.getElementById('posPickerTitle').textContent = 'Position de la sous-catégorie';
   } else {
     list = cats.filter(c => !c.archived);
     idx = list.findIndex(c => c.id === targetId);
@@ -1529,6 +1617,10 @@ function confirmPositionPicker(){
   const newPos = parseInt(document.getElementById('posPickerSelect').value, 10);
   if (_posPickerType === 'item') moveItemToPosition(_posPickerTargetId, newPos);
   else if (_posPickerType === 'cat') moveCatToPosition(_posPickerTargetId, newPos);
+  else if (_posPickerType === 'subcat') {
+    const [catId, subcatName] = _posPickerTargetId.split('::');
+    moveSubcatToPosition(catId, subcatName, newPos);
+  }
   closePositionPicker();
 }
 
