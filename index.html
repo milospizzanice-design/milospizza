@@ -328,7 +328,6 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
   <span>✏️ Brouillon — non publié</span>
   <div style="display:flex;gap:0.3rem">
     <button onclick="openAdmin()" title="Retour à l'admin">✏️ Admin</button>
-    <button onclick="exitDraftMode()" title="Quitter le brouillon">✕</button>
     <button class="publish-btn" onclick="publishDraft()" title="Publier">✅ Publier</button>
   </div>
 </div>
@@ -2213,8 +2212,10 @@ async function publishDraft() {
     setTimeout(() => {
       if (barBtn) barBtn.textContent = '✅ Publier';
       btns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
-      // Auto-exit draft mode after publish
-      exitDraftMode();
+      // On reste en mode brouillon pour pouvoir continuer à éditer/publier dans la même session
+      if (!window.cameFromDirectLogin) {
+        exitDraftMode();
+      }
     }, 2000);
   } catch(e) {
     showToast('❌ Erreur lors de la publication - réessayez');
