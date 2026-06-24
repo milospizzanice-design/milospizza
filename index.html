@@ -794,7 +794,9 @@ async function saveToGithub() {
   if (res.ok) {
     const d = await res.json();
     githubSha = d.content.sha;
+    return true;
   }
+  return false;
 }
 
 // Generic save any config file to GitHub
@@ -1429,14 +1431,16 @@ async function saveAll(){
   collectUpsellEdits();
   const btn=document.querySelector('.admin-save-btn');
   if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
+  let saveSuccess;
   if (isDraftMode) {
-    await saveKeyToGithub(DRAFT_FILE, {cats, items, upsells});
+    const result = await saveKeyToGithub(DRAFT_FILE, {cats, items, upsells});
+    saveSuccess = !!(result && result.content && result.content.sha);
   } else {
-    await saveToGithub();
+    saveSuccess = await saveToGithub();
   }
   renderMenu();
   if(btn){btn.textContent='✓ Enregistrer tout';btn.disabled=false;}
-  showToast('✓ Tout est sauvegardé !');
+  showToast(saveSuccess ? '✓ Tout est sauvegardé !' : '❌ Échec de la sauvegarde - réessayez');
 }
 
 // Aperçu : ferme temporairement l'admin pour voir le rendu réel (avec bandeau "Mode brouillon")
