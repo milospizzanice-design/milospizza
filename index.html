@@ -325,6 +325,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 <div class="draft-bar" id="draftBar">
   <span>✏️ MODE BROUILLON — Non visible par les clients</span>
   <div style="display:flex;gap:0.4rem">
+    <button onclick="openAdmin()">✏️ Retour à l'admin</button>
     <button onclick="exitDraftMode()">Quitter</button>
     <button class="publish-btn" onclick="publishDraft()">🚀 Publier</button>
   </div>
@@ -377,6 +378,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <h2>⚙️ Administration</h2>
       <div style="display:flex;gap:0.5rem;align-items:center;">
         <button onclick="saveAllAndClose()" style="background:#7D9B76;color:#fff;border:none;border-radius:8px;padding:0.4rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;cursor:pointer;">✓ Enregistrer</button>
+        <button onclick="previewSite()" style="background:#5A7D9B;color:#fff;border:none;border-radius:8px;padding:0.4rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;cursor:pointer;">👁 Aperçu</button>
         <button onclick="publishDraft()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:0.4rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;cursor:pointer;">🚀 Publier</button>
         <button class="admin-close" onclick="closeAdmin()">×</button>
       </div>
@@ -1433,9 +1435,13 @@ async function saveAll(){
     await saveToGithub();
   }
   renderMenu();
-  closeAdmin();
   if(btn){btn.textContent='✓ Enregistrer tout';btn.disabled=false;}
   showToast('✓ Tout est sauvegardé !');
+}
+
+// Aperçu : ferme temporairement l'admin pour voir le rendu réel (avec bandeau "Mode brouillon")
+function previewSite(){
+  closeAdmin();
 }
 
 function showToast(msg){
@@ -2635,7 +2641,7 @@ async function init(){
       const token = localStorage.getItem('milos_token');
       if (token) {
         window.cameFromDirectLogin = true;
-        isDraftMode = true; // needed so save buttons / data flow behave correctly
+        enterDraftMode(); // active isDraftMode + affiche le bandeau "Mode brouillon" (Aperçu/Retour/Publier)
         // Hide the entire public site, go straight to the admin panel
         const homePage = document.getElementById('homePage');
         if (homePage) homePage.style.display = 'none';
