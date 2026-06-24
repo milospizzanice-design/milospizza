@@ -91,7 +91,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .admin-sidebar-btn:hover{background:#f0ede8;color:#5A4535;}
 .admin-sidebar-btn.active{background:#fff3f3;border-left-color:#9B1C1C;color:#9B1C1C;}
 .admin-sidebar-section{padding:0.4rem 0.9rem 0.2rem;font-family:'Montserrat',sans-serif;font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#bbb;}
-.admin-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:1rem;scrollbar-gutter:stable;}
+.admin-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:1rem;scrollbar-gutter:stable;}
 .admin-section{display:none;}
 .admin-section.active{display:block;min-height:100%;}
 
@@ -101,9 +101,9 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .admin-item-card{border:1px solid #eee;border-radius:8px;padding:0.9rem;margin-bottom:0.6rem;background:#fff;}
 .admin-item-card.archived{background:#f9f9f9;opacity:0.7;}
 .admin-item-card.archived .aic-name{text-decoration:line-through;color:#aaa;}
-.aic-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;}
-.aic-name{font-weight:600;font-size:0.8rem;color:var(--rouge);text-transform:uppercase;letter-spacing:0.05em;}
-.aic-actions{display:flex;gap:0.4rem;}
+.aic-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.3rem;}
+.aic-name{font-weight:600;font-size:0.8rem;color:var(--rouge);text-transform:uppercase;letter-spacing:0.05em;flex:1 1 100%;min-width:0;overflow-wrap:break-word;}
+.aic-actions{display:flex;gap:0.4rem;flex-wrap:wrap;}
 .aic-btn{background:none;border:1px solid #ddd;border-radius:6px;padding:0.3rem 0.6rem;font-size:0.7rem;cursor:pointer;font-family:'Montserrat',sans-serif;}
 .aic-btn.archive{color:#888;}
 .aic-btn.archive.active{background:#f0f0f0;color:#333;}
@@ -2176,17 +2176,21 @@ function exitDraftMode() {
   init();
 }
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Délai dépassé')), ms))
+  ]);
+}
+
 async function publishDraft() {
   const btns = document.querySelectorAll('.publish-btn');
   btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
   const barBtn = document.querySelector('.draft-bar .publish-btn');
-  if (barBtn) barBtn.textContent = 'Publication...';
+  if (barBtn) barBtn.textContent = '⏳ Publication...';
+  showToast('⏳ Publication en cours...');
 
   try {
-    // Save current published version to history BEFORE overwriting
-    await saveVersionToHistory();
-    
-    // Copy all draft files to production
     const files = [
       [DRAFT_FILE, DATA_FILE],
       [DRAFT_HOME, 'home.json'],
@@ -2194,11 +2198,15 @@ async function publishDraft() {
       [DRAFT_POPUP, 'popup.json'],
       [DRAFT_SOCIAL, 'social.json'],
     ];
-    
-    for (const [src, dest] of files) {
-      const data = await loadKeyFromGithub(src);
-      if (data) await saveKeyToGithub(dest, data);
-    }
+
+    // Tout en parallèle (au lieu d'un par un) + sécurité 20s anti-blocage
+    await withTimeout(Promise.all([
+      saveVersionToHistory(),
+      ...files.map(async ([src, dest]) => {
+        const data = await loadKeyFromGithub(src);
+        if (data) await saveKeyToGithub(dest, data);
+      })
+    ]), 20000);
     
     showToast('✅ Publié ! Les clients voient la nouvelle version.');
     if (barBtn) barBtn.textContent = '✅ Publié !';
@@ -2209,7 +2217,7 @@ async function publishDraft() {
       exitDraftMode();
     }, 2000);
   } catch(e) {
-    showToast('❌ Erreur lors de la publication');
+    showToast('❌ Erreur lors de la publication - réessayez');
     if (barBtn) barBtn.textContent = '✅ Publier';
     btns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
   }
