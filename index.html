@@ -233,6 +233,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .allergen-table td{padding:0.45rem 0.4rem;text-align:center;border-bottom:1px solid rgba(61,43,31,0.08);}
 .allergen-table td:first-child{text-align:left;padding-left:0.7rem;font-weight:600;color:var(--brun);}
 .allergen-table tr:nth-child(even){background:var(--creme-fonce);}
+.allergen-cat-row td{background:var(--vert) !important;color:#fff;font-weight:700;font-size:0.66rem;letter-spacing:0.06em;padding:0.4rem 0.7rem;text-align:left;}
 .allergen-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--rouge);}
 .allergen-tags{display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.25rem;}
 .allergen-tag{background:rgba(155,28,28,0.1);color:var(--rouge);font-size:0.6rem;font-weight:600;padding:0.15rem 0.4rem;border-radius:10px;font-family:'Montserrat',sans-serif;}
@@ -588,6 +589,9 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
           <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;font-family:'Montserrat',sans-serif;"><input type="radio" name="pdfFormat" value="a5"> A5</label>
         </div>
         <button class="admin-save-btn" onclick="generateMenuPDF()">🖨️ Générer le PDF</button>
+
+        <p style="font-size:0.75rem;color:#888;margin:1.2rem 0 0.6rem;border-top:1px solid #eee;padding-top:1rem;">Générez le PDF du tableau des allergènes (par catégorie), à imprimer et laisser à disposition en restaurant.</p>
+        <button class="admin-save-btn" style="background:var(--vert);" onclick="generateAllergenPDF()">⚠️ Générer le PDF des allergènes</button>
       </div>
 
       <!-- IMPORT MENU -->
@@ -1943,12 +1947,17 @@ function renderAllergenPage(l) {
         ${ALLERGEN_LIST.map(a=>`<th title="${a.name}">${a.icon}</th>`).join('')}
       </tr></thead>
       <tbody>
-        ${allItems.map(it=>{
-          const als = getItemAllergens(it);
-          return `<tr>
-            <td>${it.name[l]||it.name.fr}</td>
-            ${ALLERGEN_LIST.map(a=>`<td>${als.includes(a.id)?'<span class="allergen-dot"></span>':''}</td>`).join('')}
-          </tr>`;
+        ${cats.filter(c=>!c.archived).map(cat=>{
+          const catItems = allItems.filter(it=>it.cat===cat.id);
+          if(catItems.length===0) return '';
+          return `<tr class="allergen-cat-row"><td colspan="${ALLERGEN_LIST.length+1}">${(cat.name[l]||cat.name.fr).toUpperCase()}</td></tr>`
+            + catItems.map(it=>{
+              const als = getItemAllergens(it);
+              return `<tr>
+                <td>${it.name[l]||it.name.fr}</td>
+                ${ALLERGEN_LIST.map(a=>`<td>${als.includes(a.id)?'<span class="allergen-dot"></span>':''}</td>`).join('')}
+              </tr>`;
+            }).join('');
         }).join('')}
       </tbody>
     </table>
@@ -2495,6 +2504,95 @@ function generateMenuPDF(){
   if (!anyItems) { showToast('❌ Aucun plat à imprimer'); return; }
   doc.save('carte-' + format + '.pdf');
   showToast('✓ PDF généré !');
+}
+
+function generateAllergenPDF(){
+  if (typeof jspdf === 'undefined') { showToast('❌ Librairie PDF non chargée'); return; }
+  const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const usableW = pageW - margin * 2;
+  let y = margin;
+
+  doc.setFont('times', 'normal');
+  doc.setTextColor(155, 28, 28);
+  doc.setFontSize(18);
+  doc.text('TABLEAU DES ALLERGÈNES', pageW / 2, y, { align: 'center' });
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(120, 120, 120);
+  const warn = doc.splitTextToSize("Nos plats sont préparés dans une cuisine où tous les allergènes sont présents. Une contamination croisée ne peut être totalement exclue. En cas d'allergie sévère, informez notre équipe.", usableW);
+  doc.text(warn, pageW / 2, y, { align: 'center' });
+  y += warn.length * 3.6 + 6;
+
+  // Légende des allergènes
+  doc.setFontSize(7);
+  doc.setTextColor(61, 43, 31);
+  const legend = ALLERGEN_LIST.map((a, i) => `${i + 1}.${a.icon}${a.name}`).join('   ');
+  const legendLines = doc.splitTextToSize(legend, usableW);
+  doc.text(legendLines, margin, y);
+  y += legendLines.length * 3.6 + 6;
+
+  const colW = (usableW - 55) / ALLERGEN_LIST.length;
+  const rowH = 6;
+
+  function drawTableHeader(){
+    doc.setFillColor(155, 28, 28);
+    doc.rect(margin, y, usableW, rowH, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.text('Plat', margin + 2, y + rowH - 2);
+    ALLERGEN_LIST.forEach((a, i) => {
+      doc.text(String(i + 1), margin + 55 + colW * i + colW / 2, y + rowH - 2, { align: 'center' });
+    });
+    y += rowH;
+  }
+
+  drawTableHeader();
+  let rowIdx = 0;
+
+  const activeCats = cats.filter(c => !c.archived);
+  activeCats.forEach(cat => {
+    const catItems = items.filter(it => !it.archived && it.cat === cat.id);
+    if (catItems.length === 0) return;
+
+    if (y + rowH > pageH - margin) { doc.addPage(); y = margin; drawTableHeader(); }
+    doc.setFillColor(107, 126, 90);
+    doc.rect(margin, y, usableW, rowH, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text((cat.name.fr || '').toUpperCase(), margin + 2, y + rowH - 2);
+    y += rowH;
+
+    catItems.forEach(it => {
+      if (y + rowH > pageH - margin) { doc.addPage(); y = margin; drawTableHeader(); }
+      if (rowIdx % 2 === 0) {
+        doc.setFillColor(245, 240, 232);
+        doc.rect(margin, y, usableW, rowH, 'F');
+      }
+      rowIdx++;
+      doc.setTextColor(61, 43, 31);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      const nameLine = doc.splitTextToSize(it.name.fr || '', 52)[0] || '';
+      doc.text(nameLine, margin + 2, y + rowH - 2);
+      const als = getItemAllergens(it);
+      doc.setFillColor(155, 28, 28);
+      ALLERGEN_LIST.forEach((a, i) => {
+        if (als.includes(a.id)) {
+          doc.circle(margin + 55 + colW * i + colW / 2, y + rowH / 2 - 0.5, 1.1, 'F');
+        }
+      });
+      y += rowH;
+    });
+  });
+
+  doc.save('allergenes.pdf');
+  showToast('✓ PDF des allergènes généré !');
 }
 
 // ═══════════════════════════════════════
