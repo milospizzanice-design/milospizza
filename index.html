@@ -460,8 +460,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <div class="admin-sidebar-section">Site</div>
         <button class="admin-sidebar-btn active" id="stab_sections" onclick="switchAdminTab('sections')">📄 Sections du site</button>
         <div class="admin-sidebar-section">Contenu</div>
-        <button class="admin-sidebar-btn" id="stab_plats" onclick="adminItemsFilter={cat:null,subcat:null};switchAdminTab('plats')">🍕 Plats</button>
-        <div id="platsSubcatNav"></div>
+        <div id="platsCategoryNav"></div>
         <button class="admin-sidebar-btn" id="stab_categories" onclick="switchAdminTab('categories')">📂 Catégories</button>
         <button class="admin-sidebar-btn" id="stab_upsell" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
         <button class="admin-sidebar-btn" id="stab_archives" onclick="switchAdminTab('archives')">🌙 Archives</button>
@@ -1125,7 +1124,7 @@ function openAdmin(){
   const db = document.getElementById('draftBar');
   if(db) db.classList.remove('visible');
   updateQuickAddBtn();
-  renderPlatsSubcatNav();
+  renderPlatsCategoryNav();
 }
 function closeAdmin(){
   document.getElementById('adminOverlay').classList.remove('open');
@@ -1173,7 +1172,7 @@ function switchAdminTab(tab){
   renderAdminContent();
   updateFloatingSaveBtn();
   updateQuickAddBtn();
-  renderPlatsSubcatNav();
+  renderPlatsCategoryNav();
   // Scroll content to top
   const ac = document.getElementById('adminContent');
   if(ac) ac.scrollTop = 0;
@@ -1212,7 +1211,7 @@ function updateFloatingSaveBtn(){
 }
 
 function renderAdminContent(){
-  if(currentAdminTab==='plats') { renderPlatsSubcatNav(); renderAdminItems(getFilteredAdminItems()); }
+  if(currentAdminTab==='plats') { renderPlatsCategoryNav(); renderAdminItems(getFilteredAdminItems()); }
   if(currentAdminTab==='categories') renderAdminCats();
   if(currentAdminTab==='upsell') renderAdminUpsell();
   if(currentAdminTab==='archives') renderAdminArchives();
@@ -1341,7 +1340,7 @@ function changeItemSubcatText(id, val){
       ensureCatSubcats(cat);
       if(!cat.subcats.includes(valTrim)){
         cat.subcats.push(valTrim);
-        renderPlatsSubcatNav();
+        renderPlatsCategoryNav();
         showToast('✓ Sous-catégorie créée : ' + valTrim);
       }
     }
@@ -1370,19 +1369,27 @@ function filterAdminItems(q){
   renderAdminItems(getFilteredAdminItems());
 }
 
-function renderPlatsSubcatNav(){
-  const el = document.getElementById('platsSubcatNav');
+function renderPlatsCategoryNav(){
+  const el = document.getElementById('platsCategoryNav');
   if(!el) return;
   const activeCats = cats.filter(c=>!c.archived);
-  let html = '';
+  const allActive = currentAdminTab==='plats' && !adminItemsFilter.cat;
+  let html = `<button class="admin-sidebar-btn ${allActive?'active':''}" onclick="selectPlatsCategory(null)">🍕 Tous les plats</button>`;
   activeCats.forEach(cat=>{
+    const isCatActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && !adminItemsFilter.subcat;
+    html += `<button class="admin-sidebar-btn ${isCatActive?'active':''}" onclick="selectPlatsCategory('${cat.id}')">${cat.name.fr}</button>`;
     const subcats = ensureCatSubcats(cat);
     subcats.forEach(sc=>{
-      const active = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
-      html += `<button class="admin-sidebar-btn sidebar-subcat ${active?'active':''}" onclick="selectPlatsSubcat('${cat.id}','${sc}')">↳ ${sc}</button>`;
+      const isScActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
+      html += `<button class="admin-sidebar-btn sidebar-subcat ${isScActive?'active':''}" onclick="selectPlatsSubcat('${cat.id}','${sc}')">↳ ${sc}</button>`;
     });
   });
   el.innerHTML = html;
+}
+
+function selectPlatsCategory(catId){
+  adminItemsFilter = {cat: catId || null, subcat: null};
+  switchAdminTab('plats');
 }
 
 function selectPlatsSubcat(catId, subcat){
@@ -1437,7 +1444,7 @@ function addSubcatToCategory(catId){
   cat.subcats.push(val);
   input.value='';
   renderAdminCats();
-  renderPlatsSubcatNav();
+  renderPlatsCategoryNav();
   showToast('✓ Sous-catégorie ajoutée');
 }
 
@@ -1452,7 +1459,7 @@ function deleteSubcat(catId, subcatName){
   cat.subcats = cat.subcats.filter(s=>s!==subcatName);
   items.forEach(i=>{ if(i.cat===catId && i.subcat===subcatName) i.subcat=''; });
   renderAdminCats();
-  renderPlatsSubcatNav();
+  renderPlatsCategoryNav();
   renderAdminItems(getFilteredAdminItems());
   showToast('✓ Sous-catégorie supprimée');
 }
@@ -1466,7 +1473,7 @@ function moveSubcatToPosition(catId, subcatName, newPos){
   const clamped = Math.max(1, Math.min(newPos, cat.subcats.length+1));
   cat.subcats.splice(clamped-1,0,subcatName);
   renderAdminCats();
-  renderPlatsSubcatNav();
+  renderPlatsCategoryNav();
 }
 
 function renderAdminCats(){
