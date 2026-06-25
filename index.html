@@ -1000,7 +1000,7 @@ function selectLang(l){
   if(sp && sp.style.display === 'flex' && currentGroup) {
     const group = HOME_GROUPS[currentGroup];
     if(group) {
-      const groupCats = cats.filter(c => !c.archived && group.catIds.includes(c.id));
+      const groupCats = cats.filter(c => !c.archived && (c.homeGroup || 'food') === currentGroup);
       document.getElementById('sectionTabs').innerHTML = groupCats.map((c, i) =>
         '<button id="stab_'+c.id+'" onclick="showSectionCat(\'' + c.id + '\')" style="flex-shrink:0;border:'+(i===0?'none':'2px solid rgba(155,28,28,0.15)')+';border-radius:50px;padding:0.55rem 1.3rem;font-family:\'Montserrat\',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;background:'+(i===0?'#9B1C1C':'rgba(245,240,232,0.95)')+';color:'+(i===0?'#fff':'#5A4535')+';box-shadow:'+(i===0?'0 3px 10px rgba(155,28,28,0.3)':'0 1px 3px rgba(0,0,0,0.08)')+';transition:all 0.2s;letter-spacing:0.03em;">'+(c.name[l]||c.name.fr)+'</button>'
       ).join('');
@@ -1437,7 +1437,7 @@ function openItemEditModal(itemId){
     <div class="photo-upload-row">
       <button class="photo-upload-btn" onclick="triggerUpload('${it.id}')">📷</button>
       <input class="admin-input" id="ph_${it.id}" value="${it.photo||''}" placeholder="URL photo" style="flex:1">
-      <img id="prev_${it.id}" src="${it.photo||''}" class="photo-preview ${it.photo?'visible':''}" onerror="this.className='photo-preview'">
+      <img id="prev_${it.id}" src="${it.photo?cld(it.photo,150):''}" class="photo-preview ${it.photo?'visible':''}" onerror="this.className='photo-preview'">
     </div>
     <label class="admin-label">Allergènes <button type="button" onclick="suggestItemAllergens('${it.id}')" style="background:var(--vert);color:#fff;border:none;border-radius:10px;padding:0.15rem 0.5rem;font-size:0.6rem;margin-left:0.4rem;cursor:pointer;">🔍 Suggérer depuis le texte</button></label>
     <div class="allergen-checks">
@@ -1663,6 +1663,13 @@ function renderAdminCats(){
             <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Inclure dans la liste des allergènes</span>
             <label class="toggle"><input type="checkbox" id="catallerg_${c.id}" ${c.inAllergenList!==false?'checked':''} onchange="toggleCatAllergenList('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
           </div>
+          <div style="margin-top:0.5rem">
+            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;display:block;margin-bottom:0.25rem;">Section sur l'accueil</span>
+            <select class="cat-select" style="margin-bottom:0;" onchange="setCatHomeGroup('${c.id}',this.value)">
+              <option value="food" ${(!c.homeGroup||c.homeGroup==='food')?'selected':''}>🍕 Food</option>
+              <option value="drinks" ${c.homeGroup==='drinks'?'selected':''}>🍹 Drinks</option>
+            </select>
+          </div>
 
           ${c.archived?'<span class="archived-badge">archivée</span>':''}
         </div>
@@ -1826,6 +1833,13 @@ function toggleCatAllergenList(id, val){
   if(!c) return;
   c.inAllergenList = val;
   autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
+}
+
+function setCatHomeGroup(id, val){
+  const c=cats.find(c=>c.id===id);
+  if(!c) return;
+  c.homeGroup = val;
+  autoSaveItems().then(ok=>showToast(ok?'✓ Section enregistrée':'❌ Échec de l\'enregistrement'));
 }
 
 function toggleCatExtras(id, extra, val){
@@ -2004,12 +2018,12 @@ async function handleFileUpload(e){
       const inp=document.getElementById('popup_photo');
       const prv=document.getElementById('popup_prev');
       if(inp){inp.value=url;previewPopup();}
-      if(prv){prv.src=url;prv.className='photo-preview visible';}
+      if(prv){prv.src=cld(url,150);prv.className='photo-preview visible';}
     } else {
       const input=document.getElementById('ph_'+id);
       const prev=document.getElementById('prev_'+id);
       if(input) input.value=url;
-      if(prev){prev.src=url;prev.className='photo-preview visible';}
+      if(prev){prev.src=cld(url,150);prev.className='photo-preview visible';}
       // Auto-save photo immediately to the item
       const it = items.find(i=>i.id===id);
       if(it) {
@@ -2365,7 +2379,47 @@ function renderSocialSection(l) {
 // POPUP DU MOMENT
 // ═══════════════════════════════════════
 let popups = []; // Array of popup objects
-let supplements = []; // Array of {id, category, name, price}
+let supplements = [
+  // LÉGUMES — 1,5€
+  {id:'sup1', category:'Légumes', name:'Tomates cerises', price:'1,5€'},
+  {id:'sup2', category:'Légumes', name:'Roquette', price:'1,5€'},
+  {id:'sup3', category:'Légumes', name:'Aubergines', price:'1,5€'},
+  {id:'sup4', category:'Légumes', name:'Artichauts', price:'1,5€'},
+  {id:'sup5', category:'Légumes', name:'Champignons de Paris', price:'1,5€'},
+  {id:'sup6', category:'Légumes', name:'Poivrons', price:'1,5€'},
+  {id:'sup7', category:'Légumes', name:'Olives noires', price:'1,5€'},
+  {id:'sup8', category:'Légumes', name:'Oignons cuisinés', price:'1,5€'},
+  {id:'sup9', category:'Légumes', name:'Tomates séchées', price:'1,5€'},
+  {id:'sup10', category:'Légumes', name:'Courgettes', price:'1,5€'},
+  // CHARCUTERIE — 3€
+  {id:'sup11', category:'Charcuterie', name:'Jambon cuit', price:'3€'},
+  {id:'sup12', category:'Charcuterie', name:'Jambon cru', price:'3€'},
+  {id:'sup13', category:'Charcuterie', name:'Bresaola', price:'3€'},
+  {id:'sup14', category:'Charcuterie', name:'Mortadelle à la pistache', price:'3€'},
+  {id:'sup15', category:'Charcuterie', name:'Pancetta', price:'3€'},
+  {id:'sup16', category:'Charcuterie', name:'Spianata piccante', price:'3€'},
+  // PROTÉINES — 3€
+  {id:'sup17', category:'Protéines', name:'Poulet mariné', price:'3€'},
+  {id:'sup18', category:'Protéines', name:'Viande hachée', price:'3€'},
+  {id:'sup19', category:'Protéines', name:'Thon', price:'3€'},
+  {id:'sup20', category:'Protéines', name:'Saumon mariné', price:'3€'},
+  {id:'sup21', category:'Protéines', name:'Anchois', price:'3€'},
+  {id:'sup22', category:'Protéines', name:'Œuf', price:'3€'},
+  // FROMAGES — 3,5€
+  {id:'sup23', category:'Fromages', name:'Mozzarella (fior di latte)', price:'3,5€'},
+  {id:'sup24', category:'Fromages', name:'Parmesan', price:'3,5€'},
+  {id:'sup25', category:'Fromages', name:'Gorgonzola', price:'3,5€'},
+  {id:'sup26', category:'Fromages', name:'Chèvre', price:'3,5€'},
+  {id:'sup27', category:'Fromages', name:'Burrata', price:'3,5€'},
+  {id:'sup28', category:'Fromages', name:'Stracciatella', price:'3,5€'},
+  {id:'sup29', category:'Fromages', name:'Cheddar', price:'3,5€'},
+  // BASES — 2€
+  {id:'sup30', category:'Bases', name:'Sauce tomate', price:'2€'},
+  {id:'sup31', category:'Bases', name:'Crème de truffe', price:'2€'},
+  {id:'sup32', category:'Bases', name:'Pesto courgettes & basilic', price:'2€'},
+  {id:'sup33', category:'Bases', name:'Crème de moutarde à l\'ancienne', price:'2€'},
+  {id:'sup34', category:'Bases', name:'Crème de poires rôties au miel et romarin', price:'2€'},
+]; // Pré-rempli depuis les ingrédients de la carte fournie ; à valider/ajuster puis Enregistrer.
 let popupConfig = { active:false, badge:'🍕 Pizza du moment !', title:'', desc:'', price:'', photo:'', timing:'always' }; // legacy
 
 function loadPopupConfig() {
@@ -2443,7 +2497,7 @@ function renderPopupAdmin() {
       <div class="photo-upload-row">
         <button class="photo-upload-btn" onclick="triggerPopupUpload('${p.id}')">📷</button>
         <input class="admin-input" id="pphoto_${p.id}" value="${p.photo||''}" placeholder="URL photo" style="flex:1">
-        <img src="${p.photo||''}" class="photo-preview ${p.photo?'visible':''}" style="width:50px;height:40px;object-fit:cover;border-radius:4px;" onerror="this.className='photo-preview'">
+        <img src="${p.photo?cld(p.photo,100):''}" class="photo-preview ${p.photo?'visible':''}" style="width:50px;height:40px;object-fit:cover;border-radius:4px;" onerror="this.className='photo-preview'">
       </div>
       <label class="admin-label">Affichage</label>
       <select class="cat-select" id="ptiming_${p.id}">
@@ -2508,10 +2562,10 @@ function previewPopup() {
   document.getElementById('popupDesc').textContent = desc;
   document.getElementById('popupPrice').textContent = price;
   const img = document.getElementById('popupImg');
-  if(photo) { img.src=photo; img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
+  if(photo) { img.src=cld(photo,600); img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
   else { img.src=''; img.className='popup-img hidden'; }
   const prev = document.getElementById('popup_prev');
-  if(prev && photo) { prev.src=photo; prev.className='photo-preview visible'; }
+  if(prev && photo) { prev.src=cld(photo,150); prev.className='photo-preview visible'; }
 }
 
 function closePopup() {
@@ -2554,7 +2608,7 @@ function showPopupObj(p) {
   document.getElementById('popupDesc').textContent = p.desc || '';
   document.getElementById('popupPrice').textContent = p.price || '';
   const img = document.getElementById('popupImg');
-  if(p.photo) { img.src=p.photo; img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
+  if(p.photo) { img.src=cld(p.photo,600); img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
   else { img.src=''; img.className='popup-img hidden'; }
   document.getElementById('popupOverlay').classList.add('open');
 }
@@ -3281,8 +3335,8 @@ function openSectionPage(groupKey) {
   }
   if (suppInsert) suppInsert.style.display = 'flex';
 
-  // Get active cats for this group
-  const groupCats = cats.filter(c => !c.archived && group.catIds.includes(c.id));
+  // Get active cats for this group (basé sur le réglage personnalisable de chaque catégorie)
+  const groupCats = cats.filter(c => !c.archived && (c.homeGroup || 'food') === groupKey);
   
   // Render tabs with inline styles
   document.getElementById('sectionTabs').innerHTML = groupCats.map((c, i) => 
@@ -3408,7 +3462,7 @@ function showSectionCat(catId) {
   // Update tabs with inline styles
   const group = currentGroup ? HOME_GROUPS[currentGroup] : null;
   if (group) {
-    const groupCats = cats.filter(c => !c.archived && group.catIds.includes(c.id));
+    const groupCats = cats.filter(c => !c.archived && (c.homeGroup || 'food') === currentGroup);
     groupCats.forEach(cat => {
       const btn = document.getElementById('stab_'+cat.id);
       if (!btn) return;
@@ -3710,7 +3764,7 @@ function triggerSectionPhotoUpload(key){
     uploadImageSecure(file).then(function(url){
       HOME_PHOTOS[HOME_GROUPS[key].photoKey] = url;
       var prev = document.getElementById('sec_prev_'+key);
-      if(prev){ prev.src=url; prev.className='photo-preview visible'; }
+      if(prev){ prev.src=cld(url,150); prev.className='photo-preview visible'; }
       renderHomePage(currentLang);
       showToast('\ud83d\udcf7 Photo sauvegard\u00e9e !');
     }).catch(function(){
