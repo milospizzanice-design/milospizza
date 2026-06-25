@@ -159,7 +159,11 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .plat-photo-btn{flex-shrink:0;position:relative;width:32px;height:32px;border-radius:8px;border:1.5px solid #ddd;background:#fff;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .plat-photo-btn.has-photo{border-color:var(--vert);background:#f3f6f1;}
 .plat-photo-btn .upload-progress{position:absolute;inset:0;background:rgba(255,255,255,0.92);display:none;align-items:center;justify-content:center;font-size:0.7rem;border-radius:8px;}
-.plat-price-bubble{flex-shrink:0;width:62px;text-align:center;border:1.5px solid var(--vert);border-radius:20px;padding:0.3rem 0.2rem;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;background:#fff;}
+.plat-price-bubble{flex-shrink:0;text-align:center;border:1.5px solid var(--vert);border-radius:20px;padding:0.3rem 0.5rem;font-size:0.85rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;background:#fff;cursor:pointer;}
+.plat-price-wrap{flex-shrink:0;display:flex;align-items:center;width:64px;border:1.5px solid var(--vert);border-radius:20px;padding:0.3rem 0.5rem;background:#fff;}
+.plat-price-num{flex:1;width:100%;border:none;background:transparent;text-align:right;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;padding:0;outline:none;}
+.plat-price-suffix{flex-shrink:0;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;margin-left:0.15rem;}
+.photo-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--vert);margin-right:0.4rem;flex-shrink:0;}
 .subcat-manager{margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid #f0ede8;}
 .subcat-chip-list{display:flex;flex-wrap:wrap;gap:0.35rem;}
 .subcat-chip{display:inline-flex;align-items:center;gap:0.3rem;background:#faf8f5;border:1px solid #e5e0d8;border-radius:16px;padding:0.2rem 0.5rem 0.2rem 0.2rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;color:#555;}
@@ -492,7 +496,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <!-- PLATS -->
       <div class="admin-section active" id="as-plats">
         <input class="admin-search" type="text" placeholder="Rechercher un plat..." oninput="filterAdminItems(this.value)">
-        <div id="adminItemsList"></div>
+        <div id="adminItemsList" style="padding-bottom:4.5rem;"></div>
       </div>
 
       <!-- CATEGORIES -->
@@ -1073,12 +1077,15 @@ function cld(url, width){
 
 function renderItem(it, l) {
   const hasPhoto = it.photo && it.photo.trim();
+  const priceHTML = (it.priceVariants && it.priceVariants.length)
+    ? it.priceVariants.map(v=>`<div>${v.label||''} ${v.price||''}</div>`).join('')
+    : it.price;
   return `<div class="item" onclick="openModal('${it.id}')">
     <div class="item-info">
       <div class="item-name">${it.name[l]||it.name.fr}${hasPhoto?'<span class="photo-badge"></span>':''}</div>
       ${(it.desc[l]||it.desc.fr)?`<div class="item-desc">${it.desc[l]||it.desc.fr}</div>`:''}
     </div>
-    <div class="item-price">${it.price}</div>
+    <div class="item-price">${priceHTML}</div>
   </div>`;
 }
 
@@ -1111,7 +1118,9 @@ function openModal(id) {
   else{img.src='';img.className='modal-img hidden';}
   document.getElementById('modalName').textContent = it.name[l]||it.name.fr;
   document.getElementById('modalDesc').textContent = it.desc[l]||it.desc.fr;
-  document.getElementById('modalPrice').textContent = it.price;
+  document.getElementById('modalPrice').innerHTML = (it.priceVariants && it.priceVariants.length)
+    ? it.priceVariants.map(v=>`<div>${v.label||''} ${v.price||''}</div>`).join('')
+    : it.price;
   const als = getItemAllergens(it);
   const allergenEl = document.getElementById('modalAllergens');
   if (allergenEl) {
@@ -1271,15 +1280,80 @@ function renderAdminContent(){
   ['newItemCat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
 }
 
+function renderPriceVariantsEditor(it){
+  const variants = it.priceVariants || [];
+  const rows = variants.map((v,i)=>`
+    <div style="display:flex;gap:0.3rem;margin-bottom:0.3rem;align-items:center;">
+      <input class="admin-input" style="flex:1;margin-bottom:0;" value="${v.label||''}" placeholder="Ex: Verre" onchange="updatePriceVariant('${it.id}',${i},'label',this.value)">
+      <input class="admin-input" style="width:70px;margin-bottom:0;text-align:right;" value="${(v.price||'').replace('€','')}" placeholder="Prix" inputmode="decimal" onchange="updatePriceVariant('${it.id}',${i},'price',this.value)">
+      <span style="font-size:0.85rem;color:var(--vert);font-weight:700;">€</span>
+      <button onclick="removePriceVariant('${it.id}',${i})" style="background:none;border:none;color:#c0392b;font-size:0.95rem;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>`).join('');
+  return rows + `<button class="aic-btn" style="background:var(--vert);color:#fff;width:100%;margin-top:0.2rem;" onclick="addPriceVariant('${it.id}')">+ Ajouter un prix</button>`;
+}
+
+function addPriceVariant(itemId){
+  const it = items.find(i=>i.id===itemId);
+  if(!it) return;
+  if(!it.priceVariants) it.priceVariants = [];
+  it.priceVariants.push({label:'', price:''});
+  const box = document.getElementById('priceVariantsBox_'+itemId);
+  if(box) box.innerHTML = renderPriceVariantsEditor(it);
+}
+
+function removePriceVariant(itemId, idx){
+  const it = items.find(i=>i.id===itemId);
+  if(!it || !it.priceVariants) return;
+  it.priceVariants.splice(idx,1);
+  const box = document.getElementById('priceVariantsBox_'+itemId);
+  if(box) box.innerHTML = renderPriceVariantsEditor(it);
+  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
+}
+
+function updatePriceVariant(itemId, idx, field, val){
+  const it = items.find(i=>i.id===itemId);
+  if(!it || !it.priceVariants || !it.priceVariants[idx]) return;
+  if(field==='price'){
+    const clean = val.replace('€','').trim();
+    it.priceVariants[idx].price = clean ? clean+'€' : '';
+  } else {
+    it.priceVariants[idx].label = val;
+  }
+  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
+}
+
 function renderAdminItems(list){
   document.getElementById('adminItemsList').innerHTML = list.map((it, idx)=>{
+    const hasVariants = it.priceVariants && it.priceVariants.length > 0;
+    const priceCell = hasVariants
+      ? `<button class="plat-price-bubble plat-price-multi" onclick="openItemEditModal('${it.id}')">🏷 ${it.priceVariants.length}</button>`
+      : `<div class="plat-price-wrap">
+           <input class="plat-price-num" id="p_${it.id}" value="${(it.price||'').replace('€','').trim()}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
+           <span class="plat-price-suffix">€</span>
+         </div>`;
     return `<div class="plat-row" id="row_${it.id}">
       <button class="plat-pos" onclick="openPositionPicker('item','${it.id}')">${idx+1}</button>
-      <div class="plat-row-name" onclick="openItemEditModal('${it.id}')">${it.name.fr||'(sans nom)'}</div>
+      <div class="plat-row-name" onclick="openItemEditModal('${it.id}')">${it.photo?'<span class="photo-dot"></span>':''}${it.name.fr||'(sans nom)'}</div>
       <button class="plat-photo-btn ${it.photo?'has-photo':''}" onclick="triggerUpload('${it.id}')">📷<span class="upload-progress" id="prog_${it.id}">⏳</span></button>
-      <input class="plat-price-bubble" id="p_${it.id}" value="${it.price||''}" inputmode="decimal">
+      ${priceCell}
     </div>`;
   }).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun plat</p>';
+}
+
+async function autoSaveItems(){
+  const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
+  const result = await saveKeyToGithub(targetFile, {cats, items, upsells});
+  return !!(result && result.content && result.content.sha);
+}
+
+function onPriceChange(id, val){
+  const it = items.find(i=>i.id===id);
+  if(!it) return;
+  const clean = val.replace('€','').trim();
+  it.price = clean ? clean + '€' : '';
+  autoSaveItems().then(ok=>{
+    showToast(ok ? '✓ Prix enregistré' : '❌ Échec de l\'enregistrement - réessayez');
+  });
 }
 
 let _editModalItemId = null;
@@ -1306,7 +1380,7 @@ function openItemEditModal(itemId){
   if (_editModalItemId) {
     const prevPriceEl = document.getElementById('p_'+_editModalItemId);
     const prevIt = items.find(i=>i.id===_editModalItemId);
-    if(prevPriceEl && prevIt) prevIt.price = prevPriceEl.value;
+    if(prevPriceEl && prevIt){ const clean=prevPriceEl.value.replace('€','').trim(); prevIt.price = clean ? clean+'€' : ''; }
   }
   _editModalItemId = itemId;
   const it = items.find(i=>i.id===itemId);
@@ -1324,6 +1398,8 @@ function openItemEditModal(itemId){
     <input class="admin-input" id="n_${it.id}" value="${it.name.fr||''}">
     <label class="admin-label">Description (FR)</label>
     <input class="admin-input" id="d_${it.id}" value="${it.desc.fr||''}">
+    <label class="admin-label">Prix multiples <span style="font-size:0.65rem;color:#888;">(verre/bouteille, 25cl/50cl...)</span></label>
+    <div id="priceVariantsBox_${it.id}">${renderPriceVariantsEditor(it)}</div>
     <label class="admin-label">Photo</label>
     <div class="photo-upload-row">
       <button class="photo-upload-btn" onclick="triggerUpload('${it.id}')">📷</button>
@@ -1349,10 +1425,16 @@ function openItemEditModal(itemId){
 }
 
 function closeItemEditModal(){
-  if (_editModalItemId) persistSingleItemEdits(_editModalItemId);
+  const editedId = _editModalItemId;
+  if (editedId) persistSingleItemEdits(editedId);
   document.getElementById('itemEditModalOverlay').classList.remove('open');
   _editModalItemId = null;
   renderAdminItems(getFilteredAdminItems());
+  if (editedId) {
+    autoSaveItems().then(ok=>{
+      showToast(ok ? '✓ Modifications enregistrées' : '❌ Échec de l\'enregistrement - réessayez');
+    });
+  }
 }
 
 function changeItemCat(id, newCat){
@@ -1370,6 +1452,7 @@ function changeItemCat(id, newCat){
   }
   renderAdminItems(getFilteredAdminItems());
   renderMenu();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie enregistrée':'❌ Échec de l\'enregistrement'));
 }
 
 function changeItemSubcatText(id, val){
@@ -1389,6 +1472,7 @@ function changeItemSubcatText(id, val){
     }
   }
   renderMenu();
+  autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
 }
 
 let adminItemsSearchQuery = '';
@@ -1791,7 +1875,7 @@ function collectItemEdits(){
     const d=document.getElementById('d_'+it.id);
     const ph=document.getElementById('ph_'+it.id);
     if(n && n.value.trim()) it.name.fr=n.value.trim();
-    if(p)it.price=p.value;
+    if(p){ const clean=p.value.replace('€','').trim(); it.price = clean ? clean+'€' : ''; }
     if(d)it.desc.fr=d.value;
     if(ph)it.photo=ph.value;
     // Collect allergens
@@ -2563,7 +2647,11 @@ function generateMenuPDF(){
       doc.text(nameLines, margin, y);
 
       doc.setTextColor(107, 126, 90);
-      doc.text(it.price || '', pageW - margin, y, { align: 'right' });
+      doc.setFontSize((it.priceVariants && it.priceVariants.length ? 7.5 : NAME_SIZE) * scale);
+      const priceText = (it.priceVariants && it.priceVariants.length)
+        ? it.priceVariants.map(v => `${v.label||''} ${v.price||''}`.trim()).join(' / ')
+        : (it.price || '');
+      doc.text(priceText, pageW - margin, y, { align: 'right' });
 
       y += nameLines.length * 5.5 * scale + 2 * scale;
 
