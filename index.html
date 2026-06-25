@@ -209,10 +209,9 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .home-btn-enter{display:block;text-align:center;margin:0.5rem 1rem 0;padding:0.9rem;background:var(--rouge);color:#fff;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;}
 
 /* DRAFT MODE */
-.draft-bar{display:none !important;position:fixed;top:0;left:0;right:0;z-index:1000;background:var(--creme-fonce);color:var(--rouge);font-family:'Montserrat',sans-serif;font-size:0.62rem;font-weight:700;letter-spacing:0.03em;text-align:center;padding:0.3rem 0.6rem;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.3rem;row-gap:0.2rem;border-bottom:2px solid var(--rouge);}
+.draft-bar{display:none !important;position:fixed;top:0.7rem;right:0.7rem;z-index:1000;gap:0.35rem;}
 .draft-bar.visible{display:flex !important;}
-.draft-bar span{flex:1 1 100%;text-align:center;order:-1;}
-.draft-bar button{background:#fff;border:1px solid var(--rouge);color:var(--rouge);border-radius:6px;padding:0.18rem 0.45rem;font-family:'Montserrat',sans-serif;font-size:0.6rem;font-weight:700;cursor:pointer;letter-spacing:0.02em;white-space:nowrap;}
+.draft-bar button{background:#fff;border:1.5px solid var(--rouge);color:var(--rouge);border-radius:20px;padding:0.4rem 0.75rem;font-family:'Montserrat',sans-serif;font-size:0.66rem;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.18);white-space:nowrap;}
 .draft-bar .publish-btn{background:var(--vert);color:#fff;border-color:var(--vert);}
 .admin-save-btn.draft-save{background:#E67E22;}
 .draft-badge{display:inline-block;background:#E67E22;color:#fff;font-size:0.55rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border-radius:4px;padding:0.1rem 0.35rem;margin-left:0.4rem;vertical-align:middle;}
@@ -396,11 +395,8 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
 <!-- DRAFT BAR -->
 <div class="draft-bar" id="draftBar">
-  <span>✏️ Brouillon — non publié</span>
-  <div style="display:flex;gap:0.3rem">
-    <button onclick="openAdmin()" title="Retour à l'admin">✏️ Admin</button>
-    <button class="publish-btn" onclick="publishDraft()" title="Publier">✅ Publier</button>
-  </div>
+  <button onclick="openAdmin()" title="Retour à l'admin">✏️ Admin</button>
+  <button class="publish-btn" onclick="publishDraft()" title="Publier">✅ Publier</button>
 </div>
 
 <!-- HOME PAGE -->
@@ -1149,13 +1145,13 @@ function closeAdmin(){
     const footer = document.getElementById('footer');
     if (footer) footer.style.display = '';
   }
-  // En quittant l'admin pour voir la vue publique, ré-afficher le bandeau brouillon si pertinent
-  // (après avoir rendu le header visible ci-dessus, pour que le décalage se calcule correctement)
+  // En quittant l'admin pour voir la vue publique, afficher les boutons épinglés (Admin/Publier)
+  // et laisser le header défiler normalement avec la page (plus de bandeau à éviter)
   if (isDraftMode) {
     const db = document.getElementById('draftBar');
     if(db) db.classList.add('visible');
     const _dh = document.querySelector('header');
-    if(_dh && _dh.style.display !== 'none'){const _db=document.getElementById('draftBar'); _dh.style.top = (_db?_db.offsetHeight:36)+'px';}
+    if(_dh) _dh.style.position = 'static';
   }
 }
 
@@ -2766,9 +2762,9 @@ const DRAFT_SOCIAL = 'social_draft.json';
 function enterDraftMode() {
   isDraftMode = true;
   document.getElementById('draftBar').classList.add('visible');
-  // Offset header for draft bar (only if visible)
+  // Le header n'a plus besoin d'être collant en mode brouillon (plus de bandeau à éviter)
   const _dh = document.querySelector('header');
-  if(_dh && _dh.style.display !== 'none'){const _db=document.getElementById('draftBar'); _dh.style.top = (_db?_db.offsetHeight:36)+'px';}
+  if(_dh) _dh.style.position = 'static';
   // Change save button label
   document.querySelectorAll('.admin-save-btn').forEach(b => {
     if (!b.classList.contains('publish-btn-main')) {
@@ -2791,7 +2787,7 @@ function exitDraftMode() {
   document.getElementById('draftBar').classList.remove('visible');
   // Reset header
   const _lh = document.querySelector('header');
-  if(_lh) _lh.style.top = '0';
+  if(_lh) _lh.style.position = '';
   // Reset save buttons
   document.querySelectorAll('.admin-save-btn').forEach(b => {
     b.classList.remove('draft-save');
