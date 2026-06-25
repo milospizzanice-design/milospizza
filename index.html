@@ -3451,6 +3451,9 @@ async function init(){
   // afficher la page client dans ce cas (évite le flash avant bascule admin).
   const urlParams = new URLSearchParams(window.location.search);
   const goStraightToAdmin = urlParams.get('admin') === '1' && !!localStorage.getItem('milos_token');
+  // Important : régler isDraftMode AVANT loadFromGithub(), pour que ce dernier
+  // charge bien le fichier brouillon (et non le fichier publié) dès le départ.
+  if (goStraightToAdmin) isDraftMode = true;
 
   // Hide app chrome on start
   document.querySelector('header').style.display = 'none';
@@ -3473,10 +3476,10 @@ async function init(){
   await loadFromGithub();
   // Load other configs from GitHub
   const [remoteDesign, remotePopup, remoteSocial, remoteHome] = await Promise.all([
-    loadKeyFromGithub('design.json'),
-    loadKeyFromGithub('popup.json'),
-    loadKeyFromGithub('social.json'),
-    loadKeyFromGithub('home.json'),
+    loadKeyFromGithub(isDraftMode ? DRAFT_DESIGN : 'design.json'),
+    loadKeyFromGithub(isDraftMode ? DRAFT_POPUP : 'popup.json'),
+    loadKeyFromGithub(isDraftMode ? DRAFT_SOCIAL : 'social.json'),
+    loadKeyFromGithub(isDraftMode ? DRAFT_HOME : 'home.json'),
   ]);
   if (remoteDesign) { currentDesign = {...DESIGN_DEFAULTS, ...remoteDesign}; applyDesignVars(currentDesign); try{localStorage.setItem('milos_design',JSON.stringify(currentDesign));}catch(e){} }
   if (remotePopup) {
