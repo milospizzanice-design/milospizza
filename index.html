@@ -1392,8 +1392,10 @@ function openItemEditModal(itemId){
     <label class="admin-label">Catégorie</label>
     <select class="cat-select" id="cat_${it.id}" onchange="changeItemCat('${it.id}',this.value)">${catOpts}</select>
     <label class="admin-label">Sous-catégorie</label>
-    <input class="admin-input" id="subcat_${it.id}" list="subcatList_${it.id}" value="${it.subcat||''}" placeholder="Rechercher ou créer une sous-catégorie..." onchange="changeItemSubcatText('${it.id}',this.value)">
-    <datalist id="subcatList_${it.id}">${catSubcats.map(s=>`<option value="${s}">`).join('')}</datalist>
+    <select class="cat-select" id="subcat_${it.id}" onchange="changeItemSubcatSelect('${it.id}',this.value)">
+      <option value="">— Aucune sous-catégorie —</option>
+      ${catSubcats.map(s=>`<option value="${s}" ${it.subcat===s?'selected':''}>${s}</option>`).join('')}
+    </select>
     <label class="admin-label">Nom (FR)</label>
     <input class="admin-input" id="n_${it.id}" value="${it.name.fr||''}">
     <label class="admin-label">Description (FR)</label>
@@ -1420,8 +1422,28 @@ function openItemEditModal(itemId){
       <button class="aic-btn archive" style="flex:1;" onclick="persistSingleItemEdits('${it.id}');toggleArchiveItem('${it.id}');closeItemEditModal();">${it.archived?'↩ Réactiver':'🌙 Archiver'}</button>
       <button class="aic-btn delete" style="flex:1;" onclick="if(deleteItem('${it.id}'))closeItemEditModal();">✕ Supprimer</button>
     </div>
+    <button class="aic-btn" style="width:100%;margin-top:0.5rem;background:#5A7D9B;color:#fff;" onclick="duplicateItem('${it.id}')">⧉ Dupliquer ce plat</button>
   `;
   document.getElementById('itemEditModalOverlay').classList.add('open');
+}
+
+function duplicateItem(id){
+  if (_editModalItemId === id) persistSingleItemEdits(id);
+  const it = items.find(i=>i.id===id);
+  if(!it) return;
+  const newId = 'i'+Date.now()+Math.random().toString(36).slice(2,6);
+  const copy = JSON.parse(JSON.stringify(it));
+  copy.id = newId;
+  copy.name = {...copy.name, fr: (copy.name.fr||'') + ' (copie)'};
+  const idx = items.findIndex(i=>i.id===id);
+  items.splice(idx+1, 0, copy);
+  document.getElementById('itemEditModalOverlay').classList.remove('open');
+  _editModalItemId = null;
+  renderAdminItems(getFilteredAdminItems());
+  autoSaveItems().then(ok=>{
+    showToast(ok ? '✓ Plat dupliqué' : '❌ Échec de l\'enregistrement');
+    if (ok) openItemEditModal(newId);
+  });
 }
 
 function closeItemEditModal(){
@@ -1442,37 +1464,24 @@ function changeItemCat(id, newCat){
   if(!it) return;
   it.cat = newCat;
   it.subcat = '';
-  const subcatInput = document.getElementById('subcat_'+id);
-  if (subcatInput) {
-    subcatInput.value = '';
+  const subcatSel = document.getElementById('subcat_'+id);
+  if (subcatSel) {
     const newCatObj = cats.find(c=>c.id===newCat);
     const catSubcats = newCatObj ? ensureCatSubcats(newCatObj) : [];
-    const datalist = document.getElementById('subcatList_'+id);
-    if (datalist) datalist.innerHTML = catSubcats.map(s=>`<option value="${s}">`).join('');
+    subcatSel.innerHTML = '<option value="">— Aucune sous-catégorie —</option>' + catSubcats.map(s=>`<option value="${s}">${s}</option>`).join('');
   }
   renderAdminItems(getFilteredAdminItems());
   renderMenu();
   autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie enregistrée':'❌ Échec de l\'enregistrement'));
 }
 
-function changeItemSubcatText(id, val){
+function changeItemSubcatSelect(id, val){
   const it = items.find(i=>i.id===id);
   if(!it) return;
-  const valTrim = val.trim();
-  it.subcat = valTrim;
-  if(valTrim){
-    const cat = cats.find(c=>c.id===it.cat);
-    if(cat){
-      ensureCatSubcats(cat);
-      if(!cat.subcats.includes(valTrim)){
-        cat.subcats.push(valTrim);
-        renderPlatsCategoryNav();
-        showToast('✓ Sous-catégorie créée : ' + valTrim);
-      }
-    }
-  }
+  it.subcat = val;
+  renderAdminItems(getFilteredAdminItems());
   renderMenu();
-  autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
+  autoSaveItems().then(ok=>showToast(ok?'✓ Sous-catégorie enregistrée':'❌ Échec de l\'enregistrement'));
 }
 
 let adminItemsSearchQuery = '';
