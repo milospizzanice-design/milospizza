@@ -72,6 +72,9 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .modal-price{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:600;color:var(--brun);}
 .modal-allergens{display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.6rem;}
 .modal-allergen-pill{background:var(--creme-fonce);border-radius:12px;padding:0.2rem 0.5rem;font-size:0.62rem;font-family:'Montserrat',sans-serif;color:var(--brun);white-space:nowrap;}
+.supplements-insert{display:flex;flex-direction:column;gap:0.3rem;background:var(--creme-fonce);border-left:3px solid var(--vert);border-radius:8px;margin:0 1rem 0.8rem;padding:0.8rem 1rem;flex-shrink:0;}
+.supplements-insert-text{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:0.85rem;color:var(--brun);line-height:1.3;}
+.supplements-insert-link{font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;align-self:flex-start;}
 .modal-close{width:100%;background:var(--brun);color:#fff;border:none;padding:0.8rem;font-family:'Montserrat',sans-serif;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;}
 
 /* ADMIN FAB */
@@ -408,6 +411,15 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
   </div>
 </div>
 
+<!-- POP-UP SUPPLÉMENTS -->
+<div class="modal-overlay" id="supplementsPopupOverlay" style="z-index:700;" onclick="if(event.target===this)closeSupplementsPopup()">
+  <button onclick="closeSupplementsPopup()" style="position:fixed;top:1rem;right:1rem;background:rgba(61,43,31,0.75);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.1rem;cursor:pointer;z-index:710;line-height:1;">✕</button>
+  <div class="modal-box" style="background:#fff;max-height:88vh;overflow-y:auto;padding:1.2rem;text-align:left;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.8rem;">🧀 Nos suppléments</h4>
+    <div id="supplementsPopupBody"></div>
+  </div>
+</div>
+
 <!-- DRAFT BAR -->
 <div class="draft-bar" id="draftBar">
   <button onclick="openAdmin()" title="Retour à l'admin">✏️ Admin</button>
@@ -427,11 +439,10 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
 <!-- FOOD/DRINKS SECTION PAGE -->
 <div id="sectionPage" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:55;background:#F5F0E8;flex-direction:column;">
-  <div id="sectionBanner" style="position:relative;height:160px;flex-shrink:0;cursor:pointer;overflow:hidden;" onclick="goHome()">
-    <img id="sectionBannerImg" src="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-    <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.4) 0%,rgba(0,0,0,0.15) 100%);"></div>
-    <div style="position:absolute;top:0.8rem;left:0.8rem;background:rgba(255,255,255,0.25);border-radius:20px;padding:0.3rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:600;color:#fff;backdrop-filter:blur(4px);">← Accueil</div>
-    <div id="sectionBannerTitle" style="position:absolute;bottom:0.8rem;left:1rem;font-family:'Playfair Display',serif;font-style:italic;font-size:1.8rem;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>
+  <div style="padding:1rem 1.2rem 0.6rem;flex-shrink:0;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:700;color:var(--rouge);" onclick="goHome()">← Accueil</div>
+  <div class="supplements-insert" id="supplementsInsert">
+    <div class="supplements-insert-text">✨ Faites-vous plaisir, personnalisez vos plats à 100% avec nos ingrédients frais et de qualité.</div>
+    <a href="#" onclick="openSupplementsPopup();return false;" class="supplements-insert-link">Les consulter ici</a>
   </div>
   <div id="sectionTabs" style="display:flex;overflow-x:auto;gap:0.6rem;padding:0.9rem 1rem;background:#F5F0E8;flex-shrink:0;border-bottom:1px solid #EDE6D8;-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>
   <div id="sectionContent" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:1rem 1rem 5rem;"></div>
@@ -476,6 +487,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <div id="platsCategoryNav"></div>
         <button class="admin-sidebar-btn" id="stab_categories" onclick="switchAdminTab('categories')">📂 Catégories</button>
         <button class="admin-sidebar-btn" id="stab_upsell" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
+        <button class="admin-sidebar-btn" id="stab_supplements" onclick="switchAdminTab('supplements')">🧀 Suppléments</button>
         <button class="admin-sidebar-btn" id="stab_archives" onclick="switchAdminTab('archives')">🌙 Archives</button>
         <div class="admin-sidebar-section">Style</div>
         <button class="admin-sidebar-btn" id="stab_design" onclick="switchAdminTab('design')">🎨 Design</button>
@@ -518,6 +530,22 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
           <button class="add-btn" onclick="addUpsell()">Ajouter la suggestion</button>
         </div>
         <button class="admin-save-btn" onclick="saveAll()">✓ Enregistrer</button>
+      </div>
+
+      <!-- SUPPLEMENTS -->
+      <div class="admin-section" id="as-supplements">
+        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Liste unique de suppléments (mozzarella, jambon...), visible par les clients via une pop-up dédiée. Regroupez-les par catégorie (Fromages, Viandes, Légumes...).</p>
+        <div id="adminSupplementsList"></div>
+        <div class="add-item-form">
+          <h4>➕ Nouveau supplément</h4>
+          <label class="admin-label">Catégorie</label>
+          <input class="admin-input" id="newSuppCat" placeholder="Ex: Fromages">
+          <label class="admin-label">Nom</label>
+          <input class="admin-input" id="newSuppName" placeholder="Ex: Mozzarella">
+          <label class="admin-label">Prix</label>
+          <input class="admin-input" id="newSuppPrice" placeholder="Ex: 2" style="max-width:100px">
+          <button class="add-btn" onclick="addSupplement()">Ajouter le supplément</button>
+        </div>
       </div>
 
       <!-- DESIGN -->
@@ -1233,7 +1261,7 @@ function switchAdminTab(tab){
 function updateFloatingSaveBtn(){
   const btn = document.getElementById('floatingSaveBtn');
   if (!btn) return;
-  const showTabs = ['design','home','popup','social'];
+  const showTabs = ['design','home','popup','social','supplements'];
   const actionMap = {
     plats: '✓ Enregistrer les plats',
     categories: '✓ Enregistrer les catégories',
@@ -1242,6 +1270,7 @@ function updateFloatingSaveBtn(){
     home: "🏠 Sauvegarder accueil",
     popup: '✨ Sauvegarder le pop-up',
     social: '❤️ Sauvegarder les liens',
+    supplements: '🧀 Sauvegarder les suppléments',
   };
   const actionFnMap = {
     plats: 'saveAll()',
@@ -1251,6 +1280,7 @@ function updateFloatingSaveBtn(){
     home: 'saveHomeConfig()',
     popup: 'savePopupConfig()',
     social: 'saveSocialConfig()',
+    supplements: 'saveSupplements()',
   };
   if (showTabs.includes(currentAdminTab)) {
     btn.style.display = 'block';
@@ -1271,6 +1301,7 @@ function renderAdminContent(){
   if(currentAdminTab==='home') renderAdminHome();
   if(currentAdminTab==='history') renderAdminHistory();
   if(currentAdminTab==='popup') initPopupPanel();
+  if(currentAdminTab==='supplements') renderAdminSupplements();
   if(currentAdminTab==='social') initSocialPanel();
   if(currentAdminTab==='sections') renderAdminSections();
   if(currentAdminTab==='import') { /* statique, rien à pré-charger */ }
@@ -1628,6 +1659,10 @@ function renderAdminCats(){
             <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Sous-catégories déroulantes</span>
             <label class="toggle"><input type="checkbox" id="catcoll_${c.id}" ${c.collapsible?'checked':''} onchange="toggleCatCollapsible('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
           </div>
+          <div class="toggle-row" style="margin-top:0.4rem">
+            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Inclure dans la liste des allergènes</span>
+            <label class="toggle"><input type="checkbox" id="catallerg_${c.id}" ${c.inAllergenList!==false?'checked':''} onchange="toggleCatAllergenList('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
 
           ${c.archived?'<span class="archived-badge">archivée</span>':''}
         </div>
@@ -1784,6 +1819,13 @@ function toggleArchiveCat(id){
 function toggleCatCollapsible(id, val){
   const c=cats.find(c=>c.id===id);
   if(c){ c.collapsible=val; renderMenu(); }
+}
+
+function toggleCatAllergenList(id, val){
+  const c=cats.find(c=>c.id===id);
+  if(!c) return;
+  c.inAllergenList = val;
+  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
 }
 
 function toggleCatExtras(id, extra, val){
@@ -2121,7 +2163,7 @@ function renderAllergenPage(l, targetId) {
         ${ALLERGEN_LIST.map(a=>`<th title="${a.name}">${a.icon}</th>`).join('')}
       </tr></thead>
       <tbody>
-        ${cats.filter(c=>!c.archived).map(cat=>{
+        ${cats.filter(c=>!c.archived && c.inAllergenList!==false).map(cat=>{
           const catItems = allItems.filter(it=>it.cat===cat.id);
           if(catItems.length===0) return '';
           return `<tr class="allergen-cat-row"><td colspan="${ALLERGEN_LIST.length+1}">${(cat.name[l]||cat.name.fr).toUpperCase()}</td></tr>`
@@ -2177,6 +2219,86 @@ async function saveSocialConfig() {
   await saveKeyToGithub(isDraftMode ? DRAFT_SOCIAL : 'social.json', socialConfig);
   renderSocialSection(currentLang);
   showToast('❤️ Réseaux sociaux sauvegardés !');
+}
+
+function renderAdminSupplements(){
+  const el = document.getElementById('adminSupplementsList');
+  if(!el) return;
+  if (!supplements.length) {
+    el.innerHTML = '<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun supplément pour le moment</p>';
+    return;
+  }
+  const cats_ = [...new Set(supplements.map(s=>s.category||'Autres'))];
+  el.innerHTML = cats_.map(catName => `
+    <div style="margin-bottom:0.8rem;">
+      <div style="font-weight:700;font-size:0.74rem;color:var(--vert);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;">${catName}</div>
+      ${supplements.filter(s=>(s.category||'Autres')===catName).map(s => `
+        <div class="plat-row" id="supprow_${s.id}">
+          <div class="plat-row-name" style="cursor:default;">${s.name}</div>
+          <div class="plat-price-wrap">
+            <input class="plat-price-num" value="${(s.price||'').replace('€','')}" inputmode="decimal" onchange="updateSupplementPrice('${s.id}',this.value)">
+            <span class="plat-price-suffix">€</span>
+          </div>
+          <button class="aic-btn delete" onclick="deleteSupplement('${s.id}')">✕</button>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function addSupplement(){
+  const cat = document.getElementById('newSuppCat').value.trim() || 'Autres';
+  const name = document.getElementById('newSuppName').value.trim();
+  const price = document.getElementById('newSuppPrice').value.trim();
+  if(!name) return alert('Le nom est requis');
+  supplements.push({id:'sup'+Date.now(), category:cat, name, price: price ? price.replace('€','')+'€' : ''});
+  document.getElementById('newSuppName').value='';
+  document.getElementById('newSuppPrice').value='';
+  renderAdminSupplements();
+  saveSupplements();
+}
+
+function updateSupplementPrice(id, val){
+  const s = supplements.find(s=>s.id===id);
+  if(!s) return;
+  const clean = val.replace('€','').trim();
+  s.price = clean ? clean+'€' : '';
+  saveSupplements();
+}
+
+function deleteSupplement(id){
+  if(!confirm('Supprimer ce supplément ?')) return;
+  supplements = supplements.filter(s=>s.id!==id);
+  renderAdminSupplements();
+  saveSupplements();
+}
+
+async function saveSupplements(){
+  const result = await saveKeyToGithub(isDraftMode ? DRAFT_SUPPLEMENTS : 'supplements.json', supplements);
+  const ok = !!(result && result.content && result.content.sha);
+  showToast(ok ? '🧀 Suppléments sauvegardés !' : '❌ Échec de l\'enregistrement');
+  return ok;
+}
+
+function openSupplementsPopup(){
+  const body = document.getElementById('supplementsPopupBody');
+  if (body) {
+    const cats_ = [...new Set(supplements.map(s=>s.category||'Autres'))];
+    body.innerHTML = supplements.length ? cats_.map(catName => `
+      <div style="margin-bottom:1rem;">
+        <div style="font-family:'Playfair Display',serif;color:var(--rouge);font-size:1rem;margin-bottom:0.4rem;">${catName}</div>
+        ${supplements.filter(s=>(s.category||'Autres')===catName).map(s=>`
+          <div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid var(--creme-fonce);font-family:'Montserrat',sans-serif;font-size:0.82rem;">
+            <span>${s.name}</span><span style="font-weight:700;color:var(--vert);">+${s.price}</span>
+          </div>
+        `).join('')}
+      </div>
+    `).join('') : '<p style="text-align:center;color:#aaa;">Aucun supplément disponible pour le moment.</p>';
+  }
+  document.getElementById('supplementsPopupOverlay').classList.add('open');
+}
+function closeSupplementsPopup(){
+  document.getElementById('supplementsPopupOverlay').classList.remove('open');
 }
 
 const SOCIAL_TEXTS = {
@@ -2243,6 +2365,7 @@ function renderSocialSection(l) {
 // POPUP DU MOMENT
 // ═══════════════════════════════════════
 let popups = []; // Array of popup objects
+let supplements = []; // Array of {id, category, name, price}
 let popupConfig = { active:false, badge:'🍕 Pizza du moment !', title:'', desc:'', price:'', photo:'', timing:'always' }; // legacy
 
 function loadPopupConfig() {
@@ -2732,7 +2855,7 @@ function generateAllergenPDF(){
   drawTableHeader();
   let rowIdx = 0;
 
-  const activeCats = cats.filter(c => !c.archived);
+  const activeCats = cats.filter(c => !c.archived && c.inAllergenList !== false);
   activeCats.forEach(cat => {
     const catItems = items.filter(it => !it.archived && it.cat === cat.id);
     if (catItems.length === 0) return;
@@ -2938,6 +3061,7 @@ const DRAFT_HOME = 'home_draft.json';
 const DRAFT_DESIGN = 'design_draft.json';
 const DRAFT_POPUP = 'popup_draft.json';
 const DRAFT_SOCIAL = 'social_draft.json';
+const DRAFT_SUPPLEMENTS = 'supplements_draft.json';
 
 function enterDraftMode() {
   isDraftMode = true;
@@ -3005,6 +3129,7 @@ async function publishDraft() {
       [DRAFT_DESIGN, 'design.json'],
       [DRAFT_POPUP, 'popup.json'],
       [DRAFT_SOCIAL, 'social.json'],
+      [DRAFT_SUPPLEMENTS, 'supplements.json'],
     ];
 
     // Tout en parallèle (au lieu d'un par un) + sécurité 20s anti-blocage
@@ -3144,20 +3269,17 @@ function openSectionPage(groupKey) {
   if (!group) return;
   currentGroup = groupKey;
 
-  // Set banner photo and title
-  const bannerImg = document.getElementById('sectionBannerImg');
-  const bannerTitle = document.getElementById('sectionBannerTitle');
-  if (bannerImg) bannerImg.src = cld(HOME_PHOTOS[group.photoKey], 1000) || '';
-  if (bannerTitle) bannerTitle.textContent = group.title[l] || group.title.fr;
-
   // Handle "about" page specially
+  const suppInsert = document.getElementById('supplementsInsert');
   if (group.isAbout) {
+    if (suppInsert) suppInsert.style.display = 'none';
     document.getElementById('sectionTabs').innerHTML = '';
     document.getElementById('sectionContent').innerHTML = renderAboutPage(l);
     document.getElementById('homePage').style.display = 'none';
     document.getElementById('sectionPage').style.display = 'flex';
     return;
   }
+  if (suppInsert) suppInsert.style.display = 'flex';
 
   // Get active cats for this group
   const groupCats = cats.filter(c => !c.archived && group.catIds.includes(c.id));
@@ -3475,12 +3597,14 @@ async function init(){
   // Then load from GitHub (overrides local if exists)
   await loadFromGithub();
   // Load other configs from GitHub
-  const [remoteDesign, remotePopup, remoteSocial, remoteHome] = await Promise.all([
+  const [remoteDesign, remotePopup, remoteSocial, remoteHome, remoteSupplements] = await Promise.all([
     loadKeyFromGithub(isDraftMode ? DRAFT_DESIGN : 'design.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_POPUP : 'popup.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_SOCIAL : 'social.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_HOME : 'home.json'),
+    loadKeyFromGithub(isDraftMode ? DRAFT_SUPPLEMENTS : 'supplements.json'),
   ]);
+  if (remoteSupplements && Array.isArray(remoteSupplements)) supplements = remoteSupplements;
   if (remoteDesign) { currentDesign = {...DESIGN_DEFAULTS, ...remoteDesign}; applyDesignVars(currentDesign); try{localStorage.setItem('milos_design',JSON.stringify(currentDesign));}catch(e){} }
   if (remotePopup) {
     if (Array.isArray(remotePopup)) { popups = remotePopup; }
