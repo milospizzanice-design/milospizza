@@ -168,6 +168,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .plat-price-suffix{flex-shrink:0;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;margin-left:0.15rem;}
 .photo-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--vert);margin-right:0.4rem;flex-shrink:0;}
 .subcat-manager{margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid #f0ede8;}
+.cat-section-label{font-size:0.62rem;color:var(--vert);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0.9rem 0 0.5rem;border-top:1px solid #f0ede8;padding-top:0.7rem;}
 .items-context-header{display:flex;justify-content:space-between;align-items:center;background:var(--creme-fonce);border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.7rem;flex-wrap:wrap;gap:0.4rem;}
 .items-context-title{font-family:'Playfair Display',serif;font-size:0.95rem;color:var(--rouge);font-weight:700;}
 .items-context-parent{font-family:'Montserrat',sans-serif;font-size:0.65rem;color:#888;font-weight:400;}
@@ -1005,11 +1006,14 @@ function selectLang(l){
     const group = HOME_GROUPS[currentGroup];
     if(group) {
       const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === currentGroup);
-      document.getElementById('sectionTabs').innerHTML = groupCats.map((c, i) =>
-        '<button id="stab_'+c.id+'" onclick="showSectionCat(\'' + c.id + '\')" style="flex-shrink:0;border:'+(i===0?'none':'2px solid rgba(155,28,28,0.15)')+';border-radius:50px;padding:0.55rem 1.3rem;font-family:\'Montserrat\',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;background:'+(i===0?'#9B1C1C':'rgba(245,240,232,0.95)')+';color:'+(i===0?'#fff':'#5A4535')+';box-shadow:'+(i===0?'0 3px 10px rgba(155,28,28,0.3)':'0 1px 3px rgba(0,0,0,0.08)')+';transition:all 0.2s;letter-spacing:0.03em;">'+(c.name[l]||c.name.fr)+'</button>'
+      const tabs = buildSectionTabs(groupCats);
+      window._currentSectionTabs = tabs;
+      document.getElementById('sectionTabs').innerHTML = tabs.map((t, i) =>
+        `<button id="${tabKeyToBtnId(t.key)}" onclick="showSectionTab('${t.key.replace(/'/g,"\\'")}')" style="flex-shrink:0;border:${i===0?'none':'2px solid rgba(155,28,28,0.15)'};border-radius:50px;padding:0.55rem 1.3rem;font-family:'Montserrat',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;background:${i===0?'#9B1C1C':'rgba(245,240,232,0.95)'};color:${i===0?'#fff':'#5A4535'};box-shadow:${i===0?'0 3px 10px rgba(155,28,28,0.3)':'0 1px 3px rgba(0,0,0,0.08)'};transition:all 0.2s;letter-spacing:0.03em;">${t.label}</button>`
       ).join('');
-      if(currentGroupCat) showSectionCat(currentGroupCat);
-      else if(groupCats.length > 0) showSectionCat(groupCats[0].id);
+      const stillExists = tabs.some(t=>t.key===currentGroupCat);
+      if(currentGroupCat && stillExists) showSectionTab(currentGroupCat);
+      else if(tabs.length > 0) showSectionTab(tabs[0].key);
     }
   }
 }
@@ -1808,46 +1812,40 @@ function renderAdminCats(){
   document.getElementById('adminCatList').innerHTML = cats.map((c)=>{
     const posInActive = activeCats.findIndex(ac=>ac.id===c.id);
     const subcats = ensureCatSubcats(c);
+    const otherCatsOpts = cats.filter(o=>!o.archived && o.id!==c.id).map(o=>`<option value="${o.id}">${o.name.fr}</option>`).join('');
     return `
     <div class="cat-card ${c.archived?'archived':''}">
       <div class="cat-card-row">
         ${!c.archived ? `<button class="plat-pos" onclick="openPositionPicker('cat','${c.id}')">${posInActive+1}</button>` : ''}
-        <div style="flex:1">
-          <div style="font-size:0.68rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem">Nom de la catégorie</div>
-          <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom FR" style="margin-bottom:0.3rem" onchange="renameCat('${c.id}',this.value)">
-          <div class="toggle-row" style="margin-top:0.4rem">
-            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Sous-catégories déroulantes</span>
-            <label class="toggle"><input type="checkbox" id="catcoll_${c.id}" ${c.collapsible?'checked':''} onchange="toggleCatCollapsible('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
-          </div>
-          <div class="toggle-row" style="margin-top:0.4rem">
-            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Inclure dans la liste des allergènes</span>
-            <label class="toggle"><input type="checkbox" id="catallerg_${c.id}" ${c.inAllergenList!==false?'checked':''} onchange="toggleCatAllergenList('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
-          </div>
-          <div style="margin-top:0.5rem">
-            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;display:block;margin-bottom:0.25rem;">Section sur l'accueil</span>
-            <select class="cat-select" style="margin-bottom:0;" onchange="setCatHomeGroup('${c.id}',this.value)">
-              <option value="food" ${(!c.homeGroup||c.homeGroup==='food')?'selected':''}>🍕 Food</option>
-              <option value="drinks" ${c.homeGroup==='drinks'?'selected':''}>🍹 Drinks</option>
-            </select>
-          </div>
-          <div class="toggle-row" style="margin-top:0.5rem">
-            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Masquer des onglets client (consultable via lien seulement)</span>
-            <label class="toggle"><input type="checkbox" id="cathide_${c.id}" ${c.hideFromMenu?'checked':''} onchange="toggleCatHideFromMenu('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
-          </div>
-          <div class="toggle-row" style="margin-top:0.4rem">
-            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Utiliser comme liste de suppléments (pop-up)</span>
-            <label class="toggle"><input type="checkbox" id="catsupp_${c.id}" ${c.isSupplementsCategory?'checked':''} onchange="toggleCatIsSupplements('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
-          </div>
-
-          ${c.archived?'<span class="archived-badge">archivée</span>':''}
-        </div>
+        <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom de la catégorie" style="margin-bottom:0;flex:1;" onchange="renameCat('${c.id}',this.value)">
         <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
-          <button class="aic-btn archive" onclick="toggleArchiveCat('${c.id}')">${c.archived?'↩':'🌙'}</button>
+          <button class="aic-btn archive" onclick="toggleArchiveCat('${c.id}')">${c.archived?'↩ Réactiver':'🌙 Archiver'}</button>
         </div>
       </div>
+      ${c.archived?'<span class="archived-badge">archivée</span>':''}
       ${!c.archived ? `
-      <div class="subcat-manager">
-        <div style="font-size:0.62rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;">Sous-catégories</div>
+      <div class="cat-section-label">Affichage côté client</div>
+      <div style="margin-bottom:0.5rem">
+        <select class="cat-select" style="margin-bottom:0;" onchange="setCatHomeGroup('${c.id}',this.value)">
+          <option value="food" ${(!c.homeGroup||c.homeGroup==='food')?'selected':''}>🍕 Visible dans la section Food</option>
+          <option value="drinks" ${c.homeGroup==='drinks'?'selected':''}>🍹 Visible dans la section Drinks</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Masquer des onglets (consultable via lien seulement)</span>
+        <label class="toggle"><input type="checkbox" id="cathide_${c.id}" ${c.hideFromMenu?'checked':''} onchange="toggleCatHideFromMenu('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Inclure dans la liste des allergènes</span>
+        <label class="toggle"><input type="checkbox" id="catallerg_${c.id}" ${c.inAllergenList!==false?'checked':''} onchange="toggleCatAllergenList('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Utiliser comme liste de suppléments (pop-up)</span>
+        <label class="toggle"><input type="checkbox" id="catsupp_${c.id}" ${c.isSupplementsCategory?'checked':''} onchange="toggleCatIsSupplements('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+
+      <div class="cat-section-label">Sous-catégories</div>
+      <div class="subcat-manager" style="margin-top:0;padding-top:0;border-top:none;">
         <div class="subcat-chip-list">
           ${subcats.length ? subcats.map((sc,i)=>`
             <span class="subcat-chip">
@@ -1857,10 +1855,18 @@ function renderAdminCats(){
               <button class="subcat-chip-del" onclick="deleteSubcat('${c.id}','${sc}')">✕</button>
             </span>`).join('') : '<span style="font-size:0.68rem;color:#aaa;">Aucune pour le moment</span>'}
         </div>
-        <div style="display:flex;gap:0.3rem;margin-top:0.4rem;">
+        <div style="display:flex;gap:0.3rem;margin-top:0.5rem;">
           <input class="admin-input" id="newsubcat_for_${c.id}" placeholder="Nouvelle sous-catégorie" style="flex:1;margin-bottom:0;">
           <button class="aic-btn" style="background:var(--vert);color:#fff;flex-shrink:0;" onclick="addSubcatToCategory('${c.id}')">+ Ajouter</button>
         </div>
+        ${otherCatsOpts ? `
+        <div style="display:flex;gap:0.3rem;margin-top:0.4rem;">
+          <select class="cat-select" id="absorbcat_${c.id}" style="margin-bottom:0;flex:1;">
+            <option value="">— ou transformer une catégorie existante en sous-catégorie —</option>
+            ${otherCatsOpts}
+          </select>
+          <button class="aic-btn" style="background:var(--rouge);color:#fff;flex-shrink:0;" onclick="absorbCategoryAsSubcat('${c.id}')">Absorber</button>
+        </div>` : ''}
       </div>` : ''}
     </div>`;
   }).join('');
@@ -1984,6 +1990,35 @@ function moveCatToPosition(catId, newPos){
   let cursor = 0;
   cats = cats.map(c => visibleIds.has(c.id) ? visibleList[cursor++] : c);
   renderAdminCats();
+}
+
+function absorbCategoryAsSubcat(parentCatId){
+  const sel = document.getElementById('absorbcat_'+parentCatId);
+  if(!sel || !sel.value) { showToast('❌ Choisis une catégorie à absorber'); return; }
+  const otherCatId = sel.value;
+  const otherCat = cats.find(c=>c.id===otherCatId);
+  const parentCat = cats.find(c=>c.id===parentCatId);
+  if(!otherCat || !parentCat) return;
+  const subcatName = otherCat.name.fr;
+  const affected = items.filter(it=>it.cat===otherCatId && !it.archived).length;
+  if(!confirm(`Transformer "${subcatName}" en sous-catégorie de "${parentCat.name.fr}" ?\n${affected} plat(s) seront déplacés, et la catégorie d'origine sera archivée.`)) return;
+
+  ensureCatSubcats(parentCat);
+  if(!parentCat.subcats.includes(subcatName)) parentCat.subcats.push(subcatName);
+
+  items.forEach(it=>{
+    if(it.cat===otherCatId){
+      it.cat = parentCatId;
+      it.subcat = subcatName;
+    }
+  });
+
+  otherCat.archived = true;
+
+  renderAdminCats();
+  renderPlatsCategoryNav();
+  renderAdminItems(getFilteredAdminItems());
+  autoSaveItems().then(ok=>showToast(ok?`✓ "${subcatName}" absorbée comme sous-catégorie`:'❌ Échec de l\'enregistrement'));
 }
 
 function renameCat(id, val){
@@ -3421,6 +3456,26 @@ const HOME_GROUPS = {
 let currentGroup = null;
 let currentGroupCat = null;
 
+function buildSectionTabs(groupCats){
+  const tabs = [];
+  groupCats.forEach(c => {
+    const subcats = ensureCatSubcats(c);
+    if (subcats.length === 0) {
+      tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
+    } else {
+      const hasUnassigned = items.some(it=>!it.archived && it.cat===c.id && !it.subcat);
+      subcats.forEach(sc => {
+        tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
+      });
+      if (hasUnassigned) {
+        tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
+      }
+    }
+  });
+  return tabs;
+}
+function tabKeyToBtnId(key){ return 'stab_'+key.replace(/[^a-zA-Z0-9_]/g,'_'); }
+
 function openSectionPage(groupKey) {
   const l = currentLang;
   const group = HOME_GROUPS[groupKey];
@@ -3441,15 +3496,18 @@ function openSectionPage(groupKey) {
 
   // Get active cats for this group (basé sur le réglage personnalisable de chaque catégorie)
   const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === groupKey);
-  
+  const tabs = buildSectionTabs(groupCats);
+  window._currentSectionTabs = tabs;
+
   // Render tabs with inline styles
-  document.getElementById('sectionTabs').innerHTML = groupCats.map((c, i) => 
-    `<button id="stab_${c.id}" onclick="showSectionCat('${c.id}')" style="flex-shrink:0;border:${i===0?'none':'2px solid rgba(155,28,28,0.15)'};border-radius:50px;padding:0.55rem 1.3rem;font-family:'Montserrat',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;background:${i===0?'#9B1C1C':'rgba(245,240,232,0.95)'};color:${i===0?'#fff':'#5A4535'};box-shadow:${i===0?'0 3px 10px rgba(155,28,28,0.3)':'0 1px 3px rgba(0,0,0,0.08)'};transition:all 0.2s;letter-spacing:0.03em;">${c.name[l]||c.name.fr}</button>`
+  document.getElementById('sectionTabs').innerHTML = tabs.map((t, i) =>
+    `<button id="${tabKeyToBtnId(t.key)}" onclick="showSectionTab('${t.key.replace(/'/g,"\\'")}')" style="flex-shrink:0;border:${i===0?'none':'2px solid rgba(155,28,28,0.15)'};border-radius:50px;padding:0.55rem 1.3rem;font-family:'Montserrat',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;background:${i===0?'#9B1C1C':'rgba(245,240,232,0.95)'};color:${i===0?'#fff':'#5A4535'};box-shadow:${i===0?'0 3px 10px rgba(155,28,28,0.3)':'0 1px 3px rgba(0,0,0,0.08)'};transition:all 0.2s;letter-spacing:0.03em;">${t.label}</button>`
   ).join('');
-  
-  // Show first cat
-  if (groupCats.length > 0) showSectionCat(groupCats[0].id);
-  
+
+  // Show first tab
+  if (tabs.length > 0) showSectionTab(tabs[0].key);
+  else document.getElementById('sectionContent').innerHTML = '<p style="text-align:center;color:#aaa;padding:2rem;">Aucun produit dans cette section pour le moment.</p>';
+
   // Show page
   document.getElementById('homePage').style.display = 'none';
   document.getElementById('sectionPage').style.display = 'flex';
@@ -3557,83 +3615,48 @@ function loadSocialData() {
   };
 }
 
-function showSectionCat(catId) {
-  currentGroupCat = catId;
+function showSectionTab(tabKey) {
+  const tabs = window._currentSectionTabs || [];
+  const tab = tabs.find(t => t.key === tabKey);
+  if (!tab) return;
+  currentGroupCat = tabKey;
   const l = currentLang;
-  const c = cats.find(cat => cat.id === catId);
+  const c = cats.find(cat => cat.id === tab.catId);
   if (!c) return;
-  
+
   // Update tabs with inline styles
-  const group = currentGroup ? HOME_GROUPS[currentGroup] : null;
-  if (group) {
-    const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === currentGroup);
-    groupCats.forEach(cat => {
-      const btn = document.getElementById('stab_'+cat.id);
-      if (!btn) return;
-      const isActive = cat.id === catId;
-      btn.style.background = isActive ? '#9B1C1C' : 'rgba(245,240,232,0.95)';
-      btn.style.color = isActive ? '#fff' : '#5A4535';
-      btn.style.border = isActive ? 'none' : '2px solid rgba(155,28,28,0.15)';
-      btn.style.boxShadow = isActive ? '0 3px 10px rgba(155,28,28,0.3)' : '0 1px 3px rgba(0,0,0,0.08)';
-    });
-  }
-  const activeTab = document.getElementById('stab_'+catId);
-  if (activeTab) activeTab.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
-  
-  // Render items
-  const catItems = items.filter(it => it.cat === catId && !it.archived);
-  const subcats = [...new Set(catItems.map(it=>it.subcat).filter(Boolean))];
-  const topItems = catItems.filter(it=>!it.subcat);
-  
-  const T_local = T[l] || T.fr;
-  const upsell = upsells.find(u=>u.active && (u.cats ? u.cats.includes(catId) : u.cat===catId));
-  
-  let html = '';
-  
-  // Section subtitle
-  if (c.subtitle) html += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;font-style:italic;color:#5A4535;margin-bottom:1rem">${c.subtitle[l]||c.subtitle.fr}</div>`;
-  
-  // Upsell
-  if (upsell) html += `<div class="upsell-banner"><div class="u-icon">💡</div><div class="u-text"><div class="u-title">${upsell.title}</div>${upsell.message}</div></div>`;
-  
-  // Items
-  topItems.forEach(it => html += renderItem(it, l));
-  subcats.forEach(sub => {
-    const subId = 'ssub_'+catId+'_'+sub.replace(/[^a-z0-9]/gi,'_');
-    if (c.collapsible) {
-      html += `<div class="sub-cat" id="hd_${subId}" onclick="toggleSubcat('${subId}')">${sub}<span class="sub-arrow">▼</span></div>`;
-      html += `<div class="sub-cat-items" id="${subId}">`;
-    } else {
-      html += `<div class="sub-cat">${sub}</div>`;
-    }
-    catItems.filter(it=>it.subcat===sub).forEach(it => html += renderItem(it, l));
-    if (c.collapsible) html += `</div>`;
+  tabs.forEach(t => {
+    const btn = document.getElementById(tabKeyToBtnId(t.key));
+    if (!btn) return;
+    const isActive = t.key === tabKey;
+    btn.style.background = isActive ? '#9B1C1C' : 'rgba(245,240,232,0.95)';
+    btn.style.color = isActive ? '#fff' : '#5A4535';
+    btn.style.border = isActive ? 'none' : '2px solid rgba(155,28,28,0.15)';
+    btn.style.boxShadow = isActive ? '0 3px 10px rgba(155,28,28,0.3)' : '0 1px 3px rgba(0,0,0,0.08)';
   });
-  
-  // Extras
+  const activeTab = document.getElementById(tabKeyToBtnId(tabKey));
+  if (activeTab) activeTab.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+
+  // Render items : uniquement ceux de cette sous-catégorie précise (ou sans sous-catégorie pour l'onglet "catégorie")
+  const catItems = items.filter(it => !it.archived && it.cat === tab.catId && (tab.subcat ? it.subcat === tab.subcat : !it.subcat));
+
+  const T_local = T[l] || T.fr;
+  const upsell = upsells.find(u=>u.active && (u.cats ? u.cats.includes(tab.catId) : u.cat===tab.catId));
+
+  let html = '';
+  if (c.subtitle) html += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;font-style:italic;color:#5A4535;margin-bottom:1rem">${c.subtitle[l]||c.subtitle.fr}</div>`;
+  if (upsell) html += `<div class="upsell-banner"><div class="u-icon">💡</div><div class="u-text"><div class="u-title">${upsell.title}</div>${upsell.message}</div></div>`;
+
+  catItems.forEach(it => html += renderItem(it, l));
+
   if (c.extras) c.extras.forEach(e => {
     if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${T_local.childMenu}</div><p>${T_local.childDesc}</p><div class="e-price">12€</div></div>`;
     if (e==='supplements') html += `<div class="supplements-box"><h3>${T_local.supplements}</h3><p>${T_local.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
   });
-  
+
   const sc = document.getElementById('sectionContent');
-  if(sc){ 
-    // Build quick nav if multiple subcats
-    let quickNav = '';
-    if(subcats.length > 1){
-      quickNav = '<div style="display:flex;overflow-x:auto;gap:0.4rem;padding:0 0 0.8rem;scrollbar-width:none;-webkit-overflow-scrolling:touch;">';
-      quickNav += subcats.map(sub => 
-        `<button onclick="document.getElementById('anchor_${sub.replace(/[^a-z0-9]/gi,'_')}').scrollIntoView({behavior:'smooth',block:'start'})" 
-         style="flex-shrink:0;background:rgba(155,28,28,0.08);border:1px solid rgba(155,28,28,0.2);border-radius:20px;padding:0.3rem 0.8rem;font-family:'Montserrat',sans-serif;font-size:0.68rem;font-weight:600;color:#9B1C1C;cursor:pointer;white-space:nowrap;">${sub}</button>`
-      ).join('');
-      quickNav += '</div>';
-      // Add anchor IDs to subcats in html
-      subcats.forEach(sub => {
-        const anchorId = 'anchor_'+sub.replace(/[^a-z0-9]/gi,'_');
-        html = html.replace(`<div class="sub-cat">${sub}`, `<div class="sub-cat" id="${anchorId}">${sub}`);
-      });
-    }
-    sc.innerHTML = quickNav + (html || '<p style="text-align:center;color:#aaa;padding:2rem">Aucun plat</p>');
+  if (sc) {
+    sc.innerHTML = html || '<p style="text-align:center;color:#aaa;padding:2rem">Aucun plat</p>';
     sc.scrollTop = 0;
   }
 }
