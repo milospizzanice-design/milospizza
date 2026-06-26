@@ -21,6 +21,19 @@
       ]
     },
     {
+      "id": "cat_1782503221239",
+      "name": {
+        "fr": "Nos Salades Bowl",
+        "en": "Nos salades bowl",
+        "it": "Nos salades bowl",
+        "de": "Nos salades bowl",
+        "zh": "Nos salades bowl",
+        "ru": "Nos salades bowl"
+      },
+      "archived": false,
+      "subcats": []
+    },
+    {
       "id": "camembert",
       "name": {
         "fr": "Nos Camemberts Rôtis",
@@ -108,7 +121,7 @@
     {
       "id": "boissons",
       "name": {
-        "fr": "Boissons",
+        "fr": "Nos boissons fraîches 🥤",
         "en": "Drinks",
         "it": "Bevande",
         "de": "Getränke",
@@ -162,7 +175,24 @@
         "ru": "Apéritifs - Digestifs"
       },
       "archived": false,
-      "subcats": []
+      "subcats": [],
+      "homeGroup": "drinks",
+      "collapsible": true
+    },
+    {
+      "id": "cat_1782498102706",
+      "name": {
+        "fr": "Nos boissons chaudes ☕️",
+        "en": "Nos boissons chaudes ☕️",
+        "it": "Nos boissons chaudes ☕️",
+        "de": "Nos boissons chaudes ☕️",
+        "zh": "Nos boissons chaudes ☕️",
+        "ru": "Nos boissons chaudes ☕️"
+      },
+      "archived": false,
+      "subcats": [],
+      "homeGroup": "drinks",
+      "inAllergenList": false
     }
   ],
   "items": [
@@ -240,7 +270,7 @@
         "es": ""
       },
       "desc": {
-        "fr": "Burrata crèmeuse,  nectarines rôties, tomates du pays, basilic, assaisonnement",
+        "fr": "Burrata crèmeuse,  nectarines rôties, tomates du pays, basilic",
         "en": "",
         "it": "",
         "de": "",
@@ -249,8 +279,9 @@
         "es": ""
       },
       "price": "16€",
-      "photo": "",
-      "archived": false
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1782504185/IMG_6738_h7gqso.jpg",
+      "archived": false,
+      "allergens": []
     },
     {
       "id": "i3",
@@ -315,8 +346,8 @@
     },
     {
       "id": "i5",
-      "cat": "commencer",
-      "subcat": "Salade Bowl",
+      "cat": "cat_1782503221239",
+      "subcat": null,
       "name": {
         "fr": "Burrata Bowl",
         "en": "Burrata Bowl",
@@ -346,8 +377,8 @@
     },
     {
       "id": "i6",
-      "cat": "commencer",
-      "subcat": "Salade Bowl",
+      "cat": "cat_1782503221239",
+      "subcat": null,
       "name": {
         "fr": "Italienne Bowl",
         "en": "Italian Bowl",
@@ -1448,7 +1479,116 @@
         "gluten",
         "oeufs",
         "lait"
-      ]
+      ],
+      "extraPlacements": []
+    },
+    {
+      "id": "i45",
+      "cat": "cat_1782498102706",
+      "subcat": "",
+      "name": {
+        "fr": "Américain",
+        "en": "Americano",
+        "it": "Americano",
+        "de": "Americano",
+        "zh": "美式",
+        "ru": "Американо",
+        "es": "Américain"
+      },
+      "desc": {
+        "fr": "",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "2,8€",
+      "photo": "",
+      "archived": false,
+      "allergens": []
+    },
+    {
+      "id": "i46",
+      "cat": "cat_1782498102706",
+      "subcat": "",
+      "name": {
+        "fr": "Noisette",
+        "en": "Macchiato",
+        "it": "Macchiato",
+        "de": "Macchiato",
+        "zh": "榛果咖啡",
+        "ru": "Макиато",
+        "es": "Noisette"
+      },
+      "desc": {
+        "fr": "",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "3€",
+      "photo": "",
+      "archived": false,
+      "allergens": []
+    },
+    {
+      "id": "i47",
+      "cat": "cat_1782498102706",
+      "subcat": "",
+      "name": {
+        "fr": "Cappuccino",
+        "en": "Cappuccino",
+        "it": "Cappuccino",
+        "de": "Cappuccino",
+        "zh": "卡布奇诺",
+        "ru": "Капучино",
+        "es": "Cappuccino"
+      },
+      "desc": {
+        "fr": "",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "4,5€",
+      "photo": "",
+      "archived": false,
+      "allergens": []
+    },
+    {
+      "id": "i48",
+      "cat": "cat_1782498102706",
+      "subcat": "",
+      "name": {
+        "fr": "Thé bio Malongo",
+        "en": "Organic Malongo Tea",
+        "it": "Tè bio Malongo",
+        "de": "Bio-Malongo-Tee",
+        "zh": "马隆戈有机茶",
+        "ru": "Органический чай Малонго",
+        "es": "Thé bio Malongo"
+      },
+      "desc": {
+        "fr": "Earl Grey, thé vert menthe, thé rouge Rooibos, infusion verveine",
+        "en": "Earl Grey, green mint tea, red Rooibos tea, verbena infusion",
+        "it": "Earl Grey, tè verde alla menta, tè rosso Rooibos, infuso di verbena",
+        "de": "Earl Grey, grüner Minztee, roter Rooibos-Tee, Verbenenaufguss",
+        "zh": "伯爵茶，绿薄荷茶，南非红茶，马鞭草茶",
+        "ru": "Эрл Грей, зелёный мятный чай, ройбуш, вербена",
+        "es": "Earl Grey, thé vert menthe, thé rouge Rooibos, infusion verveine"
+      },
+      "price": "4,5€",
+      "photo": "",
+      "archived": false,
+      "allergens": []
     },
     {
       "id": "i43",
@@ -1479,12 +1619,18 @@
         "gluten",
         "oeufs",
         "lait"
+      ],
+      "extraPlacements": [
+        {
+          "cat": "cat_1782498102706",
+          "subcat": null
+        }
       ]
     },
     {
       "id": "i44",
-      "cat": "boissons",
-      "subcat": "Chaud",
+      "cat": "cat_1782498102706",
+      "subcat": "",
       "name": {
         "fr": "Expresso / Décaféiné",
         "en": "Espresso / Decaf",
@@ -1504,114 +1650,6 @@
         "es": ""
       },
       "price": "2,5€",
-      "photo": "",
-      "archived": false,
-      "allergens": []
-    },
-    {
-      "id": "i45",
-      "cat": "boissons",
-      "subcat": "Chaud",
-      "name": {
-        "fr": "Américain",
-        "en": "Americano",
-        "it": "Americano",
-        "de": "Americano",
-        "zh": "美式",
-        "ru": "Американо",
-        "es": "Américain"
-      },
-      "desc": {
-        "fr": "",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
-      },
-      "price": "2,8€",
-      "photo": "",
-      "archived": false,
-      "allergens": []
-    },
-    {
-      "id": "i46",
-      "cat": "boissons",
-      "subcat": "Chaud",
-      "name": {
-        "fr": "Noisette",
-        "en": "Macchiato",
-        "it": "Macchiato",
-        "de": "Macchiato",
-        "zh": "榛果咖啡",
-        "ru": "Макиато",
-        "es": "Noisette"
-      },
-      "desc": {
-        "fr": "",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
-      },
-      "price": "3€",
-      "photo": "",
-      "archived": false,
-      "allergens": []
-    },
-    {
-      "id": "i47",
-      "cat": "boissons",
-      "subcat": "Chaud",
-      "name": {
-        "fr": "Cappuccino",
-        "en": "Cappuccino",
-        "it": "Cappuccino",
-        "de": "Cappuccino",
-        "zh": "卡布奇诺",
-        "ru": "Капучино",
-        "es": "Cappuccino"
-      },
-      "desc": {
-        "fr": "",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
-      },
-      "price": "4,5€",
-      "photo": "",
-      "archived": false,
-      "allergens": []
-    },
-    {
-      "id": "i48",
-      "cat": "boissons",
-      "subcat": "Chaud",
-      "name": {
-        "fr": "Thé bio Malongo",
-        "en": "Organic Malongo Tea",
-        "it": "Tè bio Malongo",
-        "de": "Bio-Malongo-Tee",
-        "zh": "马隆戈有机茶",
-        "ru": "Органический чай Малонго",
-        "es": "Thé bio Malongo"
-      },
-      "desc": {
-        "fr": "Earl Grey, thé vert menthe, thé rouge Rooibos, infusion verveine",
-        "en": "Earl Grey, green mint tea, red Rooibos tea, verbena infusion",
-        "it": "Earl Grey, tè verde alla menta, tè rosso Rooibos, infuso di verbena",
-        "de": "Earl Grey, grüner Minztee, roter Rooibos-Tee, Verbenenaufguss",
-        "zh": "伯爵茶，绿薄荷茶，南非红茶，马鞭草茶",
-        "ru": "Эрл Грей, зелёный мятный чай, ройбуш, вербена",
-        "es": "Earl Grey, thé vert menthe, thé rouge Rooibos, infusion verveine"
-      },
-      "price": "4,5€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2198,7 +2236,7 @@
         "ru": "Сельское вино Вар",
         "es": "Vino de país del Var"
       },
-      "price": "Verre 7€ · Btl 26€",
+      "price": "Verre 7 · Btl 26€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2225,7 +2263,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "Verre 8€ · Btl 32€",
+      "price": "Verre 8 · Btl 32€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2279,7 +2317,7 @@
         "ru": "Сельское вино Вар",
         "es": "Vino de país del Var"
       },
-      "price": "Verre 7€ · Btl 26€",
+      "price": "Verre 7 · Btl 26€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2306,7 +2344,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "Verre 8€ · Btl 32€",
+      "price": "Verre 8 · Btl 32€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2333,7 +2371,7 @@
         "ru": "Сельское вино Вар",
         "es": "Vino de país del Var"
       },
-      "price": "Verre 7€ · Btl 26€",
+      "price": "Verre 7 · Btl 26€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2360,7 +2398,7 @@
         "ru": "Мезон Арну",
         "es": "Maison Arnoux"
       },
-      "price": "Verre 8€ · Btl 32€",
+      "price": "Verre 8 · Btl 32€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2441,7 +2479,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "Verre 7€ · Btl 24€",
+      "price": "Verre 7 · Btl 24€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2468,7 +2506,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "Verre 8€ · Btl 35€",
+      "price": "Verre 8 · Btl 35€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2826,8 +2864,8 @@
     },
     {
       "id": "i7",
-      "cat": "commencer",
-      "subcat": "Salade Bowl",
+      "cat": "cat_1782503221239",
+      "subcat": null,
       "name": {
         "fr": "Tonno Bowl",
         "en": "Tuna Bowl",
@@ -2970,7 +3008,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "11",
+      "price": "11€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2997,7 +3035,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "11",
+      "price": "11€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -3006,11 +3044,14 @@
   "upsells": [
     {
       "id": "u1",
-      "cat": "",
+      "cat": "cat_1782479088823",
       "title": "🍰 Envie d'un dessert ?",
       "message": "Ajoutez un tiramisu maison pour seulement 8€ !",
       "active": true,
-      "cats": []
+      "cats": [
+        "cat_1782479088823",
+        "cat_1782498102706"
+      ]
     },
     {
       "id": "u2",
