@@ -155,6 +155,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .floating-save.draft-save{background:#E67E22;box-shadow:0 4px 20px rgba(230,126,34,0.45);}
 .sidebar-subcat{padding:0.45rem 0.9rem 0.45rem 1.9rem !important;font-size:0.62rem !important;color:#aaa !important;border-left:3px solid transparent;}
 .sidebar-subcat.active{color:var(--rouge) !important;background:#fff3f3;border-left-color:var(--rouge);}
+.nav-group-label{padding:0.5rem 0.9rem 0.15rem;font-family:'Montserrat',sans-serif;font-size:0.6rem;font-weight:700;letter-spacing:0.08em;color:#ccc;}
 .quick-add-fab{display:none;position:fixed;bottom:1.6rem;right:1.2rem;width:48px;height:48px;border-radius:50%;background:var(--vert);color:#fff;border:none;font-size:1.6rem;line-height:1;box-shadow:0 4px 16px rgba(0,0,0,0.3);z-index:350;cursor:pointer;align-items:center;justify-content:center;}
 .plat-row{display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.2rem;border-bottom:1px solid #eee;}
 .plat-pos{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#f0ede8;border:none;color:#888;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;}
@@ -425,6 +426,18 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
   </div>
 </div>
 
+<!-- MINI POP-UP CRÉATION RAPIDE DE SOUS-CATÉGORIE -->
+<div class="modal-overlay" id="quickNewSubcatOverlay" style="z-index:680;" onclick="if(event.target===this)closeQuickNewSubcat()">
+  <div class="modal-box" style="background:#fff;padding:1.2rem;text-align:left;max-width:300px;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.6rem;font-size:0.95rem;">+ Nouvelle sous-catégorie</h4>
+    <input class="admin-input" id="quickNewSubcatVal" placeholder="Ex: Vins Blancs">
+    <div style="display:flex;gap:0.5rem;margin-top:0.6rem;">
+      <button class="add-btn" style="background:#aaa;" onclick="closeQuickNewSubcat()">Annuler</button>
+      <button class="add-btn" onclick="confirmQuickNewSubcat()">✓ Créer</button>
+    </div>
+  </div>
+</div>
+
 <!-- POP-UP ALLERGÈNES (depuis le lien du pied de page) -->
 <div class="modal-overlay" id="allergenPopupOverlay" style="z-index:700;" onclick="if(event.target===this)closeAllergenPopup()">
   <button onclick="closeAllergenPopup()" style="position:fixed;top:1rem;right:1rem;background:rgba(61,43,31,0.75);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.1rem;cursor:pointer;z-index:710;line-height:1;">✕</button>
@@ -462,10 +475,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 <!-- FOOD/DRINKS SECTION PAGE -->
 <div id="sectionPage" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:55;background:#F5F0E8;flex-direction:column;">
   <div style="padding:1rem 1.2rem 0.6rem;flex-shrink:0;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:700;color:var(--rouge);" onclick="goHome()">← Accueil</div>
-  <div class="supplements-insert" id="supplementsInsert">
-    <div class="supplements-insert-text">✨ Faites-vous plaisir, personnalisez vos plats à 100% avec nos ingrédients frais et de qualité.</div>
-    <a href="#" onclick="openSupplementsPopup();return false;" class="supplements-insert-link">Les consulter ici</a>
-  </div>
+  <div class="supplements-insert" id="supplementsInsert"></div>
   <div id="sectionTabs" style="display:flex;overflow-x:auto;gap:0.6rem;padding:0.9rem 1rem;background:#F5F0E8;flex-shrink:0;border-bottom:1px solid #EDE6D8;-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>
   <div id="sectionContent" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:1rem 1rem 5rem;"></div>
 </div>
@@ -507,14 +517,14 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <button class="admin-sidebar-btn active" id="stab_sections" onclick="switchAdminTab('sections')">📄 Sections du site</button>
         <div class="admin-sidebar-section">Contenu</div>
         <div id="platsCategoryNav"></div>
-        <button class="admin-sidebar-btn" id="stab_categories" onclick="switchAdminTab('categories')">📂 Catégories</button>
-        <button class="admin-sidebar-btn" id="stab_upsell" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
         <button class="admin-sidebar-btn" id="stab_archives" onclick="switchAdminTab('archives')">🌙 Archives</button>
         <div class="admin-sidebar-section">Style</div>
         <button class="admin-sidebar-btn" id="stab_design" onclick="switchAdminTab('design')">🎨 Design</button>
         <button class="admin-sidebar-btn" id="stab_popup" onclick="switchAdminTab('popup')">✨ Pop-up</button>
         <button class="admin-sidebar-btn" id="stab_social" onclick="switchAdminTab('social')">❤️ Réseaux</button>
         <div class="admin-sidebar-section">Système</div>
+        <button class="admin-sidebar-btn" id="stab_categories" onclick="switchAdminTab('categories')">📂 Catégories</button>
+        <button class="admin-sidebar-btn" id="stab_upsell" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
         <button class="admin-sidebar-btn" id="stab_print" onclick="switchAdminTab('print')">🖨️ Impression</button>
         <button class="admin-sidebar-btn" id="stab_import" onclick="switchAdminTab('import')">📥 Import carte</button>
         <button class="admin-sidebar-btn" id="stab_history" onclick="switchAdminTab('history')">🕐 Historique</button>
@@ -1382,7 +1392,7 @@ function renderAdminItemsContextHeader(){
         <div class="items-context-actions">
           <button onclick="renameCatPrompt('${cat.id}')" title="Renommer">✎</button>
           <button onclick="openPositionPicker('cat','${cat.id}')" title="Position">↕️</button>
-          <button onclick="addSubcatPrompt('${cat.id}')" title="Nouvelle sous-catégorie">📁+</button>
+          <button onclick="addSubcatPrompt('${cat.id}')" title="Gérer les sous-catégories">📁+</button>
           <button onclick="quickAddItemHere('${cat.id}',null)" title="Ajouter un plat ici">➕</button>
         </div>
       </div>`;
@@ -1418,18 +1428,17 @@ function renameSubcatPrompt(catId, oldName){
 }
 
 function addSubcatPrompt(catId){
-  const name = prompt('Nom de la nouvelle sous-catégorie :');
-  if(!name || !name.trim()) return;
-  const cat = cats.find(c=>c.id===catId);
-  if(!cat) return;
-  ensureCatSubcats(cat);
-  const val = name.trim();
-  if(cat.subcats.includes(val)){ showToast('❌ Cette sous-catégorie existe déjà'); return; }
-  cat.subcats.push(val);
-  renderAdminCats();
-  renderPlatsCategoryNav();
-  autoSaveItems().then(()=>{});
-  openBulkAssignModal(catId, val);
+  switchAdminTab('categories');
+  setTimeout(()=>{
+    const card = document.getElementById('catcard_'+catId);
+    if(card){
+      card.scrollIntoView({behavior:'smooth', block:'center'});
+      card.style.outline = '3px solid var(--vert)';
+      setTimeout(()=>{ card.style.outline = ''; }, 2000);
+      const input = document.getElementById('newsubcat_for_'+catId);
+      if(input) input.focus();
+    }
+  }, 150);
 }
 
 function quickAddItemHere(catId, subcatName){
@@ -1514,10 +1523,13 @@ function openItemEditModal(itemId){
     <label class="admin-label">Catégorie</label>
     <select class="cat-select" id="cat_${it.id}" onchange="changeItemCat('${it.id}',this.value)">${catOpts}</select>
     <label class="admin-label">Sous-catégorie</label>
-    <select class="cat-select" id="subcat_${it.id}" onchange="changeItemSubcatSelect('${it.id}',this.value)">
-      <option value="">— Aucune sous-catégorie —</option>
-      ${catSubcats.map(s=>`<option value="${s}" ${it.subcat===s?'selected':''}>${s}</option>`).join('')}
-    </select>
+    <div style="display:flex;gap:0.3rem;">
+      <select class="cat-select" id="subcat_${it.id}" style="flex:1;margin-bottom:0;" onchange="changeItemSubcatSelect('${it.id}',this.value)">
+        <option value="">— Aucune sous-catégorie —</option>
+        ${catSubcats.map(s=>`<option value="${s}" ${it.subcat===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <button class="aic-btn" style="background:var(--vert);color:#fff;flex-shrink:0;width:38px;" onclick="openQuickNewSubcat('${it.id}')" title="Nouvelle sous-catégorie">+</button>
+    </div>
     <label class="admin-label">Nom (FR)</label>
     <input class="admin-input" id="n_${it.id}" value="${it.name.fr||''}">
     <label class="admin-label">Description (FR)</label>
@@ -1627,30 +1639,51 @@ function filterAdminItems(q){
   renderAdminItems(getFilteredAdminItems());
 }
 
+let _expandedCatInNav = null;
+
 function renderPlatsCategoryNav(){
   const el = document.getElementById('platsCategoryNav');
   if(!el) return;
   const activeCats = cats.filter(c=>!c.archived);
+  const groups = [
+    {key:'food', label:'🍕 FOOD'},
+    {key:'drinks', label:'🍹 DRINKS'},
+  ];
   const allActive = currentAdminTab==='plats' && !adminItemsFilter.cat;
-  let html = `<button class="admin-sidebar-btn ${allActive?'active':''}" onclick="selectPlatsCategory(null)">🍕 Tous les plats</button>`;
-  activeCats.forEach(cat=>{
-    const isCatActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && !adminItemsFilter.subcat;
-    html += `<button class="admin-sidebar-btn ${isCatActive?'active':''}" onclick="selectPlatsCategory('${cat.id}')">${cat.name.fr}</button>`;
-    const subcats = ensureCatSubcats(cat);
-    subcats.forEach(sc=>{
-      const isScActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
-      html += `<button class="admin-sidebar-btn sidebar-subcat ${isScActive?'active':''}" onclick="selectPlatsSubcat('${cat.id}','${sc}')">↳ ${sc}</button>`;
+  let html = `<button class="admin-sidebar-btn ${allActive?'active':''}" onclick="selectPlatsCategory(null)">📋 Tous les plats</button>`;
+  groups.forEach(g=>{
+    const catsInGroup = activeCats.filter(c=>(c.homeGroup||'food')===g.key);
+    if(catsInGroup.length===0) return;
+    html += `<div class="nav-group-label">${g.label}</div>`;
+    catsInGroup.forEach(cat=>{
+      const isCatActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && !adminItemsFilter.subcat;
+      const isExpanded = _expandedCatInNav===cat.id;
+      const subcats = ensureCatSubcats(cat);
+      html += `<button class="admin-sidebar-btn ${isCatActive?'active':''}" onclick="selectPlatsCategory('${cat.id}')">${cat.name.fr}${subcats.length?(isExpanded?' ▾':' ▸'):''}</button>`;
+      if(isExpanded){
+        subcats.forEach(sc=>{
+          const isScActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
+          html += `<button class="admin-sidebar-btn sidebar-subcat ${isScActive?'active':''}" onclick="selectPlatsSubcat('${cat.id}','${sc}')">↳ ${sc}</button>`;
+        });
+      }
     });
   });
+  html += `<div class="nav-group-label">ℹ️ À PROPOS</div><div style="font-size:0.62rem;color:#bbb;padding:0.2rem 0.9rem 0.4rem;font-family:'Montserrat',sans-serif;">Page statique (texte/réseaux dans Réseaux)</div>`;
   el.innerHTML = html;
 }
 
 function selectPlatsCategory(catId){
+  if(catId){
+    _expandedCatInNav = (_expandedCatInNav===catId) ? null : catId;
+  } else {
+    _expandedCatInNav = null;
+  }
   adminItemsFilter = {cat: catId || null, subcat: null};
   switchAdminTab('plats');
 }
 
 function selectPlatsSubcat(catId, subcat){
+  _expandedCatInNav = catId;
   adminItemsFilter = {cat:catId, subcat:subcat};
   switchAdminTab('plats');
 }
@@ -1731,6 +1764,38 @@ function openAddItemModalForSubcat(){
   }
   document.getElementById('addItemModalOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('newItemName')?.focus(), 100);
+}
+
+let _quickNewSubcatItemId = null;
+function openQuickNewSubcat(itemId){
+  _quickNewSubcatItemId = itemId;
+  document.getElementById('quickNewSubcatVal').value = '';
+  document.getElementById('quickNewSubcatOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('quickNewSubcatVal')?.focus(), 100);
+}
+function closeQuickNewSubcat(){
+  document.getElementById('quickNewSubcatOverlay').classList.remove('open');
+  _quickNewSubcatItemId = null;
+}
+function confirmQuickNewSubcat(){
+  if(!_quickNewSubcatItemId) return;
+  const val = document.getElementById('quickNewSubcatVal').value.trim();
+  if(!val) return;
+  const it = items.find(i=>i.id===_quickNewSubcatItemId);
+  if(!it) return;
+  const cat = cats.find(c=>c.id===it.cat);
+  if(!cat) return;
+  ensureCatSubcats(cat);
+  if(!cat.subcats.includes(val)) cat.subcats.push(val);
+  it.subcat = val;
+  const sel = document.getElementById('subcat_'+it.id);
+  if(sel){
+    sel.innerHTML = '<option value="">— Aucune sous-catégorie —</option>' + ensureCatSubcats(cat).map(s=>`<option value="${s}" ${it.subcat===s?'selected':''}>${s}</option>`).join('');
+  }
+  closeQuickNewSubcat();
+  renderPlatsCategoryNav();
+  renderMenu();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Sous-catégorie créée':'❌ Échec de l\'enregistrement'));
 }
 
 function quickAddClick(){
@@ -1814,7 +1879,7 @@ function renderAdminCats(){
     const subcats = ensureCatSubcats(c);
     const otherCatsOpts = cats.filter(o=>!o.archived && o.id!==c.id).map(o=>`<option value="${o.id}">${o.name.fr}</option>`).join('');
     return `
-    <div class="cat-card ${c.archived?'archived':''}">
+    <div class="cat-card ${c.archived?'archived':''}" id="catcard_${c.id}">
       <div class="cat-card-row">
         ${!c.archived ? `<button class="plat-pos" onclick="openPositionPicker('cat','${c.id}')">${posInActive+1}</button>` : ''}
         <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom de la catégorie" style="margin-bottom:0;flex:1;" onchange="renameCat('${c.id}',this.value)">
@@ -3256,6 +3321,7 @@ const DRAFT_HOME = 'home_draft.json';
 const DRAFT_DESIGN = 'design_draft.json';
 const DRAFT_POPUP = 'popup_draft.json';
 const DRAFT_SOCIAL = 'social_draft.json';
+const DRAFT_SECTIONS = 'sections_draft.json';
 
 function enterDraftMode() {
   isDraftMode = true;
@@ -3323,6 +3389,7 @@ async function publishDraft() {
       [DRAFT_DESIGN, 'design.json'],
       [DRAFT_POPUP, 'popup.json'],
       [DRAFT_SOCIAL, 'social.json'],
+      [DRAFT_SECTIONS, 'sections.json'],
     ];
 
     // Tout en parallèle (au lieu d'un par un) + sécurité 20s anti-blocage
@@ -3438,12 +3505,18 @@ const HOME_GROUPS = {
     subtitle: {fr:'Nos pizzas & spécialités', en:'Our pizzas & specialities', it:'Le nostre pizze & specialità', de:'Unsere Pizzen & Spezialitäten', zh:'我们的披萨与特色菜', ru:'Наши пиццы и специалитеты', es:'Nuestras pizzas y especialidades'},
     photoKey: 'pizzas',
     catIds: ['commencer','camembert','veggie','charcuterie','viandes','desserts'],
+    insertText: 'Faites-vous plaisir, personnalisez vos plats à 100% avec nos ingrédients frais et de qualité.',
+    insertLinkLabel: 'Les consulter ici',
+    insertLinkCatId: '',
   },
   drinks: {
     title: {fr:'Drinks', en:'Drinks', it:'Drinks', de:'Drinks', zh:'饮品', ru:'Напитки',es:'Drinks', es:'Bebidas'},
     subtitle: {fr:'Cocktails, vins & boissons', en:'Cocktails, wines & drinks', it:'Cocktail, vini & bevande', de:'Cocktails, Weine & Getränke', zh:'鸡尾酒、葡萄酒与饮品', ru:'Коктейли, вина и напитки', es:'Cócteles, vinos y bebidas'},
     photoKey: 'boissons',
     catIds: ['boissons','vins'],
+    insertText: '',
+    insertLinkLabel: '',
+    insertLinkCatId: '',
   },
   about: {
     title: {fr:'Notre Histoire', en:'Our Story', it:'La Nostra Storia', de:'Unsere Geschichte', zh:'关于我们', ru:'О нас',es:'Notre Histoire', es:'Nuestra Historia'},
@@ -3476,6 +3549,24 @@ function buildSectionTabs(groupCats){
 }
 function tabKeyToBtnId(key){ return 'stab_'+key.replace(/[^a-zA-Z0-9_]/g,'_'); }
 
+function goToCategoryLink(catId){
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat) return;
+  const targetGroup = cat.homeGroup || 'food';
+  if (targetGroup !== currentGroup) {
+    openSectionPage(targetGroup);
+    setTimeout(()=>{
+      const tabs = window._currentSectionTabs || [];
+      const tab = tabs.find(t=>t.catId===catId);
+      if (tab) showSectionTab(tab.key);
+    }, 50);
+  } else {
+    const tabs = window._currentSectionTabs || [];
+    const tab = tabs.find(t=>t.catId===catId);
+    if (tab) showSectionTab(tab.key);
+  }
+}
+
 function openSectionPage(groupKey) {
   const l = currentLang;
   const group = HOME_GROUPS[groupKey];
@@ -3492,7 +3583,18 @@ function openSectionPage(groupKey) {
     document.getElementById('sectionPage').style.display = 'flex';
     return;
   }
-  if (suppInsert) suppInsert.style.display = 'flex';
+  if (suppInsert) {
+    if (group.insertText && group.insertText.trim()) {
+      const linkCat = group.insertLinkCatId ? cats.find(c=>c.id===group.insertLinkCatId && !c.archived) : null;
+      suppInsert.innerHTML = `
+        <div class="supplements-insert-text">✨ ${group.insertText}</div>
+        ${linkCat ? `<a href="#" onclick="goToCategoryLink('${linkCat.id}');return false;" class="supplements-insert-link">${group.insertLinkLabel||'Voir'}</a>` : ''}
+      `;
+      suppInsert.style.display = 'flex';
+    } else {
+      suppInsert.style.display = 'none';
+    }
+  }
 
   // Get active cats for this group (basé sur le réglage personnalisable de chaque catégorie)
   const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === groupKey);
@@ -3778,11 +3880,12 @@ async function init(){
   // Then load from GitHub (overrides local if exists)
   await loadFromGithub();
   // Load other configs from GitHub
-  const [remoteDesign, remotePopup, remoteSocial, remoteHome] = await Promise.all([
+  const [remoteDesign, remotePopup, remoteSocial, remoteHome, remoteSections] = await Promise.all([
     loadKeyFromGithub(isDraftMode ? DRAFT_DESIGN : 'design.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_POPUP : 'popup.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_SOCIAL : 'social.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_HOME : 'home.json'),
+    loadKeyFromGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json'),
   ]);
   if (remoteDesign) { currentDesign = {...DESIGN_DEFAULTS, ...remoteDesign}; applyDesignVars(currentDesign); try{localStorage.setItem('milos_design',JSON.stringify(currentDesign));}catch(e){} }
   if (remotePopup) {
@@ -3792,6 +3895,11 @@ async function init(){
   }
   if (remoteSocial) { socialConfig = {...socialConfig, ...remoteSocial}; try{localStorage.setItem('milos_social',JSON.stringify(remoteSocial));}catch(e){} }
   if (remoteHome) { homeConfig = remoteHome; try{localStorage.setItem('milos_home',JSON.stringify(remoteHome));}catch(e){} }
+  if (remoteSections) {
+    Object.keys(remoteSections).forEach(key=>{
+      if (HOME_GROUPS[key]) Object.assign(HOME_GROUPS[key], remoteSections[key]);
+    });
+  }
   renderMenu();
 
   if (goStraightToAdmin) {
@@ -3845,6 +3953,19 @@ function renderAdminSections(){
     if(group.isAbout){
       html += "<label class='admin-label' style='margin-top:0.5rem;'>Paragraphe \"Notre Histoire\"</label>";
       html += "<textarea class='admin-input' id='sec_about_text_"+key+"' rows='4' style='resize:vertical;min-height:80px;'>"+(group.aboutText||'')+"</textarea>";
+    } else {
+      html += "<div class='cat-section-label' style='margin-top:0.8rem;'>Encart personnalisé (en haut de la section)</div>";
+      html += "<label class='admin-label'>Texte (laisser vide pour ne rien afficher)</label>";
+      html += "<textarea class='admin-input' id='sec_insert_text_"+key+"' rows='2' style='resize:vertical;'>"+(group.insertText||'')+"</textarea>";
+      html += "<label class='admin-label' style='margin-top:0.4rem;'>Texte du lien</label>";
+      html += "<input class='admin-input' id='sec_insert_label_"+key+"' value='"+(group.insertLinkLabel||'')+"' placeholder='Ex: Les consulter ici'>";
+      html += "<label class='admin-label' style='margin-top:0.4rem;'>Le lien renvoie vers la catégorie</label>";
+      html += "<select class='cat-select' id='sec_insert_cat_"+key+"'>";
+      html += "<option value=''>— Aucun lien —</option>";
+      cats.filter(function(c){return !c.archived;}).forEach(function(c){
+        html += "<option value='"+c.id+"' "+(group.insertLinkCatId===c.id?'selected':'')+">"+c.name.fr+"</option>";
+      });
+      html += "</select>";
     }
     html += "</div>";
   }
@@ -3855,7 +3976,7 @@ function renderAdminSections(){
   if(el) el.innerHTML = html;
 }
 
-function saveSections(){
+async function saveSections(){
   var keys = Object.keys(HOME_GROUPS);
   for(var ki=0;ki<keys.length;ki++){
     var key = keys[ki];
@@ -3869,13 +3990,30 @@ function saveSections(){
     if(!group.isAbout){
       var subInp = document.getElementById('sec_sub_fr_'+key);
       if(subInp && group.subtitle && subInp.value.trim()) group.subtitle.fr = subInp.value.trim();
+      var insertTextInp = document.getElementById('sec_insert_text_'+key);
+      if(insertTextInp) group.insertText = insertTextInp.value;
+      var insertLabelInp = document.getElementById('sec_insert_label_'+key);
+      if(insertLabelInp) group.insertLinkLabel = insertLabelInp.value;
+      var insertCatInp = document.getElementById('sec_insert_cat_'+key);
+      if(insertCatInp) group.insertLinkCatId = insertCatInp.value;
     }
     var aboutInp = document.getElementById('sec_about_text_'+key);
     if(aboutInp) group.aboutText = aboutInp.value;
   }
   renderMenu();
   renderHomePage(currentLang);
-  showToast('\u2713 Sections sauvegard\u00e9es !');
+
+  var sectionsConfig = {};
+  keys.forEach(function(key){
+    var g = HOME_GROUPS[key];
+    sectionsConfig[key] = {
+      title: g.title, subtitle: g.subtitle, aboutText: g.aboutText,
+      insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId
+    };
+  });
+  var result = await saveKeyToGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json', sectionsConfig);
+  var ok = !!(result && result.content && result.content.sha);
+  showToast(ok ? '✓ Sections sauvegardées !' : '❌ Échec de l\'enregistrement - réessayez');
 }
 
 function triggerSectionPhotoUpload(key){
