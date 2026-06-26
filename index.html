@@ -450,6 +450,19 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
   </div>
 </div>
 
+<!-- MODALE TRANSFERT DE SOUS-CATÉGORIE -->
+<div class="modal-overlay" id="transferSubcatOverlay" style="z-index:690;" onclick="if(event.target===this)closeTransferSubcat()">
+  <div class="modal-box" style="background:#fff;padding:1.2rem;text-align:left;max-width:300px;" onclick="event.stopPropagation()">
+    <h4 id="transferSubcatTitle" style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.6rem;font-size:0.95rem;"></h4>
+    <label class="admin-label">Nouvelle catégorie parente</label>
+    <select class="cat-select" id="transferSubcatTarget"></select>
+    <div style="display:flex;gap:0.5rem;margin-top:0.6rem;">
+      <button class="add-btn" style="background:#aaa;" onclick="closeTransferSubcat()">Annuler</button>
+      <button class="add-btn" onclick="confirmTransferSubcat()">✓ Transférer</button>
+    </div>
+  </div>
+</div>
+
 <!-- POP-UP ALLERGÈNES (depuis le lien du pied de page) -->
 <div class="modal-overlay" id="allergenPopupOverlay" style="z-index:700;" onclick="if(event.target===this)closeAllergenPopup()">
   <button onclick="closeAllergenPopup()" style="position:fixed;top:1rem;right:1rem;background:rgba(61,43,31,0.75);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.1rem;cursor:pointer;z-index:710;line-height:1;">✕</button>
@@ -2009,6 +2022,7 @@ function renderAdminCats(){
         <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom de la catégorie" style="margin-bottom:0;flex:1;" onchange="renameCat('${c.id}',this.value)">
         <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
           <button class="aic-btn archive" onclick="toggleArchiveCat('${c.id}')">${c.archived?'↩ Réactiver':'🌙 Archiver'}</button>
+          ${c.archived ? `<button class="aic-btn delete" onclick="deleteCategoryPermanently('${c.id}')">🗑️ Supprimer</button>` : ''}
         </div>
       </div>
       ${c.archived?'<span class="archived-badge">archivée</span>':''}
@@ -2041,6 +2055,7 @@ function renderAdminCats(){
               <button class="subcat-chip-pos" onclick="openPositionPicker('subcat','${c.id}::${sc}')">${i+1}</button>
               ${sc}
               <button class="subcat-chip-assign" onclick="openBulkAssignModal('${c.id}','${sc}')" title="Assigner des plats">👥</button>
+              <button class="subcat-chip-assign" onclick="openTransferSubcat('${c.id}','${sc}')" title="Transférer vers une autre catégorie">↗️</button>
               <button class="subcat-chip-del" onclick="deleteSubcat('${c.id}','${sc}')">✕</button>
             </span>`).join('') : '<span style="font-size:0.68rem;color:#aaa;">Aucune pour le moment</span>'}
         </div>
@@ -2233,6 +2248,42 @@ function absorbCategoryAsSubcat(parentCatId){
   autoSaveItems().then(ok=>showToast(ok?`✓ "${subcatName}" absorbée comme sous-catégorie`:'❌ Échec de l\'enregistrement'));
 }
 
+let _transferSubcat = null;
+function openTransferSubcat(catId, subcatName){
+  _transferSubcat = {catId, subcatName};
+  const cat = cats.find(c=>c.id===catId);
+  document.getElementById('transferSubcatTitle').textContent = `Transférer "${subcatName}"${cat?' (depuis '+cat.name.fr+')':''}`;
+  const sel = document.getElementById('transferSubcatTarget');
+  sel.innerHTML = cats.filter(c=>!c.archived && c.id!==catId).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
+  document.getElementById('transferSubcatOverlay').classList.add('open');
+}
+function closeTransferSubcat(){
+  document.getElementById('transferSubcatOverlay').classList.remove('open');
+  _transferSubcat = null;
+}
+function confirmTransferSubcat(){
+  if(!_transferSubcat) return;
+  const {catId, subcatName} = _transferSubcat;
+  const targetId = document.getElementById('transferSubcatTarget').value;
+  if(!targetId){ showToast('❌ Choisis une catégorie de destination'); return; }
+  const sourceCat = cats.find(c=>c.id===catId);
+  const targetCat = cats.find(c=>c.id===targetId);
+  if(!sourceCat || !targetCat) return;
+  const affected = items.filter(it=>it.cat===catId && it.subcat===subcatName && !it.archived).length;
+  if(!confirm(`Transférer "${subcatName}" de "${sourceCat.name.fr}" vers "${targetCat.name.fr}" ?\n${affected} plat(s) seront déplacés.`)) return;
+
+  ensureCatSubcats(targetCat);
+  if(!targetCat.subcats.includes(subcatName)) targetCat.subcats.push(subcatName);
+  items.forEach(it=>{ if(it.cat===catId && it.subcat===subcatName){ it.cat=targetId; it.subcat=subcatName; } });
+  if(sourceCat.subcats) sourceCat.subcats = sourceCat.subcats.filter(s=>s!==subcatName);
+
+  closeTransferSubcat();
+  renderAdminCats();
+  renderPlatsCategoryNav();
+  renderAdminItems(getFilteredAdminItems());
+  autoSaveItems().then(ok=>showToast(ok?`✓ "${subcatName}" transférée`:'❌ Échec de l\'enregistrement'));
+}
+
 function renameCat(id, val){
   const c = cats.find(c=>c.id===id);
   if(!c || !val.trim()) return;
@@ -2249,6 +2300,21 @@ function toggleArchiveCat(id){
   if(c)c.archived=!c.archived;
   renderAdminContent();
   autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
+}
+
+function deleteCategoryPermanently(id){
+  const c = cats.find(c=>c.id===id);
+  if(!c) return;
+  const affected = items.filter(it=>it.cat===id || (it.extraPlacements && it.extraPlacements.some(p=>p.cat===id))).length;
+  if(affected > 0){
+    showToast(`❌ ${affected} plat(s) sont encore liés à cette catégorie — déplace ou supprime-les d'abord`);
+    return;
+  }
+  if(!confirm(`Supprimer définitivement "${c.name.fr}" ? Cette action est irréversible.`)) return;
+  cats = cats.filter(x=>x.id!==id);
+  renderAdminCats();
+  renderPlatsCategoryNav();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie supprimée définitivement':'❌ Échec de l\'enregistrement'));
 }
 
 function toggleCatCollapsible(id, val){
