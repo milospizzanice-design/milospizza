@@ -414,7 +414,8 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 <!-- MODALE ASSIGNATION GROUPÉE DE PLATS À UNE SOUS-CATÉGORIE -->
 <div class="modal-overlay" id="bulkAssignModalOverlay" style="z-index:650;" onclick="if(event.target===this)closeBulkAssignModal()">
   <div class="modal-box" style="background:#fff;max-height:85vh;overflow-y:auto;padding:1.2rem;text-align:left;" onclick="event.stopPropagation()">
-    <h4 id="bulkAssignTitle" style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.6rem;font-size:0.95rem;"></h4>
+    <h4 id="bulkAssignTitle" style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.2rem;font-size:0.95rem;"></h4>
+    <div id="bulkAssignCount" style="font-size:0.68rem;color:var(--vert);font-weight:700;margin-bottom:0.5rem;"></div>
     <p style="font-size:0.7rem;color:#888;margin-bottom:0.6rem;">Coche les plats à ranger dans cette sous-catégorie. Tu peux aussi chercher un plat ailleurs pour le transférer ici.</p>
     <input class="admin-search" placeholder="Rechercher un plat..." oninput="renderBulkAssignList(this.value)">
     <div id="bulkAssignList" style="max-height:48vh;overflow-y:auto;"></div>
@@ -1426,6 +1427,7 @@ function renderAdminItemsContextHeader(){
           <button onclick="renameCatPrompt('${cat.id}')" title="Renommer">✎</button>
           <button onclick="openPositionPicker('cat','${cat.id}')" title="Position">↕️</button>
           <button onclick="addSubcatPrompt('${cat.id}')" title="Gérer les sous-catégories">📁+</button>
+          <button onclick="openBulkAssignModal('${cat.id}',null)" title="Importer des plats existants">👥</button>
           <button onclick="quickAddItemHere('${cat.id}',null)" title="Ajouter un plat ici">➕</button>
         </div>
       </div>`;
@@ -1748,14 +1750,23 @@ function updateQuickAddBtn(){
 }
 
 let _bulkAssignSubcat = null;
+let _bulkAssignPendingChecked = new Set();
 
 function openBulkAssignModal(catId, subcatName){
   _bulkAssignSubcat = {catId, subcatName: subcatName || null};
+  _bulkAssignPendingChecked = new Set(
+    items.filter(it=>!it.archived && itemIsInPlacement(it, catId, subcatName)).map(it=>it.id)
+  );
   const cat = cats.find(c=>c.id===catId);
   const label = subcatName ? `"${subcatName}"${cat ? ' ('+cat.name.fr+')' : ''}` : (cat ? `"${cat.name.fr}"` : '');
   document.getElementById('bulkAssignTitle').textContent = `Importer des plats dans ${label}`;
   renderBulkAssignList('');
   document.getElementById('bulkAssignModalOverlay').classList.add('open');
+}
+
+function toggleBulkAssignPending(itemId, isChecked){
+  if(isChecked) _bulkAssignPendingChecked.add(itemId);
+  else _bulkAssignPendingChecked.delete(itemId);
 }
 
 function renderBulkAssignList(query){
@@ -1764,16 +1775,18 @@ function renderBulkAssignList(query){
   const {catId, subcatName} = _bulkAssignSubcat;
   const q = query.trim().toLowerCase();
   let list = items.filter(it => !it.archived && (!q || (it.name.fr||'').toLowerCase().includes(q)));
-  list = list.slice().sort((a,b)=> (itemIsInPlacement(a,catId,subcatName)?0:1) - (itemIsInPlacement(b,catId,subcatName)?0:1));
+  list = list.slice().sort((a,b)=> (_bulkAssignPendingChecked.has(a.id)?0:1) - (_bulkAssignPendingChecked.has(b.id)?0:1));
+  const selCount = _bulkAssignPendingChecked.size;
+  document.getElementById('bulkAssignCount').textContent = selCount ? `${selCount} sélectionné(s)` : '';
   el.innerHTML = list.map(it=>{
-    const checked = itemIsInPlacement(it, catId, subcatName);
+    const checked = _bulkAssignPendingChecked.has(it.id);
     const places = itemAllPlacements(it).filter(p=>!(p.cat===catId && (subcatName?p.subcat===subcatName:!p.subcat)));
     const tag = places.length ? ' <span style="color:#aaa;font-size:0.62rem;">(aussi : '+places.map(p=>{
       const c = cats.find(x=>x.id===p.cat);
       return (c?c.name.fr:'?') + (p.subcat?' › '+p.subcat:'');
     }).join(', ')+')</span>' : '';
     return `<label style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid #f0ede8;font-size:0.78rem;font-family:'Montserrat',sans-serif;">
-      <input type="checkbox" data-item-id="${it.id}" ${checked?'checked':''} style="width:18px;height:18px;flex-shrink:0;">
+      <input type="checkbox" data-item-id="${it.id}" ${checked?'checked':''} onchange="toggleBulkAssignPending('${it.id}',this.checked)" style="width:18px;height:18px;flex-shrink:0;">
       <span>${it.name.fr||'(sans nom)'}${tag}</span>
     </label>`;
   }).join('') || '<p style="color:#aaa;text-align:center;padding:1rem;font-size:0.78rem;">Aucun résultat</p>';
@@ -1782,9 +1795,9 @@ function renderBulkAssignList(query){
 function confirmBulkAssign(){
   if(!_bulkAssignSubcat) return;
   const {catId, subcatName} = _bulkAssignSubcat;
-  const checkboxes = document.querySelectorAll('#bulkAssignList input[type=checkbox]');
-  const checkedIds = [...checkboxes].filter(cb=>cb.checked).map(cb=>cb.dataset.itemId);
-  const uncheckedIds = [...checkboxes].filter(cb=>!cb.checked).map(cb=>cb.dataset.itemId);
+  const checkedIds = [..._bulkAssignPendingChecked];
+  const originallyHereIds = items.filter(it=>!it.archived && itemIsInPlacement(it, catId, subcatName)).map(it=>it.id);
+  const uncheckedIds = originallyHereIds.filter(id=>!_bulkAssignPendingChecked.has(id));
 
   // Des plats cochés viennent-ils d'ailleurs (changement réel d'emplacement) ?
   const newlyChecked = checkedIds
@@ -1853,6 +1866,7 @@ function finalizeBulkAssign(checkedIds, catId, subcatName, mode){
 function closeBulkAssignModal(){
   document.getElementById('bulkAssignModalOverlay').classList.remove('open');
   _bulkAssignSubcat = null;
+  _bulkAssignPendingChecked = new Set();
 }
 
 function openAddItemModalForSubcat(){
