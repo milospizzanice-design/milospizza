@@ -168,6 +168,11 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .plat-price-suffix{flex-shrink:0;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;margin-left:0.15rem;}
 .photo-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--vert);margin-right:0.4rem;flex-shrink:0;}
 .subcat-manager{margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid #f0ede8;}
+.items-context-header{display:flex;justify-content:space-between;align-items:center;background:var(--creme-fonce);border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.7rem;flex-wrap:wrap;gap:0.4rem;}
+.items-context-title{font-family:'Playfair Display',serif;font-size:0.95rem;color:var(--rouge);font-weight:700;}
+.items-context-parent{font-family:'Montserrat',sans-serif;font-size:0.65rem;color:#888;font-weight:400;}
+.items-context-actions{display:flex;gap:0.35rem;flex-shrink:0;}
+.items-context-actions button{background:#fff;border:1px solid #ddd;border-radius:6px;width:30px;height:30px;font-size:0.85rem;cursor:pointer;}
 .subcat-chip-list{display:flex;flex-wrap:wrap;gap:0.35rem;}
 .subcat-chip{display:inline-flex;align-items:center;gap:0.3rem;background:#faf8f5;border:1px solid #e5e0d8;border-radius:16px;padding:0.2rem 0.5rem 0.2rem 0.2rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;color:#555;}
 .subcat-chip-pos{width:18px;height:18px;border-radius:50%;background:var(--vert);color:#fff;border:none;font-size:0.58rem;font-weight:700;cursor:pointer;flex-shrink:0;}
@@ -503,7 +508,6 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <div id="platsCategoryNav"></div>
         <button class="admin-sidebar-btn" id="stab_categories" onclick="switchAdminTab('categories')">📂 Catégories</button>
         <button class="admin-sidebar-btn" id="stab_upsell" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
-        <button class="admin-sidebar-btn" id="stab_supplements" onclick="switchAdminTab('supplements')">🧀 Suppléments</button>
         <button class="admin-sidebar-btn" id="stab_archives" onclick="switchAdminTab('archives')">🌙 Archives</button>
         <div class="admin-sidebar-section">Style</div>
         <button class="admin-sidebar-btn" id="stab_design" onclick="switchAdminTab('design')">🎨 Design</button>
@@ -524,6 +528,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <!-- PLATS -->
       <div class="admin-section active" id="as-plats">
         <input class="admin-search" type="text" placeholder="Rechercher un plat..." oninput="filterAdminItems(this.value)">
+        <div id="adminItemsContextHeader"></div>
         <div id="adminItemsList" style="padding-bottom:4.5rem;"></div>
       </div>
 
@@ -544,23 +549,6 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
           <label class="admin-label">Message</label>
           <input class="admin-input" id="newUpsellMsg" placeholder="Ex: Ajoutez un tiramisu pour 8€ !">
           <button class="add-btn" onclick="addUpsell()">Ajouter la suggestion</button>
-        </div>
-        <button class="admin-save-btn" onclick="saveAll()">✓ Enregistrer</button>
-      </div>
-
-      <!-- SUPPLEMENTS -->
-      <div class="admin-section" id="as-supplements">
-        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Liste unique de suppléments (mozzarella, jambon...), visible par les clients via une pop-up dédiée. Regroupez-les par catégorie (Fromages, Viandes, Légumes...).</p>
-        <div id="adminSupplementsList"></div>
-        <div class="add-item-form">
-          <h4>➕ Nouveau supplément</h4>
-          <label class="admin-label">Catégorie</label>
-          <input class="admin-input" id="newSuppCat" placeholder="Ex: Fromages">
-          <label class="admin-label">Nom</label>
-          <input class="admin-input" id="newSuppName" placeholder="Ex: Mozzarella">
-          <label class="admin-label">Prix</label>
-          <input class="admin-input" id="newSuppPrice" placeholder="Ex: 2" style="max-width:100px">
-          <button class="add-btn" onclick="addSupplement()">Ajouter le supplément</button>
         </div>
       </div>
 
@@ -1016,7 +1004,7 @@ function selectLang(l){
   if(sp && sp.style.display === 'flex' && currentGroup) {
     const group = HOME_GROUPS[currentGroup];
     if(group) {
-      const groupCats = cats.filter(c => !c.archived && (c.homeGroup || 'food') === currentGroup);
+      const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === currentGroup);
       document.getElementById('sectionTabs').innerHTML = groupCats.map((c, i) =>
         '<button id="stab_'+c.id+'" onclick="showSectionCat(\'' + c.id + '\')" style="flex-shrink:0;border:'+(i===0?'none':'2px solid rgba(155,28,28,0.15)')+';border-radius:50px;padding:0.55rem 1.3rem;font-family:\'Montserrat\',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;background:'+(i===0?'#9B1C1C':'rgba(245,240,232,0.95)')+';color:'+(i===0?'#fff':'#5A4535')+';box-shadow:'+(i===0?'0 3px 10px rgba(155,28,28,0.3)':'0 1px 3px rgba(0,0,0,0.08)')+';transition:all 0.2s;letter-spacing:0.03em;">'+(c.name[l]||c.name.fr)+'</button>'
       ).join('');
@@ -1094,9 +1082,7 @@ function renderMenu() {
       const t = T[l];
       if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${t.childMenu}</div><p>${t.childDesc}</p><div class="e-price">12€</div></div>`;
       if (e==='supplements') {
-  // Show supplements for all charcuterie-type cats
-  const supCats = cats.filter(c => c.extras && c.extras.includes('supplements') && !c.archived);
-  html += `<div class="supplements-box"><h3>${t.supplements}</h3><p>${t.supplementsDesc}</p><div class="sup-tags">${['Fromage','Charcuterie','Légumes','Œuf','Burrata','Mozzarella','Jambon cuit','Bresaola','Artichauts','Poivrons','Champignons'].map(x=>`<span class="sup-tag">${x}</span>`).join('')}</div><div class="sup-price">${t.from} <strong>1,5€</strong></div></div>`;
+  html += `<div class="supplements-box"><h3>${t.supplements}</h3><p>${t.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
 }
     });
     
@@ -1277,7 +1263,7 @@ function switchAdminTab(tab){
 function updateFloatingSaveBtn(){
   const btn = document.getElementById('floatingSaveBtn');
   if (!btn) return;
-  const showTabs = ['design','home','popup','social','supplements'];
+  const showTabs = ['design','home','popup','social'];
   const actionMap = {
     plats: '✓ Enregistrer les plats',
     categories: '✓ Enregistrer les catégories',
@@ -1286,7 +1272,6 @@ function updateFloatingSaveBtn(){
     home: "🏠 Sauvegarder accueil",
     popup: '✨ Sauvegarder le pop-up',
     social: '❤️ Sauvegarder les liens',
-    supplements: '🧀 Sauvegarder les suppléments',
   };
   const actionFnMap = {
     plats: 'saveAll()',
@@ -1296,7 +1281,6 @@ function updateFloatingSaveBtn(){
     home: 'saveHomeConfig()',
     popup: 'savePopupConfig()',
     social: 'saveSocialConfig()',
-    supplements: 'saveSupplements()',
   };
   if (showTabs.includes(currentAdminTab)) {
     btn.style.display = 'block';
@@ -1317,7 +1301,6 @@ function renderAdminContent(){
   if(currentAdminTab==='home') renderAdminHome();
   if(currentAdminTab==='history') renderAdminHistory();
   if(currentAdminTab==='popup') initPopupPanel();
-  if(currentAdminTab==='supplements') renderAdminSupplements();
   if(currentAdminTab==='social') initSocialPanel();
   if(currentAdminTab==='sections') renderAdminSections();
   if(currentAdminTab==='import') { /* statique, rien à pré-charger */ }
@@ -1369,7 +1352,95 @@ function updatePriceVariant(itemId, idx, field, val){
   autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
 }
 
+function renderAdminItemsContextHeader(){
+  const el = document.getElementById('adminItemsContextHeader');
+  if(!el) return;
+  if(!adminItemsFilter.cat){ el.innerHTML=''; return; }
+  const cat = cats.find(c=>c.id===adminItemsFilter.cat);
+  if(!cat){ el.innerHTML=''; return; }
+
+  if(adminItemsFilter.subcat){
+    const sc = adminItemsFilter.subcat;
+    el.innerHTML = `
+      <div class="items-context-header">
+        <div class="items-context-title">↳ ${sc} <span class="items-context-parent">(${cat.name.fr})</span></div>
+        <div class="items-context-actions">
+          <button onclick="renameSubcatPrompt('${cat.id}','${sc.replace(/'/g,"\\'")}')" title="Renommer">✎</button>
+          <button onclick="openPositionPicker('subcat','${cat.id}::${sc}')" title="Position">↕️</button>
+          <button onclick="openBulkAssignModal('${cat.id}','${sc.replace(/'/g,"\\'")}')" title="Assigner des plats">👥</button>
+          <button onclick="quickAddItemHere('${cat.id}','${sc.replace(/'/g,"\\'")}')" title="Ajouter un plat ici">➕</button>
+        </div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="items-context-header">
+        <div class="items-context-title">${cat.name.fr}</div>
+        <div class="items-context-actions">
+          <button onclick="renameCatPrompt('${cat.id}')" title="Renommer">✎</button>
+          <button onclick="openPositionPicker('cat','${cat.id}')" title="Position">↕️</button>
+          <button onclick="addSubcatPrompt('${cat.id}')" title="Nouvelle sous-catégorie">📁+</button>
+          <button onclick="quickAddItemHere('${cat.id}',null)" title="Ajouter un plat ici">➕</button>
+        </div>
+      </div>`;
+  }
+}
+
+function renameCatPrompt(catId){
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat) return;
+  const name = prompt('Nouveau nom de la catégorie :', cat.name.fr);
+  if(!name || !name.trim()) return;
+  renameCat(catId, name.trim());
+  renderAdminItemsContextHeader();
+}
+
+function renameSubcatPrompt(catId, oldName){
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat || !cat.subcats) return;
+  const newName = prompt('Nouveau nom de la sous-catégorie :', oldName);
+  if(!newName || !newName.trim() || newName.trim()===oldName) return;
+  const name = newName.trim();
+  if(cat.subcats.includes(name)){ showToast('❌ Cette sous-catégorie existe déjà'); return; }
+  const idx = cat.subcats.indexOf(oldName);
+  if(idx===-1) return;
+  cat.subcats[idx] = name;
+  items.forEach(it=>{ if(it.cat===catId && it.subcat===oldName) it.subcat=name; });
+  if(adminItemsFilter.subcat===oldName) adminItemsFilter.subcat=name;
+  renderAdminCats();
+  renderPlatsCategoryNav();
+  renderAdminItemsContextHeader();
+  renderAdminItems(getFilteredAdminItems());
+  autoSaveItems().then(ok=>showToast(ok?'✓ Renommé':'❌ Échec de l\'enregistrement'));
+}
+
+function addSubcatPrompt(catId){
+  const name = prompt('Nom de la nouvelle sous-catégorie :');
+  if(!name || !name.trim()) return;
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat) return;
+  ensureCatSubcats(cat);
+  const val = name.trim();
+  if(cat.subcats.includes(val)){ showToast('❌ Cette sous-catégorie existe déjà'); return; }
+  cat.subcats.push(val);
+  renderAdminCats();
+  renderPlatsCategoryNav();
+  autoSaveItems().then(()=>{});
+  openBulkAssignModal(catId, val);
+}
+
+function quickAddItemHere(catId, subcatName){
+  window._pendingNewItemSubcat = subcatName || null;
+  const sel = document.getElementById('newItemCat');
+  if (sel) {
+    sel.innerHTML = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
+    sel.value = catId;
+  }
+  document.getElementById('addItemModalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('newItemName')?.focus(), 100);
+}
+
 function renderAdminItems(list){
+  renderAdminItemsContextHeader();
   document.getElementById('adminItemsList').innerHTML = list.map((it, idx)=>{
     const hasVariants = it.priceVariants && it.priceVariants.length > 0;
     const priceCell = hasVariants
@@ -1743,7 +1814,7 @@ function renderAdminCats(){
         ${!c.archived ? `<button class="plat-pos" onclick="openPositionPicker('cat','${c.id}')">${posInActive+1}</button>` : ''}
         <div style="flex:1">
           <div style="font-size:0.68rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem">Nom de la catégorie</div>
-          <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom FR" style="margin-bottom:0.3rem">
+          <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom FR" style="margin-bottom:0.3rem" onchange="renameCat('${c.id}',this.value)">
           <div class="toggle-row" style="margin-top:0.4rem">
             <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Sous-catégories déroulantes</span>
             <label class="toggle"><input type="checkbox" id="catcoll_${c.id}" ${c.collapsible?'checked':''} onchange="toggleCatCollapsible('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
@@ -1758,6 +1829,14 @@ function renderAdminCats(){
               <option value="food" ${(!c.homeGroup||c.homeGroup==='food')?'selected':''}>🍕 Food</option>
               <option value="drinks" ${c.homeGroup==='drinks'?'selected':''}>🍹 Drinks</option>
             </select>
+          </div>
+          <div class="toggle-row" style="margin-top:0.5rem">
+            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Masquer des onglets client (consultable via lien seulement)</span>
+            <label class="toggle"><input type="checkbox" id="cathide_${c.id}" ${c.hideFromMenu?'checked':''} onchange="toggleCatHideFromMenu('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row" style="margin-top:0.4rem">
+            <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Utiliser comme liste de suppléments (pop-up)</span>
+            <label class="toggle"><input type="checkbox" id="catsupp_${c.id}" ${c.isSupplementsCategory?'checked':''} onchange="toggleCatIsSupplements('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
           </div>
 
           ${c.archived?'<span class="archived-badge">archivée</span>':''}
@@ -1907,10 +1986,22 @@ function moveCatToPosition(catId, newPos){
   renderAdminCats();
 }
 
+function renameCat(id, val){
+  const c = cats.find(c=>c.id===id);
+  if(!c || !val.trim()) return;
+  const name = val.trim();
+  c.name.fr = name;
+  ['en','it','de','zh','ru'].forEach(l=>{ if(!c.name[l]||c.name[l]===c.name.fr) c.name[l]=name; });
+  renderMenu();
+  renderPlatsCategoryNav();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Nom enregistré':'❌ Échec de l\'enregistrement'));
+}
+
 function toggleArchiveCat(id){
   const c=cats.find(c=>c.id===id);
   if(c)c.archived=!c.archived;
   renderAdminContent();
+  autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
 }
 
 function toggleCatCollapsible(id, val){
@@ -1932,6 +2023,25 @@ function setCatHomeGroup(id, val){
   autoSaveItems().then(ok=>showToast(ok?'✓ Section enregistrée':'❌ Échec de l\'enregistrement'));
 }
 
+function toggleCatHideFromMenu(id, val){
+  const c=cats.find(c=>c.id===id);
+  if(!c) return;
+  c.hideFromMenu = val;
+  renderMenu();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
+}
+
+function toggleCatIsSupplements(id, val){
+  const c=cats.find(c=>c.id===id);
+  if(!c) return;
+  if(val){
+    // Une seule catégorie peut être la liste des suppléments à la fois
+    cats.forEach(other=>{ if(other.id!==id) other.isSupplementsCategory=false; });
+  }
+  c.isSupplementsCategory = val;
+  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
+}
+
 function toggleCatExtras(id, extra, val){
   const c=cats.find(c=>c.id===id);
   if(!c) return;
@@ -1947,6 +2057,7 @@ function toggleUpsell(id,val){
 function deleteUpsell(id){
   upsells=upsells.filter(u=>u.id!==id);
   renderAdminUpsell();
+  autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
 }
 
 function addNewItem(){
@@ -1977,7 +2088,7 @@ function addNewCat(){
   document.getElementById('newCatName').value='';
   closeAddCatModal();
   renderAdminContent();
-  showToast('✓ Catégorie créée');
+  autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie créée':'❌ Échec de l\'enregistrement'));
 }
 
 function addUpsell(){
@@ -1988,6 +2099,7 @@ function addUpsell(){
   document.getElementById('newUpsellTitle').value='';
   document.getElementById('newUpsellMsg').value='';
   renderAdminUpsell();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Suggestion ajoutée':'❌ Échec de l\'enregistrement'));
 }
 
 // Save changes from item cards
@@ -2327,75 +2439,18 @@ async function saveSocialConfig() {
   showToast('❤️ Réseaux sociaux sauvegardés !');
 }
 
-function renderAdminSupplements(){
-  const el = document.getElementById('adminSupplementsList');
-  if(!el) return;
-  if (!supplements.length) {
-    el.innerHTML = '<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun supplément pour le moment</p>';
-    return;
-  }
-  const cats_ = [...new Set(supplements.map(s=>s.category||'Autres'))];
-  el.innerHTML = cats_.map(catName => `
-    <div style="margin-bottom:0.8rem;">
-      <div style="font-weight:700;font-size:0.74rem;color:var(--vert);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;">${catName}</div>
-      ${supplements.filter(s=>(s.category||'Autres')===catName).map(s => `
-        <div class="plat-row" id="supprow_${s.id}">
-          <div class="plat-row-name" style="cursor:default;">${s.name}</div>
-          <div class="plat-price-wrap">
-            <input class="plat-price-num" value="${(s.price||'').replace('€','')}" inputmode="decimal" onchange="updateSupplementPrice('${s.id}',this.value)">
-            <span class="plat-price-suffix">€</span>
-          </div>
-          <button class="aic-btn delete" onclick="deleteSupplement('${s.id}')">✕</button>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
-}
-
-function addSupplement(){
-  const cat = document.getElementById('newSuppCat').value.trim() || 'Autres';
-  const name = document.getElementById('newSuppName').value.trim();
-  const price = document.getElementById('newSuppPrice').value.trim();
-  if(!name) return alert('Le nom est requis');
-  supplements.push({id:'sup'+Date.now(), category:cat, name, price: price ? price.replace('€','')+'€' : ''});
-  document.getElementById('newSuppName').value='';
-  document.getElementById('newSuppPrice').value='';
-  renderAdminSupplements();
-  saveSupplements();
-}
-
-function updateSupplementPrice(id, val){
-  const s = supplements.find(s=>s.id===id);
-  if(!s) return;
-  const clean = val.replace('€','').trim();
-  s.price = clean ? clean+'€' : '';
-  saveSupplements();
-}
-
-function deleteSupplement(id){
-  if(!confirm('Supprimer ce supplément ?')) return;
-  supplements = supplements.filter(s=>s.id!==id);
-  renderAdminSupplements();
-  saveSupplements();
-}
-
-async function saveSupplements(){
-  const result = await saveKeyToGithub(isDraftMode ? DRAFT_SUPPLEMENTS : 'supplements.json', supplements);
-  const ok = !!(result && result.content && result.content.sha);
-  showToast(ok ? '🧀 Suppléments sauvegardés !' : '❌ Échec de l\'enregistrement');
-  return ok;
-}
-
 function openSupplementsPopup(){
   const body = document.getElementById('supplementsPopupBody');
   if (body) {
-    const cats_ = [...new Set(supplements.map(s=>s.category||'Autres'))];
-    body.innerHTML = supplements.length ? cats_.map(catName => `
+    const suppCat = cats.find(c=>c.isSupplementsCategory && !c.archived);
+    const suppItems = suppCat ? items.filter(it=>!it.archived && it.cat===suppCat.id) : [];
+    const families = [...new Set(suppItems.map(it=>it.subcat||'Autres'))];
+    body.innerHTML = suppItems.length ? families.map(famName => `
       <div style="margin-bottom:1rem;">
-        <div style="font-family:'Playfair Display',serif;color:var(--rouge);font-size:1rem;margin-bottom:0.4rem;">${catName}</div>
-        ${supplements.filter(s=>(s.category||'Autres')===catName).map(s=>`
+        <div style="font-family:'Playfair Display',serif;color:var(--rouge);font-size:1rem;margin-bottom:0.4rem;">${famName}</div>
+        ${suppItems.filter(it=>(it.subcat||'Autres')===famName).map(it=>`
           <div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid var(--creme-fonce);font-family:'Montserrat',sans-serif;font-size:0.82rem;">
-            <span>${s.name}</span><span style="font-weight:700;color:var(--vert);">+${s.price}</span>
+            <span>${it.name.fr||''}</span><span style="font-weight:700;color:var(--vert);">+${it.price||''}</span>
           </div>
         `).join('')}
       </div>
@@ -2471,47 +2526,6 @@ function renderSocialSection(l) {
 // POPUP DU MOMENT
 // ═══════════════════════════════════════
 let popups = []; // Array of popup objects
-let supplements = [
-  // LÉGUMES — 1,5€
-  {id:'sup1', category:'Légumes', name:'Tomates cerises', price:'1,5€'},
-  {id:'sup2', category:'Légumes', name:'Roquette', price:'1,5€'},
-  {id:'sup3', category:'Légumes', name:'Aubergines', price:'1,5€'},
-  {id:'sup4', category:'Légumes', name:'Artichauts', price:'1,5€'},
-  {id:'sup5', category:'Légumes', name:'Champignons de Paris', price:'1,5€'},
-  {id:'sup6', category:'Légumes', name:'Poivrons', price:'1,5€'},
-  {id:'sup7', category:'Légumes', name:'Olives noires', price:'1,5€'},
-  {id:'sup8', category:'Légumes', name:'Oignons cuisinés', price:'1,5€'},
-  {id:'sup9', category:'Légumes', name:'Tomates séchées', price:'1,5€'},
-  {id:'sup10', category:'Légumes', name:'Courgettes', price:'1,5€'},
-  // CHARCUTERIE — 3€
-  {id:'sup11', category:'Charcuterie', name:'Jambon cuit', price:'3€'},
-  {id:'sup12', category:'Charcuterie', name:'Jambon cru', price:'3€'},
-  {id:'sup13', category:'Charcuterie', name:'Bresaola', price:'3€'},
-  {id:'sup14', category:'Charcuterie', name:'Mortadelle à la pistache', price:'3€'},
-  {id:'sup15', category:'Charcuterie', name:'Pancetta', price:'3€'},
-  {id:'sup16', category:'Charcuterie', name:'Spianata piccante', price:'3€'},
-  // PROTÉINES — 3€
-  {id:'sup17', category:'Protéines', name:'Poulet mariné', price:'3€'},
-  {id:'sup18', category:'Protéines', name:'Viande hachée', price:'3€'},
-  {id:'sup19', category:'Protéines', name:'Thon', price:'3€'},
-  {id:'sup20', category:'Protéines', name:'Saumon mariné', price:'3€'},
-  {id:'sup21', category:'Protéines', name:'Anchois', price:'3€'},
-  {id:'sup22', category:'Protéines', name:'Œuf', price:'3€'},
-  // FROMAGES — 3,5€
-  {id:'sup23', category:'Fromages', name:'Mozzarella (fior di latte)', price:'3,5€'},
-  {id:'sup24', category:'Fromages', name:'Parmesan', price:'3,5€'},
-  {id:'sup25', category:'Fromages', name:'Gorgonzola', price:'3,5€'},
-  {id:'sup26', category:'Fromages', name:'Chèvre', price:'3,5€'},
-  {id:'sup27', category:'Fromages', name:'Burrata', price:'3,5€'},
-  {id:'sup28', category:'Fromages', name:'Stracciatella', price:'3,5€'},
-  {id:'sup29', category:'Fromages', name:'Cheddar', price:'3,5€'},
-  // BASES — 2€
-  {id:'sup30', category:'Bases', name:'Sauce tomate', price:'2€'},
-  {id:'sup31', category:'Bases', name:'Crème de truffe', price:'2€'},
-  {id:'sup32', category:'Bases', name:'Pesto courgettes & basilic', price:'2€'},
-  {id:'sup33', category:'Bases', name:'Crème de moutarde à l\'ancienne', price:'2€'},
-  {id:'sup34', category:'Bases', name:'Crème de poires rôties au miel et romarin', price:'2€'},
-]; // Pré-rempli depuis les ingrédients de la carte fournie ; à valider/ajuster puis Enregistrer.
 let popupConfig = { active:false, badge:'🍕 Pizza du moment !', title:'', desc:'', price:'', photo:'', timing:'always' }; // legacy
 
 function loadPopupConfig() {
@@ -3207,7 +3221,6 @@ const DRAFT_HOME = 'home_draft.json';
 const DRAFT_DESIGN = 'design_draft.json';
 const DRAFT_POPUP = 'popup_draft.json';
 const DRAFT_SOCIAL = 'social_draft.json';
-const DRAFT_SUPPLEMENTS = 'supplements_draft.json';
 
 function enterDraftMode() {
   isDraftMode = true;
@@ -3275,7 +3288,6 @@ async function publishDraft() {
       [DRAFT_DESIGN, 'design.json'],
       [DRAFT_POPUP, 'popup.json'],
       [DRAFT_SOCIAL, 'social.json'],
-      [DRAFT_SUPPLEMENTS, 'supplements.json'],
     ];
 
     // Tout en parallèle (au lieu d'un par un) + sécurité 20s anti-blocage
@@ -3428,7 +3440,7 @@ function openSectionPage(groupKey) {
   if (suppInsert) suppInsert.style.display = 'flex';
 
   // Get active cats for this group (basé sur le réglage personnalisable de chaque catégorie)
-  const groupCats = cats.filter(c => !c.archived && (c.homeGroup || 'food') === groupKey);
+  const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === groupKey);
   
   // Render tabs with inline styles
   document.getElementById('sectionTabs').innerHTML = groupCats.map((c, i) => 
@@ -3554,7 +3566,7 @@ function showSectionCat(catId) {
   // Update tabs with inline styles
   const group = currentGroup ? HOME_GROUPS[currentGroup] : null;
   if (group) {
-    const groupCats = cats.filter(c => !c.archived && (c.homeGroup || 'food') === currentGroup);
+    const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === currentGroup);
     groupCats.forEach(cat => {
       const btn = document.getElementById('stab_'+cat.id);
       if (!btn) return;
@@ -3601,7 +3613,7 @@ function showSectionCat(catId) {
   // Extras
   if (c.extras) c.extras.forEach(e => {
     if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${T_local.childMenu}</div><p>${T_local.childDesc}</p><div class="e-price">12€</div></div>`;
-    if (e==='supplements') html += `<div class="supplements-box"><h3>${T_local.supplements}</h3><p>${T_local.supplementsDesc}</p><div class="sup-tags">${['Fromage','Charcuterie','Légumes','Œuf','Burrata','Mozzarella','Jambon cuit','Bresaola','Artichauts','Poivrons','Champignons'].map(x=>`<span class="sup-tag">${x}</span>`).join('')}</div><div class="sup-price">${T_local.from} <strong>1,5€</strong></div></div>`;
+    if (e==='supplements') html += `<div class="supplements-box"><h3>${T_local.supplements}</h3><p>${T_local.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
   });
   
   const sc = document.getElementById('sectionContent');
@@ -3743,14 +3755,12 @@ async function init(){
   // Then load from GitHub (overrides local if exists)
   await loadFromGithub();
   // Load other configs from GitHub
-  const [remoteDesign, remotePopup, remoteSocial, remoteHome, remoteSupplements] = await Promise.all([
+  const [remoteDesign, remotePopup, remoteSocial, remoteHome] = await Promise.all([
     loadKeyFromGithub(isDraftMode ? DRAFT_DESIGN : 'design.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_POPUP : 'popup.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_SOCIAL : 'social.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_HOME : 'home.json'),
-    loadKeyFromGithub(isDraftMode ? DRAFT_SUPPLEMENTS : 'supplements.json'),
   ]);
-  if (remoteSupplements && Array.isArray(remoteSupplements)) supplements = remoteSupplements;
   if (remoteDesign) { currentDesign = {...DESIGN_DEFAULTS, ...remoteDesign}; applyDesignVars(currentDesign); try{localStorage.setItem('milos_design',JSON.stringify(currentDesign));}catch(e){} }
   if (remotePopup) {
     if (Array.isArray(remotePopup)) { popups = remotePopup; }
