@@ -438,6 +438,17 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
   </div>
 </div>
 
+<!-- MODALE CHOIX DÉPLACER / DUPLIQUER (LIÉ) / ANNULER -->
+<div class="modal-overlay" id="moveOrDupOverlay" style="z-index:690;" onclick="if(event.target===this)cancelMoveOrDup()">
+  <div class="modal-box" style="background:#fff;padding:1.2rem;text-align:left;max-width:320px;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.6rem;font-size:0.95rem;">Certains plats sont déjà ailleurs</h4>
+    <p style="font-size:0.76rem;color:#555;margin-bottom:0.8rem;line-height:1.4;">Veux-tu les <strong>déplacer</strong> (ils disparaissent de leur emplacement actuel) ou les <strong>dupliquer</strong> (même produit, visible aux deux endroits — le modifier l'un modifie l'autre) ?</p>
+    <button class="aic-btn" style="width:100%;background:var(--rouge);color:#fff;margin-bottom:0.4rem;" onclick="chooseMoveOrDup('move')">➡️ Déplacer (retirer de l'ancien emplacement)</button>
+    <button class="aic-btn" style="width:100%;background:var(--vert);color:#fff;margin-bottom:0.4rem;" onclick="chooseMoveOrDup('duplicate')">🔗 Dupliquer (lié, garder aussi à l'ancien endroit)</button>
+    <button class="add-btn" style="width:100%;background:#aaa;" onclick="cancelMoveOrDup()">Annuler</button>
+  </div>
+</div>
+
 <!-- POP-UP ALLERGÈNES (depuis le lien du pied de page) -->
 <div class="modal-overlay" id="allergenPopupOverlay" style="z-index:700;" onclick="if(event.target===this)closeAllergenPopup()">
   <button onclick="closeAllergenPopup()" style="position:fixed;top:1rem;right:1rem;background:rgba(61,43,31,0.75);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.1rem;cursor:pointer;z-index:710;line-height:1;">✕</button>
@@ -1324,6 +1335,28 @@ function renderAdminContent(){
   ['newItemCat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
 }
 
+function renderExtraPlacementsList(it){
+  return (it.extraPlacements||[]).map((p,i)=>{
+    const c = cats.find(x=>x.id===p.cat);
+    const label = (c?c.name.fr:'?') + (p.subcat?' › '+p.subcat:'');
+    return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--creme-fonce);border-radius:6px;padding:0.35rem 0.6rem;margin-bottom:0.3rem;font-size:0.74rem;">
+      <span>${label}</span>
+      <button onclick="removeExtraPlacement('${it.id}',${i})" style="background:none;border:none;color:#c0392b;font-size:0.85rem;cursor:pointer;">✕</button>
+    </div>`;
+  }).join('') || '';
+}
+
+function removeExtraPlacement(itemId, idx){
+  const it = items.find(i=>i.id===itemId);
+  if(!it || !it.extraPlacements) return;
+  it.extraPlacements.splice(idx,1);
+  const box = document.getElementById('extraPlacementsBox_'+itemId);
+  if(box) box.innerHTML = renderExtraPlacementsList(it);
+  renderPlatsCategoryNav();
+  renderMenu();
+  autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
+}
+
 function renderPriceVariantsEditor(it){
   const variants = it.priceVariants || [];
   const rows = variants.map((v,i)=>`
@@ -1464,7 +1497,7 @@ function renderAdminItems(list){
          </div>`;
     return `<div class="plat-row" id="row_${it.id}">
       <button class="plat-pos" onclick="openPositionPicker('item','${it.id}')">${idx+1}</button>
-      <div class="plat-row-name" onclick="openItemEditModal('${it.id}')">${it.photo?'<span class="photo-dot"></span>':''}${it.name.fr||'(sans nom)'}</div>
+      <div class="plat-row-name" onclick="openItemEditModal('${it.id}')">${it.photo?'<span class="photo-dot"></span>':''}${(it.extraPlacements&&it.extraPlacements.length)?'🔗 ':''}${it.name.fr||'(sans nom)'}</div>
       <button class="plat-photo-btn ${it.photo?'has-photo':''}" onclick="triggerUpload('${it.id}')">📷<span class="upload-progress" id="prog_${it.id}">⏳</span></button>
       ${priceCell}
     </div>`;
@@ -1536,6 +1569,9 @@ function openItemEditModal(itemId){
     <input class="admin-input" id="d_${it.id}" value="${it.desc.fr||''}">
     <label class="admin-label">Prix multiples <span style="font-size:0.65rem;color:#888;">(verre/bouteille, 25cl/50cl...)</span></label>
     <div id="priceVariantsBox_${it.id}">${renderPriceVariantsEditor(it)}</div>
+    ${it.extraPlacements && it.extraPlacements.length ? `
+    <label class="admin-label">🔗 Aussi présent dans</label>
+    <div id="extraPlacementsBox_${it.id}">${renderExtraPlacementsList(it)}</div>` : ''}
     <label class="admin-label">Photo</label>
     <div class="photo-upload-row">
       <button class="photo-upload-btn" onclick="triggerUpload('${it.id}')">📷</button>
@@ -1621,14 +1657,31 @@ function changeItemSubcatSelect(id, val){
 let adminItemsSearchQuery = '';
 let adminItemsFilter = {cat: null, subcat: null};
 
+// Un produit "appartient" à un emplacement (catégorie + sous-catégorie) s'il y est en
+// emplacement principal OU en emplacement lié (extraPlacements) — système de doublons liés.
+function itemIsInPlacement(it, catId, subcat){
+  if (it.cat === catId && (subcat ? it.subcat === subcat : !it.subcat)) return true;
+  if (it.extraPlacements && it.extraPlacements.some(p => p.cat === catId && (subcat ? p.subcat === subcat : !p.subcat))) return true;
+  return false;
+}
+function itemBelongsToCat(it, catId){
+  if (it.cat === catId) return true;
+  return !!(it.extraPlacements && it.extraPlacements.some(p => p.cat === catId));
+}
+
+function itemAllPlacements(it){
+  const list = [{cat: it.cat, subcat: it.subcat || null}];
+  (it.extraPlacements || []).forEach(p => list.push({cat: p.cat, subcat: p.subcat || null}));
+  return list;
+}
+
 function getFilteredAdminItems(){
   const f = adminItemsSearchQuery.toLowerCase();
   return items.filter(i => {
     if (i.archived) return false;
     if (f && !(i.name.fr.toLowerCase().includes(f) || i.cat.includes(f))) return false;
     if (adminItemsFilter.cat) {
-      if (i.cat !== adminItemsFilter.cat) return false;
-      if (adminItemsFilter.subcat && i.subcat !== adminItemsFilter.subcat) return false;
+      if (!itemIsInPlacement(i, adminItemsFilter.cat, adminItemsFilter.subcat)) return false;
     }
     return true;
   });
@@ -1697,9 +1750,10 @@ function updateQuickAddBtn(){
 let _bulkAssignSubcat = null;
 
 function openBulkAssignModal(catId, subcatName){
-  _bulkAssignSubcat = {catId, subcatName};
+  _bulkAssignSubcat = {catId, subcatName: subcatName || null};
   const cat = cats.find(c=>c.id===catId);
-  document.getElementById('bulkAssignTitle').textContent = `Assigner des plats à "${subcatName}"${cat ? ' ('+cat.name.fr+')' : ''}`;
+  const label = subcatName ? `"${subcatName}"${cat ? ' ('+cat.name.fr+')' : ''}` : (cat ? `"${cat.name.fr}"` : '');
+  document.getElementById('bulkAssignTitle').textContent = `Importer des plats dans ${label}`;
   renderBulkAssignList('');
   document.getElementById('bulkAssignModalOverlay').classList.add('open');
 }
@@ -1710,13 +1764,14 @@ function renderBulkAssignList(query){
   const {catId, subcatName} = _bulkAssignSubcat;
   const q = query.trim().toLowerCase();
   let list = items.filter(it => !it.archived && (!q || (it.name.fr||'').toLowerCase().includes(q)));
-  list = list.slice().sort((a,b)=> (a.cat===catId?0:1) - (b.cat===catId?0:1));
+  list = list.slice().sort((a,b)=> (itemIsInPlacement(a,catId,subcatName)?0:1) - (itemIsInPlacement(b,catId,subcatName)?0:1));
   el.innerHTML = list.map(it=>{
-    const checked = it.cat===catId && it.subcat===subcatName;
-    const catObj = cats.find(c=>c.id===it.cat);
-    let tag = '';
-    if (it.cat!==catId) tag = ` <span style="color:#aaa;font-size:0.62rem;">(${catObj?catObj.name.fr:'?'})</span>`;
-    else if (it.subcat && it.subcat!==subcatName) tag = ` <span style="color:#aaa;font-size:0.62rem;">(${it.subcat})</span>`;
+    const checked = itemIsInPlacement(it, catId, subcatName);
+    const places = itemAllPlacements(it).filter(p=>!(p.cat===catId && (subcatName?p.subcat===subcatName:!p.subcat)));
+    const tag = places.length ? ' <span style="color:#aaa;font-size:0.62rem;">(aussi : '+places.map(p=>{
+      const c = cats.find(x=>x.id===p.cat);
+      return (c?c.name.fr:'?') + (p.subcat?' › '+p.subcat:'');
+    }).join(', ')+')</span>' : '';
     return `<label style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid #f0ede8;font-size:0.78rem;font-family:'Montserrat',sans-serif;">
       <input type="checkbox" data-item-id="${it.id}" ${checked?'checked':''} style="width:18px;height:18px;flex-shrink:0;">
       <span>${it.name.fr||'(sans nom)'}${tag}</span>
@@ -1728,17 +1783,65 @@ function confirmBulkAssign(){
   if(!_bulkAssignSubcat) return;
   const {catId, subcatName} = _bulkAssignSubcat;
   const checkboxes = document.querySelectorAll('#bulkAssignList input[type=checkbox]');
-  let count = 0;
-  checkboxes.forEach(cb=>{
-    const it = items.find(i=>i.id===cb.dataset.itemId);
+  const checkedIds = [...checkboxes].filter(cb=>cb.checked).map(cb=>cb.dataset.itemId);
+  const uncheckedIds = [...checkboxes].filter(cb=>!cb.checked).map(cb=>cb.dataset.itemId);
+
+  // Des plats cochés viennent-ils d'ailleurs (changement réel d'emplacement) ?
+  const newlyChecked = checkedIds
+    .map(id => items.find(i=>i.id===id))
+    .filter(it => it && !itemIsInPlacement(it, catId, subcatName));
+
+  // Retrait des décochés qui étaient ici (placement principal ou lié) — toujours sans confirmation
+  uncheckedIds.forEach(id=>{
+    const it = items.find(i=>i.id===id);
     if(!it) return;
-    if(cb.checked){
-      it.cat = catId;
-      it.subcat = subcatName;
-      count++;
-    } else if(it.cat===catId && it.subcat===subcatName){
+    if (it.cat===catId && (subcatName ? it.subcat===subcatName : !it.subcat)) {
       it.subcat = '';
     }
+    if (it.extraPlacements) {
+      it.extraPlacements = it.extraPlacements.filter(p=>!(p.cat===catId && (subcatName ? p.subcat===subcatName : !p.subcat)));
+    }
+  });
+
+  if (newlyChecked.length > 0) {
+    openMoveOrDuplicateChoice(checkedIds, catId, subcatName);
+  } else {
+    finalizeBulkAssign(checkedIds, catId, subcatName, 'move');
+  }
+}
+
+let _pendingBulkAssign = null;
+function openMoveOrDuplicateChoice(checkedIds, catId, subcatName){
+  _pendingBulkAssign = {checkedIds, catId, subcatName};
+  document.getElementById('moveOrDupOverlay').classList.add('open');
+}
+function chooseMoveOrDup(mode){
+  if(!_pendingBulkAssign) { document.getElementById('moveOrDupOverlay').classList.remove('open'); return; }
+  const {checkedIds, catId, subcatName} = _pendingBulkAssign;
+  document.getElementById('moveOrDupOverlay').classList.remove('open');
+  _pendingBulkAssign = null;
+  finalizeBulkAssign(checkedIds, catId, subcatName, mode);
+}
+function cancelMoveOrDup(){
+  document.getElementById('moveOrDupOverlay').classList.remove('open');
+  _pendingBulkAssign = null;
+  renderAdminItems(getFilteredAdminItems());
+}
+
+function finalizeBulkAssign(checkedIds, catId, subcatName, mode){
+  let count = 0;
+  checkedIds.forEach(id=>{
+    const it = items.find(i=>i.id===id);
+    if(!it) return;
+    if (itemIsInPlacement(it, catId, subcatName)) return; // déjà présent ici, rien à faire
+    if (mode === 'duplicate') {
+      if(!it.extraPlacements) it.extraPlacements = [];
+      it.extraPlacements.push({cat: catId, subcat: subcatName || null});
+    } else {
+      it.cat = catId;
+      it.subcat = subcatName || null;
+    }
+    count++;
   });
   closeBulkAssignModal();
   renderAdminItems(getFilteredAdminItems());
@@ -1877,7 +1980,14 @@ function renderAdminCats(){
   document.getElementById('adminCatList').innerHTML = cats.map((c)=>{
     const posInActive = activeCats.findIndex(ac=>ac.id===c.id);
     const subcats = ensureCatSubcats(c);
-    const otherCatsOpts = cats.filter(o=>!o.archived && o.id!==c.id).map(o=>`<option value="${o.id}">${o.name.fr}</option>`).join('');
+    const absorbOpts = [];
+    cats.filter(o=>!o.archived && o.id!==c.id).forEach(o=>{
+      absorbOpts.push(`<option value="cat|${o.id}">${o.name.fr} (catégorie entière)</option>`);
+      ensureCatSubcats(o).forEach(sc=>{
+        absorbOpts.push(`<option value="subcat|${o.id}|${sc}">${o.name.fr} › ${sc}</option>`);
+      });
+    });
+    const otherCatsOpts = absorbOpts.join('');
     return `
     <div class="cat-card ${c.archived?'archived':''}" id="catcard_${c.id}">
       <div class="cat-card-row">
@@ -1927,7 +2037,7 @@ function renderAdminCats(){
         ${otherCatsOpts ? `
         <div style="display:flex;gap:0.3rem;margin-top:0.4rem;">
           <select class="cat-select" id="absorbcat_${c.id}" style="margin-bottom:0;flex:1;">
-            <option value="">— ou transformer une catégorie existante en sous-catégorie —</option>
+            <option value="">— ou importer une catégorie / sous-catégorie existante —</option>
             ${otherCatsOpts}
           </select>
           <button class="aic-btn" style="background:var(--rouge);color:#fff;flex-shrink:0;" onclick="absorbCategoryAsSubcat('${c.id}')">Absorber</button>
@@ -2059,11 +2169,34 @@ function moveCatToPosition(catId, newPos){
 
 function absorbCategoryAsSubcat(parentCatId){
   const sel = document.getElementById('absorbcat_'+parentCatId);
-  if(!sel || !sel.value) { showToast('❌ Choisis une catégorie à absorber'); return; }
-  const otherCatId = sel.value;
-  const otherCat = cats.find(c=>c.id===otherCatId);
+  if(!sel || !sel.value) { showToast('❌ Choisis un élément à absorber'); return; }
   const parentCat = cats.find(c=>c.id===parentCatId);
-  if(!otherCat || !parentCat) return;
+  if(!parentCat) return;
+  const parts = sel.value.split('|');
+  const type = parts[0];
+
+  if (type === 'subcat') {
+    const otherCatId = parts[1];
+    const subcatName = parts[2];
+    const otherCat = cats.find(c=>c.id===otherCatId);
+    if(!otherCat) return;
+    const affected = items.filter(it=>it.cat===otherCatId && it.subcat===subcatName && !it.archived).length;
+    if(!confirm(`Importer la sous-catégorie "${subcatName}" (actuellement dans "${otherCat.name.fr}") dans "${parentCat.name.fr}" ?\n${affected} plat(s) seront déplacés.`)) return;
+    ensureCatSubcats(parentCat);
+    if(!parentCat.subcats.includes(subcatName)) parentCat.subcats.push(subcatName);
+    items.forEach(it=>{ if(it.cat===otherCatId && it.subcat===subcatName){ it.cat=parentCatId; it.subcat=subcatName; } });
+    if (otherCat.subcats) otherCat.subcats = otherCat.subcats.filter(s=>s!==subcatName);
+    renderAdminCats();
+    renderPlatsCategoryNav();
+    renderAdminItems(getFilteredAdminItems());
+    autoSaveItems().then(ok=>showToast(ok?`✓ "${subcatName}" importée`:'❌ Échec de l\'enregistrement'));
+    return;
+  }
+
+  // type === 'cat' : absorber une catégorie entière comme sous-catégorie
+  const otherCatId = parts[1];
+  const otherCat = cats.find(c=>c.id===otherCatId);
+  if(!otherCat) return;
   const subcatName = otherCat.name.fr;
   const affected = items.filter(it=>it.cat===otherCatId && !it.archived).length;
   if(!confirm(`Transformer "${subcatName}" en sous-catégorie de "${parentCat.name.fr}" ?\n${affected} plat(s) seront déplacés, et la catégorie d'origine sera archivée.`)) return;
@@ -2188,7 +2321,8 @@ function addNewCat(){
   document.getElementById('newCatName').value='';
   closeAddCatModal();
   renderAdminContent();
-  autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie créée':'❌ Échec de l\'enregistrement'));
+  autoSaveItems().then(()=>{});
+  openBulkAssignModal(id, null);
 }
 
 function addUpsell(){
@@ -2482,7 +2616,7 @@ function renderAllergenPage(l, targetId) {
       </tr></thead>
       <tbody>
         ${cats.filter(c=>!c.archived && c.inAllergenList!==false).map(cat=>{
-          const catItems = allItems.filter(it=>it.cat===cat.id);
+          const catItems = allItems.filter(it=>itemBelongsToCat(it, cat.id));
           if(catItems.length===0) return '';
           return `<tr class="allergen-cat-row"><td colspan="${ALLERGEN_LIST.length+1}">${(cat.name[l]||cat.name.fr).toUpperCase()}</td></tr>`
             + catItems.map(it=>{
@@ -2998,7 +3132,7 @@ function generateMenuPDF(){
   let anyItems = false;
 
   activeCats.forEach(cat => {
-    const catItems = items.filter(it => !it.archived && it.cat === cat.id);
+    const catItems = items.filter(it => !it.archived && itemBelongsToCat(it, cat.id));
     if (catItems.length === 0) return;
     anyItems = true;
 
@@ -3117,7 +3251,7 @@ function generateAllergenPDF(){
 
   const activeCats = cats.filter(c => !c.archived && c.inAllergenList !== false);
   activeCats.forEach(cat => {
-    const catItems = items.filter(it => !it.archived && it.cat === cat.id);
+    const catItems = items.filter(it => !it.archived && itemBelongsToCat(it, cat.id));
     if (catItems.length === 0) return;
 
     if (y + rowH > pageH - margin) { doc.addPage(); y = margin; drawTableHeader(); }
@@ -3536,7 +3670,7 @@ function buildSectionTabs(groupCats){
     if (subcats.length === 0) {
       tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
     } else {
-      const hasUnassigned = items.some(it=>!it.archived && it.cat===c.id && !it.subcat);
+      const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null));
       subcats.forEach(sc => {
         tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
       });
@@ -3740,7 +3874,7 @@ function showSectionTab(tabKey) {
   if (activeTab) activeTab.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
 
   // Render items : uniquement ceux de cette sous-catégorie précise (ou sans sous-catégorie pour l'onglet "catégorie")
-  const catItems = items.filter(it => !it.archived && it.cat === tab.catId && (tab.subcat ? it.subcat === tab.subcat : !it.subcat));
+  const catItems = items.filter(it => !it.archived && itemIsInPlacement(it, tab.catId, tab.subcat));
 
   const T_local = T[l] || T.fr;
   const upsell = upsells.find(u=>u.active && (u.cats ? u.cats.includes(tab.catId) : u.cat===tab.catId));
