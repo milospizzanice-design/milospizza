@@ -1087,6 +1087,32 @@
       ]
     },
     {
+      "id": "i1782477842664",
+      "cat": "viandes",
+      "subcat": null,
+      "name": {
+        "fr": "La Classica",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Sauce tomate, ail, anchoix, oignons cuisinés, basilic, câpres, persillade maison, olives noires, origan, huile olive EVO",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "15.5",
+      "photo": "",
+      "archived": false
+    },
+    {
       "id": "i32",
       "cat": "viandes",
       "subcat": null,
@@ -1211,37 +1237,6 @@
       ]
     },
     {
-      "id": "i36",
-      "cat": "viandes",
-      "subcat": null,
-      "name": {
-        "fr": "La Saumon",
-        "en": "The Salmon",
-        "it": "Il Salmone",
-        "de": "Der Lachs",
-        "zh": "三文鱼",
-        "ru": "Лосось",
-        "es": "Ternera Wagyu"
-      },
-      "desc": {
-        "fr": "Pesto de courgettes et basilic, mozzarella Fior di latte, saumon fumé mariné, courgette, ciboulette, citrons verts",
-        "en": "Courgette and basil pesto, Fior di latte mozzarella, marinated smoked salmon, courgette, chives, limes",
-        "it": "Pesto di zucchine e basilico, mozzarella Fior di latte, salmone affumicato marinato, zucchine, erba cipollina, lime",
-        "de": "Zucchini-Basilikum-Pesto, Fior di latte Mozzarella, marinierter Räucherlachs, Zucchini, Schnittlauch, Limetten",
-        "zh": "西葫芦罗勒青酱，鲜奶马苏里拉，腌制烟熏三文鱼，西葫芦，细香葱，青柠",
-        "ru": "Песто из цуккини и базилика, моцарелла, маринованный копчёный лосось, цуккини, лук-резанец, лайм",
-        "es": "Pesto de calabacín y albahaca, mozzarella Fior di latte, salmón ahumado marinado, calabacín, cebollino, limas"
-      },
-      "price": "20€",
-      "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "poisson",
-        "lait"
-      ]
-    },
-    {
       "id": "i37",
       "cat": "desserts",
       "subcat": null,
@@ -1362,6 +1357,24 @@
         "soja",
         "lait",
         "noix"
+      ],
+      "priceVariants": [
+        {
+          "label": "1 boule",
+          "price": "3€"
+        },
+        {
+          "label": "2 boule ",
+          "price": "6€"
+        },
+        {
+          "label": "3 boules",
+          "price": "8€"
+        },
+        {
+          "label": "avec chantilly",
+          "price": "0,5€"
+        }
       ]
     },
     {
@@ -2852,30 +2865,35 @@
       ]
     },
     {
-      "id": "i1782477842664",
+      "id": "i36",
       "cat": "viandes",
       "subcat": null,
       "name": {
-        "fr": "La Classica",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "La Saumon",
+        "en": "The Salmon",
+        "it": "Il Salmone",
+        "de": "Der Lachs",
+        "zh": "三文鱼",
+        "ru": "Лосось",
+        "es": "Ternera Wagyu"
       },
       "desc": {
-        "fr": "Sauce tomate, ail, anchoix, oignons cuisinés, basilic, câpres, persillade maison, olives noires, origan, huile olive EVO",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "Pesto de courgettes et basilic, mozzarella Fior di latte, saumon fumé mariné, courgette, ciboulette, citrons verts",
+        "en": "Courgette and basil pesto, Fior di latte mozzarella, marinated smoked salmon, courgette, chives, limes",
+        "it": "Pesto di zucchine e basilico, mozzarella Fior di latte, salmone affumicato marinato, zucchine, erba cipollina, lime",
+        "de": "Zucchini-Basilikum-Pesto, Fior di latte Mozzarella, marinierter Räucherlachs, Zucchini, Schnittlauch, Limetten",
+        "zh": "西葫芦罗勒青酱，鲜奶马苏里拉，腌制烟熏三文鱼，西葫芦，细香葱，青柠",
+        "ru": "Песто из цуккини и базилика, моцарелла, маринованный копчёный лосось, цуккини, лук-резанец, лайм",
+        "es": "Pesto de calabacín y albahaca, mozzarella Fior di latte, salmón ahumado marinado, calabacín, cebollino, limas"
       },
-      "price": "15.5",
+      "price": "20€",
       "photo": "",
-      "archived": false
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "poisson",
+        "lait"
+      ]
     }
   ],
   "upsells": [
