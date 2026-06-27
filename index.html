@@ -14,6 +14,10 @@
   gtag('config', 'G-59M96TBFL8');
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#9B1C1C">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Milo's Pizza — Carte</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -343,6 +347,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 <main id="main"></main>
 <div class="footer" id="footer">Prix net et service compris · Consulter la liste des allergènes disponible <a href="#" onclick="openAllergenPopup();return false;" style="color:var(--rouge);font-weight:600;text-decoration:underline;text-underline-offset:2px">ici</a></div>
 <button class="admin-fab" id="adminFab" onclick="openAdmin()">✎</button>
+<button id="installAppBtn" onclick="triggerInstallApp()" style="display:none;position:fixed;bottom:1.6rem;left:1.2rem;background:var(--rouge);color:#fff;border:none;border-radius:24px;padding:0.6rem 1rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;box-shadow:0 4px 14px rgba(155,28,28,0.35);z-index:340;cursor:pointer;">📲 Installer l'app</button>
 
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalIfOutside(event)">
@@ -4287,6 +4292,38 @@ function triggerSectionPhotoUpload(key){
   };
   input.click();
 }
+
+// ═══════════════════════════════════════
+// PWA — Installation sur l'écran d'accueil
+// ═══════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  const btn = document.getElementById('installAppBtn');
+  if (btn) btn.style.display = 'block';
+});
+
+function triggerInstallApp(){
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.then(() => {
+    _deferredInstallPrompt = null;
+    const btn = document.getElementById('installAppBtn');
+    if (btn) btn.style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('installAppBtn');
+  if (btn) btn.style.display = 'none';
+});
 
 </script>
 </body>
