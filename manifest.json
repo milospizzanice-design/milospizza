@@ -1,9 +1,25 @@
 {
-  "name": "Milo's Pizza Port",
-  "short_name": "Port",
-  "start_url": "/milospizza/stocks-intelligent-port.html",
+  "name": "Milo's Pizza",
+  "short_name": "Milo's Pizza",
+  "description": "La carte de Milo's Pizza — Nice",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#1A1008",
-  "theme_color": "#1A1008",
-  "viewport": "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  "orientation": "portrait",
+  "background_color": "#F5F0E8",
+  "theme_color": "#9B1C1C",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
