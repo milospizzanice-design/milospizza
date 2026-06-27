@@ -565,6 +565,15 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <div class="admin-section active" id="as-plats">
         <input class="admin-search" type="text" placeholder="Rechercher un plat..." oninput="filterAdminItems(this.value)">
         <div id="adminItemsContextHeader"></div>
+        <div id="adminItemsSortBar" style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.5rem;">
+          <span style="font-size:0.66rem;color:#888;font-family:'Montserrat',sans-serif;">Trier :</span>
+          <select class="cat-select" id="adminItemsSortSelect" style="margin-bottom:0;flex:1;font-size:0.72rem;" onchange="applyItemsSort(this.value)">
+            <option value="">Position (par défaut)</option>
+            <option value="price_asc">Prix croissant</option>
+            <option value="price_desc">Prix décroissant</option>
+            <option value="name_asc">Nom A-Z</option>
+          </select>
+        </div>
         <div id="adminItemsList" style="padding-bottom:4.5rem;"></div>
       </div>
 
@@ -1466,7 +1475,10 @@ function renameSubcatPrompt(catId, oldName){
   const idx = cat.subcats.indexOf(oldName);
   if(idx===-1) return;
   cat.subcats[idx] = name;
-  items.forEach(it=>{ if(it.cat===catId && it.subcat===oldName) it.subcat=name; });
+  items.forEach(it=>{
+    if(it.cat===catId && it.subcat===oldName) it.subcat=name;
+    if(it.extraPlacements) it.extraPlacements.forEach(p=>{ if(p.cat===catId && p.subcat===oldName) p.subcat=name; });
+  });
   if(adminItemsFilter.subcat===oldName) adminItemsFilter.subcat=name;
   renderAdminCats();
   renderPlatsCategoryNav();
@@ -1477,6 +1489,8 @@ function renameSubcatPrompt(catId, oldName){
 
 function addSubcatPrompt(catId){
   switchAdminTab('categories');
+  _expandedCatInAdmin = catId;
+  renderAdminCats();
   setTimeout(()=>{
     const card = document.getElementById('catcard_'+catId);
     if(card){
@@ -1513,7 +1527,7 @@ function renderAdminItems(list){
     return `<div class="plat-row" id="row_${it.id}">
       <button class="plat-pos" onclick="openPositionPicker('item','${it.id}')">${idx+1}</button>
       <div class="plat-row-name" onclick="openItemEditModal('${it.id}')">${it.photo?'<span class="photo-dot"></span>':''}${(it.extraPlacements&&it.extraPlacements.length)?'🔗 ':''}${it.name.fr||'(sans nom)'}</div>
-      <button class="plat-photo-btn ${it.photo?'has-photo':''}" onclick="triggerUpload('${it.id}')">📷<span class="upload-progress" id="prog_${it.id}">⏳</span></button>
+      <button class="plat-photo-btn ${it.photo?'has-photo':''}" onclick="triggerUpload('${it.id}')" style="${it.photo?`background-image:url('${cld(it.photo,100)}');background-size:cover;background-position:center;`:''}">${it.photo?'':'📷'}<span class="upload-progress" id="prog_${it.id}">⏳</span></button>
       ${priceCell}
     </div>`;
   }).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun plat</p>';
@@ -1591,7 +1605,7 @@ function openItemEditModal(itemId){
     <div class="photo-upload-row">
       <button class="photo-upload-btn" onclick="triggerUpload('${it.id}')">📷</button>
       <input class="admin-input" id="ph_${it.id}" value="${it.photo||''}" placeholder="URL photo" style="flex:1">
-      <img id="prev_${it.id}" src="${it.photo?cld(it.photo,150):''}" class="photo-preview ${it.photo?'visible':''}" onerror="this.className='photo-preview'">
+      <img id="prev_${it.id}" src="${it.photo?cld(it.photo,100):''}" class="photo-preview ${it.photo?'visible':''}" onerror="this.className='photo-preview'">
     </div>
     <label class="admin-label">Allergènes <button type="button" onclick="suggestItemAllergens('${it.id}')" style="background:var(--vert);color:#fff;border:none;border-radius:10px;padding:0.15rem 0.5rem;font-size:0.6rem;margin-left:0.4rem;cursor:pointer;">🔍 Suggérer depuis le texte</button></label>
     <div class="allergen-checks">
@@ -1688,6 +1702,33 @@ function itemAllPlacements(it){
   const list = [{cat: it.cat, subcat: it.subcat || null}];
   (it.extraPlacements || []).forEach(p => list.push({cat: p.cat, subcat: p.subcat || null}));
   return list;
+}
+
+function parsePriceValue(priceStr){
+  if(!priceStr) return 0;
+  const cleaned = String(priceStr).replace('€','').replace(',','.').trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
+function applyItemsSort(mode){
+  if(!mode) return; // "Position (par défaut)" : on ne touche à rien
+  const visibleList = getFilteredAdminItems();
+  const sorted = visibleList.slice();
+  if(mode==='price_asc' || mode==='price_desc'){
+    sorted.sort((a,b)=>{
+      const pa = parsePriceValue((a.priceVariants&&a.priceVariants.length) ? a.priceVariants[0].price : a.price);
+      const pb = parsePriceValue((b.priceVariants&&b.priceVariants.length) ? b.priceVariants[0].price : b.price);
+      return mode==='price_asc' ? pa-pb : pb-pa;
+    });
+  } else if(mode==='name_asc'){
+    sorted.sort((a,b)=> (a.name.fr||'').localeCompare(b.name.fr||''));
+  }
+  const visibleIds = new Set(sorted.map(it=>it.id));
+  let cursor = 0;
+  items = items.map(it => visibleIds.has(it.id) ? sorted[cursor++] : it);
+  renderAdminItems(getFilteredAdminItems());
+  autoSaveItems().then(ok=>showToast(ok?'✓ Ordre mis à jour':'❌ Échec de l\'enregistrement'));
 }
 
 function getFilteredAdminItems(){
@@ -2002,11 +2043,20 @@ function moveSubcatToPosition(catId, subcatName, newPos){
   renderPlatsCategoryNav();
 }
 
+let _expandedCatInAdmin = null;
+
+function toggleCatExpanded(catId){
+  _expandedCatInAdmin = (_expandedCatInAdmin===catId) ? null : catId;
+  renderAdminCats();
+}
+
 function renderAdminCats(){
   const activeCats = cats.filter(c=>!c.archived);
   document.getElementById('adminCatList').innerHTML = cats.map((c)=>{
-    const posInActive = activeCats.findIndex(ac=>ac.id===c.id);
+    const sameGroupCats = activeCats.filter(ac=>(ac.homeGroup||'food')===(c.homeGroup||'food'));
+    const posInActive = sameGroupCats.findIndex(ac=>ac.id===c.id);
     const subcats = ensureCatSubcats(c);
+    const isExpanded = _expandedCatInAdmin === c.id;
     const absorbOpts = [];
     cats.filter(o=>!o.archived && o.id!==c.id).forEach(o=>{
       absorbOpts.push(`<option value="cat|${o.id}">${o.name.fr} (catégorie entière)</option>`);
@@ -2018,16 +2068,30 @@ function renderAdminCats(){
     return `
     <div class="cat-card ${c.archived?'archived':''}" id="catcard_${c.id}">
       <div class="cat-card-row">
-        ${!c.archived ? `<button class="plat-pos" onclick="openPositionPicker('cat','${c.id}')">${posInActive+1}</button>` : ''}
-        <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom de la catégorie" style="margin-bottom:0;flex:1;" onchange="renameCat('${c.id}',this.value)">
+        ${!c.archived ? `<button class="plat-pos" onclick="event.stopPropagation();openPositionPicker('cat','${c.id}')">${posInActive+1}</button>` : ''}
+        <div onclick="toggleCatExpanded('${c.id}')" style="flex:1;cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.85rem;color:var(--brun);">
+          ${(c.homeGroup==='drinks')?'🍹':'🍕'} ${c.name.fr} <span style="color:#bbb;font-size:0.7rem;">${isExpanded?'▾':'▸'}</span>
+          ${c.archived?'<span class="archived-badge" style="margin-left:0.4rem;">archivée</span>':''}
+        </div>
         <div class="cat-actions" style="flex-shrink:0;margin-left:0.5rem">
-          <button class="aic-btn archive" onclick="toggleArchiveCat('${c.id}')">${c.archived?'↩ Réactiver':'🌙 Archiver'}</button>
-          ${c.archived ? `<button class="aic-btn delete" onclick="deleteCategoryPermanently('${c.id}')">🗑️ Supprimer</button>` : ''}
+          <button class="aic-btn archive" onclick="event.stopPropagation();toggleArchiveCat('${c.id}')">${c.archived?'↩':'🌙'}</button>
+          ${c.archived ? `<button class="aic-btn delete" onclick="event.stopPropagation();deleteCategoryPermanently('${c.id}')">🗑️</button>` : ''}
         </div>
       </div>
-      ${c.archived?'<span class="archived-badge">archivée</span>':''}
       ${!c.archived ? `
-      <div class="cat-section-label">Affichage côté client</div>
+      <div class="subcat-chip-list" style="margin-top:0.4rem;">
+        ${subcats.length ? subcats.map((sc,i)=>`
+          <span class="subcat-chip">
+            <button class="subcat-chip-pos" onclick="openPositionPicker('subcat','${c.id}::${sc}')">${i+1}</button>
+            <span onclick="renameSubcatPrompt('${c.id}','${sc.replace(/'/g,"\\'")}')" style="cursor:pointer;">${sc}</span>
+            <button class="subcat-chip-assign" onclick="openBulkAssignModal('${c.id}','${sc}')" title="Assigner des plats">👥</button>
+            <button class="subcat-chip-assign" onclick="openTransferSubcat('${c.id}','${sc}')" title="Transférer vers une autre catégorie">↗️</button>
+            <button class="subcat-chip-del" onclick="deleteSubcat('${c.id}','${sc}')">✕</button>
+          </span>`).join('') : ''}
+      </div>` : ''}
+      ${(!c.archived && isExpanded) ? `
+      <div class="cat-section-label">Catégorie</div>
+      <input class="admin-input" id="catname_${c.id}" value="${c.name.fr}" placeholder="Nom de la catégorie" onchange="renameCat('${c.id}',this.value)">
       <div style="margin-bottom:0.5rem">
         <select class="cat-select" style="margin-bottom:0;" onchange="setCatHomeGroup('${c.id}',this.value)">
           <option value="food" ${(!c.homeGroup||c.homeGroup==='food')?'selected':''}>🍕 Visible dans la section Food</option>
@@ -2048,30 +2112,18 @@ function renderAdminCats(){
       </div>
 
       <div class="cat-section-label">Sous-catégories</div>
-      <div class="subcat-manager" style="margin-top:0;padding-top:0;border-top:none;">
-        <div class="subcat-chip-list">
-          ${subcats.length ? subcats.map((sc,i)=>`
-            <span class="subcat-chip">
-              <button class="subcat-chip-pos" onclick="openPositionPicker('subcat','${c.id}::${sc}')">${i+1}</button>
-              ${sc}
-              <button class="subcat-chip-assign" onclick="openBulkAssignModal('${c.id}','${sc}')" title="Assigner des plats">👥</button>
-              <button class="subcat-chip-assign" onclick="openTransferSubcat('${c.id}','${sc}')" title="Transférer vers une autre catégorie">↗️</button>
-              <button class="subcat-chip-del" onclick="deleteSubcat('${c.id}','${sc}')">✕</button>
-            </span>`).join('') : '<span style="font-size:0.68rem;color:#aaa;">Aucune pour le moment</span>'}
-        </div>
-        <div style="display:flex;gap:0.3rem;margin-top:0.5rem;">
-          <input class="admin-input" id="newsubcat_for_${c.id}" placeholder="Nouvelle sous-catégorie" style="flex:1;margin-bottom:0;">
-          <button class="aic-btn" style="background:var(--vert);color:#fff;flex-shrink:0;" onclick="addSubcatToCategory('${c.id}')">+ Ajouter</button>
-        </div>
-        ${otherCatsOpts ? `
-        <div style="display:flex;gap:0.3rem;margin-top:0.4rem;">
-          <select class="cat-select" id="absorbcat_${c.id}" style="margin-bottom:0;flex:1;">
-            <option value="">— ou importer une catégorie / sous-catégorie existante —</option>
-            ${otherCatsOpts}
-          </select>
-          <button class="aic-btn" style="background:var(--rouge);color:#fff;flex-shrink:0;" onclick="absorbCategoryAsSubcat('${c.id}')">Absorber</button>
-        </div>` : ''}
-      </div>` : ''}
+      <div style="display:flex;gap:0.3rem;">
+        <input class="admin-input" id="newsubcat_for_${c.id}" placeholder="Nouvelle sous-catégorie" style="flex:1;margin-bottom:0;">
+        <button class="aic-btn" style="background:var(--vert);color:#fff;flex-shrink:0;" onclick="addSubcatToCategory('${c.id}')">+ Ajouter</button>
+      </div>
+      ${otherCatsOpts ? `
+      <div style="display:flex;gap:0.3rem;margin-top:0.4rem;">
+        <select class="cat-select" id="absorbcat_${c.id}" style="margin-bottom:0;flex:1;">
+          <option value="">— ou importer une catégorie / sous-catégorie existante —</option>
+          ${otherCatsOpts}
+        </select>
+        <button class="aic-btn" style="background:var(--rouge);color:#fff;flex-shrink:0;" onclick="absorbCategoryAsSubcat('${c.id}')">Absorber</button>
+      </div>` : ''}` : ''}
     </div>`;
   }).join('');
 }
@@ -2143,7 +2195,9 @@ function openPositionPicker(type, targetId){
     idx = list.indexOf(subcatName);
     document.getElementById('posPickerTitle').textContent = 'Position de la sous-catégorie';
   } else {
-    list = cats.filter(c => !c.archived);
+    const targetCat = cats.find(c => c.id === targetId);
+    const targetGroup = targetCat ? (targetCat.homeGroup||'food') : 'food';
+    list = cats.filter(c => !c.archived && (c.homeGroup||'food') === targetGroup);
     idx = list.findIndex(c => c.id === targetId);
     document.getElementById('posPickerTitle').textContent = 'Position de la catégorie';
   }
@@ -2184,7 +2238,9 @@ function moveItemToPosition(itemId, newPos){
 }
 
 function moveCatToPosition(catId, newPos){
-  const visibleList = cats.filter(c => !c.archived);
+  const targetCat = cats.find(c => c.id === catId);
+  const targetGroup = targetCat ? (targetCat.homeGroup||'food') : 'food';
+  const visibleList = cats.filter(c => !c.archived && (c.homeGroup||'food') === targetGroup);
   const fromIdx = visibleList.findIndex(c => c.id === catId);
   if (fromIdx === -1) return;
   const [moved] = visibleList.splice(fromIdx, 1);
@@ -3752,7 +3808,8 @@ function buildSectionTabs(groupCats){
     } else {
       const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null));
       subcats.forEach(sc => {
-        tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
+        const hasItems = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, sc));
+        if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
       });
       if (hasUnassigned) {
         tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
