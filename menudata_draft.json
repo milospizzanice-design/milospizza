@@ -1299,6 +1299,56 @@
       ]
     },
     {
+      "id": "i40",
+      "cat": "desserts",
+      "subcat": null,
+      "name": {
+        "fr": "Glace",
+        "en": "Ice Cream",
+        "it": "Gelato",
+        "de": "Eis",
+        "zh": "冰淇淋",
+        "ru": "Мороженое",
+        "es": "Panna Cotta"
+      },
+      "desc": {
+        "fr": "Vanille, Chocolat, Pistache, Fraise, Café, Citron, Caramel Beurre Salé",
+        "en": "Vanilla, Chocolate, Pistachio, Strawberry, Coffee, Lemon, Salted Caramel",
+        "it": "Vaniglia, Cioccolato, Pistacchio, Fragola, Caffè, Limone, Caramello Salato",
+        "de": "Vanille, Schokolade, Pistazie, Erdbeere, Kaffee, Zitrone, Salzkaramell",
+        "zh": "香草，巧克力，开心果，草莓，咖啡，柠檬，盐焦糖",
+        "ru": "Ваниль, шоколад, фисташка, клубника, кофе, лимон, солёная карамель",
+        "es": "Vainilla, Chocolate, Pistacho, Fresa, Café, Limón, Caramelo Salado"
+      },
+      "price": "3€ / 6€ / 8€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "soja",
+        "lait",
+        "noix"
+      ],
+      "priceVariants": [
+        {
+          "label": "1 boule",
+          "price": "3€"
+        },
+        {
+          "label": "2 boule ",
+          "price": "6€"
+        },
+        {
+          "label": "3 boules",
+          "price": "8€"
+        },
+        {
+          "label": "avec chantilly",
+          "price": "0,5€"
+        }
+      ]
+    },
+    {
       "id": "i37",
       "cat": "desserts",
       "subcat": null,
@@ -1387,56 +1437,6 @@
         "gluten",
         "oeufs",
         "lait"
-      ]
-    },
-    {
-      "id": "i40",
-      "cat": "desserts",
-      "subcat": null,
-      "name": {
-        "fr": "Glace",
-        "en": "Ice Cream",
-        "it": "Gelato",
-        "de": "Eis",
-        "zh": "冰淇淋",
-        "ru": "Мороженое",
-        "es": "Panna Cotta"
-      },
-      "desc": {
-        "fr": "Vanille, Chocolat, Pistache, Fraise, Café, Citron, Caramel Beurre Salé",
-        "en": "Vanilla, Chocolate, Pistachio, Strawberry, Coffee, Lemon, Salted Caramel",
-        "it": "Vaniglia, Cioccolato, Pistacchio, Fragola, Caffè, Limone, Caramello Salato",
-        "de": "Vanille, Schokolade, Pistazie, Erdbeere, Kaffee, Zitrone, Salzkaramell",
-        "zh": "香草，巧克力，开心果，草莓，咖啡，柠檬，盐焦糖",
-        "ru": "Ваниль, шоколад, фисташка, клубника, кофе, лимон, солёная карамель",
-        "es": "Vainilla, Chocolate, Pistacho, Fresa, Café, Limón, Caramelo Salado"
-      },
-      "price": "3€ / 6€ / 8€",
-      "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "soja",
-        "lait",
-        "noix"
-      ],
-      "priceVariants": [
-        {
-          "label": "1 boule",
-          "price": "3€"
-        },
-        {
-          "label": "2 boule ",
-          "price": "6€"
-        },
-        {
-          "label": "3 boules",
-          "price": "8€"
-        },
-        {
-          "label": "avec chantilly",
-          "price": "0,5€"
-        }
       ]
     },
     {
