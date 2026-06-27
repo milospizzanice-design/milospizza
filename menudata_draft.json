@@ -1144,30 +1144,66 @@
       ]
     },
     {
-      "id": "i1782477842664",
+      "id": "i36",
       "cat": "viandes",
       "subcat": null,
       "name": {
-        "fr": "La Classica",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "La Saumon",
+        "en": "The Salmon",
+        "it": "Il Salmone",
+        "de": "Der Lachs",
+        "zh": "三文鱼",
+        "ru": "Лосось",
+        "es": "Ternera Wagyu"
       },
       "desc": {
-        "fr": "Sauce tomate, ail, anchoix, oignons cuisinés, basilic, câpres, persillade maison, olives noires, origan, huile olive EVO",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "Pesto de courgettes et basilic, mozzarella Fior di latte, saumon fumé mariné, courgette, ciboulette, citrons verts",
+        "en": "Courgette and basil pesto, Fior di latte mozzarella, marinated smoked salmon, courgette, chives, limes",
+        "it": "Pesto di zucchine e basilico, mozzarella Fior di latte, salmone affumicato marinato, zucchine, erba cipollina, lime",
+        "de": "Zucchini-Basilikum-Pesto, Fior di latte Mozzarella, marinierter Räucherlachs, Zucchini, Schnittlauch, Limetten",
+        "zh": "西葫芦罗勒青酱，鲜奶马苏里拉，腌制烟熏三文鱼，西葫芦，细香葱，青柠",
+        "ru": "Песто из цуккини и базилика, моцарелла, маринованный копчёный лосось, цуккини, лук-резанец, лайм",
+        "es": "Pesto de calabacín y albahaca, mozzarella Fior di latte, salmón ahumado marinado, calabacín, cebollino, limas"
       },
-      "price": "15.5",
+      "price": "20€",
       "photo": "",
-      "archived": false
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "poisson",
+        "lait"
+      ]
+    },
+    {
+      "id": "i35",
+      "cat": "viandes",
+      "subcat": null,
+      "name": {
+        "fr": "À l'Ancienne",
+        "en": "Old Style",
+        "it": "All'Antica",
+        "de": "Traditionell",
+        "zh": "古法",
+        "ru": "По-старому",
+        "es": "Costillas BBQ"
+      },
+      "desc": {
+        "fr": "Crème de moutarde à l'ancienne & miel, mozzarella Fior di latte, champignons de paris, poulet mariné à l'ail et au romarin, brins de roquette, ciboulette, copeaux de Parmesan",
+        "en": "Old-style mustard & honey cream, Fior di latte mozzarella, button mushrooms, garlic and rosemary chicken, rocket, chives, Parmesan shavings",
+        "it": "Crema di senape antica e miele, mozzarella Fior di latte, funghi, pollo marinato, rucola, erba cipollina, scaglie di Parmigiano",
+        "de": "Altmodische Senf-Honig-Creme, Fior di latte Mozzarella, Champignons, Rosmarin-Hähnchen, Rucola, Schnittlauch, Parmesan",
+        "zh": "古式芥末蜂蜜奶油，鲜奶马苏里拉，蘑菇，蒜香迷迭香鸡肉，芝麻菜，细香葱，帕玛森片",
+        "ru": "Крем из горчицы и мёда, моцарелла, шампиньоны, курица с чесноком, рукола, лук-резанец, пармезан",
+        "es": "Crema de mostaza antigua y miel, mozzarella Fior di latte, champiñones, pollo al romero, rúcula, cebollino, virutas de Parmesano"
+      },
+      "price": "18.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732902/Milo_sPizza2_Ancienne_ntrfji.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait",
+        "moutarde"
+      ]
     },
     {
       "id": "i32",
@@ -1260,37 +1296,6 @@
       "allergens": [
         "gluten",
         "lait"
-      ]
-    },
-    {
-      "id": "i35",
-      "cat": "viandes",
-      "subcat": null,
-      "name": {
-        "fr": "À l'Ancienne",
-        "en": "Old Style",
-        "it": "All'Antica",
-        "de": "Traditionell",
-        "zh": "古法",
-        "ru": "По-старому",
-        "es": "Costillas BBQ"
-      },
-      "desc": {
-        "fr": "Crème de moutarde à l'ancienne & miel, mozzarella Fior di latte, champignons de paris, poulet mariné à l'ail et au romarin, brins de roquette, ciboulette, copeaux de Parmesan",
-        "en": "Old-style mustard & honey cream, Fior di latte mozzarella, button mushrooms, garlic and rosemary chicken, rocket, chives, Parmesan shavings",
-        "it": "Crema di senape antica e miele, mozzarella Fior di latte, funghi, pollo marinato, rucola, erba cipollina, scaglie di Parmigiano",
-        "de": "Altmodische Senf-Honig-Creme, Fior di latte Mozzarella, Champignons, Rosmarin-Hähnchen, Rucola, Schnittlauch, Parmesan",
-        "zh": "古式芥末蜂蜜奶油，鲜奶马苏里拉，蘑菇，蒜香迷迭香鸡肉，芝麻菜，细香葱，帕玛森片",
-        "ru": "Крем из горчицы и мёда, моцарелла, шампиньоны, курица с чесноком, рукола, лук-резанец, пармезан",
-        "es": "Crema de mostaza antigua y miel, mozzarella Fior di latte, champiñones, pollo al romero, rúcula, cebollino, virutas de Parmesano"
-      },
-      "price": "18.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732902/Milo_sPizza2_Ancienne_ntrfji.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait",
-        "moutarde"
       ]
     },
     {
@@ -2939,35 +2944,30 @@
       ]
     },
     {
-      "id": "i36",
+      "id": "i1782477842664",
       "cat": "viandes",
       "subcat": null,
       "name": {
-        "fr": "La Saumon",
-        "en": "The Salmon",
-        "it": "Il Salmone",
-        "de": "Der Lachs",
-        "zh": "三文鱼",
-        "ru": "Лосось",
-        "es": "Ternera Wagyu"
+        "fr": "La Classica",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
       },
       "desc": {
-        "fr": "Pesto de courgettes et basilic, mozzarella Fior di latte, saumon fumé mariné, courgette, ciboulette, citrons verts",
-        "en": "Courgette and basil pesto, Fior di latte mozzarella, marinated smoked salmon, courgette, chives, limes",
-        "it": "Pesto di zucchine e basilico, mozzarella Fior di latte, salmone affumicato marinato, zucchine, erba cipollina, lime",
-        "de": "Zucchini-Basilikum-Pesto, Fior di latte Mozzarella, marinierter Räucherlachs, Zucchini, Schnittlauch, Limetten",
-        "zh": "西葫芦罗勒青酱，鲜奶马苏里拉，腌制烟熏三文鱼，西葫芦，细香葱，青柠",
-        "ru": "Песто из цуккини и базилика, моцарелла, маринованный копчёный лосось, цуккини, лук-резанец, лайм",
-        "es": "Pesto de calabacín y albahaca, mozzarella Fior di latte, salmón ahumado marinado, calabacín, cebollino, limas"
+        "fr": "Sauce tomate, ail, anchoix, oignons cuisinés, basilic, câpres, persillade maison, olives noires, origan, huile olive EVO",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
       },
-      "price": "20€",
+      "price": "15.5",
       "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "poisson",
-        "lait"
-      ]
+      "archived": false
     },
     {
       "id": "i11",
