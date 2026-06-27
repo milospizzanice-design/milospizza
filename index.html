@@ -1153,6 +1153,16 @@ function cld(url, width){
   return `${before}f_auto,q_auto,w_${width||800}/${after}`;
 }
 
+// Déclenche la génération Cloudinary des tailles utilisées, pour que le premier
+// vrai affichage (admin et client) tombe déjà en cache et soit instantané.
+function prewarmImage(url){
+  if(!url) return;
+  [100, 800].forEach(w=>{
+    const img = new Image();
+    img.src = cld(url, w);
+  });
+}
+
 function renderItem(it, l) {
   const hasPhoto = it.photo && it.photo.trim();
   const priceHTML = (it.priceVariants && it.priceVariants.length)
@@ -1311,33 +1321,9 @@ function switchAdminTab(tab){
 function updateFloatingSaveBtn(){
   const btn = document.getElementById('floatingSaveBtn');
   if (!btn) return;
-  const showTabs = ['design','home','popup','social'];
-  const actionMap = {
-    plats: '✓ Enregistrer les plats',
-    categories: '✓ Enregistrer les catégories',
-    upsell: '✓ Enregistrer les suggestions',
-    design: '🎨 Sauvegarder le design',
-    home: "🏠 Sauvegarder accueil",
-    popup: '✨ Sauvegarder le pop-up',
-    social: '❤️ Sauvegarder les liens',
-  };
-  const actionFnMap = {
-    plats: 'saveAll()',
-    categories: 'saveAll()',
-    upsell: 'saveAll()',
-    design: 'saveDesign()',
-    home: 'saveHomeConfig()',
-    popup: 'savePopupConfig()',
-    social: 'saveSocialConfig()',
-  };
-  if (showTabs.includes(currentAdminTab)) {
-    btn.style.display = 'block';
-    btn.textContent = (isDraftMode ? '✏️ ' : '') + (actionMap[currentAdminTab] || 'Enregistrer');
-    btn.onclick = new Function(actionFnMap[currentAdminTab] || 'saveAll()');
-    btn.className = 'floating-save' + (isDraftMode ? ' draft-save' : '');
-  } else {
-    btn.style.display = 'none';
-  }
+  // design/home/popup/social ont chacun leur propre bouton "Sauvegarder" intégré au formulaire :
+  // le bouton flottant y est désormais redondant et n'apparaît plus pour ces onglets.
+  btn.style.display = 'none';
 }
 
 function renderAdminContent(){
@@ -1808,9 +1794,7 @@ let _bulkAssignPendingChecked = new Set();
 
 function openBulkAssignModal(catId, subcatName){
   _bulkAssignSubcat = {catId, subcatName: subcatName || null};
-  _bulkAssignPendingChecked = new Set(
-    items.filter(it=>!it.archived && itemIsInPlacement(it, catId, subcatName)).map(it=>it.id)
-  );
+  _bulkAssignPendingChecked = new Set(); // ne suit que les NOUVELLES sélections de cette session
   const cat = cats.find(c=>c.id===catId);
   const label = subcatName ? `"${subcatName}"${cat ? ' ('+cat.name.fr+')' : ''}` : (cat ? `"${cat.name.fr}"` : '');
   document.getElementById('bulkAssignTitle').textContent = `Importer des plats dans ${label}`;
@@ -1829,12 +1813,23 @@ function renderBulkAssignList(query){
   const {catId, subcatName} = _bulkAssignSubcat;
   const q = query.trim().toLowerCase();
   let list = items.filter(it => !it.archived && (!q || (it.name.fr||'').toLowerCase().includes(q)));
-  list = list.slice().sort((a,b)=> (_bulkAssignPendingChecked.has(a.id)?0:1) - (_bulkAssignPendingChecked.has(b.id)?0:1));
+  list = list.slice().sort((a,b)=> {
+    const aHere = itemIsInPlacement(a,catId,subcatName)?1:0, bHere = itemIsInPlacement(b,catId,subcatName)?1:0;
+    if(aHere!==bHere) return aHere-bHere; // déjà-ici en dernier
+    return (_bulkAssignPendingChecked.has(a.id)?0:1) - (_bulkAssignPendingChecked.has(b.id)?0:1);
+  });
   const selCount = _bulkAssignPendingChecked.size;
   document.getElementById('bulkAssignCount').textContent = selCount ? `${selCount} sélectionné(s)` : '';
   el.innerHTML = list.map(it=>{
+    const alreadyHere = itemIsInPlacement(it, catId, subcatName);
+    if (alreadyHere) {
+      return `<label style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid #f0ede8;font-size:0.78rem;font-family:'Montserrat',sans-serif;opacity:0.55;">
+        <input type="checkbox" disabled style="width:18px;height:18px;flex-shrink:0;">
+        <span>${it.name.fr||'(sans nom)'} <span style="color:var(--vert);font-size:0.62rem;font-weight:700;">✓ déjà ici</span></span>
+      </label>`;
+    }
     const checked = _bulkAssignPendingChecked.has(it.id);
-    const places = itemAllPlacements(it).filter(p=>!(p.cat===catId && (subcatName?p.subcat===subcatName:!p.subcat)));
+    const places = itemAllPlacements(it);
     const tag = places.length ? ' <span style="color:#aaa;font-size:0.62rem;">(aussi : '+places.map(p=>{
       const c = cats.find(x=>x.id===p.cat);
       return (c?c.name.fr:'?') + (p.subcat?' › '+p.subcat:'');
@@ -1850,31 +1845,15 @@ function confirmBulkAssign(){
   if(!_bulkAssignSubcat) return;
   const {catId, subcatName} = _bulkAssignSubcat;
   const checkedIds = [..._bulkAssignPendingChecked];
-  const originallyHereIds = items.filter(it=>!it.archived && itemIsInPlacement(it, catId, subcatName)).map(it=>it.id);
-  const uncheckedIds = originallyHereIds.filter(id=>!_bulkAssignPendingChecked.has(id));
 
-  // Des plats cochés viennent-ils d'ailleurs (changement réel d'emplacement) ?
-  const newlyChecked = checkedIds
-    .map(id => items.find(i=>i.id===id))
-    .filter(it => it && !itemIsInPlacement(it, catId, subcatName));
-
-  // Retrait des décochés qui étaient ici (placement principal ou lié) — toujours sans confirmation
-  uncheckedIds.forEach(id=>{
-    const it = items.find(i=>i.id===id);
-    if(!it) return;
-    if (it.cat===catId && (subcatName ? it.subcat===subcatName : !it.subcat)) {
-      it.subcat = '';
-    }
-    if (it.extraPlacements) {
-      it.extraPlacements = it.extraPlacements.filter(p=>!(p.cat===catId && (subcatName ? p.subcat===subcatName : !p.subcat)));
-    }
-  });
-
-  if (newlyChecked.length > 0) {
-    openMoveOrDuplicateChoice(checkedIds, catId, subcatName);
-  } else {
-    finalizeBulkAssign(checkedIds, catId, subcatName, 'move');
+  if (checkedIds.length === 0) {
+    closeBulkAssignModal();
+    return;
   }
+
+  // Tous les éléments cochés sont par construction de nouveaux ajouts (les déjà-placés
+  // sont grisés/désactivés et jamais dans cette liste) : on demande systématiquement le choix.
+  openMoveOrDuplicateChoice(checkedIds, catId, subcatName);
 }
 
 let _pendingBulkAssign = null;
@@ -2597,7 +2576,8 @@ async function handleFileUpload(e){
       const input=document.getElementById('ph_'+id);
       const prev=document.getElementById('prev_'+id);
       if(input) input.value=url;
-      if(prev){prev.src=cld(url,150);prev.className='photo-preview visible';}
+      if(prev){prev.src=cld(url,100);prev.className='photo-preview visible';}
+      prewarmImage(url);
       // Auto-save photo immediately to the item
       const it = items.find(i=>i.id===id);
       if(it) {
