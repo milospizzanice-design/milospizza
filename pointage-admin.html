@@ -396,11 +396,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <div class="fr">
       <label class="fl2">Badge NFC (UID)</label>
-      <div style="display:flex;gap:6px">
-        <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace;flex:1">
-        <button type="button" class="btn bs sm" onclick="openQrScanner()" title="Scanner le QR code du badge" style="flex-shrink:0;padding:0 14px">&#128247;</button>
-      </div>
-      <div style="font-size:10px;color:var(--txm);margin-top:4px">Scannez le badge sur <b>scan-badge.html</b> (Android), puis visez le QR code avec le bouton &#128247; ci-dessus. Ou collez l'UID manuellement.</div>
+      <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace" oninput="cleanBadgeUid(this)">
+      <div style="font-size:10px;color:var(--txm);margin-top:4px">Scannez le badge sur <b>scan-badge.html</b> (Android), visez le QR avec l'appareil photo de l'iPhone, copiez le code et collez-le ici. Le pr&#233;fixe BADGE: est retir&#233; automatiquement.</div>
     </div>
     <div class="fr"><label class="fl2">PIN (4 chiffres)</label><input type="text" class="fi" id="sapin" maxlength="4" placeholder="Laisser vide = pas de changement"></div>
     <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px">
@@ -1580,6 +1577,14 @@ function updatePosteSelects(){
 }
 
 
+
+
+function cleanBadgeUid(input){
+  var v=input.value;
+  // Retirer le préfixe BADGE: ajouté par le QR code (insensible à la casse)
+  v=v.replace(/^\s*BADGE\s*:\s*/i,'');
+  input.value=v;
+}
 
 // ── SCANNER QR CODE (association badge) ─────────────────────────────────────
 var qrStream=null,qrRAF=null;
@@ -3124,7 +3129,7 @@ async function saveSal(){
     var hc=parseFloat(document.getElementById('saheures').value)||null;
     var dd=document.getElementById('sadebut').value||null;
     var mail=document.getElementById('samail').value||null;
-    var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.trim()||null:null;
+    var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,badge_uid:badgeUid};
     if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
     await db.from('employees').update(upd).eq('id',curSal);
@@ -3135,7 +3140,7 @@ async function saveSal(){
     var hc2=parseFloat(document.getElementById('saheures').value)||null;
     var dd2=document.getElementById('sadebut').value||null;
     var mail2=document.getElementById('samail').value||null;
-    var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.trim()||null:null;
+    var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,badge_uid:badgeUid2}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;

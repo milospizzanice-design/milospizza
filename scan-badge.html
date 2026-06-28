@@ -18,10 +18,10 @@
   .ok{background:#D1FAE5;color:#065F46}
   .err{background:#FEE2E2;color:#991B1B}
   .info{background:#FEF3C7;color:#92400E}
-  .uid{font-family:monospace;font-size:18px;font-weight:700;color:#B91E26;text-align:center;padding:14px;background:#FDF2F2;border-radius:12px;word-break:break-all;margin:8px 0}
+  .uid{font-family:monospace;font-size:20px;font-weight:700;color:#B91E26;text-align:center;padding:16px;background:#FDF2F2;border-radius:12px;word-break:break-all;margin:8px 0;border:2px dashed #B91E26}
   .label{font-size:12px;color:#888;text-align:center}
   #qrbox{display:flex;justify-content:center;padding:16px;background:#fff;border-radius:12px;margin:12px 0}
-  .qrhint{font-size:13px;color:#444;text-align:center;background:#F3F4F6;border-radius:10px;padding:12px;margin-top:8px}
+  .qrhint{font-size:13px;color:#444;text-align:center;background:#F3F4F6;border-radius:10px;padding:12px;margin-top:8px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -65,13 +65,13 @@ function showUid(uid){
     '<div class="label">UID du badge :</div>'+
     '<div class="uid" id="uidval">'+uid+'</div>'+
     '<div id="qrbox"></div>'+
-    '<div class="qrhint">\u{1F4F1} Scannez ce QR code avec l\u0027appareil photo de votre iPhone pour r\u00e9cup\u00e9rer l\u0027UID, puis collez-le dans la fiche du salari\u00e9.</div>'+
-    '<button class="btn2" onclick="copyUid()">\u{1F4CB} Ou copier l\u0027UID</button>';
-  // Générer le QR code
+    '<div class="qrhint">\u{1F4F1} Visez ce QR code avec l\u0027appareil photo de votre iPhone.<br>Il affichera le code <b>BADGE:'+uid+'</b> que vous pourrez copier (sans recherche Google).</div>'+
+    '<button class="btn2" onclick="copyUid()">\u{1F4CB} Ou copier l\u0027UID ici</button>';
+  // QR code : on préfixe par "BADGE:" pour que l'iPhone le traite comme texte et non comme recherche web
   var qb=document.getElementById('qrbox');
   qb.innerHTML='';
   try{
-    new QRCode(qb,{text:uid,width:180,height:180,colorDark:'#000',colorLight:'#fff'});
+    new QRCode(qb,{text:'BADGE:'+uid,width:180,height:180,colorDark:'#000',colorLight:'#fff'});
   }catch(e){
     qb.innerHTML='<span style="color:#888;font-size:12px">QR indisponible, utilisez le bouton copier</span>';
   }
