@@ -144,6 +144,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;height:100%}
 .resto-tag.port{background:#DBEAFE;color:#1E40AF}
 .resto-tag.dabray{background:#D1FAE5;color:#065F46}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 </head>
 <body>
 <script>
@@ -395,8 +396,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <div class="fr">
       <label class="fl2">Badge NFC (UID)</label>
-      <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace">
-      <div style="font-size:10px;color:var(--txm);margin-top:4px">Pour obtenir l'UID : scannez le badge sur la page <b>stocks.restoglobal.fr/scan-badge.html</b> (Android/Chrome), puis copiez le code ici. Laissez vide si pas de badge.</div>
+      <div style="display:flex;gap:6px">
+        <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace;flex:1">
+        <button type="button" class="btn bs sm" onclick="openQrScanner()" title="Scanner le QR code du badge" style="flex-shrink:0;padding:0 14px">&#128247;</button>
+      </div>
+      <div style="font-size:10px;color:var(--txm);margin-top:4px">Scannez le badge sur <b>scan-badge.html</b> (Android), puis visez le QR code avec le bouton &#128247; ci-dessus. Ou collez l'UID manuellement.</div>
     </div>
     <div class="fr"><label class="fl2">PIN (4 chiffres)</label><input type="text" class="fi" id="sapin" maxlength="4" placeholder="Laisser vide = pas de changement"></div>
     <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px">
@@ -1575,6 +1579,56 @@ function updatePosteSelects(){
   });
 }
 
+
+
+// ── SCANNER QR CODE (association badge) ─────────────────────────────────────
+var qrStream=null,qrRAF=null;
+async function openQrScanner(){
+  openM('modal-qrscan');
+  var video=document.getElementById('qr-video');
+  var status=document.getElementById('qr-scan-status');
+  status.textContent='D\u00e9marrage de la cam\u00e9ra...';
+  if(typeof jsQR==='undefined'){status.textContent='Biblioth\u00e8que de scan non charg\u00e9e. V\u00e9rifiez votre connexion.';return;}
+  try{
+    qrStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    video.srcObject=qrStream;
+    video.setAttribute('playsinline',true);
+    await video.play();
+    status.textContent='Visez le QR code...';
+    scanQrLoop();
+  }catch(e){
+    status.innerHTML='<span style="color:#991B1B">Cam\u00e9ra non disponible: '+e.message+'</span><br>Votre navigateur bloque peut-\u00eatre la cam\u00e9ra. Utilisez le copier-coller \u00e0 la place.';
+  }
+}
+function scanQrLoop(){
+  var video=document.getElementById('qr-video');
+  if(!video||!qrStream){return;}
+  if(video.readyState===video.HAVE_ENOUGH_DATA){
+    var canvas=document.createElement('canvas');
+    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    var ctx=canvas.getContext('2d');
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    try{
+      var imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+      var code=jsQR(imgData.data,imgData.width,imgData.height,{inversionAttempts:'dontInvert'});
+      if(code&&code.data){
+        var uid=code.data.trim();
+        document.getElementById('sal-badge-uid').value=uid;
+        document.getElementById('qr-scan-status').innerHTML='<span style="color:#065F46;font-weight:700">\u2705 Badge scann\u00e9 : '+uid+'</span>';
+        if(navigator.vibrate)navigator.vibrate(150);
+        setTimeout(closeQrScanner,800);
+        return;
+      }
+    }catch(e){}
+  }
+  qrRAF=requestAnimationFrame(scanQrLoop);
+}
+function closeQrScanner(){
+  if(qrRAF){cancelAnimationFrame(qrRAF);qrRAF=null;}
+  if(qrStream){qrStream.getTracks().forEach(function(t){t.stop();});qrStream=null;}
+  var video=document.getElementById('qr-video');if(video)video.srcObject=null;
+  closeM('modal-qrscan');
+}
 
 // ── GESTION DES RÔLES ───────────────────────────────────────────────────────
 var rolesData=[];var roleEditId=null;
@@ -4321,6 +4375,18 @@ init();
     <div id="dash-content"></div>
     <div class="ma" style="margin-top:14px">
       <button class="btn bp" onclick="closeM('modal-dash')" style="width:100%">J'ai pris connaissance</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="modal-qrscan">
+  <div class="md" style="max-width:420px">
+    <div class="mdt">Scanner le QR code du badge</div>
+    <div style="font-size:12px;color:var(--txm);margin-bottom:10px">Visez le QR code affich&#233; sur l'autre t&#233;l&#233;phone.</div>
+    <video id="qr-video" style="width:100%;border-radius:12px;background:#000;max-height:50vh" playsinline></video>
+    <div id="qr-scan-status" style="font-size:12px;text-align:center;color:var(--txm);margin-top:8px">D&#233;marrage de la cam&#233;ra...</div>
+    <div class="ma" style="margin-top:12px">
+      <button class="btn bs" onclick="closeQrScanner()" style="width:100%">Annuler</button>
     </div>
   </div>
 </div>
