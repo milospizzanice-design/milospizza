@@ -88,6 +88,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   .canc{padding:7px;font-size:11px}
   #camstatus{font-size:11px !important;padding:5px 8px !important}
 }
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.08)}}
 </style>
 </head>
 <body>
@@ -110,6 +111,13 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <button class="nb" onclick="pk('0')">0</button>
         <button class="nb" onclick="pk('back')" style="font-size:18px">&#9003;</button>
       </div>
+    </div>
+    <div class="screen" id="s-nfc">
+      <div style="font-size:60px;margin:30px 0 10px;animation:pulse 1.6s ease-in-out infinite">&#128241;</div>
+      <div class="pl" style="font-size:20px">Approchez votre badge</div>
+      <div style="color:rgba(255,255,255,.7);font-size:14px;margin:10px 0 30px;text-align:center;max-width:300px">Posez votre badge contre le t&eacute;l&eacute;phone pour badger</div>
+      <div id="nfc-status" style="font-size:14px;padding:10px 16px;border-radius:10px;min-height:20px;text-align:center;max-width:320px"></div>
+      <button onclick="nfcUsePin()" style="margin-top:30px;background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:10px;padding:12px 20px;font-size:14px;cursor:pointer">Utiliser mon code PIN à la place</button>
     </div>
     <div class="screen" id="s-menu">
       <div class="panel-title" id="menu-welcome" style="font-size:16px;color:#fff;margin-bottom:14px">Bienvenue</div>
@@ -467,6 +475,91 @@ async function loadSalariePlanning(){
 }
 
 
+
+// ── MODE NFC (badge) ────────────────────────────────────────────────────────
+var AUTH_MODE='pin';
+var nfcReader=null;
+var nfcScanning=false;
+async function loadAuthMode(){
+  try{
+    var r=await db.from('app_config').select('value').eq('key','auth_mode').single();
+    if(r.data&&r.data.value)AUTH_MODE=r.data.value;
+  }catch(e){}
+}
+function startIdleScreen(){
+  // Affiche l'écran adapté au mode d'authentification
+  if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){
+    ss('nfc');
+    startNfcScan();
+  }else{
+    ss('idle');
+  }
+}
+async function startNfcScan(){
+  if(nfcScanning)return;
+  if(!('NDEFReader' in window)){
+    document.getElementById('nfc-status').innerHTML='<span style="color:#FCA5A5">NFC non disponible sur cet appareil</span>';
+    return;
+  }
+  try{
+    nfcReader=new NDEFReader();
+    await nfcReader.scan();
+    nfcScanning=true;
+    nfcReader.onreading=function(event){
+      var uid=event.serialNumber||'';
+      if(uid)onBadgeScanned(uid);
+    };
+    nfcReader.onreadingerror=function(){
+      var s=document.getElementById('nfc-status');
+      if(s)s.innerHTML='<span style="color:#FCA5A5">Lecture difficile, r\u00e9essayez</span>';
+    };
+  }catch(e){
+    var s=document.getElementById('nfc-status');
+    if(s)s.innerHTML='<span style="color:#FCA5A5">Activez le NFC dans les r\u00e9glages</span>';
+  }
+}
+async function onBadgeScanned(uid){
+  var s=document.getElementById('nfc-status');
+  if(s)s.innerHTML='Badge d\u00e9tect\u00e9, identification...';
+  if(navigator.vibrate)navigator.vibrate(120);
+  // Chercher le salarié correspondant à cet UID
+  var r=await db.from('employees').select('*').eq('badge_uid',uid).eq('restaurant_id',RESTAURANT_ID).limit(1);
+  if(r.error||!r.data||!r.data.length){
+    // Essayer sans filtre restaurant (multi-site)
+    var r2=await db.from('employees').select('*').eq('badge_uid',uid).limit(1);
+    if(r2.error||!r2.data||!r2.data.length){
+      if(s)s.innerHTML='<span style="color:#FCA5A5">Badge non reconnu. Contactez un manager.</span>';
+      if(navigator.vibrate)navigator.vibrate([80,60,80]);
+      setTimeout(function(){if(s&&document.getElementById('s-nfc').classList.contains('on'))s.innerHTML='';},3000);
+      return;
+    }
+    r=r2;
+  }
+  emp=r.data[0];
+  if(emp.actif===false||emp.archive){
+    if(s)s.innerHTML='<span style="color:#FCA5A5">Compte d\u00e9sactiv\u00e9. Contactez un manager.</span>';
+    emp=null;return;
+  }
+  // Identifié -> menu
+  document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+  ss('menu');
+  resetInactivity();
+}
+function nfcUsePin(){
+  // Secours: basculer sur la saisie PIN
+  ss('idle');
+}
+function backToIdleOrNfc(){
+  // Retour à l'écran d'accueil selon le mode
+  pin='';upd&&upd();
+  if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){
+    ss('nfc');
+    var s=document.getElementById('nfc-status');if(s)s.innerHTML='';
+  }else{
+    ss('idle');
+  }
+}
+
 function reset(){
   if(photoTimer){clearInterval(photoTimer);photoTimer=null;}
   pin='';absPin='';planPin='';acoPin='';emp=null;absEmp=null;planEmp=null;acoEmp=null;
@@ -499,7 +592,7 @@ function checkRgpd(){
 
 checkRgpd();
 
-ss('idle');
+  if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){ss('nfc');var sn=document.getElementById('nfc-status');if(sn)sn.innerHTML='';if(!nfcScanning)startNfcScan();}else{ss('idle');}
 }
 
 function pk(k){
@@ -759,6 +852,8 @@ async function loadDelaiBadge(){
   }catch(e){}
 }
 loadDelaiBadge();
+// Charger le mode d'authentification et afficher l'écran adapté
+loadAuthMode().then(function(){startIdleScreen();});
 async function badge(photo){
   await loadDelaiBadge();
   var r=await db.from('time_entries').select('id,type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);

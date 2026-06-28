@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Scanner un badge - Milo's Pizza</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,system-ui,Roboto,sans-serif;background:#B91E26;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px}
+  h1{font-size:21px;margin-bottom:6px;text-align:center}
+  .sub{font-size:13px;opacity:.85;text-align:center;margin-bottom:24px}
+  .card{background:#fff;color:#222;border-radius:16px;padding:22px;width:100%;max-width:420px}
+  .btn{width:100%;background:#fff;color:#B91E26;border:2px solid #B91E26;border-radius:14px;padding:18px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:14px}
+  .btn:disabled{opacity:.5}
+  .btn2{width:100%;background:#B91E26;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;margin-top:10px}
+  .status{font-size:14px;padding:14px;border-radius:10px;text-align:center;margin-bottom:12px}
+  .ok{background:#D1FAE5;color:#065F46}
+  .err{background:#FEE2E2;color:#991B1B}
+  .info{background:#FEF3C7;color:#92400E}
+  .uid{font-family:monospace;font-size:20px;font-weight:700;color:#B91E26;text-align:center;padding:18px;background:#FDF2F2;border-radius:12px;word-break:break-all;margin:8px 0}
+  .label{font-size:12px;color:#888;text-align:center}
+</style>
+</head>
+<body>
+  <h1>&#128290; Scanner un badge</h1>
+  <div class="sub">Pour associer un badge &agrave; un salari&eacute;</div>
+  <div class="card">
+    <div id="compat"></div>
+    <button class="btn" id="scanbtn" onclick="startScan()">D&eacute;marrer le scan</button>
+    <div id="result"></div>
+  </div>
+<script>
+window.addEventListener('load',function(){
+  var c=document.getElementById('compat');
+  if('NDEFReader' in window){
+    c.innerHTML='<div class="status info">Appuyez sur \u00ab D\u00e9marrer le scan \u00bb puis approchez le badge.</div>';
+  }else{
+    c.innerHTML='<div class="status err">\u274C Cet appareil ne supporte pas le NFC web. Utilisez Chrome sur Android avec le NFC activ\u00e9.</div>';
+    document.getElementById('scanbtn').disabled=true;
+  }
+});
+async function startScan(){
+  var r=document.getElementById('result');
+  if(!('NDEFReader' in window)){r.innerHTML='<div class="status err">NFC non support\u00e9.</div>';return;}
+  try{
+    r.innerHTML='<div class="status info">\u23F3 Approchez le badge du dos du t\u00e9l\u00e9phone...</div>';
+    var ndef=new NDEFReader();
+    await ndef.scan();
+    ndef.onreading=function(event){
+      var uid=event.serialNumber||'(non disponible)';
+      r.innerHTML='<div class="status ok">\u2705 Badge lu !</div>'+
+        '<div class="label">UID du badge :</div>'+
+        '<div class="uid" id="uidval">'+uid+'</div>'+
+        '<button class="btn2" onclick="copyUid()">\u{1F4CB} Copier l\u0027UID</button>'+
+        '<div class="label" style="margin-top:10px">Collez ensuite cet UID dans la fiche du salari\u00e9 (interface admin).</div>';
+      if(navigator.vibrate)navigator.vibrate(200);
+    };
+    ndef.onreadingerror=function(){r.innerHTML='<div class="status err">Erreur de lecture. R\u00e9essayez.</div>';};
+  }catch(e){
+    r.innerHTML='<div class="status err">Erreur : '+e.message+'<br>V\u00e9rifiez que le NFC est activ\u00e9 et que vous \u00eates sur Chrome.</div>';
+  }
+}
+function copyUid(){
+  var uid=document.getElementById('uidval').textContent;
+  if(navigator.clipboard){navigator.clipboard.writeText(uid).then(function(){alert('UID copi\u00e9 : '+uid);});}
+  else{alert('UID : '+uid);}
+}
+</script>
+</body>
+</html>
