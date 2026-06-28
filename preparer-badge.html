@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pr&eacute;parer un badge - Milo's Pizza</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,system-ui,Roboto,sans-serif;background:#0F766E;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px}
+  h1{font-size:21px;margin-bottom:6px;text-align:center}
+  .sub{font-size:13px;opacity:.9;text-align:center;margin-bottom:24px}
+  .card{background:#fff;color:#222;border-radius:16px;padding:22px;width:100%;max-width:420px}
+  .btn{width:100%;background:#fff;color:#0F766E;border:2px solid #0F766E;border-radius:14px;padding:18px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:14px}
+  .btn:disabled{opacity:.5}
+  .status{font-size:14px;padding:14px;border-radius:10px;text-align:center;margin-bottom:12px}
+  .ok{background:#D1FAE5;color:#065F46}
+  .err{background:#FEE2E2;color:#991B1B}
+  .info{background:#FEF3C7;color:#92400E}
+  .uid{font-family:monospace;font-size:18px;font-weight:700;color:#0F766E;text-align:center;padding:14px;background:#F0FDFA;border-radius:12px;word-break:break-all;margin:8px 0;border:2px dashed #0F766E}
+  .label{font-size:12px;color:#888;text-align:center}
+  .step{font-size:13px;color:#444;background:#F3F4F6;border-radius:10px;padding:12px;margin-bottom:14px;line-height:1.5}
+  .log{font-size:11px;color:#666;max-height:140px;overflow-y:auto;margin-top:10px;border-top:1px solid #eee;padding-top:10px}
+  .log div{padding:3px 0;border-bottom:1px solid #f3f3f3}
+</style>
+</head>
+<body>
+  <h1>&#9881;&#65039; Pr&eacute;parer un badge</h1>
+  <div class="sub">&Eacute;crit une donn&eacute;e sur le badge pour &eacute;viter le message &laquo; tag vide &raquo;</div>
+  <div class="card">
+    <div class="step">Cette page &eacute;crit une petite donn&eacute;e sur le badge pour qu'Android ne le bloque plus.<br><br><b>&Agrave; faire une fois par badge.</b></div>
+    <div id="compat"></div>
+    <button class="btn" id="writebtn" onclick="startWrite()">&Eacute;crire sur le badge</button>
+    <div id="result"></div>
+    <div class="log" id="log"></div>
+  </div>
+<script>
+function logMsg(t){
+  var l=document.getElementById('log');
+  var d=document.createElement('div');
+  d.textContent='['+new Date().toLocaleTimeString('fr-FR')+'] '+t;
+  l.insertBefore(d,l.firstChild);
+}
+window.addEventListener('load',function(){
+  var c=document.getElementById('compat');
+  if('NDEFReader' in window){
+    c.innerHTML='<div class="status info">Appuyez sur \u00ab \u00c9crire sur le badge \u00bb puis approchez le badge.</div>';
+  }else{
+    c.innerHTML='<div class="status err">\u274C NFC web non support\u00e9. Utilisez Chrome sur Android avec le NFC activ\u00e9.</div>';
+    document.getElementById('writebtn').disabled=true;
+  }
+});
+async function startWrite(){
+  var r=document.getElementById('result');
+  if(!('NDEFReader' in window)){r.innerHTML='<div class="status err">NFC non support\u00e9.</div>';return;}
+  try{
+    r.innerHTML='<div class="status info">\u23F3 Approchez le badge et maintenez-le immobile...</div>';
+    logMsg('En attente du badge pour \u00e9criture');
+    var ndef=new NDEFReader();
+    await ndef.write({records:[{recordType:"text",data:"MILOS-PIZZA-BADGE"}]});
+    r.innerHTML='<div class="status ok">\u2705 Badge pr\u00e9par\u00e9 avec succ\u00e8s !</div>'+
+      '<div class="label">Ce badge ne d\u00e9clenchera plus le message \u00ab tag vide \u00bb.<br>Vous pouvez pr\u00e9parer le badge suivant.</div>';
+    logMsg('Badge \u00e9crit avec succ\u00e8s');
+    if(navigator.vibrate)navigator.vibrate(200);
+  }catch(e){
+    r.innerHTML='<div class="status err">Erreur d\u0027\u00e9criture : '+e.message+'<br>R\u00e9essayez en maintenant le badge bien immobile contre le t\u00e9l\u00e9phone.</div>';
+    logMsg('Erreur: '+e.message);
+  }
+}
+</script>
+</body>
+</html>
