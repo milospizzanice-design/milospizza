@@ -547,28 +547,8 @@ function reset(){
   if(photoTimer){clearInterval(photoTimer);photoTimer=null;}
   pin='';absPin='';planPin='';acoPin='';emp=null;absEmp=null;planEmp=null;acoEmp=null;
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
-  
-// ── RGPD ─────────────────────────────────────────────────────────────────────
-document.getElementById('rgpd-check').addEventListener('change', function(){
-  var btn = document.getElementById('rgpd-btn');
-  if(this.checked){
-    btn.disabled = false;
-    btn.style.background = '#B91E26';
-    btn.style.cursor = 'pointer';
-  } else {
-    btn.disabled = true;
-    btn.style.background = '#ccc';
-    btn.style.cursor = 'not-allowed';
-  }
-});
-
-function acceptRgpd(){}
-
-
-function checkRgpd(){}
-
-
-if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){ss('nfc');var sn=document.getElementById('nfc-status');if(sn)sn.innerHTML='';if(!nfcScanning)startNfcScan();}else{ss('idle');}
+  if(typeof upd==='function')upd();
+  if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){ss('nfc');var sn=document.getElementById('nfc-status');if(sn)sn.innerHTML='';if(!nfcScanning)startNfcScan();}else{ss('idle');}
 }
 
 function pk(k){
@@ -782,19 +762,7 @@ async function submitAbs(){
 }
 
 
-// ── RGPD ─────────────────────────────────────────────────────────────────────
-document.getElementById('rgpd-check').addEventListener('change', function(){
-  var btn = document.getElementById('rgpd-btn');
-  if(this.checked){
-    btn.disabled = false;
-    btn.style.background = '#B91E26';
-    btn.style.cursor = 'pointer';
-  } else {
-    btn.disabled = true;
-    btn.style.background = '#ccc';
-    btn.style.cursor = 'not-allowed';
-  }
-});
+
 
 function acceptRgpd(){}
 
