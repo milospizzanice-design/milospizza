@@ -112,11 +112,11 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       </div>
     </div>
     <div class="screen" id="s-nfc">
-      <div style="font-size:60px;margin:30px 0 10px;animation:pulse 1.6s ease-in-out infinite">&#128241;</div>
-      <div class="pl" style="font-size:20px">Approchez votre badge</div>
-      <div style="color:rgba(255,255,255,.7);font-size:14px;margin:10px 0 30px;text-align:center;max-width:300px">Posez votre badge contre le t&eacute;l&eacute;phone pour badger</div>
+      <div style="font-size:64px;margin:30px 0 14px;animation:pulse 1.6s ease-in-out infinite">&#128241;</div>
+      <div class="pl" style="font-size:22px;font-weight:700">Scannez votre badge</div>
+      <div style="color:rgba(255,255,255,.75);font-size:14px;margin:12px 0 24px;text-align:center;max-width:300px;line-height:1.5">Posez votre badge contre <b>l'arri&egrave;re du t&eacute;l&eacute;phone</b> pour pointer</div>
       <div id="nfc-status" style="font-size:14px;padding:10px 16px;border-radius:10px;min-height:20px;text-align:center;max-width:320px"></div>
-      <button onclick="nfcUsePin()" style="margin-top:30px;background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:10px;padding:12px 20px;font-size:14px;cursor:pointer">Utiliser mon code PIN à la place</button>
+      <button onclick="nfcUsePin()" style="margin-top:36px;background:transparent;border:none;color:rgba(255,255,255,.65);font-size:13px;text-decoration:underline;cursor:pointer;padding:8px">Passer au code PIN</button>
     </div>
     <div class="screen" id="s-menu">
       <div class="panel-title" id="menu-welcome" style="font-size:16px;color:#fff;margin-bottom:14px">Bienvenue</div>
@@ -470,8 +470,9 @@ async function loadAuthMode(){
   }catch(e){}
 }
 function startIdleScreen(){
-  // Affiche l'écran adapté au mode d'authentification
-  if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){
+  // Le badge est le mode par défaut pour tous : on affiche toujours l'écran badge.
+  // Si l'appareil ne supporte pas le NFC (ex: iPhone), on bascule sur le PIN.
+  if('NDEFReader' in window){
     ss('nfc');
     startNfcScan();
   }else{
@@ -677,11 +678,9 @@ async function loadDelaiBadge(){
 }
 loadDelaiBadge();
 // Charger le mode d'authentification et afficher l'écran adapté
-loadAuthMode().then(function(){
-  // Démarrer le scan NFC tôt et en continu pour capter les badges en priorité (évite 'nouveau tag' d'Android)
-  if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){startNfcScan();}
-  startIdleScreen();
-});
+// Badge par défaut pour tous : démarrer le scan NFC tôt et en continu (évite 'nouveau tag' d'Android)
+if('NDEFReader' in window){startNfcScan();}
+startIdleScreen();
 async function badge(){
   await loadDelaiBadge();
   var r=await db.from('time_entries').select('id,type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
