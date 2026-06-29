@@ -399,7 +399,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace" oninput="cleanBadgeUid(this)">
       <div style="font-size:10px;color:var(--txm);margin-top:4px">Scannez le badge sur <b>scan-badge.html</b> (Android), visez le QR avec l'appareil photo de l'iPhone, copiez le code et collez-le ici. Le pr&#233;fixe BADGE: est retir&#233; automatiquement.</div>
     </div>
-    <div class="fr"><label class="fl2">PIN (4 chiffres)</label><input type="text" class="fi" id="sapin" maxlength="4" placeholder="Laisser vide = pas de changement"></div>
+    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:12px">
+      <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin:0">
+        <span style="font-size:13px;font-weight:600">Autoriser le code PIN</span>
+        <input type="checkbox" id="sa-pin-autorise" style="width:44px;height:24px;cursor:pointer">
+      </label>
+      <div style="font-size:10px;color:var(--txm);margin-top:6px">D&#233;sactiv&#233; par d&#233;faut (badge uniquement). Activez-le pour un salari&#233; en secours (badge perdu, etc.). Le salari&#233; cr&#233;era lui-m&#234;me son code &#224; sa prochaine connexion.</div>
+      <div id="sa-pin-etat" style="font-size:11px;margin-top:6px"></div>
+      <button type="button" class="btn bs sm" id="sa-pin-reset-btn" onclick="resetSalPin()" style="margin-top:8px;display:none">&#128260; R&#233;initialiser son code PIN</button>
+    </div>
+    <input type="hidden" id="sapin">
     <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px">
       <div style="font-size:12px;font-weight:700;color:var(--bx);margin-bottom:6px">&#128197; Planning type hebdomadaire</div>
       <div style="font-size:10px;color:var(--txm);margin-bottom:8px">Définissez les horaires habituels. À la validation, ils seront dupliqués sur 12 semaines à partir de la date choisie.</div>
@@ -3101,6 +3110,38 @@ function renderCreneauPostes(eid,salId){
 }
 
 
+
+function loadSalPinState(em){
+  var cb=document.getElementById('sa-pin-autorise');
+  var etat=document.getElementById('sa-pin-etat');
+  var resetBtn=document.getElementById('sa-pin-reset-btn');
+  if(!cb)return;
+  cb.checked=!!(em&&em.pin_autorise);
+  // Indiquer si un code a déjà été créé par le salarié
+  if(em&&em.pin_autorise){
+    if(em.pin_hash){
+      etat.innerHTML='<span style="color:#065F46">\u2705 Le salari\u00e9 a cr\u00e9\u00e9 son code.</span>';
+      resetBtn.style.display='inline-block';
+    }else{
+      etat.innerHTML='<span style="color:#92400E">\u23F3 En attente : le salari\u00e9 cr\u00e9era son code \u00e0 sa prochaine connexion.</span>';
+      resetBtn.style.display='none';
+    }
+  }else{
+    etat.innerHTML='';
+    resetBtn.style.display='none';
+  }
+}
+async function resetSalPin(){
+  if(!curSal)return;
+  if(!confirm('R\u00e9initialiser le code PIN de ce salari\u00e9 ? Il devra en cr\u00e9er un nouveau \u00e0 sa prochaine connexion.'))return;
+  var r=await db.from('employees').update({pin_hash:null}).eq('id',curSal);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  alert('Code PIN r\u00e9initialis\u00e9. Le salari\u00e9 cr\u00e9era un nouveau code \u00e0 sa prochaine connexion.');
+  // Recharger l'état
+  await loadEmps();
+  var em=emp(curSal);loadSalPinState(em);
+}
+
 function openEditSal(id){
   curSal=id;var em=emp(id);
   document.getElementById('msat').textContent='Modifier '+em.prenom+' '+em.nom;
@@ -3112,6 +3153,7 @@ function openEditSal(id){
   document.getElementById('samail').value=em.email||'';
   document.getElementById('sapin').value='';
   var bu=document.getElementById('sal-badge-uid');if(bu)bu.value=em.badge_uid||'';
+  loadSalPinState(em);
   renderSalPostesList(id);renderSalRolesList(id);
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
@@ -3130,18 +3172,17 @@ async function saveSal(){
     var dd=document.getElementById('sadebut').value||null;
     var mail=document.getElementById('samail').value||null;
     var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
-  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,badge_uid:badgeUid};
-    if(pin.length===4){var hr=await db.rpc('hash_pin',{p_pin:pin});if(hr.data)upd.pin_hash=hr.data;}
+  var pinAut=(document.getElementById('sa-pin-autorise')||{}).checked||false;
+  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,badge_uid:badgeUid,pin_autorise:pinAut};
     await db.from('employees').update(upd).eq('id',curSal);
   }else{
-    if(pin.length!==4){alert('PIN 4 chiffres requis');return;}
-    var hr2=await db.rpc('hash_pin',{p_pin:pin});
     var newSec=deduceSecteur('new');
     var hc2=parseFloat(document.getElementById('saheures').value)||null;
     var dd2=document.getElementById('sadebut').value||null;
     var mail2=document.getElementById('samail').value||null;
     var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
-  var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,pin_hash:hr2.data,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,badge_uid:badgeUid2}).select();
+  var pinAut2=(document.getElementById('sa-pin-autorise')||{}).checked||false;
+  var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,badge_uid:badgeUid2,pin_autorise:pinAut2}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
