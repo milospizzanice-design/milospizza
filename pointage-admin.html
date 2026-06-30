@@ -4101,6 +4101,35 @@ function goTabByName(name){var tabs=document.querySelectorAll('.tab');for(var i=
 console.log('Restoglobal version: v2026.06.18-PDF-FIX');
 
 // ── TABLEAU DE BORD DES NOUVEAUTÉS ──────────────────────────────────────────
+// ── Traitement des demandes de réinitialisation PIN depuis le pop-up ────────
+var pinResetEmpId=null;
+function openPinResetModal(id){
+  pinResetEmpId=id;
+  var em=emp(id);
+  var nom=em?em.prenom+' '+em.nom:'?';
+  document.getElementById('pinreset-body').innerHTML='<b>'+nom+'</b> a oubli\u00e9 son code PIN et demande une r\u00e9initialisation.<br><br>En validant, son code actuel sera effac\u00e9. '+(em?em.prenom:'Le salari\u00e9')+' cr\u00e9era un nouveau code \u00e0 sa prochaine connexion.';
+  openM('modal-pinreset');
+}
+async function validePinReset(){
+  if(!pinResetEmpId)return;
+  var r=await db.from('employees').update({pin_hash:null,pin_reset_demande:false}).eq('id',pinResetEmpId);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  closeM('modal-pinreset');
+  await loadEmps();
+  alert('Code r\u00e9initialis\u00e9. Le salari\u00e9 cr\u00e9era un nouveau code \u00e0 sa prochaine connexion.');
+  var dash=document.getElementById('modal-dash');
+  if(dash&&dash.classList.contains('op')){showDashboard();}
+}
+async function refusePinReset(){
+  if(!pinResetEmpId)return;
+  var r=await db.from('employees').update({pin_reset_demande:false}).eq('id',pinResetEmpId);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  closeM('modal-pinreset');
+  await loadEmps();
+  var dash=document.getElementById('modal-dash');
+  if(dash&&dash.classList.contains('op')){showDashboard();}
+}
+
 async function showDashboard(){
   var lastVisit=localStorage.getItem('rg_last_visit');
   var now=new Date();
@@ -4116,12 +4145,14 @@ async function showDashboard(){
     db.from('time_entries').select('id,employee_id,type,timestamp,manuel').gte('timestamp',sinceISO).order('timestamp',{ascending:false}),
     db.from('demandes_absence').select('*').gte('created_at',sinceISO).order('created_at',{ascending:false}),
     db.from('demandes_acompte').select('*').gte('created_at',sinceISO).order('created_at',{ascending:false}),
-    db.from('planning_lectures').select('*').gte('lu_at',sinceISO).order('lu_at',{ascending:false})
+    db.from('planning_lectures').select('*').gte('lu_at',sinceISO).order('lu_at',{ascending:false}),
+    db.from('employees').select('id,prenom,nom,pin_reset_demande').eq('pin_reset_demande',true)
   ]);
   var pointages=results[0].data||[];
   var demAbs=results[1].data||[];
   var demAco=results[2].data||[];
   var lectures=results[3].data||[];
+  var demPin=results[4].data||[];
 
   var h='';
   function section(icone,titre,count,couleur){
@@ -4137,6 +4168,15 @@ async function showDashboard(){
       var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s',rec:'R\u00e9cup'};
       var stB=(d.statut||'att')==='att'?'<span style="color:#92400E;font-weight:700"> \u2022 \u00c0 traiter</span>':'';
       h+='<div style="font-size:12px;padding:3px 0 3px 26px;color:var(--tx)">'+nom+' \u2014 '+(TL[d.type]||d.type)+' du '+d.date_debut+' au '+d.date_fin+stB+'</div>';
+    });
+  }
+
+  // Demandes de réinitialisation PIN (cliquables)
+  if(demPin.length){
+    h+=section('\u{1F511}','Demandes de code PIN',demPin.length,'#7C3AED');
+    demPin.forEach(function(e){
+      var nom=e.prenom+' '+e.nom;
+      h+='<div onclick="openPinResetModal(\''+e.id+'\')" style="font-size:12px;padding:8px 10px 8px 26px;color:var(--tx);cursor:pointer;background:#F5F3FF;border-radius:8px;margin:4px 0;display:flex;justify-content:space-between;align-items:center"><span>'+nom+' \u2014 R\u00e9initialisation du code <span style="color:#92400E;font-weight:700">\u2022 \u00c0 traiter</span></span><span style="color:#7C3AED;font-weight:700">\u203A</span></div>';
     });
   }
 
@@ -4427,6 +4467,17 @@ init();
     <div id="dash-content"></div>
     <div class="ma" style="margin-top:14px">
       <button class="btn bp" onclick="closeM('modal-dash')" style="width:100%">J'ai pris connaissance</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="modal-pinreset">
+  <div class="md" style="max-width:380px">
+    <div class="mdt">&#128273; Demande de code PIN</div>
+    <div id="pinreset-body" style="font-size:14px;color:var(--tx);margin:16px 0;text-align:center"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn" onclick="refusePinReset()" style="flex:1;background:#FEE2E2;color:#991B1B;border:none">&#10007; Refuser</button>
+      <button class="btn" onclick="validePinReset()" style="flex:1;background:#065F46;color:#fff;border:none">&#10003; Valider</button>
     </div>
   </div>
 </div>
