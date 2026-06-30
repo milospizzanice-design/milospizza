@@ -59,6 +59,7 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .ba{background:#92610A;color:#fff}
 .sm{padding:4px 9px;font-size:11px}
 .mb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:14px}
+#modal-dem.op,#modal-aco.op,#modal-pinreset.op{z-index:250}
 .mb.op{display:flex}
 body.modal-open{overflow:hidden;position:fixed;width:100%;height:100%}
 .md{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:360px;max-height:90vh;overflow-y:auto}
@@ -1118,6 +1119,7 @@ async function acoModalSave(statut){
   if(r.error){alert('Erreur: '+r.error.message);return;}
   closeM('modal-aco');acoModalId=null;acoModalImg=null;loadAco();
   if(document.getElementById('modal-absfiche').classList.contains('op')&&document.getElementById('fiche-pane-dem').style.display!=='none')ficheLoadDem();
+  var dash=document.getElementById('modal-dash');if(dash&&dash.classList.contains('op')){showDashboard(true);}
 }
 
 function toggleAcoArchive(){
@@ -4040,6 +4042,7 @@ async function demModalSave(statut){
   closeM('modal-dem');demModalData=null;
   await loadDem();updateDemBadge();
   if(document.getElementById('modal-absfiche').classList.contains('op')&&document.getElementById('fiche-pane-dem').style.display!=='none')ficheLoadDem();
+  var dash=document.getElementById('modal-dash');if(dash&&dash.classList.contains('op')){showDashboard(true);}
 }
 
 function traitDemBtn(btn,statut){traitDem(parseInt(btn.dataset.id),btn.dataset.st);}
@@ -4104,12 +4107,11 @@ console.log('Restoglobal version: v2026.06.18-PDF-FIX');
 
 // Ouvrir une demande depuis le pop-up de nouveautés (ferme le dash, ouvre la modale de gestion)
 function dashOpenDem(id){
-  closeM('modal-dash');
-  setTimeout(function(){demOpenModal(id);},150);
+  // Ouvrir la modale de gestion par-dessus le pop-up (sans le fermer)
+  demOpenModal(id);
 }
 function dashOpenAco(id){
-  closeM('modal-dash');
-  setTimeout(function(){acoOpenModal(id);},150);
+  acoOpenModal(id);
 }
 
 // ── Traitement des demandes de réinitialisation PIN depuis le pop-up ────────
