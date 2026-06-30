@@ -100,6 +100,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   <div class="datef" id="datef"></div>
   <div class="panel">
     <div class="screen on" id="s-idle">
+      <button id="pin-retour-badge" onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer;display:none">&#8592; Retour au badge</button>
       <div class="pl">Entrez votre code PIN</div>
       <div class="pd"><div id="d0"></div><div id="d1"></div><div id="d2"></div><div id="d3"></div></div>
       <div class="np">
@@ -110,6 +111,13 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <button class="nb" onclick="pk('0')">0</button>
         <button class="nb" onclick="pk('back')" style="font-size:18px">&#9003;</button>
       </div>
+    </div>
+    <div class="screen" id="s-start">
+      <div style="font-size:70px;margin:40px 0 20px">&#127829;</div>
+      <div class="pl" style="font-size:24px;font-weight:700;margin-bottom:8px">Milo's Pizza</div>
+      <div style="color:rgba(255,255,255,.75);font-size:15px;margin-bottom:40px;text-align:center;max-width:300px">Pointage par badge</div>
+      <button onclick="demarrerBadgeage()" style="background:#fff;color:#B91E26;border:none;border-radius:16px;padding:20px 50px;font-size:20px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2)">D&eacute;marrer</button>
+      <div style="color:rgba(255,255,255,.55);font-size:12px;margin-top:24px;text-align:center;max-width:280px">&#224; appuyer une fois en allumant la tablette</div>
     </div>
     <div class="screen" id="s-nfc" onclick="ensureNfcScan()">
       <div style="font-size:64px;margin:30px 0 14px;animation:pulse 1.6s ease-in-out infinite">&#128241;</div>
@@ -470,14 +478,18 @@ async function loadAuthMode(){
   }catch(e){}
 }
 function startIdleScreen(){
-  // Le badge est le mode par défaut pour tous : on affiche toujours l'écran badge.
-  // Si l'appareil ne supporte pas le NFC (ex: iPhone), on bascule sur le PIN.
+  // Badge par défaut. Sur Android NFC : écran "Démarrer" (geste initial requis par Chrome).
+  // Sur appareil sans NFC (iPhone) : clavier PIN directement.
   if('NDEFReader' in window){
-    ss('nfc');
-    ensureNfcScan();
+    ss('start');
   }else{
     ss('idle');
   }
+}
+// Bouton "Démarrer" du matin : le geste utilisateur qui autorise le NFC pour la journée
+async function demarrerBadgeage(){
+  ss('nfc');
+  await startNfcScan();
 }
 async function startNfcScan(){
   if(nfcScanning)return;
@@ -534,9 +546,16 @@ async function onBadgeScanned(uid){
   ss('menu');
   resetInactivity();
 }
+
+function retourBadge(){
+  pin='';if(typeof upd==='function')upd();
+  if(nfcScanning){ss('nfc');var sn=document.getElementById('nfc-status');if(sn)sn.innerHTML='<span style="color:#A7F3D0">\u2713 Pr\u00eat \u2014 approchez votre badge</span>';}
+  else{ss('start');}
+}
 function nfcUsePin(){
-  // Secours: basculer sur la saisie PIN
+  // Secours: basculer sur la saisie PIN (le scan NFC reste actif en arrière-plan)
   ss('idle');
+  var rb=document.getElementById('pin-retour-badge');if(rb)rb.style.display='block';
 }
 function backToIdleOrNfc(){
   // Retour à l'écran d'accueil selon le mode
@@ -554,7 +573,13 @@ function reset(){
   pin='';absPin='';planPin='';acoPin='';emp=null;absEmp=null;planEmp=null;acoEmp=null;
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
   if(typeof upd==='function')upd();
-  if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){ss('nfc');var sn=document.getElementById('nfc-status');if(sn)sn.innerHTML='';if(!nfcScanning)startNfcScan();}else{ss('idle');}
+  if('NDEFReader' in window){
+    // Android : revenir à l'écran badge. Le scan reste actif (lancé le matin).
+    if(nfcScanning){ss('nfc');var sn=document.getElementById('nfc-status');if(sn)sn.innerHTML='<span style="color:#A7F3D0">\u2713 Pr\u00eat \u2014 approchez votre badge</span>';}
+    else{ss('start');}
+  }else{
+    ss('idle');
+  }
 }
 
 function pk(k){
@@ -683,8 +708,7 @@ async function loadDelaiBadge(){
 }
 loadDelaiBadge();
 // Charger le mode d'authentification et afficher l'écran adapté
-// Badge par défaut pour tous : démarrer le scan NFC tôt et en continu (évite 'nouveau tag' d'Android)
-if('NDEFReader' in window){startNfcScan();}
+// Badge par défaut. Le scan démarre au clic sur 'Démarrer' (geste requis par Chrome Android).
 startIdleScreen();
 async function badge(){
   await loadDelaiBadge();
