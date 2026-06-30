@@ -16,9 +16,7 @@
       "extras": [
         "menu_enfant"
       ],
-      "subcats": [
-        "Salade Bowl"
-      ]
+      "subcats": []
     },
     {
       "id": "cat_1782503221239",
@@ -159,9 +157,7 @@
         "Vins Rosé",
         "Vins Rouges",
         "Les Bulles",
-        "Alcools",
-        "Aperitifs",
-        "Digestifs"
+        "Alcools"
       ],
       "homeGroup": "drinks"
     },
@@ -176,7 +172,10 @@
         "ru": "Apéritifs - Digestifs"
       },
       "archived": false,
-      "subcats": [],
+      "subcats": [
+        "Aperitifs",
+        "Digestifs"
+      ],
       "homeGroup": "drinks",
       "collapsible": true
     },
@@ -194,6 +193,20 @@
       "subcats": [],
       "homeGroup": "drinks",
       "inAllergenList": false
+    },
+    {
+      "id": "cat_1782506338268",
+      "name": {
+        "fr": "Cocktails 🍹",
+        "en": "Cocktails 🍹",
+        "it": "Cocktails 🍹",
+        "de": "Cocktails 🍹",
+        "zh": "Cocktails 🍹",
+        "ru": "Cocktails 🍹"
+      },
+      "archived": false,
+      "subcats": [],
+      "homeGroup": "drinks"
     }
   ],
   "items": [
@@ -271,7 +284,7 @@
         "es": ""
       },
       "desc": {
-        "fr": "Burrata crèmeuse,  nectarines rôties, tomates du pays, basilic",
+        "fr": "Burrata crèmeuse, nectarines rôties, tomate cœur de bœuf, ciboulette, basilic",
         "en": "",
         "it": "",
         "de": "",
@@ -502,29 +515,29 @@
       ]
     },
     {
-      "id": "i11",
+      "id": "i19",
       "cat": "veggie",
       "subcat": null,
       "name": {
-        "fr": "Marguerite",
-        "en": "Margherita",
-        "it": "Margherita",
-        "de": "Margherita",
-        "zh": "玛格丽特",
-        "ru": "Маргарита",
-        "es": "Margarita"
+        "fr": "Tartuffa",
+        "en": "Tartuffa",
+        "it": "Tartuffa",
+        "de": "Tartuffa",
+        "zh": "松露披萨",
+        "ru": "Тартуффа",
+        "es": "La Pesto"
       },
       "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, huile d'olive vierge extra, Parmesan, basilic",
-        "en": "Tomato sauce, Fior di latte mozzarella, extra virgin olive oil, Parmesan, basil",
-        "it": "Salsa di pomodoro, mozzarella Fior di latte, olio extravergine, Parmigiano, basilico",
-        "de": "Tomatensoße, Fior di latte Mozzarella, natives Olivenöl, Parmesan, Basilikum",
-        "zh": "番茄酱，鲜奶马苏里拉奶酪，特级初榨橄榄油，帕玛森，罗勒",
-        "ru": "Томатный соус, моцарелла Фиор ди латте, оливковое масло, пармезан, базилик",
-        "es": "Salsa de tomate, mozzarella Fior di latte, aceite de oliva virgen extra, Parmesano, albahaca"
+        "fr": "Crème de truffe et champignons, mozzarella Fior di latte, lamelles de truffe, huile d'olive à la truffe",
+        "en": "Truffle and mushroom cream, Fior di latte mozzarella, truffle slices, truffle olive oil",
+        "it": "Crema di tartufo e funghi, mozzarella Fior di latte, lamelle di tartufo, olio al tartufo",
+        "de": "Trüffel- und Pilzcreme, Fior di latte Mozzarella, Trüffelscheiben, Trüffelöl",
+        "zh": "松露蘑菇奶油，鲜奶马苏里拉，松露片，松露橄榄油",
+        "ru": "Трюфельно-грибной крем, моцарелла, ломтики трюфеля, трюфельное масло",
+        "es": "Crema de trufa y champiñones, mozzarella Fior di latte, láminas de trufa, aceite de oliva con trufa"
       },
-      "price": "13.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732631/Milo_sPizza2_Marguerite_gosgrp.jpg",
+      "price": "22€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732759/Milo_sPizza2_Tartuffa_yr4xbz.jpg",
       "archived": false,
       "allergens": [
         "gluten",
@@ -532,29 +545,146 @@
       ]
     },
     {
-      "id": "i12",
+      "id": "i17",
       "cat": "veggie",
       "subcat": null,
       "name": {
-        "fr": "Chèvre & Miel",
-        "en": "Goat's Cheese & Honey",
-        "it": "Caprino e Miele",
-        "de": "Ziegenkäse & Honig",
-        "zh": "山羊奶酪蜂蜜",
-        "ru": "Козий сыр и мёд",
-        "es": "Cabra & Miel"
+        "fr": "Burrata",
+        "en": "Burrata",
+        "it": "Burrata",
+        "de": "Burrata",
+        "zh": "布拉塔",
+        "ru": "Буррата",
+        "es": "La Pera & Gorgonzola"
       },
       "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, fromage de chèvre pur, tomates cerise, miel, éclats de noix",
-        "en": "Tomato sauce, Fior di latte mozzarella, pure goat's cheese, cherry tomatoes, honey, walnut pieces",
-        "it": "Salsa di pomodoro, mozzarella Fior di latte, formaggio di capra puro, pomodorini, miele, noci",
-        "de": "Tomatensoße, Fior di latte Mozzarella, reiner Ziegenkäse, Kirschtomaten, Honig, Walnüsse",
-        "zh": "番茄酱，鲜奶马苏里拉，纯山羊奶酪，樱桃番茄，蜂蜜，核桃碎",
-        "ru": "Томатный соус, моцарелла, козий сыр, черри, мёд, грецкий орех",
-        "es": "Salsa de tomate, mozzarella Fior di latte, queso de cabra, tomates cherry, miel, trozos de nuez"
+        "fr": "Sauce tomate, roquette, burrata DOP, tomates cerise, huile d'olive à la truffe, copeaux de Parmesan, origan",
+        "en": "Tomato sauce, rocket, DOP burrata, cherry tomatoes, truffle olive oil, Parmesan shavings, oregano",
+        "it": "Salsa di pomodoro, rucola, burrata DOP, pomodorini, olio al tartufo, scaglie di Parmigiano, origano",
+        "de": "Tomatensoße, Rucola, DOP-Burrata, Kirschtomaten, Trüffelöl, Parmesan-Späne, Oregano",
+        "zh": "番茄酱，芝麻菜，DOP布拉塔，樱桃番茄，松露橄榄油，帕玛森片，牛至",
+        "ru": "Томатный соус, рукола, буррата DOP, черри, трюфельное масло, пармезан, орегано",
+        "es": "Salsa de tomate, rúcula, burrata DOP, tomates cherry, aceite de trufa, virutas de Parmesano, orégano"
       },
-      "price": "15.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732641/Milo_sPizza2_ChevreetMiel_fpxwdm.jpg",
+      "price": "19€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732736/Milo_sPizza2_Burrata_txr18c.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ]
+    },
+    {
+      "id": "i15",
+      "cat": "veggie",
+      "subcat": null,
+      "name": {
+        "fr": "Milo's Pizza",
+        "en": "Milo's Pizza",
+        "it": "Pizza Milo's",
+        "de": "Milo's Pizza",
+        "zh": "米洛披萨",
+        "ru": "Пицца Мило",
+        "es": "La Audaz"
+      },
+      "desc": {
+        "fr": "Crème de poires rôties au miel et romarin, mozzarella Fior di latte, gorgonzola, parmesan, poires, éclats de noix torréfiés, ciboulette",
+        "en": "Roasted pear cream with honey and rosemary, Fior di latte mozzarella, gorgonzola, parmesan, pears, toasted walnut pieces, chives",
+        "it": "Crema di pere arrosto con miele e rosmarino, mozzarella Fior di latte, gorgonzola, parmigiano, pere, noci tostate, erba cipollina",
+        "de": "Geröstete Birncreme mit Honig und Rosmarin, Fior di latte Mozzarella, Gorgonzola, Parmesan, Birnen, geröstete Walnüsse, Schnittlauch",
+        "zh": "蜂蜜迷迭香烤梨奶油，鲜奶马苏里拉，戈贡佐拉，帕玛森，梨，烤核桃碎，细香葱",
+        "ru": "Крем из печёных груш с мёдом и розмарином, моцарелла, горгонзола, пармезан, груши, грецкий орех, лук-резанец",
+        "es": "Crema de peras asadas con miel y romero, mozzarella Fior di latte, gorgonzola, parmesano, peras, nueces tostadas, cebollino"
+      },
+      "price": "18€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732670/IMG_2543_usjmqr.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait",
+        "noix"
+      ]
+    },
+    {
+      "id": "i1782478081525",
+      "cat": "veggie",
+      "subcat": null,
+      "name": {
+        "fr": "La Truffina",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Crème de truffe, fior di latte, roquette, copeaux de parmesan, tomates séchées, huile d'olive à la truffe",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "18€",
+      "photo": "",
+      "archived": false
+    },
+    {
+      "id": "i18",
+      "cat": "veggie",
+      "subcat": null,
+      "name": {
+        "fr": "Veggie On Fire",
+        "en": "Veggie On Fire",
+        "it": "Veggie On Fire",
+        "de": "Veggie On Fire",
+        "zh": "素食烈焰",
+        "ru": "Вегги в огне",
+        "es": "La Napolitana"
+      },
+      "desc": {
+        "fr": "Crème de poivrons, mozzarella Fior di latte, champignons, poivrons, courgettes, tomates cerise, origan, ciboulette",
+        "en": "Pepper cream, Fior di latte mozzarella, mushrooms, peppers, courgettes, cherry tomatoes, oregano, chives",
+        "it": "Crema di peperoni, mozzarella Fior di latte, funghi, peperoni, zucchine, pomodorini, origano, erba cipollina",
+        "de": "Paprikacreme, Fior di latte Mozzarella, Champignons, Paprika, Zucchini, Kirschtomaten, Oregano, Schnittlauch",
+        "zh": "甜椒奶油，鲜奶马苏里拉，蘑菇，彩椒，西葫芦，樱桃番茄，牛至，细香葱",
+        "ru": "Крем из перца, моцарелла, грибы, перец, цуккини, черри, орегано, лук-резанец",
+        "es": "Crema de pimientos, mozzarella Fior di latte, champiñones, pimientos, calabacines, tomates cherry, orégano, cebollino"
+      },
+      "price": "18€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ]
+    },
+    {
+      "id": "i16",
+      "cat": "veggie",
+      "subcat": null,
+      "name": {
+        "fr": "La Marceau",
+        "en": "La Marceau",
+        "it": "La Marceau",
+        "de": "La Marceau",
+        "zh": "马尔索",
+        "ru": "Ля Марсо",
+        "es": "La Florencia"
+      },
+      "desc": {
+        "fr": "Pesto de courgette et basilic, mozzarella Fior di latte, stracciatella, tomates rôties au sucre, amandes effilées et grillées",
+        "en": "Courgette and basil pesto, Fior di latte mozzarella, stracciatella, sugar-roasted tomatoes, flaked and grilled almonds",
+        "it": "Pesto di zucchine e basilico, mozzarella Fior di latte, stracciatella, pomodori arrosto allo zucchero, mandorle a lamelle",
+        "de": "Zucchini-Basilikum-Pesto, Fior di latte Mozzarella, Stracciatella, zuckergeröstete Tomaten, gehobelte gegrillte Mandeln",
+        "zh": "西葫芦罗勒青酱，鲜奶马苏里拉，斯特拉恰泰拉，糖烤番茄，杏仁片",
+        "ru": "Песто из цуккини и базилика, моцарелла, страчателла, томаты в карамели, миндальные хлопья",
+        "es": "Pesto de calabacín y albahaca, mozzarella Fior di latte, stracciatella, tomates asados con azúcar, almendras fileteadas tostadas"
+      },
+      "price": "17.5€",
+      "photo": "",
       "archived": false,
       "allergens": [
         "gluten",
@@ -623,329 +753,29 @@
       ]
     },
     {
-      "id": "i15",
+      "id": "i12",
       "cat": "veggie",
       "subcat": null,
       "name": {
-        "fr": "Milo's Pizza",
-        "en": "Milo's Pizza",
-        "it": "Pizza Milo's",
-        "de": "Milo's Pizza",
-        "zh": "米洛披萨",
-        "ru": "Пицца Мило",
-        "es": "La Audaz"
+        "fr": "Chèvre & Miel",
+        "en": "Goat's Cheese & Honey",
+        "it": "Caprino e Miele",
+        "de": "Ziegenkäse & Honig",
+        "zh": "山羊奶酪蜂蜜",
+        "ru": "Козий сыр и мёд",
+        "es": "Cabra & Miel"
       },
       "desc": {
-        "fr": "Crème de poires rôties au miel et romarin, mozzarella Fior di latte, gorgonzola, parmesan, poires, éclats de noix torréfiés, ciboulette",
-        "en": "Roasted pear cream with honey and rosemary, Fior di latte mozzarella, gorgonzola, parmesan, pears, toasted walnut pieces, chives",
-        "it": "Crema di pere arrosto con miele e rosmarino, mozzarella Fior di latte, gorgonzola, parmigiano, pere, noci tostate, erba cipollina",
-        "de": "Geröstete Birncreme mit Honig und Rosmarin, Fior di latte Mozzarella, Gorgonzola, Parmesan, Birnen, geröstete Walnüsse, Schnittlauch",
-        "zh": "蜂蜜迷迭香烤梨奶油，鲜奶马苏里拉，戈贡佐拉，帕玛森，梨，烤核桃碎，细香葱",
-        "ru": "Крем из печёных груш с мёдом и розмарином, моцарелла, горгонзола, пармезан, груши, грецкий орех, лук-резанец",
-        "es": "Crema de peras asadas con miel y romero, mozzarella Fior di latte, gorgonzola, parmesano, peras, nueces tostadas, cebollino"
-      },
-      "price": "18€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732670/IMG_2543_usjmqr.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait",
-        "noix"
-      ]
-    },
-    {
-      "id": "i16",
-      "cat": "veggie",
-      "subcat": null,
-      "name": {
-        "fr": "La Marceau",
-        "en": "La Marceau",
-        "it": "La Marceau",
-        "de": "La Marceau",
-        "zh": "马尔索",
-        "ru": "Ля Марсо",
-        "es": "La Florencia"
-      },
-      "desc": {
-        "fr": "Pesto de courgette et basilic, mozzarella Fior di latte, stracciatella, tomates rôties au sucre, amandes effilées et grillées",
-        "en": "Courgette and basil pesto, Fior di latte mozzarella, stracciatella, sugar-roasted tomatoes, flaked and grilled almonds",
-        "it": "Pesto di zucchine e basilico, mozzarella Fior di latte, stracciatella, pomodori arrosto allo zucchero, mandorle a lamelle",
-        "de": "Zucchini-Basilikum-Pesto, Fior di latte Mozzarella, Stracciatella, zuckergeröstete Tomaten, gehobelte gegrillte Mandeln",
-        "zh": "西葫芦罗勒青酱，鲜奶马苏里拉，斯特拉恰泰拉，糖烤番茄，杏仁片",
-        "ru": "Песто из цуккини и базилика, моцарелла, страчателла, томаты в карамели, миндальные хлопья",
-        "es": "Pesto de calabacín y albahaca, mozzarella Fior di latte, stracciatella, tomates asados con azúcar, almendras fileteadas tostadas"
-      },
-      "price": "17.5€",
-      "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait",
-        "noix"
-      ]
-    },
-    {
-      "id": "i1782478081525",
-      "cat": "veggie",
-      "subcat": null,
-      "name": {
-        "fr": "La Truffina",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
-      },
-      "desc": {
-        "fr": "Crème de truffe, fior di latte, roquette, copeaux de parmesan, tomates séchées, huile d'olive à la truffe",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
-      },
-      "price": "18€",
-      "photo": "",
-      "archived": false
-    },
-    {
-      "id": "i18",
-      "cat": "veggie",
-      "subcat": null,
-      "name": {
-        "fr": "Veggie On Fire",
-        "en": "Veggie On Fire",
-        "it": "Veggie On Fire",
-        "de": "Veggie On Fire",
-        "zh": "素食烈焰",
-        "ru": "Вегги в огне",
-        "es": "La Napolitana"
-      },
-      "desc": {
-        "fr": "Crème de poivrons, mozzarella Fior di latte, champignons, poivrons, courgettes, tomates cerise, origan, ciboulette",
-        "en": "Pepper cream, Fior di latte mozzarella, mushrooms, peppers, courgettes, cherry tomatoes, oregano, chives",
-        "it": "Crema di peperoni, mozzarella Fior di latte, funghi, peperoni, zucchine, pomodorini, origano, erba cipollina",
-        "de": "Paprikacreme, Fior di latte Mozzarella, Champignons, Paprika, Zucchini, Kirschtomaten, Oregano, Schnittlauch",
-        "zh": "甜椒奶油，鲜奶马苏里拉，蘑菇，彩椒，西葫芦，樱桃番茄，牛至，细香葱",
-        "ru": "Крем из перца, моцарелла, грибы, перец, цуккини, черри, орегано, лук-резанец",
-        "es": "Crema de pimientos, mozzarella Fior di latte, champiñones, pimientos, calabacines, tomates cherry, orégano, cebollino"
-      },
-      "price": "18€",
-      "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait"
-      ]
-    },
-    {
-      "id": "i17",
-      "cat": "veggie",
-      "subcat": null,
-      "name": {
-        "fr": "Burrata",
-        "en": "Burrata",
-        "it": "Burrata",
-        "de": "Burrata",
-        "zh": "布拉塔",
-        "ru": "Буррата",
-        "es": "La Pera & Gorgonzola"
-      },
-      "desc": {
-        "fr": "Sauce tomate, roquette, burrata DOP, tomates cerise, huile d'olive à la truffe, copeaux de Parmesan, origan",
-        "en": "Tomato sauce, rocket, DOP burrata, cherry tomatoes, truffle olive oil, Parmesan shavings, oregano",
-        "it": "Salsa di pomodoro, rucola, burrata DOP, pomodorini, olio al tartufo, scaglie di Parmigiano, origano",
-        "de": "Tomatensoße, Rucola, DOP-Burrata, Kirschtomaten, Trüffelöl, Parmesan-Späne, Oregano",
-        "zh": "番茄酱，芝麻菜，DOP布拉塔，樱桃番茄，松露橄榄油，帕玛森片，牛至",
-        "ru": "Томатный соус, рукола, буррата DOP, черри, трюфельное масло, пармезан, орегано",
-        "es": "Salsa de tomate, rúcula, burrata DOP, tomates cherry, aceite de trufa, virutas de Parmesano, orégano"
-      },
-      "price": "19€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732736/Milo_sPizza2_Burrata_txr18c.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait"
-      ]
-    },
-    {
-      "id": "i20",
-      "cat": "charcuterie",
-      "subcat": null,
-      "name": {
-        "fr": "Calzone",
-        "en": "Calzone",
-        "it": "Calzone",
-        "de": "Calzone",
-        "zh": "卡尔佐内",
-        "ru": "Кальцоне",
-        "es": "La Vegana"
-      },
-      "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, œuf, origan",
-        "en": "Tomato sauce, Fior di latte mozzarella, ham, button mushrooms, egg, oregano",
-        "it": "Salsa di pomodoro, mozzarella Fior di latte, prosciutto cotto, funghi champignon, uovo, origano",
-        "de": "Tomatensoße, Fior di latte Mozzarella, gekochter Schinken, Champignons, Ei, Oregano",
-        "zh": "番茄酱，鲜奶马苏里拉，熟火腿，蘑菇，鸡蛋，牛至",
-        "ru": "Томатный соус, моцарелла, ветчина, шампиньоны, яйцо, орегано",
-        "es": "Salsa de tomate, mozzarella Fior di latte, jamón cocido, champiñones, huevo, orégano"
+        "fr": "Sauce tomate, mozzarella Fior di latte, fromage de chèvre pur, tomates cerise, miel, éclats de noix",
+        "en": "Tomato sauce, Fior di latte mozzarella, pure goat's cheese, cherry tomatoes, honey, walnut pieces",
+        "it": "Salsa di pomodoro, mozzarella Fior di latte, formaggio di capra puro, pomodorini, miele, noci",
+        "de": "Tomatensoße, Fior di latte Mozzarella, reiner Ziegenkäse, Kirschtomaten, Honig, Walnüsse",
+        "zh": "番茄酱，鲜奶马苏里拉，纯山羊奶酪，樱桃番茄，蜂蜜，核桃碎",
+        "ru": "Томатный соус, моцарелла, козий сыр, черри, мёд, грецкий орех",
+        "es": "Salsa de tomate, mozzarella Fior di latte, queso de cabra, tomates cherry, miel, trozos de nuez"
       },
       "price": "15.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732775/Milo_sPizza2_Calzone_xhnwlp.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "oeufs",
-        "lait"
-      ]
-    },
-    {
-      "id": "i21",
-      "cat": "charcuterie",
-      "subcat": null,
-      "name": {
-        "fr": "Reine",
-        "en": "Queen",
-        "it": "Regina",
-        "de": "Königin",
-        "zh": "皇后",
-        "ru": "Регина",
-        "es": "La Romana"
-      },
-      "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, origan",
-        "en": "Tomato sauce, Fior di latte mozzarella, ham, button mushrooms, oregano",
-        "it": "Salsa di pomodoro, mozzarella Fior di latte, prosciutto cotto, funghi champignon, origano",
-        "de": "Tomatensoße, Fior di latte Mozzarella, gekochter Schinken, Champignons, Oregano",
-        "zh": "番茄酱，鲜奶马苏里拉，熟火腿，蘑菇，牛至",
-        "ru": "Томатный соус, моцарелла, ветчина, шампиньоны, орегано",
-        "es": "Salsa de tomate, mozzarella Fior di latte, jamón cocido, champiñones, orégano"
-      },
-      "price": "16€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732781/Milo_sPizza2_Reine_iygjtn.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait"
-      ]
-    },
-    {
-      "id": "i22",
-      "cat": "charcuterie",
-      "subcat": null,
-      "name": {
-        "fr": "Piccante",
-        "en": "Spicy",
-        "it": "Piccante",
-        "de": "Scharf",
-        "zh": "辣味",
-        "ru": "Пикканте",
-        "es": "La Charcutière"
-      },
-      "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, spianata piquante, oignons cuisinés, origan, basilic",
-        "en": "Tomato sauce, Fior di latte mozzarella, spicy spianata, caramelised onions, oregano, basil",
-        "it": "Salsa di pomodoro, mozzarella Fior di latte, spianata piccante, cipolle, origano, basilico",
-        "de": "Tomatensoße, Fior di latte Mozzarella, scharfe Spianata, geschmorte Zwiebeln, Oregano, Basilikum",
-        "zh": "番茄酱，鲜奶马苏里拉，辣味腊肠，洋葱，牛至，罗勒",
-        "ru": "Томатный соус, моцарелла, острая спианата, лук, орегано, базилик",
-        "es": "Salsa de tomate, mozzarella Fior di latte, spianata picante, cebollas caramelizadas, orégano, albahaca"
-      },
-      "price": "16.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732787/Milo_sPizza2_Piccante_hvvv3s.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait"
-      ]
-    },
-    {
-      "id": "i23",
-      "cat": "charcuterie",
-      "subcat": null,
-      "name": {
-        "fr": "4 Saisons",
-        "en": "4 Seasons",
-        "it": "4 Stagioni",
-        "de": "Vier Jahreszeiten",
-        "zh": "四季",
-        "ru": "4 Сезона",
-        "es": "La Paisana"
-      },
-      "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, cœurs d'artichaut, champignons de paris, jambon cuit, olives, origan",
-        "en": "Tomato sauce, Fior di latte mozzarella, artichoke hearts, button mushrooms, ham, olives, oregano",
-        "it": "Salsa di pomodoro, mozzarella Fior di latte, cuori di carciofo, funghi, prosciutto cotto, olive, origano",
-        "de": "Tomatensoße, Fior di latte Mozzarella, Artischockenherzen, Champignons, Schinken, Oliven, Oregano",
-        "zh": "番茄酱，鲜奶马苏里拉，朝鲜蓟心，蘑菇，熟火腿，橄榄，牛至",
-        "ru": "Томатный соус, моцарелла, артишоки, шампиньоны, ветчина, оливки, орегано",
-        "es": "Salsa de tomate, mozzarella Fior di latte, corazones de alcachofa, champiñones, jamón cocido, aceitunas, orégano"
-      },
-      "price": "16.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732798/Milo_sPizza2_4saisons_tm6vm7.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait"
-      ]
-    },
-    {
-      "id": "i24",
-      "cat": "charcuterie",
-      "subcat": null,
-      "name": {
-        "fr": "Royale",
-        "en": "Royale",
-        "it": "Royale",
-        "de": "Royale",
-        "zh": "皇家",
-        "ru": "Роял",
-        "es": "La Mediterránea"
-      },
-      "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, œuf, ciboulette",
-        "en": "Tomato sauce, Fior di latte mozzarella, ham, button mushrooms, egg, chives",
-        "it": "Salsa di pomodoro, mozzarella Fior di latte, prosciutto cotto, funghi, uovo, erba cipollina",
-        "de": "Tomatensoße, Fior di latte Mozzarella, Schinken, Champignons, Ei, Schnittlauch",
-        "zh": "番茄酱，鲜奶马苏里拉，熟火腿，蘑菇，鸡蛋，细香葱",
-        "ru": "Томатный соус, моцарелла, ветчина, шампиньоны, яйцо, лук-резанец",
-        "es": "Salsa de tomate, mozzarella Fior di latte, jamón cocido, champiñones, huevo, cebollino"
-      },
-      "price": "17€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732806/Milo_sPizza2_Royal_ifhkdz.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "oeufs",
-        "lait"
-      ]
-    },
-    {
-      "id": "i28",
-      "cat": "charcuterie",
-      "subcat": null,
-      "name": {
-        "fr": "Autunno",
-        "en": "Autunno",
-        "it": "Autunno",
-        "de": "Autunno",
-        "zh": "秋季",
-        "ru": "Осень",
-        "es": "La Salsiccia"
-      },
-      "desc": {
-        "fr": "Sauce tomate, roquette, jambon cru, stracciatella, tomates cerise, amandes effilées grillées, poivre, huile d'olive vierge extra",
-        "en": "Tomato sauce, rocket, cured ham, stracciatella, cherry tomatoes, grilled flaked almonds, pepper, extra virgin olive oil",
-        "it": "Salsa di pomodoro, rucola, prosciutto crudo, stracciatella, pomodorini, mandorle a lamelle, pepe, olio extravergine",
-        "de": "Tomatensoße, Rucola, Rohschinken, Stracciatella, Kirschtomaten, gegrillte Mandeln, Pfeffer, Olivenöl",
-        "zh": "番茄酱，芝麻菜，生火腿，斯特拉恰泰拉，樱桃番茄，烤杏仁片，胡椒，橄榄油",
-        "ru": "Томатный соус, рукола, ветчина, страчателла, черри, миндаль, перец, оливковое масло",
-        "es": "Salsa de tomate, rúcula, jamón serrano, stracciatella, tomates cherry, almendras tostadas, pimienta, aceite de oliva virgen extra"
-      },
-      "price": "18€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732848/Milo_sPizza2-Nice-32_wqp9iu.jpg",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732641/Milo_sPizza2_ChevreetMiel_fpxwdm.jpg",
       "archived": false,
       "allergens": [
         "gluten",
@@ -954,94 +784,34 @@
       ]
     },
     {
-      "id": "i26",
+      "id": "i31",
       "cat": "charcuterie",
       "subcat": null,
       "name": {
-        "fr": "Tartiflette",
-        "en": "Tartiflette",
-        "it": "Tartiflette",
-        "de": "Tartiflette",
-        "zh": "塔蒂弗莱特",
-        "ru": "Тартифлет",
-        "es": "La Jamón Crudo"
+        "fr": "Deliciosa",
+        "en": "Deliciosa",
+        "it": "Deliciosa",
+        "de": "Deliciosa",
+        "zh": "美味",
+        "ru": "Делисиоза",
+        "es": "La Wagyu"
       },
       "desc": {
-        "fr": "Crème, mozzarella Fior di latte, pommes de terre à l'ail et au romarin, reblochon de Savoie, lardons fumés, oignons cuisinés",
-        "en": "Cream, Fior di latte mozzarella, garlic and rosemary potatoes, Savoie reblochon, smoked bacon, caramelised onions",
-        "it": "Crema, mozzarella Fior di latte, patate all'aglio e rosmarino, reblochon di Savoia, pancetta affumicata, cipolle",
-        "de": "Sahne, Fior di latte Mozzarella, Knoblauch-Rosmarin-Kartoffeln, Savoyer Reblochon, Räucherspeck, Zwiebeln",
-        "zh": "奶油，鲜奶马苏里拉，蒜香迷迭香土豆，萨瓦雷布洛雄奶酪，烟熏培根，洋葱",
-        "ru": "Сливки, моцарелла, картофель с чесноком и розмарином, реблошон, копчёный бекон, лук",
-        "es": "Crema, mozzarella Fior di latte, patatas al ajo y romero, reblochon de Saboya, bacon ahumado, cebollas caramelizadas"
+        "fr": "Crème de truffe et champignons, mozzarella Fior di latte, chiffonnade de jambon cuit, stracciatella, champignons de Paris, éclats de noisettes, huile d'olive à la truffe, ciboulette",
+        "en": "Truffle and mushroom cream, Fior di latte mozzarella, ham chiffonade, stracciatella, button mushrooms, hazelnut pieces, truffle olive oil, chives",
+        "it": "Crema di tartufo e funghi, mozzarella Fior di latte, julienne di prosciutto cotto, stracciatella, funghi, nocciole, olio al tartufo, erba cipollina",
+        "de": "Trüffel-Pilz-Creme, Fior di latte Mozzarella, Schinken-Chiffonade, Stracciatella, Champignons, Haselnüsse, Trüffelöl, Schnittlauch",
+        "zh": "松露蘑菇奶油，鲜奶马苏里拉，熟火腿丝，斯特拉恰泰拉，蘑菇，榛子碎，松露橄榄油，细香葱",
+        "ru": "Трюфельно-грибной крем, моцарелла, шифонад из ветчины, страчателла, шампиньоны, фундук, трюфельное масло",
+        "es": "Crema de trufa y champiñones, mozzarella Fior di latte, juliana de jamón cocido, stracciatella, champiñones, avellanas, aceite de trufa, cebollino"
       },
-      "price": "17,5€",
-      "photo": "",
-      "archived": true,
-      "allergens": [
-        "gluten",
-        "lait"
-      ]
-    },
-    {
-      "id": "i25",
-      "cat": "charcuterie",
-      "subcat": null,
-      "name": {
-        "fr": "Fiacola",
-        "en": "Fiacola",
-        "it": "Fiacola",
-        "de": "Fiacola",
-        "zh": "菲亚科拉",
-        "ru": "Фиакола",
-        "es": "La del Chef"
-      },
-      "desc": {
-        "fr": "Crème de poivrons, mozzarella Fior di latte, chèvre, spianata piquante, poivrons marinés, amandes effilées grillées, origan, basilic",
-        "en": "Pepper cream, Fior di latte mozzarella, goat's cheese, spicy spianata, marinated peppers, grilled flaked almonds, oregano, basil",
-        "it": "Crema di peperoni, mozzarella Fior di latte, capra, spianata piccante, peperoni marinati, mandorle a lamelle, origano, basilico",
-        "de": "Paprikacreme, Fior di latte Mozzarella, Ziegenkäse, scharfe Spianata, Paprika, Mandeln, Oregano, Basilikum",
-        "zh": "甜椒奶油，鲜奶马苏里拉，山羊奶酪，辣腊肠，腌椒，杏仁片，牛至，罗勒",
-        "ru": "Крем из перца, моцарелла, козий сыр, острая спианата, маринованный перец, миндаль, орегано",
-        "es": "Crema de pimientos, mozzarella Fior di latte, queso de cabra, spianata picante, pimientos marinados, almendras tostadas, orégano, albahaca"
-      },
-      "price": "18,5€",
-      "photo": "",
+      "price": "23€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732872/Milo_sPizza2_Deliciosa_tjxe3t.jpg",
       "archived": false,
       "allergens": [
         "gluten",
         "lait",
         "noix"
-      ]
-    },
-    {
-      "id": "i29",
-      "cat": "charcuterie",
-      "subcat": null,
-      "name": {
-        "fr": "L'Audacieuse",
-        "en": "L'Audacieuse",
-        "it": "L'Audace",
-        "de": "Die Gewagte",
-        "zh": "大胆者",
-        "ru": "Смелая",
-        "es": "La Diavola"
-      },
-      "desc": {
-        "fr": "Crème de poires rôties au miel et romarin, mozzarella Fior di latte, jambon cru, poires, tomates cerise, ciboulette, origan, basilic",
-        "en": "Roasted pear cream with honey and rosemary, Fior di latte mozzarella, cured ham, pears, cherry tomatoes, chives, oregano, basil",
-        "it": "Crema di pere arrosto al miele e rosmarino, mozzarella Fior di latte, prosciutto crudo, pere, pomodorini, erba cipollina",
-        "de": "Geröstete Birncreme mit Honig und Rosmarin, Mozzarella, Rohschinken, Birnen, Kirschtomaten, Schnittlauch",
-        "zh": "蜂蜜迷迭香烤梨奶油，鲜奶马苏里拉，生火腿，梨，樱桃番茄，细香葱，牛至，罗勒",
-        "ru": "Крем из запечённых груш с мёдом и розмарином, моцарелла, ветчина, груши, черри, лук",
-        "es": "Crema de peras asadas con miel y romero, mozzarella Fior di latte, jamón serrano, peras, tomates cherry, cebollino, orégano, albahaca"
-      },
-      "price": "18,5€",
-      "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait"
       ]
     },
     {
@@ -1132,30 +902,309 @@
       ]
     },
     {
-      "id": "i1782477842664",
+      "id": "i25",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Fiacola",
+        "en": "Fiacola",
+        "it": "Fiacola",
+        "de": "Fiacola",
+        "zh": "菲亚科拉",
+        "ru": "Фиакола",
+        "es": "La del Chef"
+      },
+      "desc": {
+        "fr": "Crème de poivrons, mozzarella Fior di latte, chèvre, spianata piquante, poivrons marinés, amandes effilées grillées, origan, basilic",
+        "en": "Pepper cream, Fior di latte mozzarella, goat's cheese, spicy spianata, marinated peppers, grilled flaked almonds, oregano, basil",
+        "it": "Crema di peperoni, mozzarella Fior di latte, capra, spianata piccante, peperoni marinati, mandorle a lamelle, origano, basilico",
+        "de": "Paprikacreme, Fior di latte Mozzarella, Ziegenkäse, scharfe Spianata, Paprika, Mandeln, Oregano, Basilikum",
+        "zh": "甜椒奶油，鲜奶马苏里拉，山羊奶酪，辣腊肠，腌椒，杏仁片，牛至，罗勒",
+        "ru": "Крем из перца, моцарелла, козий сыр, острая спианата, маринованный перец, миндаль, орегано",
+        "es": "Crema de pimientos, mozzarella Fior di latte, queso de cabra, spianata picante, pimientos marinados, almendras tostadas, orégano, albahaca"
+      },
+      "price": "18,5€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait",
+        "noix"
+      ]
+    },
+    {
+      "id": "i29",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "L'Audacieuse",
+        "en": "L'Audacieuse",
+        "it": "L'Audace",
+        "de": "Die Gewagte",
+        "zh": "大胆者",
+        "ru": "Смелая",
+        "es": "La Diavola"
+      },
+      "desc": {
+        "fr": "Crème de poires rôties au miel et romarin, mozzarella Fior di latte, jambon cru, poires, tomates cerise, ciboulette, origan, basilic",
+        "en": "Roasted pear cream with honey and rosemary, Fior di latte mozzarella, cured ham, pears, cherry tomatoes, chives, oregano, basil",
+        "it": "Crema di pere arrosto al miele e rosmarino, mozzarella Fior di latte, prosciutto crudo, pere, pomodorini, erba cipollina",
+        "de": "Geröstete Birncreme mit Honig und Rosmarin, Mozzarella, Rohschinken, Birnen, Kirschtomaten, Schnittlauch",
+        "zh": "蜂蜜迷迭香烤梨奶油，鲜奶马苏里拉，生火腿，梨，樱桃番茄，细香葱，牛至，罗勒",
+        "ru": "Крем из запечённых груш с мёдом и розмарином, моцарелла, ветчина, груши, черри, лук",
+        "es": "Crema de peras asadas con miel y romero, mozzarella Fior di latte, jamón serrano, peras, tomates cherry, cebollino, orégano, albahaca"
+      },
+      "price": "18,5€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ]
+    },
+    {
+      "id": "i26",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Tartiflette",
+        "en": "Tartiflette",
+        "it": "Tartiflette",
+        "de": "Tartiflette",
+        "zh": "塔蒂弗莱特",
+        "ru": "Тартифлет",
+        "es": "La Jamón Crudo"
+      },
+      "desc": {
+        "fr": "Crème, mozzarella Fior di latte, pommes de terre à l'ail et au romarin, reblochon de Savoie, lardons fumés, oignons cuisinés",
+        "en": "Cream, Fior di latte mozzarella, garlic and rosemary potatoes, Savoie reblochon, smoked bacon, caramelised onions",
+        "it": "Crema, mozzarella Fior di latte, patate all'aglio e rosmarino, reblochon di Savoia, pancetta affumicata, cipolle",
+        "de": "Sahne, Fior di latte Mozzarella, Knoblauch-Rosmarin-Kartoffeln, Savoyer Reblochon, Räucherspeck, Zwiebeln",
+        "zh": "奶油，鲜奶马苏里拉，蒜香迷迭香土豆，萨瓦雷布洛雄奶酪，烟熏培根，洋葱",
+        "ru": "Сливки, моцарелла, картофель с чесноком и розмарином, реблошон, копчёный бекон, лук",
+        "es": "Crema, mozzarella Fior di latte, patatas al ajo y romero, reblochon de Saboya, bacon ahumado, cebollas caramelizadas"
+      },
+      "price": "17,5€",
+      "photo": "",
+      "archived": true,
+      "allergens": [
+        "gluten",
+        "lait"
+      ]
+    },
+    {
+      "id": "i28",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Autunno",
+        "en": "Autunno",
+        "it": "Autunno",
+        "de": "Autunno",
+        "zh": "秋季",
+        "ru": "Осень",
+        "es": "La Salsiccia"
+      },
+      "desc": {
+        "fr": "Sauce tomate, roquette, jambon cru, stracciatella, tomates cerise, amandes effilées grillées, poivre, huile d'olive vierge extra",
+        "en": "Tomato sauce, rocket, cured ham, stracciatella, cherry tomatoes, grilled flaked almonds, pepper, extra virgin olive oil",
+        "it": "Salsa di pomodoro, rucola, prosciutto crudo, stracciatella, pomodorini, mandorle a lamelle, pepe, olio extravergine",
+        "de": "Tomatensoße, Rucola, Rohschinken, Stracciatella, Kirschtomaten, gegrillte Mandeln, Pfeffer, Olivenöl",
+        "zh": "番茄酱，芝麻菜，生火腿，斯特拉恰泰拉，樱桃番茄，烤杏仁片，胡椒，橄榄油",
+        "ru": "Томатный соус, рукола, ветчина, страчателла, черри, миндаль, перец, оливковое масло",
+        "es": "Salsa de tomate, rúcula, jamón serrano, stracciatella, tomates cherry, almendras tostadas, pimienta, aceite de oliva virgen extra"
+      },
+      "price": "18€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732848/Milo_sPizza2-Nice-32_wqp9iu.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait",
+        "noix"
+      ]
+    },
+    {
+      "id": "i24",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Royale",
+        "en": "Royale",
+        "it": "Royale",
+        "de": "Royale",
+        "zh": "皇家",
+        "ru": "Роял",
+        "es": "La Mediterránea"
+      },
+      "desc": {
+        "fr": "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, œuf, ciboulette",
+        "en": "Tomato sauce, Fior di latte mozzarella, ham, button mushrooms, egg, chives",
+        "it": "Salsa di pomodoro, mozzarella Fior di latte, prosciutto cotto, funghi, uovo, erba cipollina",
+        "de": "Tomatensoße, Fior di latte Mozzarella, Schinken, Champignons, Ei, Schnittlauch",
+        "zh": "番茄酱，鲜奶马苏里拉，熟火腿，蘑菇，鸡蛋，细香葱",
+        "ru": "Томатный соус, моцарелла, ветчина, шампиньоны, яйцо, лук-резанец",
+        "es": "Salsa de tomate, mozzarella Fior di latte, jamón cocido, champiñones, huevo, cebollino"
+      },
+      "price": "17€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732806/Milo_sPizza2_Royal_ifhkdz.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "oeufs",
+        "lait"
+      ]
+    },
+    {
+      "id": "i22",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Piccante",
+        "en": "Spicy",
+        "it": "Piccante",
+        "de": "Scharf",
+        "zh": "辣味",
+        "ru": "Пикканте",
+        "es": "La Charcutière"
+      },
+      "desc": {
+        "fr": "Sauce tomate, mozzarella Fior di latte, spianata piquante, oignons cuisinés, origan, basilic",
+        "en": "Tomato sauce, Fior di latte mozzarella, spicy spianata, caramelised onions, oregano, basil",
+        "it": "Salsa di pomodoro, mozzarella Fior di latte, spianata piccante, cipolle, origano, basilico",
+        "de": "Tomatensoße, Fior di latte Mozzarella, scharfe Spianata, geschmorte Zwiebeln, Oregano, Basilikum",
+        "zh": "番茄酱，鲜奶马苏里拉，辣味腊肠，洋葱，牛至，罗勒",
+        "ru": "Томатный соус, моцарелла, острая спианата, лук, орегано, базилик",
+        "es": "Salsa de tomate, mozzarella Fior di latte, spianata picante, cebollas caramelizadas, orégano, albahaca"
+      },
+      "price": "16.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732787/Milo_sPizza2_Piccante_hvvv3s.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ]
+    },
+    {
+      "id": "i23",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "4 Saisons",
+        "en": "4 Seasons",
+        "it": "4 Stagioni",
+        "de": "Vier Jahreszeiten",
+        "zh": "四季",
+        "ru": "4 Сезона",
+        "es": "La Paisana"
+      },
+      "desc": {
+        "fr": "Sauce tomate, mozzarella Fior di latte, cœurs d'artichaut, champignons de paris, jambon cuit, olives, origan",
+        "en": "Tomato sauce, Fior di latte mozzarella, artichoke hearts, button mushrooms, ham, olives, oregano",
+        "it": "Salsa di pomodoro, mozzarella Fior di latte, cuori di carciofo, funghi, prosciutto cotto, olive, origano",
+        "de": "Tomatensoße, Fior di latte Mozzarella, Artischockenherzen, Champignons, Schinken, Oliven, Oregano",
+        "zh": "番茄酱，鲜奶马苏里拉，朝鲜蓟心，蘑菇，熟火腿，橄榄，牛至",
+        "ru": "Томатный соус, моцарелла, артишоки, шампиньоны, ветчина, оливки, орегано",
+        "es": "Salsa de tomate, mozzarella Fior di latte, corazones de alcachofa, champiñones, jamón cocido, aceitunas, orégano"
+      },
+      "price": "16.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732798/Milo_sPizza2_4saisons_tm6vm7.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ]
+    },
+    {
+      "id": "i21",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Reine",
+        "en": "Queen",
+        "it": "Regina",
+        "de": "Königin",
+        "zh": "皇后",
+        "ru": "Регина",
+        "es": "La Romana"
+      },
+      "desc": {
+        "fr": "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, origan",
+        "en": "Tomato sauce, Fior di latte mozzarella, ham, button mushrooms, oregano",
+        "it": "Salsa di pomodoro, mozzarella Fior di latte, prosciutto cotto, funghi champignon, origano",
+        "de": "Tomatensoße, Fior di latte Mozzarella, gekochter Schinken, Champignons, Oregano",
+        "zh": "番茄酱，鲜奶马苏里拉，熟火腿，蘑菇，牛至",
+        "ru": "Томатный соус, моцарелла, ветчина, шампиньоны, орегано",
+        "es": "Salsa de tomate, mozzarella Fior di latte, jamón cocido, champiñones, orégano"
+      },
+      "price": "16€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732781/Milo_sPizza2_Reine_iygjtn.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ]
+    },
+    {
+      "id": "i36",
       "cat": "viandes",
       "subcat": null,
       "name": {
-        "fr": "La Classica",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "La Saumon",
+        "en": "The Salmon",
+        "it": "Il Salmone",
+        "de": "Der Lachs",
+        "zh": "三文鱼",
+        "ru": "Лосось",
+        "es": "Ternera Wagyu"
       },
       "desc": {
-        "fr": "Sauce tomate, ail, anchoix, oignons cuisinés, basilic, câpres, persillade maison, olives noires, origan, huile olive EVO",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "Pesto de courgettes et basilic, mozzarella Fior di latte, saumon fumé mariné, courgette, ciboulette, citrons verts",
+        "en": "Courgette and basil pesto, Fior di latte mozzarella, marinated smoked salmon, courgette, chives, limes",
+        "it": "Pesto di zucchine e basilico, mozzarella Fior di latte, salmone affumicato marinato, zucchine, erba cipollina, lime",
+        "de": "Zucchini-Basilikum-Pesto, Fior di latte Mozzarella, marinierter Räucherlachs, Zucchini, Schnittlauch, Limetten",
+        "zh": "西葫芦罗勒青酱，鲜奶马苏里拉，腌制烟熏三文鱼，西葫芦，细香葱，青柠",
+        "ru": "Песто из цуккини и базилика, моцарелла, маринованный копчёный лосось, цуккини, лук-резанец, лайм",
+        "es": "Pesto de calabacín y albahaca, mozzarella Fior di latte, salmón ahumado marinado, calabacín, cebollino, limas"
       },
-      "price": "15.5",
+      "price": "20€",
       "photo": "",
-      "archived": false
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "poisson",
+        "lait"
+      ]
+    },
+    {
+      "id": "i35",
+      "cat": "viandes",
+      "subcat": null,
+      "name": {
+        "fr": "À l'Ancienne",
+        "en": "Old Style",
+        "it": "All'Antica",
+        "de": "Traditionell",
+        "zh": "古法",
+        "ru": "По-старому",
+        "es": "Costillas BBQ"
+      },
+      "desc": {
+        "fr": "Crème de moutarde à l'ancienne & miel, mozzarella Fior di latte, champignons de paris, poulet mariné à l'ail et au romarin, brins de roquette, ciboulette, copeaux de Parmesan",
+        "en": "Old-style mustard & honey cream, Fior di latte mozzarella, button mushrooms, garlic and rosemary chicken, rocket, chives, Parmesan shavings",
+        "it": "Crema di senape antica e miele, mozzarella Fior di latte, funghi, pollo marinato, rucola, erba cipollina, scaglie di Parmigiano",
+        "de": "Altmodische Senf-Honig-Creme, Fior di latte Mozzarella, Champignons, Rosmarin-Hähnchen, Rucola, Schnittlauch, Parmesan",
+        "zh": "古式芥末蜂蜜奶油，鲜奶马苏里拉，蘑菇，蒜香迷迭香鸡肉，芝麻菜，细香葱，帕玛森片",
+        "ru": "Крем из горчицы и мёда, моцарелла, шампиньоны, курица с чесноком, рукола, лук-резанец, пармезан",
+        "es": "Crema de mostaza antigua y miel, mozzarella Fior di latte, champiñones, pollo al romero, rúcula, cebollino, virutas de Parmesano"
+      },
+      "price": "18.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732902/Milo_sPizza2_Ancienne_ntrfji.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait",
+        "moutarde"
+      ]
     },
     {
       "id": "i32",
@@ -1251,34 +1300,91 @@
       ]
     },
     {
-      "id": "i35",
-      "cat": "viandes",
-      "subcat": null,
+      "id": "i44",
+      "cat": "cat_1782498102706",
+      "subcat": "",
       "name": {
-        "fr": "À l'Ancienne",
-        "en": "Old Style",
-        "it": "All'Antica",
-        "de": "Traditionell",
-        "zh": "古法",
-        "ru": "По-старому",
-        "es": "Costillas BBQ"
+        "fr": "Expresso / Décaféiné",
+        "en": "Espresso / Decaf",
+        "it": "Espresso / Decaffeinato",
+        "de": "Espresso / Entkoffeiniert",
+        "zh": "浓缩/无咖啡因",
+        "ru": "Эспрессо / Без кофеина",
+        "es": "Expresso / Décaféiné"
       },
       "desc": {
-        "fr": "Crème de moutarde à l'ancienne & miel, mozzarella Fior di latte, champignons de paris, poulet mariné à l'ail et au romarin, brins de roquette, ciboulette, copeaux de Parmesan",
-        "en": "Old-style mustard & honey cream, Fior di latte mozzarella, button mushrooms, garlic and rosemary chicken, rocket, chives, Parmesan shavings",
-        "it": "Crema di senape antica e miele, mozzarella Fior di latte, funghi, pollo marinato, rucola, erba cipollina, scaglie di Parmigiano",
-        "de": "Altmodische Senf-Honig-Creme, Fior di latte Mozzarella, Champignons, Rosmarin-Hähnchen, Rucola, Schnittlauch, Parmesan",
-        "zh": "古式芥末蜂蜜奶油，鲜奶马苏里拉，蘑菇，蒜香迷迭香鸡肉，芝麻菜，细香葱，帕玛森片",
-        "ru": "Крем из горчицы и мёда, моцарелла, шампиньоны, курица с чесноком, рукола, лук-резанец, пармезан",
-        "es": "Crema de mostaza antigua y miel, mozzarella Fior di latte, champiñones, pollo al romero, rúcula, cebollino, virutas de Parmesano"
+        "fr": "",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
       },
-      "price": "18.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732902/Milo_sPizza2_Ancienne_ntrfji.jpg",
+      "price": "2,5€",
+      "photo": "",
+      "archived": false,
+      "allergens": []
+    },
+    {
+      "id": "i42",
+      "cat": "desserts",
+      "subcat": null,
+      "name": {
+        "fr": "Café/Déca Gourmand",
+        "en": "Gourmet Coffee/Decaf",
+        "it": "Caffè/Decaffè Gourmand",
+        "de": "Gourmand Kaffee",
+        "zh": "美食咖啡",
+        "ru": "Гурманский кофе",
+        "es": "Café/Déca Gourmand"
+      },
+      "desc": {
+        "fr": "",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "9,5€",
+      "photo": "",
       "archived": false,
       "allergens": [
         "gluten",
-        "lait",
-        "moutarde"
+        "oeufs",
+        "lait"
+      ],
+      "extraPlacements": []
+    },
+    {
+      "id": "i41",
+      "cat": "desserts",
+      "subcat": null,
+      "name": {
+        "fr": "Tiramisu Maison Nutella",
+        "en": "Homemade Nutella Tiramisu",
+        "it": "Tiramisù della Casa al Nutella",
+        "de": "Nutella-Tiramisu",
+        "zh": "能多益提拉米苏",
+        "ru": "Тирамису с Нутеллой",
+        "es": "Bola de Helado"
+      },
+      "desc": {
+        "fr": "",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "9€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732947/Milo_sPizza2_TiramisuNutella2_oqh81w.jpg",
+      "archived": false,
+      "allergens": [
+        "lait"
       ]
     },
     {
@@ -1371,117 +1477,6 @@
         "oeufs",
         "lait"
       ]
-    },
-    {
-      "id": "i40",
-      "cat": "desserts",
-      "subcat": null,
-      "name": {
-        "fr": "Glace",
-        "en": "Ice Cream",
-        "it": "Gelato",
-        "de": "Eis",
-        "zh": "冰淇淋",
-        "ru": "Мороженое",
-        "es": "Panna Cotta"
-      },
-      "desc": {
-        "fr": "Vanille, Chocolat, Pistache, Fraise, Café, Citron, Caramel Beurre Salé",
-        "en": "Vanilla, Chocolate, Pistachio, Strawberry, Coffee, Lemon, Salted Caramel",
-        "it": "Vaniglia, Cioccolato, Pistacchio, Fragola, Caffè, Limone, Caramello Salato",
-        "de": "Vanille, Schokolade, Pistazie, Erdbeere, Kaffee, Zitrone, Salzkaramell",
-        "zh": "香草，巧克力，开心果，草莓，咖啡，柠檬，盐焦糖",
-        "ru": "Ваниль, шоколад, фисташка, клубника, кофе, лимон, солёная карамель",
-        "es": "Vainilla, Chocolate, Pistacho, Fresa, Café, Limón, Caramelo Salado"
-      },
-      "price": "3€ / 6€ / 8€",
-      "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "soja",
-        "lait",
-        "noix"
-      ],
-      "priceVariants": [
-        {
-          "label": "1 boule",
-          "price": "3€"
-        },
-        {
-          "label": "2 boule ",
-          "price": "6€"
-        },
-        {
-          "label": "3 boules",
-          "price": "8€"
-        },
-        {
-          "label": "avec chantilly",
-          "price": "0,5€"
-        }
-      ]
-    },
-    {
-      "id": "i41",
-      "cat": "desserts",
-      "subcat": null,
-      "name": {
-        "fr": "Tiramisu Maison Nutella",
-        "en": "Homemade Nutella Tiramisu",
-        "it": "Tiramisù della Casa al Nutella",
-        "de": "Nutella-Tiramisu",
-        "zh": "能多益提拉米苏",
-        "ru": "Тирамису с Нутеллой",
-        "es": "Bola de Helado"
-      },
-      "desc": {
-        "fr": "",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
-      },
-      "price": "9€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732947/Milo_sPizza2_TiramisuNutella2_oqh81w.jpg",
-      "archived": false,
-      "allergens": [
-        "lait"
-      ]
-    },
-    {
-      "id": "i42",
-      "cat": "desserts",
-      "subcat": null,
-      "name": {
-        "fr": "Café/Déca Gourmand",
-        "en": "Gourmet Coffee/Decaf",
-        "it": "Caffè/Decaffè Gourmand",
-        "de": "Gourmand Kaffee",
-        "zh": "美食咖啡",
-        "ru": "Гурманский кофе",
-        "es": "Café/Déca Gourmand"
-      },
-      "desc": {
-        "fr": "",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
-      },
-      "price": "9,5€",
-      "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "oeufs",
-        "lait"
-      ],
-      "extraPlacements": []
     },
     {
       "id": "i45",
@@ -1592,6 +1587,56 @@
       "allergens": []
     },
     {
+      "id": "i40",
+      "cat": "desserts",
+      "subcat": null,
+      "name": {
+        "fr": "Glace",
+        "en": "Ice Cream",
+        "it": "Gelato",
+        "de": "Eis",
+        "zh": "冰淇淋",
+        "ru": "Мороженое",
+        "es": "Panna Cotta"
+      },
+      "desc": {
+        "fr": "Vanille, Chocolat, Pistache, Fraise, Café, Citron, Caramel Beurre Salé",
+        "en": "Vanilla, Chocolate, Pistachio, Strawberry, Coffee, Lemon, Salted Caramel",
+        "it": "Vaniglia, Cioccolato, Pistacchio, Fragola, Caffè, Limone, Caramello Salato",
+        "de": "Vanille, Schokolade, Pistazie, Erdbeere, Kaffee, Zitrone, Salzkaramell",
+        "zh": "香草，巧克力，开心果，草莓，咖啡，柠檬，盐焦糖",
+        "ru": "Ваниль, шоколад, фисташка, клубника, кофе, лимон, солёная карамель",
+        "es": "Vainilla, Chocolate, Pistacho, Fresa, Café, Limón, Caramelo Salado"
+      },
+      "price": "3€ / 6€ / 8€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "soja",
+        "lait",
+        "noix"
+      ],
+      "priceVariants": [
+        {
+          "label": "1 boule",
+          "price": "3€"
+        },
+        {
+          "label": "2 boule ",
+          "price": "6€"
+        },
+        {
+          "label": "3 boules",
+          "price": "8€"
+        },
+        {
+          "label": "avec chantilly",
+          "price": "0,5€"
+        }
+      ]
+    },
+    {
       "id": "i43",
       "cat": "desserts",
       "subcat": null,
@@ -1627,33 +1672,6 @@
           "subcat": null
         }
       ]
-    },
-    {
-      "id": "i44",
-      "cat": "cat_1782498102706",
-      "subcat": "",
-      "name": {
-        "fr": "Expresso / Décaféiné",
-        "en": "Espresso / Decaf",
-        "it": "Espresso / Decaffeinato",
-        "de": "Espresso / Entkoffeiniert",
-        "zh": "浓缩/无咖啡因",
-        "ru": "Эспрессо / Без кофеина",
-        "es": "Expresso / Décaféiné"
-      },
-      "desc": {
-        "fr": "",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
-      },
-      "price": "2,5€",
-      "photo": "",
-      "archived": false,
-      "allergens": []
     },
     {
       "id": "i49",
@@ -2054,63 +2072,9 @@
       "allergens": []
     },
     {
-      "id": "i63",
-      "cat": "boissons",
-      "subcat": "Cocktails",
-      "name": {
-        "fr": "Aperol Spritz",
-        "en": "Aperol Spritz",
-        "it": "Aperol Spritz",
-        "de": "Aperol Spritz",
-        "zh": "阿佩罗斯普里兹",
-        "ru": "Апероль Шприц",
-        "es": "Aperol Spritz"
-      },
-      "desc": {
-        "fr": "Aperol, Prosecco, eau gazeuse",
-        "en": "Aperol, Prosecco, sparkling water",
-        "it": "Aperol, Prosecco, acqua frizzante",
-        "de": "Aperol, Prosecco, Sprudelwasser",
-        "zh": "阿佩罗，普洛赛克，苏打水",
-        "ru": "Апероль, просекко, газированная вода",
-        "es": "Aperol, Prosecco, agua con gas"
-      },
-      "price": "10€",
-      "photo": "",
-      "archived": false,
-      "allergens": []
-    },
-    {
-      "id": "i64",
-      "cat": "boissons",
-      "subcat": "Cocktails",
-      "name": {
-        "fr": "Floral Spritz",
-        "en": "Floral Spritz",
-        "it": "Floral Spritz",
-        "de": "Floral Spritz",
-        "zh": "花香斯普里兹",
-        "ru": "Флорал Шприц",
-        "es": "Floral Spritz"
-      },
-      "desc": {
-        "fr": "Liqueur de fleur de sureau, Prosecco, eau gazeuse",
-        "en": "Elderflower liqueur, Prosecco, sparkling water",
-        "it": "Liquore di fiori di sambuco, Prosecco, acqua frizzante",
-        "de": "Holunderblütenlikör, Prosecco, Sprudelwasser",
-        "zh": "接骨木花利口酒，普洛赛克，苏打水",
-        "ru": "Ликёр из бузины, просекко, газированная вода",
-        "es": "Licor de flor de saúco, Prosecco, agua con gas"
-      },
-      "price": "11€",
-      "photo": "",
-      "archived": false,
-      "allergens": []
-    },
-    {
       "id": "i65",
-      "cat": "boissons",
-      "subcat": "Cocktails",
+      "cat": "cat_1782506338268",
+      "subcat": null,
       "name": {
         "fr": "Caïpirinha",
         "en": "Caipirinha",
@@ -2136,8 +2100,8 @@
     },
     {
       "id": "i66",
-      "cat": "boissons",
-      "subcat": "Cocktails",
+      "cat": "cat_1782506338268",
+      "subcat": null,
       "name": {
         "fr": "Exotic Milo's",
         "en": "Exotic Milo's",
@@ -2163,8 +2127,8 @@
     },
     {
       "id": "i67",
-      "cat": "boissons",
-      "subcat": "Cocktails",
+      "cat": "cat_1782506338268",
+      "subcat": null,
       "name": {
         "fr": "Carribean Milo's",
         "en": "Caribbean Milo's",
@@ -2189,28 +2153,82 @@
       "allergens": []
     },
     {
-      "id": "i68",
-      "cat": "boissons",
-      "subcat": "Mocktails",
+      "id": "i64",
+      "cat": "cat_1782506338268",
+      "subcat": null,
       "name": {
-        "fr": "Virgin Milo's",
-        "en": "Virgin Milo's",
-        "it": "Virgin Milo's",
-        "de": "Virgin Milo's",
-        "zh": "无酒精米洛",
-        "ru": "Вирджин Мило",
-        "es": "Virgin Milo's"
+        "fr": "Floral Spritz",
+        "en": "Floral Spritz",
+        "it": "Floral Spritz",
+        "de": "Floral Spritz",
+        "zh": "花香斯普里兹",
+        "ru": "Флорал Шприц",
+        "es": "Floral Spritz"
       },
       "desc": {
-        "fr": "Purée et jus de fruits de la passion, jus de citron vert, sucre de canne",
-        "en": "Passion fruit purée and juice, lime juice, cane sugar",
-        "it": "Purea e succo di frutto della passione, succo di lime, zucchero di canna",
-        "de": "Maracujapüree und -saft, Limettensaft, Rohrzucker",
-        "zh": "百香果泥和果汁，青柠汁，蔗糖",
-        "ru": "Пюре и сок маракуйи, сок лайма, тростниковый сахар",
-        "es": "Puré y zumo de maracuyá, zumo de lima, azúcar de caña"
+        "fr": "Liqueur de fleur de sureau, Prosecco, eau gazeuse",
+        "en": "Elderflower liqueur, Prosecco, sparkling water",
+        "it": "Liquore di fiori di sambuco, Prosecco, acqua frizzante",
+        "de": "Holunderblütenlikör, Prosecco, Sprudelwasser",
+        "zh": "接骨木花利口酒，普洛赛克，苏打水",
+        "ru": "Ликёр из бузины, просекко, газированная вода",
+        "es": "Licor de flor de saúco, Prosecco, agua con gas"
       },
-      "price": "9€",
+      "price": "11€",
+      "photo": "",
+      "archived": false,
+      "allergens": []
+    },
+    {
+      "id": "i1782478356913",
+      "cat": "cat_1782506338268",
+      "subcat": null,
+      "name": {
+        "fr": "Limoncello Spritz",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Limoncello, prosecco, eau gazeuse",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "11€",
+      "photo": "",
+      "archived": false,
+      "allergens": []
+    },
+    {
+      "id": "i1782478490315",
+      "cat": "cat_1782506338268",
+      "subcat": null,
+      "name": {
+        "fr": "Maracuja Spritz",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Fruit de la passion, prosecco, eau gazeuse",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "11€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -2402,7 +2420,17 @@
       "price": "Verre 8 · Btl 32€",
       "photo": "",
       "archived": false,
-      "allergens": []
+      "allergens": [],
+      "priceVariants": [
+        {
+          "label": "Verre",
+          "price": "8€"
+        },
+        {
+          "label": "Bouteille ",
+          "price": ""
+        }
+      ]
     },
     {
       "id": "i76",
@@ -2541,7 +2569,7 @@
     },
     {
       "id": "i81",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Aperitifs",
       "name": {
         "fr": "Martini blanc et rouge",
@@ -2568,7 +2596,7 @@
     },
     {
       "id": "i82",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Aperitifs",
       "name": {
         "fr": "Ricard 4cl",
@@ -2595,7 +2623,7 @@
     },
     {
       "id": "i83",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Digestifs",
       "name": {
         "fr": "Amaretto 6cl",
@@ -2622,7 +2650,7 @@
     },
     {
       "id": "i84",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Digestifs",
       "name": {
         "fr": "Limoncello 6cl",
@@ -2649,7 +2677,7 @@
     },
     {
       "id": "i85",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Digestifs",
       "name": {
         "fr": "Liqueur de menthe 6cl",
@@ -2676,7 +2704,7 @@
     },
     {
       "id": "i86",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Aperitifs",
       "name": {
         "fr": "Gin Tonic 4cl",
@@ -2703,7 +2731,7 @@
     },
     {
       "id": "i87",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Aperitifs",
       "name": {
         "fr": "Hendrick's Tonic 4cl",
@@ -2730,7 +2758,7 @@
     },
     {
       "id": "i88",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Aperitifs",
       "name": {
         "fr": "Vodka + soft 4cl",
@@ -2757,7 +2785,7 @@
     },
     {
       "id": "i89",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Digestifs",
       "name": {
         "fr": "Jack Daniel / Honey Jack 4cl",
@@ -2784,7 +2812,7 @@
     },
     {
       "id": "i90",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Digestifs",
       "name": {
         "fr": "Glenfiddich 12 ans 4cl",
@@ -2811,7 +2839,7 @@
     },
     {
       "id": "i91",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Digestifs",
       "name": {
         "fr": "Rhum épicé Captain Morgan 4cl",
@@ -2838,7 +2866,7 @@
     },
     {
       "id": "i92",
-      "cat": "vins",
+      "cat": "cat_1782479088823",
       "subcat": "Digestifs",
       "name": {
         "fr": "Diplomatico 4cl",
@@ -2896,91 +2924,86 @@
       ]
     },
     {
-      "id": "i31",
+      "id": "i20",
       "cat": "charcuterie",
       "subcat": null,
       "name": {
-        "fr": "Deliciosa",
-        "en": "Deliciosa",
-        "it": "Deliciosa",
-        "de": "Deliciosa",
-        "zh": "美味",
-        "ru": "Делисиоза",
-        "es": "La Wagyu"
+        "fr": "Calzone",
+        "en": "Calzone",
+        "it": "Calzone",
+        "de": "Calzone",
+        "zh": "卡尔佐内",
+        "ru": "Кальцоне",
+        "es": "La Vegana"
       },
       "desc": {
-        "fr": "Crème de truffe et champignons, mozzarella Fior di latte, chiffonnade de jambon cuit, stracciatella, champignons de Paris, éclats de noisettes, huile d'olive à la truffe, ciboulette",
-        "en": "Truffle and mushroom cream, Fior di latte mozzarella, ham chiffonade, stracciatella, button mushrooms, hazelnut pieces, truffle olive oil, chives",
-        "it": "Crema di tartufo e funghi, mozzarella Fior di latte, julienne di prosciutto cotto, stracciatella, funghi, nocciole, olio al tartufo, erba cipollina",
-        "de": "Trüffel-Pilz-Creme, Fior di latte Mozzarella, Schinken-Chiffonade, Stracciatella, Champignons, Haselnüsse, Trüffelöl, Schnittlauch",
-        "zh": "松露蘑菇奶油，鲜奶马苏里拉，熟火腿丝，斯特拉恰泰拉，蘑菇，榛子碎，松露橄榄油，细香葱",
-        "ru": "Трюфельно-грибной крем, моцарелла, шифонад из ветчины, страчателла, шампиньоны, фундук, трюфельное масло",
-        "es": "Crema de trufa y champiñones, mozzarella Fior di latte, juliana de jamón cocido, stracciatella, champiñones, avellanas, aceite de trufa, cebollino"
+        "fr": "Sauce tomate, mozzarella Fior di latte, jambon cuit, champignons de paris, œuf, origan",
+        "en": "Tomato sauce, Fior di latte mozzarella, ham, button mushrooms, egg, oregano",
+        "it": "Salsa di pomodoro, mozzarella Fior di latte, prosciutto cotto, funghi champignon, uovo, origano",
+        "de": "Tomatensoße, Fior di latte Mozzarella, gekochter Schinken, Champignons, Ei, Oregano",
+        "zh": "番茄酱，鲜奶马苏里拉，熟火腿，蘑菇，鸡蛋，牛至",
+        "ru": "Томатный соус, моцарелла, ветчина, шампиньоны, яйцо, орегано",
+        "es": "Salsa de tomate, mozzarella Fior di latte, jamón cocido, champiñones, huevo, orégano"
       },
-      "price": "23€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732872/Milo_sPizza2_Deliciosa_tjxe3t.jpg",
+      "price": "15.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732775/Milo_sPizza2_Calzone_xhnwlp.jpg",
       "archived": false,
       "allergens": [
         "gluten",
-        "lait",
-        "noix"
+        "oeufs",
+        "lait"
       ]
     },
     {
-      "id": "i36",
+      "id": "i1782477842664",
       "cat": "viandes",
       "subcat": null,
       "name": {
-        "fr": "La Saumon",
-        "en": "The Salmon",
-        "it": "Il Salmone",
-        "de": "Der Lachs",
-        "zh": "三文鱼",
-        "ru": "Лосось",
-        "es": "Ternera Wagyu"
+        "fr": "La Classica",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
       },
       "desc": {
-        "fr": "Pesto de courgettes et basilic, mozzarella Fior di latte, saumon fumé mariné, courgette, ciboulette, citrons verts",
-        "en": "Courgette and basil pesto, Fior di latte mozzarella, marinated smoked salmon, courgette, chives, limes",
-        "it": "Pesto di zucchine e basilico, mozzarella Fior di latte, salmone affumicato marinato, zucchine, erba cipollina, lime",
-        "de": "Zucchini-Basilikum-Pesto, Fior di latte Mozzarella, marinierter Räucherlachs, Zucchini, Schnittlauch, Limetten",
-        "zh": "西葫芦罗勒青酱，鲜奶马苏里拉，腌制烟熏三文鱼，西葫芦，细香葱，青柠",
-        "ru": "Песто из цуккини и базилика, моцарелла, маринованный копчёный лосось, цуккини, лук-резанец, лайм",
-        "es": "Pesto de calabacín y albahaca, mozzarella Fior di latte, salmón ahumado marinado, calabacín, cebollino, limas"
+        "fr": "Sauce tomate, ail, anchoix, oignons cuisinés, basilic, câpres, persillade maison, olives noires, origan, huile olive EVO",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
       },
-      "price": "20€",
+      "price": "15.5",
       "photo": "",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "poisson",
-        "lait"
-      ]
+      "archived": false
     },
     {
-      "id": "i19",
+      "id": "i11",
       "cat": "veggie",
       "subcat": null,
       "name": {
-        "fr": "Tartuffa",
-        "en": "Tartuffa",
-        "it": "Tartuffa",
-        "de": "Tartuffa",
-        "zh": "松露披萨",
-        "ru": "Тартуффа",
-        "es": "La Pesto"
+        "fr": "Marguerite",
+        "en": "Margherita",
+        "it": "Margherita",
+        "de": "Margherita",
+        "zh": "玛格丽特",
+        "ru": "Маргарита",
+        "es": "Margarita"
       },
       "desc": {
-        "fr": "Crème de truffe et champignons, mozzarella Fior di latte, lamelles de truffe, huile d'olive à la truffe",
-        "en": "Truffle and mushroom cream, Fior di latte mozzarella, truffle slices, truffle olive oil",
-        "it": "Crema di tartufo e funghi, mozzarella Fior di latte, lamelle di tartufo, olio al tartufo",
-        "de": "Trüffel- und Pilzcreme, Fior di latte Mozzarella, Trüffelscheiben, Trüffelöl",
-        "zh": "松露蘑菇奶油，鲜奶马苏里拉，松露片，松露橄榄油",
-        "ru": "Трюфельно-грибной крем, моцарелла, ломтики трюфеля, трюфельное масло",
-        "es": "Crema de trufa y champiñones, mozzarella Fior di latte, láminas de trufa, aceite de oliva con trufa"
+        "fr": "Sauce tomate, mozzarella Fior di latte, huile d'olive vierge extra, Parmesan, basilic",
+        "en": "Tomato sauce, Fior di latte mozzarella, extra virgin olive oil, Parmesan, basil",
+        "it": "Salsa di pomodoro, mozzarella Fior di latte, olio extravergine, Parmigiano, basilico",
+        "de": "Tomatensoße, Fior di latte Mozzarella, natives Olivenöl, Parmesan, Basilikum",
+        "zh": "番茄酱，鲜奶马苏里拉奶酪，特级初榨橄榄油，帕玛森，罗勒",
+        "ru": "Томатный соус, моцарелла Фиор ди латте, оливковое масло, пармезан, базилик",
+        "es": "Salsa de tomate, mozzarella Fior di latte, aceite de oliva virgen extra, Parmesano, albahaca"
       },
-      "price": "22€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732759/Milo_sPizza2_Tartuffa_yr4xbz.jpg",
+      "price": "13.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732631/Milo_sPizza2_Marguerite_gosgrp.jpg",
       "archived": false,
       "allergens": [
         "gluten",
@@ -2988,55 +3011,55 @@
       ]
     },
     {
-      "id": "i1782478356913",
-      "cat": "boissons",
-      "subcat": "Cocktails",
+      "id": "i63",
+      "cat": "cat_1782506338268",
+      "subcat": null,
       "name": {
-        "fr": "Limoncello Spritz",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "Aperol Spritz",
+        "en": "Aperol Spritz",
+        "it": "Aperol Spritz",
+        "de": "Aperol Spritz",
+        "zh": "阿佩罗斯普里兹",
+        "ru": "Апероль Шприц",
+        "es": "Aperol Spritz"
       },
       "desc": {
-        "fr": "Limoncello, prosecco, eau gazeuse",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "Aperol, Prosecco, eau gazeuse",
+        "en": "Aperol, Prosecco, sparkling water",
+        "it": "Aperol, Prosecco, acqua frizzante",
+        "de": "Aperol, Prosecco, Sprudelwasser",
+        "zh": "阿佩罗，普洛赛克，苏打水",
+        "ru": "Апероль, просекко, газированная вода",
+        "es": "Aperol, Prosecco, agua con gas"
       },
-      "price": "11€",
+      "price": "10€",
       "photo": "",
       "archived": false,
       "allergens": []
     },
     {
-      "id": "i1782478490315",
-      "cat": "boissons",
-      "subcat": "Cocktails",
+      "id": "i68",
+      "cat": "cat_1782506338268",
+      "subcat": null,
       "name": {
-        "fr": "Maracuja Spritz",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "Virgin Milo's",
+        "en": "Virgin Milo's",
+        "it": "Virgin Milo's",
+        "de": "Virgin Milo's",
+        "zh": "无酒精米洛",
+        "ru": "Вирджин Мило",
+        "es": "Virgin Milo's"
       },
       "desc": {
-        "fr": "Fruit de la passion, prosecco, eau gazeuse",
-        "en": "",
-        "it": "",
-        "de": "",
-        "zh": "",
-        "ru": "",
-        "es": ""
+        "fr": "Purée et jus de fruits de la passion, jus de citron vert, sucre de canne",
+        "en": "Passion fruit purée and juice, lime juice, cane sugar",
+        "it": "Purea e succo di frutto della passione, succo di lime, zucchero di canna",
+        "de": "Maracujapüree und -saft, Limettensaft, Rohrzucker",
+        "zh": "百香果泥和果汁，青柠汁，蔗糖",
+        "ru": "Пюре и сок маракуйи, сок лайма, тростниковый сахар",
+        "es": "Puré y zumo de maracuyá, zumo de lima, azúcar de caña"
       },
-      "price": "11€",
+      "price": "9€",
       "photo": "",
       "archived": false,
       "allergens": []
@@ -3045,14 +3068,11 @@
   "upsells": [
     {
       "id": "u1",
-      "cat": "cat_1782479088823",
+      "cat": "",
       "title": "🍰 Envie d'un dessert ?",
       "message": "Ajoutez un tiramisu maison pour seulement 8€ !",
       "active": true,
-      "cats": [
-        "cat_1782479088823",
-        "cat_1782498102706"
-      ]
+      "cats": []
     },
     {
       "id": "u2",
