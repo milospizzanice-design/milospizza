@@ -4084,8 +4084,18 @@ function demOpenModal(id){
     var em2=emp(d.employee_id);var nom=em2?em2.prenom+' '+em2.nom:'?';
     document.getElementById('dem-modal-info').innerHTML='<b>'+nom+'</b>'+(d.message?'<br>Message du salari\u00e9: \u00ab '+d.message+' \u00bb':'');
     document.getElementById('dem-modal-type').value=d.type||'cp';
-    document.getElementById('dem-modal-from').value=d.date_debut||'';
-    document.getElementById('dem-modal-to').value=d.date_fin||'';
+    var dmf=document.getElementById('dem-modal-from');
+    var dmt=document.getElementById('dem-modal-to');
+    dmf.value=d.date_debut||'';
+    dmt.value=d.date_fin||'';
+    // Griser les jours passés + enchaînement auto (gestion de demande)
+    var todayAdm=planDs(new Date());
+    dmf.min=todayAdm;dmt.min=d.date_debut||todayAdm;
+    dmf.onchange=function(){
+      dmt.min=dmf.value;
+      if(dmt.value&&dmt.value<dmf.value)dmt.value=dmf.value;
+      setTimeout(function(){try{dmt.focus();if(dmt.showPicker)dmt.showPicker();}catch(e){}},100);
+    };
     document.getElementById('dem-modal-note').value=d.note_admin||'';
     var jz=document.getElementById('dem-modal-justif');
     if(d.justif_b64){

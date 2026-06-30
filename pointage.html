@@ -910,9 +910,18 @@ async function absConfirmPin(){
   if(r.error||!r.data||r.data.length===0){absPin='';for(var i=0;i<4;i++){var d=document.getElementById('ap'+i);if(d)d.classList.remove('f');}alert('PIN incorrect');return;}
   absEmp=r.data[0];
   document.getElementById('absempname').textContent=absEmp.prenom+' '+absEmp.nom;
-  var today=new Date().toISOString().slice(0,10);
-  document.getElementById('abs-from').value=today;
-  document.getElementById('abs-to').value=today;
+  var today=pDs(new Date());
+  var af=document.getElementById('abs-from');
+  var at=document.getElementById('abs-to');
+  af.value=today;at.value=today;
+  af.min=today;at.min=today;  // griser les jours passés
+  // Enchaînement auto : choisir la date de début ajuste le min de la fin et l'ouvre
+  af.onchange=function(){
+    at.min=af.value;
+    if(at.value<af.value)at.value=af.value;
+    // Ouvrir automatiquement le calendrier de la date de fin
+    setTimeout(function(){try{at.focus();if(at.showPicker)at.showPicker();}catch(e){}},100);
+  };
   document.getElementById('abs-msg').value='';
   document.getElementById('abs-file-lbl').textContent='Ajouter un justificatif';
   var fi=document.getElementById('abs-file');if(fi)fi.value='';
