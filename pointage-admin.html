@@ -1083,9 +1083,17 @@ async function acoDelete(id){
 
 var acoModalId=null;var acoModalImg=null;
 function acoOpenModal(id){
-  var a=acoAllData.find(function(x){return x.id===id;});
-  if(!a)return;
-  acoModalId=id;acoModalImg=a.justif_b64||null;
+  // Chercher d'abord en mémoire, sinon charger depuis la base (cas: ouverture depuis le pop-up)
+  var a=acoAllData.find(function(x){return x.id===id||x.id===Number(id);});
+  if(!a){
+    db.from('demandes_acompte').select('*').eq('id',id).single().then(function(r){
+      if(r.error||!r.data){alert('Demande introuvable');return;}
+      acoAllData.push(r.data);
+      acoOpenModal(id);
+    });
+    return;
+  }
+  acoModalId=a.id;acoModalImg=a.justif_b64||null;
   var em=emp(a.employee_id);var nom=em?em.prenom+' '+em.nom:'?';
   document.getElementById('aco-modal-info').innerHTML='<b>'+nom+'</b><br>Demande initiale: <b>'+a.montant+' \u20ac</b> \u2022 souhait\u00e9 le '+a.date_souhaitee+(a.note_admin?'<br>Message du salari\u00e9: \u00ab '+a.note_admin+' \u00bb':'');
   document.getElementById('aco-modal-montant').value=a.montant_accorde||a.montant;
