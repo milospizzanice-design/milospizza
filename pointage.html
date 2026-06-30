@@ -500,11 +500,11 @@ async function loadAuthMode(){
 }
 function startIdleScreen(){
   // Badge par défaut. Sur Android NFC : écran "Démarrer" (geste initial requis par Chrome).
-  // Sur appareil sans NFC (iPhone) : clavier PIN directement.
+  // Sur appareil sans NFC (iPhone) : recherche par nom directement (le PIN passe par le choix du nom).
   if('NDEFReader' in window){
     ss('start');
   }else{
-    ss('idle');
+    ouvrirPinName();
   }
 }
 // Bouton "Démarrer" du matin : le geste utilisateur qui autorise le NFC pour la journée
@@ -609,6 +609,9 @@ function ouvrirPinName(){
   if(inp)inp.value='';
   document.getElementById('pinname-suggest').innerHTML='';
   ss('pinname');
+  // Sur iPhone (pas de NFC), cacher le bouton 'Retour au badge'
+  var rbtns=document.querySelectorAll('#s-pinname button[onclick="retourBadge()"]');
+  if(!('NDEFReader' in window)){rbtns.forEach(function(b){b.style.display='none';});}
   setTimeout(function(){if(inp)inp.focus();},200);
 }
 
@@ -704,7 +707,8 @@ function reset(){
     if(nfcScanning){ss('nfc');var sn=document.getElementById('nfc-status');if(sn)sn.innerHTML='<span style="color:#A7F3D0">\u2713 Pr\u00eat \u2014 approchez votre badge</span>';}
     else{ss('start');}
   }else{
-    ss('idle');
+    // iPhone (pas de NFC) : revenir à la recherche par nom
+    ouvrirPinName();
   }
 }
 
