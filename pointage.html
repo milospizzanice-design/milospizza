@@ -23,6 +23,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cs{color:rgba(255,255,255,.6);font-size:10px;margin-top:2px}
 .screen{display:none}
 .screen.on{display:block}
+#s-start.on{display:flex}
 .pl{color:rgba(255,255,255,.8);font-size:13px;text-align:center;margin-bottom:14px}
 .pd{display:flex;justify-content:center;gap:12px;margin-bottom:16px}
 .pd div{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.5);background:transparent}
@@ -112,7 +113,27 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <button class="nb" onclick="pk('back')" style="font-size:18px">&#9003;</button>
       </div>
     </div>
-    <div class="screen" id="s-start">
+    <div class="screen" id="s-pinname">
+      <button onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer">&#8592; Retour au badge</button>
+      <div class="pl" style="margin-top:20px">Tapez votre nom</div>
+      <input type="text" id="pinname-input" autocomplete="off" oninput="pinNameSearch()" placeholder="Nom ou pr&eacute;nom" style="width:90%;max-width:340px;padding:16px;font-size:18px;border:none;border-radius:12px;margin:16px 0;text-align:center">
+      <div id="pinname-suggest" style="width:90%;max-width:340px;display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="screen" id="s-pincreate">
+      <button onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer">&#8592; Retour</button>
+      <div class="pl" id="pincreate-title" style="margin-top:20px">Cr&eacute;ez votre code</div>
+      <div id="pincreate-sub" style="color:rgba(255,255,255,.75);font-size:13px;margin:6px 0 14px;text-align:center;max-width:300px">Choisissez un code &agrave; 4 chiffres que vous seul connaissez</div>
+      <div class="pd"><div id="c0"></div><div id="c1"></div><div id="c2"></div><div id="c3"></div></div>
+      <div class="np">
+        <button class="nb" onclick="ck('1')">1</button><button class="nb" onclick="ck('2')">2</button><button class="nb" onclick="ck('3')">3</button>
+        <button class="nb" onclick="ck('4')">4</button><button class="nb" onclick="ck('5')">5</button><button class="nb" onclick="ck('6')">6</button>
+        <button class="nb" onclick="ck('7')">7</button><button class="nb" onclick="ck('8')">8</button><button class="nb" onclick="ck('9')">9</button>
+        <button class="nb" style="visibility:hidden"></button>
+        <button class="nb" onclick="ck('0')">0</button>
+        <button class="nb" onclick="ck('back')" style="font-size:18px">&#9003;</button>
+      </div>
+    </div>
+    <div class="screen" id="s-start" style="flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:100vh">
       <div style="font-size:70px;margin:40px 0 20px">&#127829;</div>
       <div class="pl" style="font-size:24px;font-weight:700;margin-bottom:8px">Milo's Pizza</div>
       <div style="color:rgba(255,255,255,.75);font-size:15px;margin-bottom:40px;text-align:center;max-width:300px">Pointage par badge</div>
@@ -553,9 +574,7 @@ function retourBadge(){
   else{ss('start');}
 }
 function nfcUsePin(){
-  // Secours: basculer sur la saisie PIN (le scan NFC reste actif en arrière-plan)
-  ss('idle');
-  var rb=document.getElementById('pin-retour-badge');if(rb)rb.style.display='block';
+  ouvrirPinName();
 }
 function backToIdleOrNfc(){
   // Retour à l'écran d'accueil selon le mode
@@ -565,6 +584,108 @@ function backToIdleOrNfc(){
     var s=document.getElementById('nfc-status');if(s)s.innerHTML='';
   }else{
     ss('idle');
+  }
+}
+
+
+// ── ÉTAPE C : PIN par nom + création du code par le salarié ─────────────────
+var PIN_EMPLOYES=[];      // salariés dont le PIN est autorisé
+var pinSelEmp=null;       // salarié sélectionné pour la saisie/création
+var ccode='';             // code en cours de création
+var ccodeStep=1;          // 1=création, 2=confirmation
+var ccodeFirst='';        // 1ère saisie à confirmer
+
+async function loadPinEmployes(){
+  try{
+    var r=await db.from('employees').select('id,prenom,nom,pin_hash,pin_autorise,restaurant_id,actif,archive').eq('pin_autorise',true);
+    PIN_EMPLOYES=(r.data||[]).filter(function(e){return e.actif!==false && !e.archive;});
+  }catch(e){PIN_EMPLOYES=[];}
+}
+
+// Affiche l'écran de recherche par nom (appelé par "Passer au code PIN")
+function ouvrirPinName(){
+  pinSelEmp=null;
+  var inp=document.getElementById('pinname-input');
+  if(inp)inp.value='';
+  document.getElementById('pinname-suggest').innerHTML='';
+  ss('pinname');
+  setTimeout(function(){if(inp)inp.focus();},200);
+}
+
+function pinNameSearch(){
+  var q=(document.getElementById('pinname-input').value||'').trim().toLowerCase();
+  var box=document.getElementById('pinname-suggest');
+  if(q.length<1){box.innerHTML='';return;}
+  var res=PIN_EMPLOYES.filter(function(e){
+    var nom=(e.nom||'').toLowerCase();var pre=(e.prenom||'').toLowerCase();
+    return nom.indexOf(q)>=0||pre.indexOf(q)>=0||(pre+' '+nom).indexOf(q)>=0;
+  }).slice(0,5);
+  if(!res.length){box.innerHTML='<div style="color:rgba(255,255,255,.6);font-size:13px;text-align:center;padding:10px">Aucun salari\u00e9 trouv\u00e9</div>';return;}
+  box.innerHTML=res.map(function(e){
+    return '<button onclick="choisirPinEmp(\''+e.id+'\')" style="background:#fff;color:#222;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:600;cursor:pointer;text-align:left">'+e.prenom+' '+e.nom+'</button>';
+  }).join('');
+}
+
+function choisirPinEmp(id){
+  pinSelEmp=PIN_EMPLOYES.filter(function(e){return e.id===id;})[0];
+  if(!pinSelEmp)return;
+  if(pinSelEmp.pin_hash){
+    // Code déjà créé -> saisie normale
+    pin='';upd();
+    var t=document.querySelector('#s-idle .pl');if(t){t.textContent='Code de '+pinSelEmp.prenom;t.style.color='';}
+    ss('idle');
+    var rb=document.getElementById('pin-retour-badge');if(rb)rb.style.display='block';
+  }else{
+    // Pas de code -> création
+    ccode='';ccodeStep=1;ccodeFirst='';cupd();
+    document.getElementById('pincreate-title').textContent='Cr\u00e9ez votre code';
+    document.getElementById('pincreate-sub').textContent='Bonjour '+pinSelEmp.prenom+', choisissez un code \u00e0 4 chiffres que vous seul connaissez';
+    ss('pincreate');
+  }
+}
+
+// Saisie du code de CRÉATION
+function ck(k){
+  if(k==='back')ccode=ccode.slice(0,-1);
+  else if(ccode.length<4)ccode+=k;
+  cupd();
+  if(ccode.length===4)setTimeout(ccodeNext,150);
+}
+function cupd(){for(var i=0;i<4;i++){var d=document.getElementById('c'+i);if(d)d.classList.toggle('f',ccode.length>i);}}
+
+async function ccodeNext(){
+  if(ccodeStep===1){
+    // Mémoriser la 1ère saisie, demander confirmation
+    ccodeFirst=ccode;ccode='';ccodeStep=2;cupd();
+    document.getElementById('pincreate-title').textContent='Confirmez votre code';
+    document.getElementById('pincreate-sub').textContent='Retapez le m\u00eame code pour confirmer';
+  }else{
+    // Vérifier que les deux saisies correspondent
+    if(ccode!==ccodeFirst){
+      ccode='';ccodeStep=1;ccodeFirst='';cupd();
+      var t=document.getElementById('pincreate-title');
+      t.textContent='Les codes ne correspondent pas';t.style.color='#FCA5A5';
+      document.getElementById('pincreate-sub').textContent='Recommencez : choisissez votre code';
+      setTimeout(function(){t.textContent='Cr\u00e9ez votre code';t.style.color='';},2000);
+      return;
+    }
+    // Enregistrer le code (hashé) pour ce salarié
+    try{
+      var hr=await db.rpc('hash_pin',{p_pin:ccode});
+      if(hr.error||!hr.data){throw new Error('hash');}
+      var up=await db.from('employees').update({pin_hash:hr.data}).eq('id',pinSelEmp.id);
+      if(up.error){throw new Error(up.error.message);}
+      pinSelEmp.pin_hash=hr.data;
+      // Connexion directe après création
+      emp=pinSelEmp;
+      document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+      ss('menu');resetInactivity();
+      loadPinEmployes(); // recharger pour la suite
+    }catch(e){
+      var t=document.getElementById('pincreate-title');
+      t.textContent='Erreur, r\u00e9essayez';t.style.color='#FCA5A5';
+      setTimeout(function(){t.textContent='Cr\u00e9ez votre code';t.style.color='';ccode='';ccodeStep=1;cupd();},2000);
+    }
   }
 }
 
@@ -592,13 +713,15 @@ function upd(){for(var i=0;i<4;i++){var d=document.getElementById('d'+i);if(d)d.
 
 async function confirmPin(){
   if(pin.length!==4)return;
-  var r=await db.rpc('verify_pin',{p_pin:pin,p_restaurant:RESTAURANT_ID});
-  if(r.error||!r.data||r.data.length===0){pin='';upd();
+  if(!pinSelEmp){pin='';upd();return;}
+  var r=await db.rpc('verify_pin_employe',{p_pin:pin,p_employe:pinSelEmp.id});
+  var okMatch=(!r.error && r.data===true);
+  if(!okMatch){pin='';upd();
     var pl=document.querySelector('#s-idle .pl');
-    if(pl){var old=pl.textContent;pl.textContent='Code PIN incorrect';pl.style.color='#FCA5A5';setTimeout(function(){pl.textContent='Entrez votre code PIN';pl.style.color='';},1500);}
+    if(pl){pl.textContent='Code incorrect';pl.style.color='#FCA5A5';setTimeout(function(){pl.textContent='Code de '+(pinSelEmp?pinSelEmp.prenom:'');pl.style.color='';},1500);}
     return;
   }
-  emp=r.data[0];
+  emp=pinSelEmp;
   document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
   ss('menu');
   resetInactivity();
@@ -709,6 +832,7 @@ async function loadDelaiBadge(){
 loadDelaiBadge();
 // Charger le mode d'authentification et afficher l'écran adapté
 // Badge par défaut. Le scan démarre au clic sur 'Démarrer' (geste requis par Chrome Android).
+loadPinEmployes();
 startIdleScreen();
 async function badge(){
   await loadDelaiBadge();
