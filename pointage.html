@@ -112,6 +112,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <button class="nb" onclick="pk('0')">0</button>
         <button class="nb" onclick="pk('back')" style="font-size:18px">&#9003;</button>
       </div>
+      <button onclick="pinOublie()" style="margin-top:18px;background:transparent;border:none;color:rgba(255,255,255,.6);font-size:13px;text-decoration:underline;cursor:pointer">Code oubli&eacute; ?</button>
     </div>
     <div class="screen" id="s-pinname">
       <button onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer">&#8592; Retour au badge</button>
@@ -720,6 +721,22 @@ function pk(k){
 }
 function upd(){for(var i=0;i<4;i++){var d=document.getElementById('d'+i);if(d)d.classList.toggle('f',pin.length>i);}}
 
+
+async function pinOublie(){
+  if(!pinSelEmp){return;}
+  if(!confirm('Demander une r\u00e9initialisation de votre code \u00e0 l\u0027administrateur ?'))return;
+  try{
+    var up=await db.from('employees').update({pin_reset_demande:true}).eq('id',pinSelEmp.id);
+    if(up.error){alert('Erreur, r\u00e9essayez plus tard.');return;}
+    var pl=document.querySelector('#s-idle .pl');
+    if(pl){pl.textContent='Demande envoy\u00e9e \u2713';pl.style.color='#A7F3D0';}
+    var sub=document.createElement('div');
+    sub.style.cssText='color:rgba(255,255,255,.8);font-size:13px;text-align:center;margin-top:10px;max-width:280px';
+    sub.textContent='Voyez avec votre responsable pour r\u00e9initialiser votre code.';
+    setTimeout(function(){retourBadge();},3000);
+  }catch(e){alert('Erreur, r\u00e9essayez plus tard.');}
+}
+
 async function confirmPin(){
   if(pin.length!==4)return;
   if(!pinSelEmp){pin='';upd();return;}
@@ -727,10 +744,7 @@ async function confirmPin(){
   var okMatch=(!r.error && (r.data===true||r.data==='true'||r.data==='t'));
   if(!okMatch){pin='';upd();
     var pl=document.querySelector('#s-idle .pl');
-    var diag='';
-    if(r.error){diag=' [err: '+r.error.message+']';}
-    else{diag=' [data='+JSON.stringify(r.data)+' id='+pinSelEmp.id+']';}
-    if(pl){pl.textContent='Code incorrect'+diag;pl.style.color='#FCA5A5';setTimeout(function(){pl.textContent='Code de '+(pinSelEmp?pinSelEmp.prenom:'');pl.style.color='';},5000);}
+    if(pl){pl.textContent='Code incorrect';pl.style.color='#FCA5A5';setTimeout(function(){pl.textContent='Code de '+(pinSelEmp?pinSelEmp.prenom:'');pl.style.color='';},1500);}
     return;
   }
   emp=pinSelEmp;
