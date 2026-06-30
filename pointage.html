@@ -727,7 +727,10 @@ async function confirmPin(){
   var okMatch=(!r.error && (r.data===true||r.data==='true'||r.data==='t'));
   if(!okMatch){pin='';upd();
     var pl=document.querySelector('#s-idle .pl');
-    if(pl){pl.textContent='Code incorrect';pl.style.color='#FCA5A5';setTimeout(function(){pl.textContent='Code de '+(pinSelEmp?pinSelEmp.prenom:'');pl.style.color='';},1500);}
+    var diag='';
+    if(r.error){diag=' [err: '+r.error.message+']';}
+    else{diag=' [data='+JSON.stringify(r.data)+' id='+pinSelEmp.id+']';}
+    if(pl){pl.textContent='Code incorrect'+diag;pl.style.color='#FCA5A5';setTimeout(function(){pl.textContent='Code de '+(pinSelEmp?pinSelEmp.prenom:'');pl.style.color='';},5000);}
     return;
   }
   emp=pinSelEmp;
