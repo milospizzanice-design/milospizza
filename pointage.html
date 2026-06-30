@@ -814,7 +814,21 @@ function menuPlanning(){
 function menuAbsence(){
   absEmp=emp;
   document.getElementById('absempname').textContent=emp.prenom+' '+emp.nom;
+  initAbsDates();
   ss('abs-form');
+}
+function initAbsDates(){
+  var today=pDs(new Date());
+  var af=document.getElementById('abs-from');
+  var at=document.getElementById('abs-to');
+  if(!af||!at)return;
+  af.value=today;at.value=today;
+  af.min=today;at.min=today;  // griser les jours passés
+  af.onchange=function(){
+    at.min=af.value;
+    if(at.value<af.value)at.value=af.value;
+    setTimeout(function(){try{at.focus();if(at.showPicker)at.showPicker();}catch(e){}},100);
+  };
 }
 function menuAcompte(){
   acoEmp=emp;
