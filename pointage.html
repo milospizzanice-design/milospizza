@@ -621,9 +621,14 @@ function pinNameSearch(){
     return nom.indexOf(q)>=0||pre.indexOf(q)>=0||(pre+' '+nom).indexOf(q)>=0;
   }).slice(0,5);
   if(!res.length){box.innerHTML='<div style="color:rgba(255,255,255,.6);font-size:13px;text-align:center;padding:10px">Aucun salari\u00e9 trouv\u00e9</div>';return;}
-  box.innerHTML=res.map(function(e){
-    return '<button onclick="choisirPinEmp(\''+e.id+'\')" style="background:#fff;color:#222;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:600;cursor:pointer;text-align:left">'+e.prenom+' '+e.nom+'</button>';
-  }).join('');
+  box.innerHTML='';
+  res.forEach(function(e){
+    var btn=document.createElement('button');
+    btn.textContent=e.prenom+' '+e.nom;
+    btn.style.cssText='background:#fff;color:#222;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:600;cursor:pointer;text-align:left';
+    btn.addEventListener('click',function(){choisirPinEmp(e.id);});
+    box.appendChild(btn);
+  });
 }
 
 function choisirPinEmp(id){
