@@ -571,6 +571,10 @@ async function onBadgeScanned(uid){
 
 function retourBadge(){
   pin='';if(typeof upd==='function')upd();
+  if(!('NDEFReader' in window)){
+    // iPhone (pas de NFC) : retour à la recherche par nom
+    ouvrirPinName();return;
+  }
   if(nfcScanning){ss('nfc');var sn=document.getElementById('nfc-status');if(sn)sn.innerHTML='<span style="color:#A7F3D0">\u2713 Pr\u00eat \u2014 approchez votre badge</span>';}
   else{ss('start');}
 }
