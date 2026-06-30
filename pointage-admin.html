@@ -4104,8 +4104,10 @@ console.log('Restoglobal version: v2026.06.18-PDF-FIX');
 // ── Traitement des demandes de réinitialisation PIN depuis le pop-up ────────
 var pinResetEmpId=null;
 function openPinResetModal(id){
-  pinResetEmpId=id;
-  var em=emp(id);
+  // L'id vient du HTML en chaîne, emp() compare en strict: convertir en nombre si possible
+  var idNum=isNaN(id)?id:Number(id);
+  pinResetEmpId=idNum;
+  var em=emp(idNum)||emp(id);
   var nom=em?em.prenom+' '+em.nom:'?';
   document.getElementById('pinreset-body').innerHTML='<b>'+nom+'</b> a oubli\u00e9 son code PIN et demande une r\u00e9initialisation.<br><br>En validant, son code actuel sera effac\u00e9. '+(em?em.prenom:'Le salari\u00e9')+' cr\u00e9era un nouveau code \u00e0 sa prochaine connexion.';
   openM('modal-pinreset');
