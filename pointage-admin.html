@@ -4159,8 +4159,8 @@ async function showDashboard(refresh){
   var sinceDateOnly=since.toISOString().slice(0,10);
   var results=await Promise.all([
     db.from('time_entries').select('id,employee_id,type,timestamp,manuel').gte('timestamp',sinceISO).order('timestamp',{ascending:false}),
-    db.from('demandes_absence').select('*').gte('created_at',sinceISO).order('created_at',{ascending:false}),
-    db.from('demandes_acompte').select('*').gte('created_at',sinceISO).order('created_at',{ascending:false}),
+    db.from('demandes_absence').select('*').order('created_at',{ascending:false}),
+    db.from('demandes_acompte').select('*').order('created_at',{ascending:false}),
     db.from('planning_lectures').select('*').gte('lu_at',sinceISO).order('lu_at',{ascending:false}),
     db.from('employees').select('id,prenom,nom,pin_reset_demande').eq('pin_reset_demande',true)
   ]);
@@ -4175,11 +4175,16 @@ async function showDashboard(refresh){
     return '<div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px"><span style="font-size:18px">'+icone+'</span><span style="font-weight:700;font-size:14px;color:'+couleur+'">'+titre+'</span><span style="background:'+couleur+';color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700">'+count+'</span></div>';
   }
 
-  // Demandes d'absence en attente (priorité)
-  var absAtt=demAbs.filter(function(d){return (d.statut||'att')==='att';});
-  if(demAbs.length){
-    h+=section('\u{1F4C5}','Demandes d\u0027absence',demAbs.length,'#B91E26');
-    demAbs.slice(0,8).forEach(function(d){
+  // Demandes d'absence : en attente (toujours) + traitées récemment
+  var demAbsShow=demAbs.filter(function(d){
+    var att=(d.statut||'att')==='att';
+    var recent=d.created_at&&d.created_at>=sinceISO;
+    return att||recent;
+  });
+  if(demAbsShow.length){
+    var nbAtt=demAbsShow.filter(function(d){return (d.statut||'att')==='att';}).length;
+    h+=section('\u{1F4C5}','Demandes d\u0027absence',demAbsShow.length,'#B91E26');
+    demAbsShow.slice(0,8).forEach(function(d){
       var em2=emp(d.employee_id);var nom=em2?em2.prenom+' '+em2.nom:'?';
       var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s',rec:'R\u00e9cup'};
       var att=(d.statut||'att')==='att';
@@ -4198,10 +4203,15 @@ async function showDashboard(refresh){
     });
   }
 
-  // Acomptes
-  if(demAco.length){
-    h+=section('\u{1F4B0}','Demandes d\u0027acompte',demAco.length,'#92400E');
-    demAco.slice(0,8).forEach(function(d){
+  // Acomptes : en attente (toujours) + traités récemment
+  var demAcoShow=demAco.filter(function(d){
+    var att=(d.statut||'att')==='att';
+    var recent=d.created_at&&d.created_at>=sinceISO;
+    return att||recent;
+  });
+  if(demAcoShow.length){
+    h+=section('\u{1F4B0}','Demandes d\u0027acompte',demAcoShow.length,'#92400E');
+    demAcoShow.slice(0,8).forEach(function(d){
       var em2=emp(d.employee_id);var nom=em2?em2.prenom+' '+em2.nom:'?';
       var att=(d.statut||'att')==='att';
       var stB=att?'<span style="color:#92400E;font-weight:700"> \u2022 \u00c0 traiter</span>':'';
