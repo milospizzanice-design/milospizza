@@ -101,6 +101,17 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .admin-sidebar-btn:hover{background:#f0ede8;color:#5A4535;}
 .admin-sidebar-btn.active{background:#fff3f3;border-left-color:#9B1C1C;color:#9B1C1C;}
 .admin-sidebar-section{padding:0.4rem 0.9rem 0.2rem;font-family:'Montserrat',sans-serif;font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#bbb;}
+.nav-tree-row{display:flex;align-items:center;gap:0.15rem;padding:0.2rem 0.4rem;}
+.nav-tree-toggle{background:none;border:none;color:#aaa;font-size:0.65rem;width:16px;flex-shrink:0;cursor:pointer;padding:0;text-align:center;line-height:1;}
+.nav-tree-toggle-sp{width:16px;flex-shrink:0;}
+.nav-tree-lbl{flex:1;background:none;border:none;text-align:left;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:600;color:#5A4535;cursor:pointer;padding:0.25rem 0.2rem;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nav-tree-lbl:hover,.nav-tree-lbl.active{color:var(--rouge);background:#fff3f3;}
+.nav-tree-lbl.section-lbl{font-size:0.78rem;font-weight:700;color:var(--brun);}
+.nav-tree-lbl.section-lbl.active{color:var(--rouge);}
+.nav-tree-icon{background:none;border:none;color:#bbb;font-size:0.7rem;cursor:pointer;padding:0.1rem 0.25rem;border-radius:4px;flex-shrink:0;line-height:1;}
+.nav-tree-icon:hover{background:#f0ede8;color:var(--rouge);}
+.nav-tree-cat-rows{padding-left:8px;}
+.nav-tree-sc-rows{padding-left:16px;}
 .admin-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:1rem;scrollbar-gutter:stable;}
 .admin-section{display:none;}
 .admin-section.active{display:block;min-height:100%;}
@@ -468,6 +479,30 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
   </div>
 </div>
 
+<!-- MODALE ÉDITION SECTION -->
+<div class="modal-overlay" id="editSectionModalOverlay" style="z-index:680;" onclick="if(event.target===this)closeEditSectionModal()">
+  <div class="modal-box" style="background:#fff;padding:1.2rem;text-align:left;max-width:340px;max-height:85vh;overflow-y:auto;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.8rem;font-size:0.95rem;">Modifier la section</h4>
+    <div id="editSectionModalBody"></div>
+  </div>
+</div>
+
+<!-- MODALE ÉDITION CATÉGORIE -->
+<div class="modal-overlay" id="editCatModalOverlay" style="z-index:680;" onclick="if(event.target===this)closeEditCatModal()">
+  <div class="modal-box" style="background:#fff;padding:1.2rem;text-align:left;max-width:320px;max-height:85vh;overflow-y:auto;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.8rem;font-size:0.95rem;">Modifier la catégorie</h4>
+    <div id="editCatModalBody"></div>
+  </div>
+</div>
+
+<!-- MODALE ÉDITION SOUS-CATÉGORIE -->
+<div class="modal-overlay" id="editSubcatModalOverlay" style="z-index:680;" onclick="if(event.target===this)closeEditSubcatModal()">
+  <div class="modal-box" style="background:#fff;padding:1.2rem;text-align:left;max-width:300px;" onclick="event.stopPropagation()">
+    <h4 style="font-family:'Playfair Display',serif;color:var(--rouge);margin-bottom:0.8rem;font-size:0.95rem;">Modifier la sous-catégorie</h4>
+    <div id="editSubcatModalBody"></div>
+  </div>
+</div>
+
 <!-- POP-UP ALLERGÈNES (depuis le lien du pied de page) -->
 <div class="modal-overlay" id="allergenPopupOverlay" style="z-index:700;" onclick="if(event.target===this)closeAllergenPopup()">
   <button onclick="closeAllergenPopup()" style="position:fixed;top:1rem;right:1rem;background:rgba(61,43,31,0.75);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.1rem;cursor:pointer;z-index:710;line-height:1;">✕</button>
@@ -546,8 +581,10 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <div class="admin-sidebar" id="adminSidebar">
         <div class="admin-sidebar-section">Site</div>
         <button class="admin-sidebar-btn active" id="stab_sections" onclick="switchAdminTab('sections')">📄 Sections du site</button>
-        <div class="admin-sidebar-section">Contenu</div>
-        <div id="platsCategoryNav"></div>
+        <div class="admin-sidebar-section" style="display:flex;align-items:center;justify-content:space-between;padding-right:0.5rem;">
+          <span>Contenu</span>
+        </div>
+        <div id="navTree"></div>
         <button class="admin-sidebar-btn" id="stab_archives" onclick="switchAdminTab('archives')">🌙 Archives</button>
         <div class="admin-sidebar-section">Style</div>
         <button class="admin-sidebar-btn" id="stab_design" onclick="switchAdminTab('design')">🎨 Design</button>
@@ -555,6 +592,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <button class="admin-sidebar-btn" id="stab_social" onclick="switchAdminTab('social')">❤️ Réseaux</button>
         <div class="admin-sidebar-section">Système</div>
         <button class="admin-sidebar-btn" id="stab_categories" onclick="switchAdminTab('categories')">📂 Catégories</button>
+        <button class="admin-sidebar-btn" id="stab_about_histoire" onclick="switchAdminTab('about_histoire')">ℹ️ Notre Histoire</button>
         <button class="admin-sidebar-btn" id="stab_upsell" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
         <button class="admin-sidebar-btn" id="stab_print" onclick="switchAdminTab('print')">🖨️ Impression</button>
         <button class="admin-sidebar-btn" id="stab_qrcode" onclick="switchAdminTab('qrcode')">📲 QR Code</button>
@@ -588,6 +626,22 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <div class="admin-section" id="as-categories">
         <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Réordonnez, archivez ou supprimez des catégories.</p>
         <div id="adminCatList"></div>
+      </div>
+
+      <!-- NOTRE HISTOIRE -->
+      <div class="admin-section" id="as-about_histoire">
+        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem;">Personnalisez la page "Notre Histoire" visible par vos clients.</p>
+        <label class="admin-label">Titre de la page</label>
+        <input class="admin-input" id="about_title" placeholder="Notre Histoire" value="">
+        <label class="admin-label" style="margin-top:0.5rem;">Texte principal <span style="font-size:0.65rem;color:#aaa;">(paragraphes séparés par une ligne vide)</span></label>
+        <textarea class="admin-input" id="about_text" rows="8" style="resize:vertical;min-height:120px;" placeholder="Partagez votre histoire, vos valeurs, vos engagements..."></textarea>
+        <label class="admin-label" style="margin-top:0.5rem;">Deuxième paragraphe (optionnel)</label>
+        <textarea class="admin-input" id="about_text2" rows="4" style="resize:vertical;" placeholder="Suite de votre texte..."></textarea>
+        <label class="admin-label" style="margin-top:0.5rem;">Photos <span style="font-size:0.65rem;color:#aaa;">(URLs Cloudinary — une par ligne)</span></label>
+        <textarea class="admin-input" id="about_photos" rows="4" style="resize:vertical;font-size:0.7rem;" placeholder="https://res.cloudinary.com/...&#10;https://res.cloudinary.com/..."></textarea>
+        <div id="about_photos_preview" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem;"></div>
+        <button class="aic-btn" style="background:var(--vert);color:#fff;width:100%;margin-top:0.4rem;" onclick="previewAboutPhotos()">👁 Prévisualiser les photos</button>
+        <button class="admin-save-btn" onclick="saveAboutContent()">✓ Enregistrer Notre Histoire</button>
       </div>
 
       <!-- UPSELL -->
@@ -692,16 +746,55 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
       <!-- QR CODE -->
       <div class="admin-section" id="as-qrcode">
-        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Ce QR code pointe vers l'adresse permanente de la carte. <strong>Il ne changera jamais</strong> — vous pouvez l'imprimer sur vos menus, flyers, vitrine, etc.</p>
-        <div id="qrCodeContainer" style="display:flex;flex-direction:column;align-items:center;gap:1rem;padding:1rem;background:#fff;border-radius:12px;border:1px solid #eee;">
-          <canvas id="qrCodeCanvas" style="border-radius:8px;width:220px;height:220px;"></canvas>
-          <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;color:#888;text-align:center;" id="qrCodeUrl"></div>
+        <!-- Onglets des 3 options -->
+        <div style="display:flex;gap:0.3rem;margin-bottom:1rem;border-bottom:2px solid #f0ede8;padding-bottom:0.5rem;">
+          <button id="qrtab_simple" onclick="switchQRTab('simple')" style="flex:1;padding:0.45rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;font-weight:700;border-radius:8px;border:none;cursor:pointer;background:var(--rouge);color:#fff;">1. Simple</button>
+          <button id="qrtab_grid" onclick="switchQRTab('grid')" style="flex:1;padding:0.45rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;font-weight:700;border-radius:8px;border:none;cursor:pointer;background:#eee;color:#555;">2. Planche</button>
+          <button id="qrtab_design" onclick="switchQRTab('design')" style="flex:1;padding:0.45rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;font-weight:700;border-radius:8px;border:none;cursor:pointer;background:#eee;color:#555;">3. Design ✨</button>
         </div>
-        <div style="display:flex;gap:0.5rem;margin-top:1rem;">
-          <button class="admin-save-btn" style="flex:1;" onclick="downloadQRCode()">⬇️ Télécharger PNG</button>
-          <button class="admin-save-btn" style="flex:1;background:var(--vert);" onclick="printQRCode()">🖨️ Imprimer en A4</button>
+
+        <!-- OPTION 1 : Simple 10×15 -->
+        <div id="qrpanel_simple">
+          <p style="font-size:0.72rem;color:#888;margin-bottom:0.8rem;">QR code classique 10×15cm, prêt à découper ou intégrer dans un document.</p>
+          <div style="display:flex;justify-content:center;padding:1rem;background:#fff;border-radius:12px;border:1px solid #eee;">
+            <canvas id="qrSimpleCanvas" style="width:150px;height:225px;border-radius:4px;"></canvas>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+            <button class="admin-save-btn" style="flex:1;" onclick="downloadCanvas('qrSimpleCanvas','qr-simple-10x15.png')">⬇️ Télécharger PNG</button>
+          </div>
         </div>
-        <p style="font-size:0.68rem;color:#aaa;margin-top:0.6rem;text-align:center;">Impression A4 : le QR code remplit la feuille, centré, avec l'adresse du site en dessous.</p>
+
+        <!-- OPTION 2 : Planche A4/A3 -->
+        <div id="qrpanel_grid" style="display:none;">
+          <p style="font-size:0.72rem;color:#888;margin-bottom:0.8rem;">Une planche de QR codes à imprimer puis découper. Choisissez votre format papier.</p>
+          <div style="display:flex;gap:0.5rem;margin-bottom:0.8rem;">
+            <button id="qrgrid_a4" onclick="selectGridFormat('A4')" style="flex:1;padding:0.5rem;font-size:0.75rem;font-family:'Montserrat',sans-serif;font-weight:700;border-radius:8px;border:2px solid var(--rouge);cursor:pointer;background:var(--rouge);color:#fff;">A4</button>
+            <button id="qrgrid_a3" onclick="selectGridFormat('A3')" style="flex:1;padding:0.5rem;font-size:0.75rem;font-family:'Montserrat',sans-serif;font-weight:700;border-radius:8px;border:2px solid #ddd;cursor:pointer;background:#fff;color:#555;">A3</button>
+          </div>
+          <div style="display:flex;justify-content:center;padding:0.5rem;background:#f5f5f5;border-radius:8px;">
+            <canvas id="qrGridCanvas" style="max-width:100%;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);"></canvas>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+            <button class="admin-save-btn" style="flex:1;" onclick="downloadCanvas('qrGridCanvas','qr-planche.png')">⬇️ Télécharger PNG</button>
+            <button class="admin-save-btn" style="flex:1;background:var(--vert);" onclick="printGridQR()">🖨️ Imprimer</button>
+          </div>
+        </div>
+
+        <!-- OPTION 3 : Design personnalisé -->
+        <div id="qrpanel_design" style="display:none;">
+          <p style="font-size:0.72rem;color:#888;margin-bottom:0.8rem;">Un visuel prêt à imprimer avec votre logo, une phrase d'accroche, une flèche.</p>
+          <label class="admin-label">Texte d'accroche <span style="color:#aaa;font-size:0.65rem;">(max 40 caractères)</span></label>
+          <input class="admin-input" id="qrDesignText" maxlength="40" value="Scannez notre menu 🍕" oninput="renderQRDesign()">
+          <label class="admin-label" style="margin-top:0.4rem;">Sous-texte <span style="color:#aaa;font-size:0.65rem;">(max 35 caractères)</span></label>
+          <input class="admin-input" id="qrDesignSub" maxlength="35" value="C'est rapide et sans contact !" oninput="renderQRDesign()">
+          <div style="display:flex;justify-content:center;padding:0.5rem;background:#f5f5f5;border-radius:8px;margin-top:0.8rem;">
+            <canvas id="qrDesignCanvas" style="max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.18);"></canvas>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+            <button class="admin-save-btn" style="flex:1;" onclick="downloadCanvas('qrDesignCanvas','qr-design-milospizza.png')">⬇️ Télécharger PNG</button>
+            <button class="admin-save-btn" style="flex:1;background:var(--vert);" onclick="printDesignQR()">🖨️ Imprimer</button>
+          </div>
+        </div>
       </div>
 
       <!-- IMPORT MENU -->
@@ -1357,6 +1450,7 @@ function renderAdminContent(){
   if(currentAdminTab==='history') renderAdminHistory();
   if(currentAdminTab==='popup') initPopupPanel();
   if(currentAdminTab==='qrcode') initQRCode();
+  if(currentAdminTab==='about_histoire') initAboutAdmin();
   if(currentAdminTab==='social') initSocialPanel();
   if(currentAdminTab==='sections') renderAdminSections();
   if(currentAdminTab==='import') { /* statique, rien à pré-charger */ }
@@ -1756,54 +1850,274 @@ function filterAdminItems(q){
   renderAdminItems(getFilteredAdminItems());
 }
 
-let _expandedCatInNav = null;
+// ─── ARBORESCENCE ACCORDION ──────────────────────────────────────────────────
+let _navExpSections = new Set(['food']); // sections dépliées
+let _navExpCats = new Set();              // catégories dépliées
 
-function renderPlatsCategoryNav(){
-  const el = document.getElementById('platsCategoryNav');
+function renderNavTree(){
+  const el = document.getElementById('navTree');
   if(!el) return;
-  const activeCats = cats.filter(c=>!c.archived);
-  const groups = [
-    {key:'food', label:'🍕 FOOD'},
-    {key:'drinks', label:'🍹 DRINKS'},
+
+  const SECTIONS = [
+    {key:'food',   icon:'🍕', label:'Food'},
+    {key:'drinks', icon:'🍹', label:'Drinks'},
+    {key:'about',  icon:'ℹ️', label:'Notre Histoire', isAbout:true},
   ];
+
+  const activeCats = cats.filter(c=>!c.archived);
   const allActive = currentAdminTab==='plats' && !adminItemsFilter.cat;
-  let html = `<button class="admin-sidebar-btn ${allActive?'active':''}" onclick="selectPlatsCategory(null)">📋 Tous les plats</button>`;
-  groups.forEach(g=>{
-    const catsInGroup = activeCats.filter(c=>(c.homeGroup||'food')===g.key);
-    if(catsInGroup.length===0) return;
-    html += `<div class="nav-group-label">${g.label}</div>`;
-    catsInGroup.forEach(cat=>{
-      const isCatActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && !adminItemsFilter.subcat;
-      const isExpanded = _expandedCatInNav===cat.id;
-      const subcats = ensureCatSubcats(cat);
-      html += `<button class="admin-sidebar-btn ${isCatActive?'active':''}" onclick="selectPlatsCategory('${cat.id}')">${cat.name.fr}${subcats.length?(isExpanded?' ▾':' ▸'):''}</button>`;
-      if(isExpanded){
-        subcats.forEach(sc=>{
-          const isScActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
-          html += `<button class="admin-sidebar-btn sidebar-subcat ${isScActive?'active':''}" onclick="selectPlatsSubcat('${cat.id}','${sc}')">↳ ${sc}</button>`;
-        });
-      }
-    });
+
+  let html = `<div class="nav-tree-row">
+    <span class="nav-tree-toggle-sp"></span>
+    <button class="nav-tree-lbl section-lbl ${allActive?'active':''}" onclick="selectPlatsCategory(null)">📋 Tous les plats</button>
+  </div>`;
+
+  SECTIONS.forEach(s=>{
+    const isExp = _navExpSections.has(s.key);
+    const isSectionActive = currentAdminTab==='about_histoire' && s.isAbout;
+
+    html += `<div class="nav-tree-row">
+      <button class="nav-tree-toggle" onclick="toggleNavSection('${s.key}')">${isExp?'▾':'▸'}</button>
+      <button class="nav-tree-lbl section-lbl ${isSectionActive?'active':''}" onclick="${s.isAbout?"switchAdminTab('about_histoire')":`toggleNavSection('${s.key}')`}">${s.icon} ${s.label}</button>
+      <button class="nav-tree-icon" onclick="openEditSectionModal('${s.key}')" title="Modifier">✎</button>
+      ${!s.isAbout ? `<button class="nav-tree-icon" onclick="openAddCatForSection('${s.key}')" title="Ajouter une catégorie">+</button>` : ''}
+    </div>`;
+
+    if(isExp && !s.isAbout){
+      const groupCats = activeCats.filter(c=>(c.homeGroup||'food')===s.key);
+      html += `<div class="nav-tree-cat-rows">`;
+      groupCats.forEach(cat=>{
+        const subcats = ensureCatSubcats(cat);
+        const catExp = _navExpCats.has(cat.id);
+        const isCatActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && !adminItemsFilter.subcat;
+
+        html += `<div class="nav-tree-row">
+          ${subcats.length
+            ? `<button class="nav-tree-toggle" onclick="toggleNavCat('${cat.id}')">${catExp?'▾':'▸'}</button>`
+            : `<span class="nav-tree-toggle-sp"></span>`}
+          <button class="nav-tree-lbl ${isCatActive?'active':''}" onclick="selectPlatsCategory('${cat.id}')">${cat.name.fr}</button>
+          <button class="nav-tree-icon" onclick="openEditCatModal('${cat.id}')" title="Modifier">✎</button>
+          <button class="nav-tree-icon" onclick="openAddSubcatForCat('${cat.id}')" title="Ajouter une sous-catégorie">+</button>
+        </div>`;
+
+        if(catExp && subcats.length){
+          html += `<div class="nav-tree-sc-rows">`;
+          subcats.forEach(sc=>{
+            const isScActive = currentAdminTab==='plats' && adminItemsFilter.cat===cat.id && adminItemsFilter.subcat===sc;
+            html += `<div class="nav-tree-row">
+              <span class="nav-tree-toggle-sp"></span>
+              <button class="nav-tree-lbl ${isScActive?'active':''}" onclick="selectPlatsSubcat('${cat.id}','${sc.replace(/'/g,"\\'")}')">↳ ${sc}</button>
+              <button class="nav-tree-icon" onclick="openEditSubcatModal('${cat.id}','${sc.replace(/'/g,"\\'")}')">✎</button>
+            </div>`;
+          });
+          html += `</div>`;
+        }
+      });
+      html += `</div>`;
+    }
   });
-  html += `<div class="nav-group-label">ℹ️ À PROPOS</div><div style="font-size:0.62rem;color:#bbb;padding:0.2rem 0.9rem 0.4rem;font-family:'Montserrat',sans-serif;">Page statique (texte/réseaux dans Réseaux)</div>`;
+
   el.innerHTML = html;
+}
+
+// Alias pour la compatibilité avec les endroits qui appellent renderPlatsCategoryNav
+function renderPlatsCategoryNav(){ renderNavTree(); }
+
+function toggleNavSection(key){
+  if(_navExpSections.has(key)) _navExpSections.delete(key);
+  else _navExpSections.add(key);
+  renderNavTree();
+}
+function toggleNavCat(catId){
+  if(_navExpCats.has(catId)) _navExpCats.delete(catId);
+  else _navExpCats.add(catId);
+  renderNavTree();
 }
 
 function selectPlatsCategory(catId){
   if(catId){
-    _expandedCatInNav = (_expandedCatInNav===catId) ? null : catId;
-  } else {
-    _expandedCatInNav = null;
+    if(!_navExpCats.has(catId)) _navExpCats.add(catId);
+    // Déplier aussi la section parente
+    const cat = cats.find(c=>c.id===catId);
+    if(cat) _navExpSections.add(cat.homeGroup||'food');
   }
   adminItemsFilter = {cat: catId || null, subcat: null};
   switchAdminTab('plats');
 }
 
 function selectPlatsSubcat(catId, subcat){
-  _expandedCatInNav = catId;
+  _navExpCats.add(catId);
+  const cat = cats.find(c=>c.id===catId);
+  if(cat) _navExpSections.add(cat.homeGroup||'food');
   adminItemsFilter = {cat:catId, subcat:subcat};
   switchAdminTab('plats');
 }
+
+function openAddCatForSection(sectionKey){
+  // Pré-sélectionner la section dans la modale de création de catégorie
+  window._pendingNewCatSection = sectionKey;
+  document.getElementById('addCatModalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('newCatName')?.focus(), 100);
+}
+
+function openAddSubcatForCat(catId){
+  addSubcatPrompt(catId);
+}
+
+// ─── MODALE ÉDITION SECTION ──────────────────────────────────────────────────
+function openEditSectionModal(key){
+  const group = HOME_GROUPS[key];
+  if(!group) return;
+  const isAbout = !!group.isAbout;
+  const el = document.getElementById('editSectionModalBody');
+  const catOpts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}" ${group.insertLinkCatId===c.id?'selected':''}>${c.name.fr}</option>`).join('');
+
+  el.innerHTML = `
+    <label class="admin-label">Nom de la section</label>
+    <input class="admin-input" id="esm_name" value="${group.title?.fr||''}">
+    ${!isAbout ? `
+    <label class="admin-label" style="margin-top:0.5rem;">Encart personnalisé (texte)</label>
+    <textarea class="admin-input" id="esm_insert" rows="2" style="resize:vertical;">${group.insertText||''}</textarea>
+    <label class="admin-label" style="margin-top:0.4rem;">Texte du lien</label>
+    <input class="admin-input" id="esm_linklabel" value="${group.insertLinkLabel||''}" placeholder="Ex: Les consulter ici">
+    <label class="admin-label" style="margin-top:0.4rem;">Le lien renvoie vers</label>
+    <select class="cat-select" id="esm_linkcat">
+      <option value="">— Aucun lien —</option>
+      ${catOpts}
+    </select>
+    ` : ''}
+    <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+      <button class="add-btn" style="background:#aaa;" onclick="closeEditSectionModal()">Annuler</button>
+      <button class="add-btn" onclick="saveEditSection('${key}')">✓ Enregistrer</button>
+    </div>`;
+
+  document.getElementById('editSectionModalOverlay').classList.add('open');
+}
+function closeEditSectionModal(){
+  document.getElementById('editSectionModalOverlay').classList.remove('open');
+}
+function saveEditSection(key){
+  const group = HOME_GROUPS[key];
+  if(!group) return;
+  const name = document.getElementById('esm_name')?.value.trim();
+  if(name && group.title) group.title.fr = name;
+  const insertEl = document.getElementById('esm_insert');
+  if(insertEl) group.insertText = insertEl.value;
+  const labelEl = document.getElementById('esm_linklabel');
+  if(labelEl) group.insertLinkLabel = labelEl.value;
+  const catEl = document.getElementById('esm_linkcat');
+  if(catEl) group.insertLinkCatId = catEl.value;
+  closeEditSectionModal();
+  saveSections().then(()=>renderNavTree());
+}
+
+// ─── MODALE ÉDITION CATÉGORIE (rapide depuis l'arbre) ────────────────────────
+function openEditCatModal(catId){
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat) return;
+  const el = document.getElementById('editCatModalBody');
+  el.innerHTML = `
+    <label class="admin-label">Nom</label>
+    <input class="admin-input" id="ecm_name" value="${cat.name.fr||''}">
+    <label class="admin-label" style="margin-top:0.4rem;">Section</label>
+    <select class="cat-select" id="ecm_section">
+      <option value="food" ${(!cat.homeGroup||cat.homeGroup==='food')?'selected':''}>🍕 Food</option>
+      <option value="drinks" ${cat.homeGroup==='drinks'?'selected':''}>🍹 Drinks</option>
+    </select>
+    <div class="toggle-row" style="margin-top:0.5rem;">
+      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">Masquer des onglets clients</span>
+      <label class="toggle"><input type="checkbox" id="ecm_hide" ${cat.hideFromMenu?'checked':''}><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row" style="margin-top:0.3rem;">
+      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">Inclure dans les allergènes</span>
+      <label class="toggle"><input type="checkbox" id="ecm_allerg" ${cat.inAllergenList!==false?'checked':''}><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row" style="margin-top:0.3rem;">
+      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">Liste de suppléments</span>
+      <label class="toggle"><input type="checkbox" id="ecm_supp" ${cat.isSupplementsCategory?'checked':''}><span class="toggle-slider"></span></label>
+    </div>
+    <div style="display:flex;gap:0.4rem;margin-top:0.8rem;flex-wrap:wrap;">
+      <button class="aic-btn archive" onclick="toggleArchiveCat('${catId}');closeEditCatModal();">${cat.archived?'↩ Réactiver':'🌙 Archiver'}</button>
+      <button class="aic-btn delete" onclick="deleteCategoryPermanently('${catId}');closeEditCatModal();">🗑️ Supprimer</button>
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+      <button class="add-btn" style="background:#aaa;flex:1;" onclick="closeEditCatModal()">Annuler</button>
+      <button class="add-btn" style="flex:1;" onclick="saveEditCat('${catId}')">✓ Enregistrer</button>
+    </div>`;
+  document.getElementById('editCatModalOverlay').classList.add('open');
+}
+function closeEditCatModal(){
+  document.getElementById('editCatModalOverlay').classList.remove('open');
+}
+function saveEditCat(catId){
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat) return;
+  const name = document.getElementById('ecm_name')?.value.trim();
+  if(name) renameCat(catId, name);
+  const section = document.getElementById('ecm_section')?.value;
+  if(section && section !== (cat.homeGroup||'food')) setCatHomeGroup(catId, section);
+  cat.hideFromMenu = !!document.getElementById('ecm_hide')?.checked;
+  cat.inAllergenList = !!document.getElementById('ecm_allerg')?.checked;
+  cat.isSupplementsCategory = !!document.getElementById('ecm_supp')?.checked;
+  closeEditCatModal();
+  renderNavTree();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie enregistrée':'❌ Échec'));
+}
+
+// ─── MODALE ÉDITION SOUS-CATÉGORIE ───────────────────────────────────────────
+function openEditSubcatModal(catId, scName){
+  const el = document.getElementById('editSubcatModalBody');
+  el.innerHTML = `
+    <label class="admin-label">Nom</label>
+    <input class="admin-input" id="escm_name" value="${scName}">
+    <label class="admin-label" style="margin-top:0.4rem;">Transférer vers</label>
+    <select class="cat-select" id="escm_transfer">
+      <option value="">— Rester dans la catégorie actuelle —</option>
+      ${cats.filter(c=>!c.archived&&c.id!==catId).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+      <button class="aic-btn delete" onclick="deleteSubcat('${catId}','${scName.replace(/'/g,"\\'")}');closeEditSubcatModal();">✕ Supprimer</button>
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:0.4rem;">
+      <button class="add-btn" style="background:#aaa;flex:1;" onclick="closeEditSubcatModal()">Annuler</button>
+      <button class="add-btn" style="flex:1;" onclick="saveEditSubcat('${catId}','${scName.replace(/'/g,"\\'")}')">✓ Enregistrer</button>
+    </div>`;
+  document.getElementById('editSubcatModalOverlay').classList.add('open');
+}
+function closeEditSubcatModal(){
+  document.getElementById('editSubcatModalOverlay').classList.remove('open');
+}
+function saveEditSubcat(catId, oldName){
+  const newName = document.getElementById('escm_name')?.value.trim();
+  const targetCatId = document.getElementById('escm_transfer')?.value;
+  if(newName && newName !== oldName) renameSubcatPrompt._direct(catId, oldName, newName);
+  if(targetCatId){
+    // Simuler un transfert direct
+    const src = cats.find(c=>c.id===catId), tgt = cats.find(c=>c.id===targetCatId);
+    if(src&&tgt){
+      ensureCatSubcats(tgt);
+      const nameToTransfer = newName||oldName;
+      if(!tgt.subcats.includes(nameToTransfer)) tgt.subcats.push(nameToTransfer);
+      items.forEach(it=>{if(it.cat===catId&&it.subcat===oldName){it.cat=targetCatId;it.subcat=nameToTransfer;}});
+      if(src.subcats) src.subcats=src.subcats.filter(s=>s!==oldName);
+    }
+  }
+  closeEditSubcatModal();
+  renderNavTree();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Sous-catégorie mise à jour':'❌ Échec'));
+}
+
+// Helper pour renommer directement (sans prompt)
+renameSubcatPrompt._direct = function(catId, oldName, newName){
+  const cat = cats.find(c=>c.id===catId); if(!cat||!cat.subcats) return;
+  const idx = cat.subcats.indexOf(oldName); if(idx===-1) return;
+  cat.subcats[idx] = newName;
+  items.forEach(it=>{
+    if(it.cat===catId&&it.subcat===oldName) it.subcat=newName;
+    if(it.extraPlacements) it.extraPlacements.forEach(p=>{if(p.cat===catId&&p.subcat===oldName)p.subcat=newName;});
+  });
+  if(adminItemsFilter.subcat===oldName) adminItemsFilter.subcat=newName;
+};
 
 function updateQuickAddBtn(){
   const btn = document.getElementById('quickAddFab');
@@ -2058,51 +2372,208 @@ function adminLogout(){
   window.location.href = 'login.html';
 }
 
+const QR_URL = 'https://milospizza.restoglobal.fr';
+const QR_ROUGE = '#9B1C1C';
+const QR_CREME = '#F5F0E8';
+let _qrGridFormat = 'A4';
+let _qriosPending = [];
+
+function loadQRious(cb){
+  if(typeof QRious !== 'undefined'){ cb(); return; }
+  _qriosPending.push(cb);
+  if(_qriosPending.length > 1) return;
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
+  s.onload = ()=>{ const cbs=[..._qriosPending]; _qriosPending=[]; cbs.forEach(f=>f()); };
+  document.head.appendChild(s);
+}
+
+function makeQRCanvas(url, size){
+  const c = document.createElement('canvas');
+  new QRious({element:c, value:url, size, backgroundAlpha:1, background:'#ffffff', foreground:QR_ROUGE, padding:Math.round(size*0.04), level:'H'});
+  return c;
+}
+
 function initQRCode(){
-  const siteUrl = 'https://milospizza.restoglobal.fr';
-  document.getElementById('qrCodeUrl').textContent = siteUrl;
-  if (typeof QRious !== 'undefined') {
-    const canvas = document.getElementById('qrCodeCanvas');
-    new QRious({element: canvas, value: siteUrl, size: 512, backgroundAlpha: 1, background: '#ffffff', foreground: '#9B1C1C', padding: 30, level: 'H'});
-    canvas.style.width = '220px'; canvas.style.height = '220px';
-  } else {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
-    s.onload = () => initQRCode();
-    document.head.appendChild(s);
+  loadQRious(()=>switchQRTab('simple'));
+}
+
+function switchQRTab(tab){
+  ['simple','grid','design'].forEach(t=>{
+    const panel = document.getElementById('qrpanel_'+t);
+    if(panel) panel.style.display = t===tab ? 'block' : 'none';
+    const btn = document.getElementById('qrtab_'+t);
+    if(btn){ btn.style.background = t===tab ? QR_ROUGE : '#eee'; btn.style.color = t===tab ? '#fff' : '#555'; }
+  });
+  loadQRious(()=>{
+    if(tab==='simple') renderQRSimple();
+    else if(tab==='grid') renderQRGrid();
+    else if(tab==='design') renderQRDesign();
+  });
+}
+
+// ─── Option 1 : Simple 10×15 ─────────────────────────────────────────────
+function renderQRSimple(){
+  const W=591, H=886;
+  const off = document.createElement('canvas'); off.width=W; off.height=H;
+  const ctx = off.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  const qrSize=480; const qr=makeQRCanvas(QR_URL,qrSize);
+  const qx=(W-qrSize)/2, qy=(H-qrSize)/2-30;
+  ctx.drawImage(qr,qx,qy);
+  ctx.fillStyle=QR_ROUGE; ctx.font='bold 20px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(QR_URL, W/2, qy+qrSize+44);
+  const dest=document.getElementById('qrSimpleCanvas');
+  if(!dest) return;
+  dest.width=W; dest.height=H;
+  dest.getContext('2d').drawImage(off,0,0);
+}
+
+// ─── Option 2 : Planche ──────────────────────────────────────────────────
+function selectGridFormat(fmt){
+  _qrGridFormat=fmt;
+  ['A4','A3'].forEach(f=>{
+    const btn=document.getElementById('qrgrid_'+f.toLowerCase());
+    if(!btn) return;
+    btn.style.background=f===fmt?QR_ROUGE:'#fff';
+    btn.style.color=f===fmt?'#fff':'#555';
+    btn.style.borderColor=f===fmt?QR_ROUGE:'#ddd';
+  });
+  renderQRGrid();
+}
+
+function renderQRGrid(){
+  const isA3=_qrGridFormat==='A3';
+  const DPI=150;
+  const W=Math.round((isA3?297:210)*DPI/25.4);
+  const H=Math.round((isA3?420:297)*DPI/25.4);
+  const COLS=isA3?4:3, ROWS=isA3?5:4;
+  const MARGIN=Math.round(10*DPI/25.4), GAP=Math.round(5*DPI/25.4);
+  const qrSize=Math.floor((W-2*MARGIN-(COLS-1)*GAP)/COLS);
+  const off=document.createElement('canvas'); off.width=W; off.height=H;
+  const ctx=off.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  const qr=makeQRCanvas(QR_URL,qrSize);
+  const totalW=COLS*qrSize+(COLS-1)*GAP, totalH=ROWS*qrSize+(ROWS-1)*GAP;
+  const sx=(W-totalW)/2, sy=(H-totalH)/2;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+    ctx.drawImage(qr, sx+c*(qrSize+GAP), sy+r*(qrSize+GAP));
+  ctx.fillStyle=QR_ROUGE; ctx.font=`bold ${Math.round(8*DPI/72)}px sans-serif`;
+  ctx.textAlign='center'; ctx.fillText(QR_URL, W/2, H-Math.round(4*DPI/25.4));
+  const dest=document.getElementById('qrGridCanvas');
+  if(!dest) return;
+  dest.width=W; dest.height=H;
+  dest.style.maxHeight='350px'; dest.style.width='auto';
+  dest.getContext('2d').drawImage(off,0,0);
+  dest._off=off;
+}
+
+function printGridQR(){
+  const dest=document.getElementById('qrGridCanvas');
+  const src=dest?dest._off||dest:null; if(!src) return;
+  const url=src.toDataURL('image/png');
+  const isA3=_qrGridFormat==='A3';
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Planche QR</title><style>@page{size:${isA3?'A3':'A4'};margin:0}*{margin:0;padding:0}body{display:flex;align-items:center;justify-content:center;width:100vw;height:100vh}img{width:100%;height:100%;object-fit:contain}</style></head><body><img src="${url}"></body></html>`);
+  win.document.close(); setTimeout(()=>{win.focus();win.print();},600);
+}
+
+// ─── Option 3 : Design personnalisé ─────────────────────────────────────
+function renderQRDesign(){
+  const text=(document.getElementById('qrDesignText')||{}).value||"Scannez notre menu 🍕";
+  const sub=(document.getElementById('qrDesignSub')||{}).value||"C'est rapide et sans contact !";
+  const dest=document.getElementById('qrDesignCanvas'); if(!dest) return;
+  const W=591, H=886;
+  dest.width=W; dest.height=H;
+  const ctx=dest.getContext('2d');
+
+  // Fond crème arrondi
+  ctx.fillStyle=QR_CREME;
+  _rrect(ctx,0,0,W,H,32); ctx.fill();
+
+  // Bandeau bordeaux haut
+  ctx.fillStyle=QR_ROUGE;
+  _rrectTop(ctx,0,0,W,H*0.22,32); ctx.fill();
+
+  // Bandeau bordeaux bas
+  ctx.fillStyle=QR_ROUGE;
+  _rrectBottom(ctx,0,H*0.77,W,H*0.23,32); ctx.fill();
+
+  // Logo dans le bandeau haut
+  const logoEl=document.querySelector('.logo-img');
+  if(logoEl&&logoEl.complete&&logoEl.naturalWidth){
+    const lh=H*0.15, lw=lh*(logoEl.naturalWidth/logoEl.naturalHeight);
+    try{ ctx.drawImage(logoEl,(W-lw)/2,(H*0.22-lh)/2,lw,lh); }catch(e){}
   }
+
+  // QR code centré
+  const qrSize=Math.round(W*0.7);
+  const qr=makeQRCanvas(QR_URL,qrSize);
+  const qx=(W-qrSize)/2, qy=H*0.24;
+  // Ombre blanche
+  ctx.fillStyle='#fff'; ctx.shadowColor='rgba(0,0,0,0.13)'; ctx.shadowBlur=18;
+  _rrect(ctx,qx-14,qy-14,qrSize+28,qrSize+28,18); ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.drawImage(qr,qx,qy);
+
+  // Flèche + "Scanner ici"
+  const ay=qy+qrSize+28;
+  ctx.fillStyle=QR_ROUGE; ctx.textAlign='center';
+  ctx.font=`bold ${Math.round(W*0.044)}px Montserrat,sans-serif`;
+  ctx.fillText('↓  Scanner ici', W/2, ay+36);
+
+  // Texte accroche dans le bas
+  ctx.fillStyle='#fff'; ctx.textAlign='center';
+  ctx.font=`bold ${Math.round(W*0.052)}px Montserrat,sans-serif`;
+  _wrapText(ctx, text, W/2, H*0.82, W*0.82, Math.round(W*0.062));
+  ctx.font=`${Math.round(W*0.036)}px Montserrat,sans-serif`;
+  ctx.globalAlpha=0.82;
+  ctx.fillText(sub.slice(0,38), W/2, H*0.945);
+  ctx.globalAlpha=1;
+
+  dest.style.maxWidth='100%'; dest.style.borderRadius='14px';
 }
 
-function downloadQRCode(){
-  const canvas = document.getElementById('qrCodeCanvas');
-  if(!canvas) return;
-  const link = document.createElement('a');
-  link.download = 'qrcode-milospizza.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+function _rrect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function _rrectTop(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h); ctx.lineTo(x,y+h);
+  ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+}
+function _rrectBottom(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x,y); ctx.lineTo(x+w,y);
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.closePath();
+}
+function _wrapText(ctx,text,x,y,maxW,lineH){
+  const words=text.split(' '); let line='';
+  for(let i=0;i<words.length;i++){
+    const t=line+words[i]+' ';
+    if(ctx.measureText(t).width>maxW&&i>0){ctx.fillText(line.trim(),x,y);line=words[i]+' ';y+=lineH;}
+    else line=t;
+  }
+  ctx.fillText(line.trim(),x,y);
 }
 
-function printQRCode(){
-  const canvas = document.getElementById('qrCodeCanvas');
-  if(!canvas) return;
-  const dataUrl = canvas.toDataURL('image/png');
-  const siteUrl = 'https://milospizza.restoglobal.fr';
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>QR Code Milo's Pizza</title>
-  <style>
-    @page { size: A4; margin: 0; }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { width:210mm; height:297mm; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#fff; }
-    img { width:180mm; height:180mm; object-fit:contain; }
-    p { font-family: sans-serif; font-size: 14pt; color:#9B1C1C; margin-top: 12mm; font-weight:bold; letter-spacing:0.05em; }
-    small { font-family: sans-serif; font-size: 10pt; color:#888; margin-top: 4mm; }
-  </style></head><body>
-  <img src="${dataUrl}">
-  <p>${siteUrl}</p>
-  <small>Scannez pour accéder à notre carte</small>
-  </body></html>`);
-  win.document.close();
-  setTimeout(()=>{ win.focus(); win.print(); }, 500);
+function downloadCanvas(id,filename){
+  const c=document.getElementById(id); if(!c) return;
+  const a=document.createElement('a'); a.download=filename;
+  a.href=c.toDataURL('image/png'); a.click();
+}
+
+function printDesignQR(){
+  const c=document.getElementById('qrDesignCanvas'); if(!c) return;
+  const url=c.toDataURL('image/png');
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>QR Milo's Pizza</title><style>@page{size:A4;margin:10mm}*{margin:0;padding:0}body{display:flex;align-items:center;justify-content:center;height:100%}img{width:10cm;height:15cm;object-fit:contain}</style></head><body><img src="${url}"></body></html>`);
+  win.document.close(); setTimeout(()=>{win.focus();win.print();},600);
 }
 
 function renderAdminCats(){
@@ -2515,12 +2986,49 @@ function addNewItem(){
   autoSaveItems().then(ok=>showToast(ok?'✓ Plat ajouté':'❌ Échec de l\'enregistrement'));
 }
 
+function initAboutAdmin(){
+  const g = HOME_GROUPS.about || {};
+  const titleEl = document.getElementById('about_title');
+  const textEl = document.getElementById('about_text');
+  const text2El = document.getElementById('about_text2');
+  const photosEl = document.getElementById('about_photos');
+  if(titleEl) titleEl.value = g.title?.fr || 'Notre Histoire';
+  if(textEl) textEl.value = g.aboutText || '';
+  if(text2El) text2El.value = g.aboutText2 || '';
+  if(photosEl) photosEl.value = (g.aboutPhotos || []).join('\n');
+  previewAboutPhotos();
+}
+
+function previewAboutPhotos(){
+  const val = document.getElementById('about_photos')?.value || '';
+  const urls = val.split('\n').map(u=>u.trim()).filter(u=>u.startsWith('http'));
+  const preview = document.getElementById('about_photos_preview');
+  if(!preview) return;
+  preview.innerHTML = urls.map(u=>`<img src="${cld(u,150)}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #eee;" onerror="this.style.display='none'">`).join('');
+}
+
+async function saveAboutContent(){
+  if(!HOME_GROUPS.about) HOME_GROUPS.about = {title:{fr:'Notre Histoire'},isAbout:true};
+  const g = HOME_GROUPS.about;
+  const name = document.getElementById('about_title')?.value.trim();
+  if(name && g.title) g.title.fr = name;
+  g.aboutText = document.getElementById('about_text')?.value || '';
+  g.aboutText2 = document.getElementById('about_text2')?.value || '';
+  const photosRaw = document.getElementById('about_photos')?.value || '';
+  g.aboutPhotos = photosRaw.split('\n').map(u=>u.trim()).filter(u=>u.startsWith('http'));
+  await saveSections();
+}
+
 function addNewCat(){
   const name=document.getElementById('newCatName').value.trim();
   if(!name)return;
   const id='cat_'+Date.now();
   const empty={fr:name,en:name,it:name,de:name,zh:name,ru:name};
-  cats.push({id,name:empty,archived:false});
+  const homeGroup = window._pendingNewCatSection || 'food';
+  window._pendingNewCatSection = null;
+  cats.push({id,name:empty,archived:false,homeGroup});
+  // Déplier automatiquement la section dans l'arbre
+  _navExpSections.add(homeGroup);
   document.getElementById('newCatName').value='';
   closeAddCatModal();
   renderAdminContent();
@@ -3956,91 +4464,60 @@ function openSectionPage(groupKey) {
 }
 
 function renderAboutPage(l) {
+  const g = HOME_GROUPS.about || {};
+  const title = g.title?.[l] || g.title?.fr || 'Notre Histoire';
+  const aboutText = g.aboutText || '';
+  const aboutText2 = g.aboutText2 || '';
+  const aboutPhotos = g.aboutPhotos || [];
+
   const social = {
-    instagram: socialConfig.instagram ? socialConfig.instagram.handle : '' || '',
-    facebook: socialConfig.facebook ? socialConfig.facebook.handle : '' || '',
-    google: socialConfig.google ? socialConfig.google.url : '' || '',
-    tripadvisor: socialConfig.tripadvisor ? socialConfig.tripadvisor.url : '' || '',
-    instagram_url: socialConfig.instagram ? socialConfig.instagram.url : '' || '',
-    facebook_url: socialConfig.facebook ? socialConfig.facebook.url : '' || '',
+    instagram: socialConfig.instagram ? socialConfig.instagram.handle : '',
+    facebook: socialConfig.facebook ? socialConfig.facebook.handle : '',
+    google: socialConfig.google ? socialConfig.google.url : '',
+    tripadvisor: socialConfig.tripadvisor ? socialConfig.tripadvisor.url : '',
+    instagram_url: socialConfig.instagram ? socialConfig.instagram.url : '',
+    facebook_url: socialConfig.facebook ? socialConfig.facebook.url : '',
   };
   const T_local = T[l] || T.fr;
 
-  const reviewText = {
-    fr: 'Donnez-nous votre avis',
-    en: 'Leave us a review',
-    it: 'Lasciaci una recensione',
-    de: 'Bewerten Sie uns',
-    zh: '给我们留下评价',
-    ru: 'Оставьте нам отзыв',
-    es: 'Déjenos una reseña'
-  };
-  const followText = {
-    fr: 'Suivez-nous',
-    en: 'Follow us',
-    it: 'Seguici',
-    de: 'Folgen Sie uns',
-    zh: '关注我们',
-    ru: 'Следите за нами',
-    es: 'Síguenos'
-  };
+  const reviewText = {fr:'Donnez-nous votre avis',en:'Leave us a review',it:'Lasciaci una recensione',de:'Bewerten Sie uns',zh:'给我们留下评价',ru:'Оставьте нам отзыв',es:'Déjenos una reseña'};
+  const followText = {fr:'Suivez-nous',en:'Follow us',it:'Seguici',de:'Folgen Sie uns',zh:'关注我们',ru:'Следите за нами',es:'Síguenos'};
 
-  let html = `
-  <div style="padding:0.5rem 0 2rem;">
-    ${aboutText ? `<div style="font-family:'Cormorant Garamond',serif;font-size:0.88rem;color:#5A4535;text-align:center;margin-bottom:1.5rem;line-height:1.6;padding:0 0.5rem;">${aboutText}</div>` : ''}
+  let html = `<div style="padding:0.5rem 0 2rem;">`;
 
-    <!-- RÉSEAUX SOCIAUX -->
-    <div style="background:#fff;border-radius:14px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
-      <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#9B1C1C;margin-bottom:1rem;">${followText[l]||followText.fr}</div>
-      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">`;
+  // Titre personnalisé
+  html += `<h2 style="font-family:'Playfair Display',serif;font-style:italic;color:var(--rouge);font-size:1.5rem;text-align:center;margin-bottom:1rem;">${title}</h2>`;
 
-  if (social.instagram) html += `
-        <a href="${social.instagram_url || 'https://instagram.com/'+social.instagram.replace('@','')}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;text-decoration:none;">
-          <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-          </div>
-          <span style="font-family:'Montserrat',sans-serif;font-size:0.65rem;color:#5A4535;font-weight:600;">${social.instagram || '@milospizza.nice'}</span>
-        </a>`;
+  // Photos personnalisées
+  if(aboutPhotos.length){
+    html += `<div style="display:grid;grid-template-columns:repeat(${Math.min(aboutPhotos.length,2)},1fr);gap:0.5rem;margin-bottom:1.2rem;">`;
+    aboutPhotos.forEach(url=>{html += `<img src="${cld(url,400)}" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;" loading="lazy">`;});
+    html += `</div>`;
+  }
 
-  if (social.facebook) html += `
-        <a href="${social.facebook_url || 'https://facebook.com/'+social.facebook}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;text-decoration:none;">
-          <div style="width:52px;height:52px;border-radius:14px;background:#1877F2;display:flex;align-items:center;justify-content:center;">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
-          </div>
-          <span style="font-family:'Montserrat',sans-serif;font-size:0.65rem;color:#5A4535;font-weight:600;">Facebook</span>
-        </a>`;
+  // Textes personnalisés
+  if(aboutText){
+    html += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;color:#5A4535;text-align:center;margin-bottom:1.2rem;line-height:1.7;padding:0 0.5rem;">${aboutText.split('\n').filter(t=>t.trim()).map(t=>`<p style="margin-bottom:0.6rem;">${t}</p>`).join('')}</div>`;
+  }
+  if(aboutText2){
+    html += `<div style="font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#888;margin-bottom:1.2rem;line-height:1.6;padding:0 0.5rem;">${aboutText2.split('\n').filter(t=>t.trim()).map(t=>`<p style="margin-bottom:0.4rem;">${t}</p>`).join('')}</div>`;
+  }
 
-  html += `</div>
-    </div>
+  // Réseaux sociaux
+  html += `<div style="background:#fff;border-radius:14px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+    <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#9B1C1C;margin-bottom:1rem;">${followText[l]||followText.fr}</div>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">`;
+  if(social.instagram) html += `<a href="${social.instagram_url||'https://instagram.com/'+social.instagram.replace('@','')}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;text-decoration:none;"><div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></div><span style="font-family:'Montserrat',sans-serif;font-size:0.65rem;color:#5A4535;font-weight:600;">${social.instagram}</span></a>`;
+  if(social.facebook) html += `<a href="${social.facebook_url||'https://facebook.com/'+social.facebook}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;text-decoration:none;"><div style="width:52px;height:52px;border-radius:14px;background:#1877F2;display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></div><span style="font-family:'Montserrat',sans-serif;font-size:0.65rem;color:#5A4535;font-weight:600;">Facebook</span></a>`;
+  html += `</div></div>`;
 
-    <!-- AVIS -->
-    <div style="background:#fff;border-radius:14px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
-      <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#9B1C1C;margin-bottom:1rem;">${reviewText[l]||reviewText.fr}</div>
-      <div style="display:flex;gap:0.8rem;flex-direction:column;">`;
-
-  if (social.google) html += `
-        <a href="${social.google}" target="_blank" style="display:flex;align-items:center;gap:0.9rem;text-decoration:none;background:#F8F9FA;border-radius:10px;padding:0.8rem 1rem;">
-          <svg width="28" height="28" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-          <div>
-            <div style="font-family:'Montserrat',sans-serif;font-size:0.8rem;font-weight:700;color:#2C2010;">Google</div>
-            <div style="font-family:'Montserrat',sans-serif;font-size:0.68rem;color:#888;">⭐⭐⭐⭐⭐ Laisser un avis</div>
-          </div>
-          <div style="margin-left:auto;color:#9B1C1C;font-size:1rem;">→</div>
-        </a>`;
-
-  if (social.tripadvisor) html += `
-        <a href="${social.tripadvisor}" target="_blank" style="display:flex;align-items:center;gap:0.9rem;text-decoration:none;background:#F8F9FA;border-radius:10px;padding:0.8rem 1rem;">
-          <div style="width:28px;height:28px;background:#34E0A1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;">🦉</div>
-          <div>
-            <div style="font-family:'Montserrat',sans-serif;font-size:0.8rem;font-weight:700;color:#2C2010;">TripAdvisor</div>
-            <div style="font-family:'Montserrat',sans-serif;font-size:0.68rem;color:#888;">⭐⭐⭐⭐⭐ Laisser un avis</div>
-          </div>
-          <div style="margin-left:auto;color:#9B1C1C;font-size:1rem;">→</div>
-        </a>`;
-
-  html += `</div>
-    </div>
-  </div>`;
+  // Avis
+  html += `<div style="background:#fff;border-radius:14px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+    <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#9B1C1C;margin-bottom:1rem;">${reviewText[l]||reviewText.fr}</div>
+    <div style="display:flex;gap:0.8rem;flex-direction:column;">`;
+  if(social.google) html += `<a href="${social.google}" target="_blank" style="display:flex;align-items:center;gap:0.9rem;text-decoration:none;background:#F8F9FA;border-radius:10px;padding:0.8rem 1rem;"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg><div><div style="font-family:'Montserrat',sans-serif;font-size:0.8rem;font-weight:700;color:#2C2010;">Google</div><div style="font-family:'Montserrat',sans-serif;font-size:0.68rem;color:#888;">⭐⭐⭐⭐⭐ Laisser un avis</div></div><div style="margin-left:auto;color:#9B1C1C;font-size:1rem;">→</div></a>`;
+  if(social.tripadvisor) html += `<a href="${social.tripadvisor}" target="_blank" style="display:flex;align-items:center;gap:0.9rem;text-decoration:none;background:#F8F9FA;border-radius:10px;padding:0.8rem 1rem;"><div style="width:28px;height:28px;background:#34E0A1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;">🦉</div><div><div style="font-family:'Montserrat',sans-serif;font-size:0.8rem;font-weight:700;color:#2C2010;">TripAdvisor</div><div style="font-family:'Montserrat',sans-serif;font-size:0.68rem;color:#888;">⭐⭐⭐⭐⭐ Laisser un avis</div></div><div style="margin-left:auto;color:#9B1C1C;font-size:1rem;">→</div></a>`;
+  html += `</div></div></div>`;
   return html;
 }
 
