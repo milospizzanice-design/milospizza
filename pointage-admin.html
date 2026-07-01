@@ -583,12 +583,20 @@ document.getElementById('bd').textContent=new Date().toLocaleDateString('fr-FR',
 
 
 // ── AUTHENTIFICATION ADMIN (Supabase Auth) ──────────────────────────────────
+var appStarted=false;
+async function startApp(){
+  // Lance le chargement des données une seule fois
+  if(appStarted)return;
+  appStarted=true;
+  init();
+}
 async function checkAuth(){
   try{
     var s=await db.auth.getSession();
     if(s.data&&s.data.session){
-      // Déjà connecté
+      // Déjà connecté (login ou refresh avec session active)
       document.getElementById('login-overlay').style.display='none';
+      startApp();
       return true;
     }
   }catch(e){}
@@ -613,6 +621,7 @@ async function doLogin(){
     document.getElementById('login-overlay').style.display='none';
     document.getElementById('login-pw').value='';
     btn.textContent='Se connecter';btn.disabled=false;
+    startApp();
   }catch(e){
     err.textContent='Erreur de connexion, r\u00e9essayez.';
     btn.textContent='Se connecter';btn.disabled=false;
@@ -4342,7 +4351,6 @@ async function init(){
   planUpdateLabel();await loadPl();
   showDashboard();
 }
-init();
 </script>
 
 <div class="mb" id="modal-poste">
