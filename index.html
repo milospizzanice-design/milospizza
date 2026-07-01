@@ -538,6 +538,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <button onclick="saveAll()" title="Enregistrer" style="background:var(--creme);border:1.5px solid var(--vert);color:var(--vert);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">💾</button>
         <button onclick="previewSite()" title="Aperçu" style="background:var(--creme);border:1.5px solid var(--rouge);color:var(--rouge);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">👁</button>
         <button class="publish-btn" onclick="publishDraft()" title="Publier" style="background:var(--vert);border:none;color:#fff;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">✅</button>
+        <button onclick="adminLogout()" title="Se déconnecter" style="background:var(--creme);border:1.5px solid #aaa;color:#888;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">🚪</button>
         <button class="admin-close" onclick="closeAdmin()">×</button>
       </div>
     </div>
@@ -693,11 +694,14 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <div class="admin-section" id="as-qrcode">
         <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Ce QR code pointe vers l'adresse permanente de la carte. <strong>Il ne changera jamais</strong> — vous pouvez l'imprimer sur vos menus, flyers, vitrine, etc.</p>
         <div id="qrCodeContainer" style="display:flex;flex-direction:column;align-items:center;gap:1rem;padding:1rem;background:#fff;border-radius:12px;border:1px solid #eee;">
-          <canvas id="qrCodeCanvas" style="border-radius:8px;"></canvas>
+          <canvas id="qrCodeCanvas" style="border-radius:8px;width:220px;height:220px;"></canvas>
           <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;color:#888;text-align:center;" id="qrCodeUrl"></div>
         </div>
-        <button class="admin-save-btn" style="margin-top:1rem;" onclick="downloadQRCode()">⬇️ Télécharger le QR code (PNG)</button>
-        <p style="font-size:0.68rem;color:#aaa;margin-top:0.6rem;text-align:center;">Format carré 512×512px, fond blanc — prêt pour l'impression.</p>
+        <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+          <button class="admin-save-btn" style="flex:1;" onclick="downloadQRCode()">⬇️ Télécharger PNG</button>
+          <button class="admin-save-btn" style="flex:1;background:var(--vert);" onclick="printQRCode()">🖨️ Imprimer en A4</button>
+        </div>
+        <p style="font-size:0.68rem;color:#aaa;margin-top:0.6rem;text-align:center;">Impression A4 : le QR code remplit la feuille, centré, avec l'adresse du site en dessous.</p>
       </div>
 
       <!-- IMPORT MENU -->
@@ -2047,13 +2051,19 @@ function toggleCatExpanded(catId){
   renderAdminCats();
 }
 
+function adminLogout(){
+  if(!confirm('Se déconnecter de l\'admin ?')) return;
+  sessionStorage.removeItem('milos_admin_active');
+  localStorage.removeItem('milos_token');
+  window.location.href = 'login.html';
+}
+
 function initQRCode(){
-  const siteUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '') + '/index.html';
-  const url = siteUrl.replace('index.html','').replace(/\/$/, '') || 'https://milospizza.restoglobal.fr';
-  document.getElementById('qrCodeUrl').textContent = url;
+  const siteUrl = 'https://milospizza.restoglobal.fr';
+  document.getElementById('qrCodeUrl').textContent = siteUrl;
   if (typeof QRious !== 'undefined') {
     const canvas = document.getElementById('qrCodeCanvas');
-    new QRious({element: canvas, value: url, size: 512, backgroundAlpha: 1, background: '#ffffff', foreground: '#9B1C1C', padding: 30, level: 'H'});
+    new QRious({element: canvas, value: siteUrl, size: 512, backgroundAlpha: 1, background: '#ffffff', foreground: '#9B1C1C', padding: 30, level: 'H'});
     canvas.style.width = '220px'; canvas.style.height = '220px';
   } else {
     const s = document.createElement('script');
@@ -2070,6 +2080,29 @@ function downloadQRCode(){
   link.download = 'qrcode-milospizza.png';
   link.href = canvas.toDataURL('image/png');
   link.click();
+}
+
+function printQRCode(){
+  const canvas = document.getElementById('qrCodeCanvas');
+  if(!canvas) return;
+  const dataUrl = canvas.toDataURL('image/png');
+  const siteUrl = 'https://milospizza.restoglobal.fr';
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>QR Code Milo's Pizza</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { width:210mm; height:297mm; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#fff; }
+    img { width:180mm; height:180mm; object-fit:contain; }
+    p { font-family: sans-serif; font-size: 14pt; color:#9B1C1C; margin-top: 12mm; font-weight:bold; letter-spacing:0.05em; }
+    small { font-family: sans-serif; font-size: 10pt; color:#888; margin-top: 4mm; }
+  </style></head><body>
+  <img src="${dataUrl}">
+  <p>${siteUrl}</p>
+  <small>Scannez pour accéder à notre carte</small>
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>{ win.focus(); win.print(); }, 500);
 }
 
 function renderAdminCats(){
@@ -4162,10 +4195,13 @@ async function init(){
   // Détecter tout de suite si on doit aller direct en admin, pour ne JAMAIS
   // afficher la page client dans ce cas (évite le flash avant bascule admin).
   const urlParams = new URLSearchParams(window.location.search);
-  const goStraightToAdmin = urlParams.get('admin') === '1' && !!localStorage.getItem('milos_token');
-  // Important : régler isDraftMode AVANT loadFromGithub(), pour que ce dernier
-  // charge bien le fichier brouillon (et non le fichier publié) dès le départ.
-  if (goStraightToAdmin) isDraftMode = true;
+  const fromUrl = urlParams.get('admin') === '1' && !!localStorage.getItem('milos_token');
+  const fromSession = sessionStorage.getItem('milos_admin_active') === '1' && !!localStorage.getItem('milos_token');
+  const goStraightToAdmin = fromUrl || fromSession;
+  if (goStraightToAdmin) {
+    isDraftMode = true;
+    sessionStorage.setItem('milos_admin_active', '1'); // persiste pendant la session
+  }
 
   // Hide app chrome on start
   document.querySelector('header').style.display = 'none';
