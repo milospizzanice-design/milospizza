@@ -112,6 +112,11 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .nav-tree-icon:hover{background:#f0ede8;color:var(--rouge);}
 .nav-tree-cat-rows{padding-left:8px;}
 .nav-tree-sc-rows{padding-left:16px;}
+.about-block{background:#fff;border:1px solid #eee;border-radius:10px;padding:0.7rem;margin-bottom:0.6rem;}
+.about-block-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;}
+.about-photo-grid{display:flex;flex-wrap:wrap;gap:0.4rem;padding:0.4rem 0;}
+.about-photo-thumb{position:relative;width:72px;height:72px;border-radius:6px;overflow:hidden;border:1px solid #eee;flex-shrink:0;}
+.about-photo-add{width:72px;height:72px;border:2px dashed #ddd;border-radius:6px;background:none;cursor:pointer;font-size:1.2rem;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .admin-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:1rem;scrollbar-gutter:stable;}
 .admin-section{display:none;}
 .admin-section.active{display:block;min-height:100%;}
@@ -630,18 +635,16 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
       <!-- NOTRE HISTOIRE -->
       <div class="admin-section" id="as-about_histoire">
-        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem;">Personnalisez la page "Notre Histoire" visible par vos clients.</p>
+        <p style="font-size:0.75rem;color:#888;margin-bottom:0.8rem;">Construisez votre page librement — ajoutez autant de blocs texte ou photo que vous voulez, dans l'ordre que vous souhaitez.</p>
         <label class="admin-label">Titre de la page</label>
         <input class="admin-input" id="about_title" placeholder="Notre Histoire" value="">
-        <label class="admin-label" style="margin-top:0.5rem;">Texte principal <span style="font-size:0.65rem;color:#aaa;">(paragraphes séparés par une ligne vide)</span></label>
-        <textarea class="admin-input" id="about_text" rows="8" style="resize:vertical;min-height:120px;" placeholder="Partagez votre histoire, vos valeurs, vos engagements..."></textarea>
-        <label class="admin-label" style="margin-top:0.5rem;">Deuxième paragraphe (optionnel)</label>
-        <textarea class="admin-input" id="about_text2" rows="4" style="resize:vertical;" placeholder="Suite de votre texte..."></textarea>
-        <label class="admin-label" style="margin-top:0.5rem;">Photos <span style="font-size:0.65rem;color:#aaa;">(URLs Cloudinary — une par ligne)</span></label>
-        <textarea class="admin-input" id="about_photos" rows="4" style="resize:vertical;font-size:0.7rem;" placeholder="https://res.cloudinary.com/...&#10;https://res.cloudinary.com/..."></textarea>
-        <div id="about_photos_preview" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem;"></div>
-        <button class="aic-btn" style="background:var(--vert);color:#fff;width:100%;margin-top:0.4rem;" onclick="previewAboutPhotos()">👁 Prévisualiser les photos</button>
+        <div id="aboutBlocksList" style="margin-top:0.8rem;"></div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.6rem;">
+          <button class="aic-btn" style="flex:1;background:var(--creme-fonce);color:var(--brun);" onclick="addAboutBlock('text')">+ Texte</button>
+          <button class="aic-btn" style="flex:1;background:var(--creme-fonce);color:var(--brun);" onclick="addAboutBlock('photo')">📷 Photo(s)</button>
+        </div>
         <button class="admin-save-btn" onclick="saveAboutContent()">✓ Enregistrer Notre Histoire</button>
+        <input type="file" id="aboutPhotoFileInput" accept="image/*" style="display:none;" onchange="handleAboutPhotoUpload(event)">
       </div>
 
       <!-- UPSELL -->
@@ -2986,25 +2989,132 @@ function addNewItem(){
   autoSaveItems().then(ok=>showToast(ok?'✓ Plat ajouté':'❌ Échec de l\'enregistrement'));
 }
 
+// ─── NOTRE HISTOIRE — ÉDITEUR DE BLOCS ──────────────────────────────────────
+let _aboutBlocks = [];
+let _aboutPhotoUploadBlockId = null;
+
 function initAboutAdmin(){
   const g = HOME_GROUPS.about || {};
   const titleEl = document.getElementById('about_title');
-  const textEl = document.getElementById('about_text');
-  const text2El = document.getElementById('about_text2');
-  const photosEl = document.getElementById('about_photos');
   if(titleEl) titleEl.value = g.title?.fr || 'Notre Histoire';
-  if(textEl) textEl.value = g.aboutText || '';
-  if(text2El) text2El.value = g.aboutText2 || '';
-  if(photosEl) photosEl.value = (g.aboutPhotos || []).join('\n');
-  previewAboutPhotos();
+  if(g.aboutBlocks && Array.isArray(g.aboutBlocks)){
+    _aboutBlocks = JSON.parse(JSON.stringify(g.aboutBlocks));
+  } else {
+    _aboutBlocks = [];
+    if(g.aboutText) _aboutBlocks.push({id:'b'+Date.now(), type:'text', content:g.aboutText});
+    if(g.aboutPhotos?.length) _aboutBlocks.push({id:'b'+(Date.now()+1), type:'photo', urls:g.aboutPhotos});
+    if(g.aboutText2) _aboutBlocks.push({id:'b'+(Date.now()+2), type:'text', content:g.aboutText2});
+  }
+  renderAboutBlocks();
 }
 
-function previewAboutPhotos(){
-  const val = document.getElementById('about_photos')?.value || '';
-  const urls = val.split('\n').map(u=>u.trim()).filter(u=>u.startsWith('http'));
-  const preview = document.getElementById('about_photos_preview');
-  if(!preview) return;
-  preview.innerHTML = urls.map(u=>`<img src="${cld(u,150)}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #eee;" onerror="this.style.display='none'">`).join('');
+function renderAboutBlocks(){
+  const el = document.getElementById('aboutBlocksList');
+  if(!el) return;
+  if(!_aboutBlocks.length){
+    el.innerHTML = '<p style="text-align:center;color:#aaa;font-size:0.75rem;padding:1rem 0;">Aucun bloc — ajoutez du texte ou des photos ci-dessous.</p>';
+    return;
+  }
+  el.innerHTML = _aboutBlocks.map((b,i)=>`
+    <div class="about-block" id="ablock_${b.id}">
+      <div class="about-block-header">
+        <span style="font-size:0.65rem;font-family:'Montserrat',sans-serif;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.06em;">${b.type==='text'?'📝 Texte':'📷 Photo(s)'}</span>
+        <div style="display:flex;gap:0.2rem;">
+          ${i>0?`<button class="nav-tree-icon" onclick="moveAboutBlock('${b.id}',-1)">↑</button>`:''}
+          ${i<_aboutBlocks.length-1?`<button class="nav-tree-icon" onclick="moveAboutBlock('${b.id}',1)">↓</button>`:''}
+          <button class="nav-tree-icon" onclick="deleteAboutBlock('${b.id}')" style="color:#c0392b;">✕</button>
+        </div>
+      </div>
+      ${b.type==='text'
+        ? `<textarea class="admin-input" style="margin:0;min-height:80px;resize:vertical;" placeholder="Écrivez votre texte ici...">${(b.content||'').replace(/</g,'&lt;')}</textarea>`
+        : `<div class="about-photo-grid" id="aphotos_${b.id}">
+            ${(b.urls||[]).map((url,pi)=>`
+              <div class="about-photo-thumb">
+                <img src="${cld(url,150)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;" loading="lazy">
+                <button onclick="removeAboutPhoto('${b.id}',${pi})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.55);border:none;color:#fff;border-radius:50%;width:20px;height:20px;font-size:0.6rem;cursor:pointer;padding:0;line-height:1;">✕</button>
+              </div>`).join('')}
+            <button class="about-photo-add" onclick="triggerAboutPhotoUpload('${b.id}')">
+              <span id="about_prog_${b.id}" style="display:none;">⏳</span>
+              📷
+            </button>
+          </div>`
+      }
+    </div>`).join('');
+}
+
+function addAboutBlock(type){
+  _aboutBlocks.push({id:'b'+Date.now(), type, content:'', urls:[]});
+  renderAboutBlocks();
+  setTimeout(()=>{
+    const blocks = document.querySelectorAll('.about-block');
+    if(blocks.length) blocks[blocks.length-1].scrollIntoView({behavior:'smooth',block:'nearest'});
+  }, 100);
+}
+
+function deleteAboutBlock(id){
+  _aboutBlocks = _aboutBlocks.filter(b=>b.id!==id);
+  renderAboutBlocks();
+}
+
+function moveAboutBlock(id, dir){
+  const idx = _aboutBlocks.findIndex(b=>b.id===id);
+  if(idx===-1) return;
+  const newIdx = idx+dir;
+  if(newIdx<0||newIdx>=_aboutBlocks.length) return;
+  const tmp = _aboutBlocks[idx];
+  _aboutBlocks[idx] = _aboutBlocks[newIdx];
+  _aboutBlocks[newIdx] = tmp;
+  renderAboutBlocks();
+}
+
+function removeAboutPhoto(blockId, photoIdx){
+  const b = _aboutBlocks.find(b=>b.id===blockId);
+  if(!b||!b.urls) return;
+  b.urls.splice(photoIdx,1);
+  renderAboutBlocks();
+}
+
+function triggerAboutPhotoUpload(blockId){
+  _aboutPhotoUploadBlockId = blockId;
+  const input = document.getElementById('aboutPhotoFileInput');
+  if(input){ input.value=''; input.click(); }
+}
+
+async function handleAboutPhotoUpload(e){
+  const file = e.target.files?.[0];
+  if(!file||!_aboutPhotoUploadBlockId) return;
+  const blockId = _aboutPhotoUploadBlockId;
+  const progEl = document.getElementById('about_prog_'+blockId);
+  if(progEl) progEl.style.display='inline';
+  try {
+    const token = localStorage.getItem('milos_token');
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', 'about');
+    const uploadUrl = PROXY_URL.replace('/public/','/')
+      .split('?')[0].replace(/\/+$/,'')
+      .replace('/client/menu', '')
+      + '/admin/upload-image';
+    const res = await fetch(uploadUrl, {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+token},
+      body: formData
+    });
+    if(!res.ok) throw new Error('Upload failed '+res.status);
+    const data = await res.json();
+    const url = data.secure_url || data.url;
+    if(!url) throw new Error('No URL in response');
+    const b = _aboutBlocks.find(b=>b.id===blockId);
+    if(b){ if(!b.urls) b.urls=[]; b.urls.push(url); prewarmImage(url); }
+    renderAboutBlocks();
+    showToast('✓ Photo ajoutée');
+  } catch(err){
+    console.error(err);
+    showToast('❌ Échec de l\'upload');
+  } finally {
+    if(progEl) progEl.style.display='none';
+    _aboutPhotoUploadBlockId = null;
+  }
 }
 
 async function saveAboutContent(){
@@ -3012,12 +3122,18 @@ async function saveAboutContent(){
   const g = HOME_GROUPS.about;
   const name = document.getElementById('about_title')?.value.trim();
   if(name && g.title) g.title.fr = name;
-  g.aboutText = document.getElementById('about_text')?.value || '';
-  g.aboutText2 = document.getElementById('about_text2')?.value || '';
-  const photosRaw = document.getElementById('about_photos')?.value || '';
-  g.aboutPhotos = photosRaw.split('\n').map(u=>u.trim()).filter(u=>u.startsWith('http'));
+  // Collecter le contenu des textareas (peut avoir changé sans onchange)
+  _aboutBlocks.forEach(b=>{
+    if(b.type==='text'){
+      const ta = document.querySelector(`#ablock_${b.id} textarea`);
+      if(ta) b.content = ta.value;
+    }
+  });
+  g.aboutBlocks = _aboutBlocks;
   await saveSections();
 }
+
+function previewAboutPhotos(){ /* deprecated */ }
 
 function addNewCat(){
   const name=document.getElementById('newCatName').value.trim();
@@ -4466,9 +4582,11 @@ function openSectionPage(groupKey) {
 function renderAboutPage(l) {
   const g = HOME_GROUPS.about || {};
   const title = g.title?.[l] || g.title?.fr || 'Notre Histoire';
-  const aboutText = g.aboutText || '';
-  const aboutText2 = g.aboutText2 || '';
-  const aboutPhotos = g.aboutPhotos || [];
+  const blocks = g.aboutBlocks || [];
+  // Rétrocompatibilité avec l'ancien format
+  const legacyText = g.aboutText || '';
+  const legacyText2 = g.aboutText2 || '';
+  const legacyPhotos = g.aboutPhotos || [];
 
   const social = {
     instagram: socialConfig.instagram ? socialConfig.instagram.handle : '',
@@ -4480,28 +4598,41 @@ function renderAboutPage(l) {
   };
   const T_local = T[l] || T.fr;
 
+  // Rendu des blocs dynamiques
+  let blocksHtml = '';
+  if(blocks.length){
+    blocks.forEach(b=>{
+      if(b.type==='text' && b.content){
+        blocksHtml += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;color:#5A4535;line-height:1.7;margin-bottom:1.2rem;padding:0 0.5rem;">
+          ${b.content.split('\n').filter(t=>t.trim()).map(t=>`<p style="margin-bottom:0.5rem;">${t}</p>`).join('')}
+        </div>`;
+      } else if(b.type==='photo' && b.urls?.length){
+        const cols = Math.min(b.urls.length, 3);
+        blocksHtml += `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:0.5rem;margin-bottom:1.2rem;">
+          ${b.urls.map(url=>`<img src="${cld(url,400)}" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;" loading="lazy">`).join('')}
+        </div>`;
+      }
+    });
+  } else {
+    // Affichage de l'ancien format si pas encore migré
+    if(legacyPhotos.length){
+      blocksHtml += `<div style="display:grid;grid-template-columns:repeat(${Math.min(legacyPhotos.length,2)},1fr);gap:0.5rem;margin-bottom:1.2rem;">${legacyPhotos.map(url=>`<img src="${cld(url,400)}" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;" loading="lazy">`).join('')}</div>`;
+    }
+    if(legacyText) blocksHtml += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;color:#5A4535;text-align:center;margin-bottom:1.2rem;line-height:1.7;padding:0 0.5rem;">${legacyText.split('\n').filter(t=>t.trim()).map(t=>`<p style="margin-bottom:0.6rem;">${t}</p>`).join('')}</div>`;
+    if(legacyText2) blocksHtml += `<div style="font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#888;margin-bottom:1.2rem;line-height:1.6;padding:0 0.5rem;">${legacyText2.split('\n').filter(t=>t.trim()).map(t=>`<p>${t}</p>`).join('')}</div>`;
+    if(!legacyText && !legacyText2 && !legacyPhotos.length) blocksHtml += `<p style="text-align:center;color:#aaa;font-style:italic;margin-bottom:1.2rem;">Contenu à personnaliser dans l'admin → ℹ️ Notre Histoire</p>`;
+  }
+
   const reviewText = {fr:'Donnez-nous votre avis',en:'Leave us a review',it:'Lasciaci una recensione',de:'Bewerten Sie uns',zh:'给我们留下评价',ru:'Оставьте нам отзыв',es:'Déjenos una reseña'};
   const followText = {fr:'Suivez-nous',en:'Follow us',it:'Seguici',de:'Folgen Sie uns',zh:'关注我们',ru:'Следите за нами',es:'Síguenos'};
 
   let html = `<div style="padding:0.5rem 0 2rem;">`;
 
-  // Titre personnalisé
+  // Titre
   html += `<h2 style="font-family:'Playfair Display',serif;font-style:italic;color:var(--rouge);font-size:1.5rem;text-align:center;margin-bottom:1rem;">${title}</h2>`;
 
-  // Photos personnalisées
-  if(aboutPhotos.length){
-    html += `<div style="display:grid;grid-template-columns:repeat(${Math.min(aboutPhotos.length,2)},1fr);gap:0.5rem;margin-bottom:1.2rem;">`;
-    aboutPhotos.forEach(url=>{html += `<img src="${cld(url,400)}" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;" loading="lazy">`;});
-    html += `</div>`;
-  }
-
-  // Textes personnalisés
-  if(aboutText){
-    html += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;color:#5A4535;text-align:center;margin-bottom:1.2rem;line-height:1.7;padding:0 0.5rem;">${aboutText.split('\n').filter(t=>t.trim()).map(t=>`<p style="margin-bottom:0.6rem;">${t}</p>`).join('')}</div>`;
-  }
-  if(aboutText2){
-    html += `<div style="font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#888;margin-bottom:1.2rem;line-height:1.6;padding:0 0.5rem;">${aboutText2.split('\n').filter(t=>t.trim()).map(t=>`<p style="margin-bottom:0.4rem;">${t}</p>`).join('')}</div>`;
-  }
+  // Blocs dynamiques
+  html += blocksHtml;
 
   // Réseaux sociaux
   html += `<div style="background:#fff;border-radius:14px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
