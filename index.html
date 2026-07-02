@@ -2984,19 +2984,26 @@ function deleteUpsell(id){
 async function autoTranslateText(name, desc) {
   try {
     const token = localStorage.getItem('milos_token');
+    if (!token) { showToast('❌ Traduction: pas de session (reconnecte-toi)'); return null; }
     const res = await fetch(`${PROXY_URL}/admin/translate`, {
       method: 'POST',
-      headers: {'Content-Type':'application/json', ...(token?{'Authorization':'Bearer '+token}:{})},
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+token},
       body: JSON.stringify({name, desc})
     });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch(e) { console.error('autoTranslateText error', e); return null; }
+    let data = null;
+    try { data = await res.json(); } catch(parseErr) {}
+    if (!res.ok) {
+      showToast('❌ Traduction (' + res.status + '): ' + (data?.error || 'erreur inconnue'));
+      return null;
+    }
+    return data;
+  } catch(e) { showToast('❌ Traduction: ' + e.message); return null; }
 }
 
 async function autoTranslateItem(itemId) {
   const it = items.find(i=>i.id===itemId);
   if (!it) return;
+  showToast('🌍 Traduction en cours...');
   const tr = await autoTranslateText(it.name.fr, it.desc.fr);
   const itNow = items.find(i=>i.id===itemId);
   if (!tr || !itNow) return;
@@ -3005,20 +3012,24 @@ async function autoTranslateItem(itemId) {
   });
   autoSaveItems();
   renderAdminItems(getFilteredAdminItems());
+  showToast('🌍 Plat traduit dans les 6 langues !');
 }
 
 async function autoTranslateCategory(catId) {
   const cat = cats.find(c=>c.id===catId);
   if (!cat) return;
+  showToast('🌍 Traduction en cours...');
   const tr = await autoTranslateText(cat.name.fr, '');
   const catNow = cats.find(c=>c.id===catId);
   if (!tr || !catNow) return;
   ['en','it','de','zh','ru','es'].forEach(l=>{ if (tr[l]?.name) catNow.name[l] = tr[l].name; });
   autoSaveItems();
   renderAdminCats(); renderPlatsCategoryNav(); renderMenu();
+  showToast('🌍 Catégorie traduite dans les 6 langues !');
 }
 
 async function autoTranslateSubcat(catId, subcatName) {
+  showToast('🌍 Traduction en cours...');
   const tr = await autoTranslateText(subcatName, '');
   const catNow = cats.find(c=>c.id===catId);
   if (!tr || !catNow) return;
@@ -3028,6 +3039,7 @@ async function autoTranslateSubcat(catId, subcatName) {
   catNow.subcatTranslations[subcatName] = entry;
   autoSaveItems();
   renderMenu();
+  showToast('🌍 Sous-catégorie traduite dans les 6 langues !');
 }
 
 function renameSubcatTranslation(catId, oldName, newName) {
