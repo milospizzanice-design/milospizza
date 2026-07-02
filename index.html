@@ -1579,6 +1579,7 @@ function renameSubcatPrompt(catId, oldName){
   if(cat.subcats.includes(name)){ showToast('❌ Cette sous-catégorie existe déjà'); return; }
   const idx = cat.subcats.indexOf(oldName);
   if(idx===-1) return;
+  renameSubcatTranslation(catId, oldName, name);
   cat.subcats[idx] = name;
   items.forEach(it=>{
     if(it.cat===catId && it.subcat===oldName) it.subcat=name;
@@ -1590,6 +1591,7 @@ function renameSubcatPrompt(catId, oldName){
   renderAdminItemsContextHeader();
   renderAdminItems(getFilteredAdminItems());
   autoSaveItems().then(ok=>showToast(ok?'✓ Renommé':'❌ Échec de l\'enregistrement'));
+  autoTranslateSubcat(catId, name);
 }
 
 function addSubcatPrompt(catId){
@@ -1757,6 +1759,7 @@ function closeItemEditModal(){
   _editModalItemId = null;
   renderAdminItems(getFilteredAdminItems());
   if (editedId) {
+    autoTranslateItem(editedId);
     autoSaveItems().then(ok=>{
       showToast(ok ? '✓ Modifications enregistrées' : '❌ Échec de l\'enregistrement - réessayez');
     });
@@ -2114,12 +2117,14 @@ function saveEditSubcat(catId, oldName){
 renameSubcatPrompt._direct = function(catId, oldName, newName){
   const cat = cats.find(c=>c.id===catId); if(!cat||!cat.subcats) return;
   const idx = cat.subcats.indexOf(oldName); if(idx===-1) return;
+  renameSubcatTranslation(catId, oldName, newName);
   cat.subcats[idx] = newName;
   items.forEach(it=>{
     if(it.cat===catId&&it.subcat===oldName) it.subcat=newName;
     if(it.extraPlacements) it.extraPlacements.forEach(p=>{if(p.cat===catId&&p.subcat===oldName)p.subcat=newName;});
   });
   if(adminItemsFilter.subcat===oldName) adminItemsFilter.subcat=newName;
+  autoTranslateSubcat(catId, newName);
 };
 
 function updateQuickAddBtn(){
@@ -2330,6 +2335,7 @@ function addSubcatToCategory(catId){
   renderAdminCats();
   renderPlatsCategoryNav();
   autoSaveItems().then(()=>{});
+  autoTranslateSubcat(catId, val);
   openBulkAssignModal(catId, val);
 }
 
@@ -2342,6 +2348,7 @@ function deleteSubcat(catId, subcatName){
     : `Supprimer la sous-catégorie "${subcatName}" ?`;
   if(!confirm(msg)) return;
   cat.subcats = cat.subcats.filter(s=>s!==subcatName);
+  if (cat.subcatTranslations) delete cat.subcatTranslations[subcatName];
   items.forEach(i=>{ if(i.cat===catId && i.subcat===subcatName) i.subcat=''; });
   renderAdminCats();
   renderPlatsCategoryNav();
@@ -2874,10 +2881,11 @@ function renameCat(id, val){
   if(!c || !val.trim()) return;
   const name = val.trim();
   c.name.fr = name;
-  ['en','it','de','zh','ru'].forEach(l=>{ if(!c.name[l]||c.name[l]===c.name.fr) c.name[l]=name; });
+  ['en','it','de','zh','ru','es'].forEach(l=>{ if(!c.name[l]) c.name[l]=name; });
   renderMenu();
   renderPlatsCategoryNav();
   autoSaveItems().then(ok=>showToast(ok?'✓ Nom enregistré':'❌ Échec de l\'enregistrement'));
+  autoTranslateCategory(id);
 }
 
 function toggleArchiveCat(id){
@@ -2970,6 +2978,72 @@ function deleteUpsell(id){
   autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
 }
 
+// ═══════════════════════════════════════
+// TRADUCTION AUTOMATIQUE (IA)
+// ═══════════════════════════════════════
+async function autoTranslateText(name, desc) {
+  try {
+    const token = localStorage.getItem('milos_token');
+    const res = await fetch(`${PROXY_URL}/admin/translate`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', ...(token?{'Authorization':'Bearer '+token}:{})},
+      body: JSON.stringify({name, desc})
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch(e) { console.error('autoTranslateText error', e); return null; }
+}
+
+async function autoTranslateItem(itemId) {
+  const it = items.find(i=>i.id===itemId);
+  if (!it) return;
+  const tr = await autoTranslateText(it.name.fr, it.desc.fr);
+  const itNow = items.find(i=>i.id===itemId);
+  if (!tr || !itNow) return;
+  ['en','it','de','zh','ru','es'].forEach(l=>{
+    if (tr[l]) { itNow.name[l] = tr[l].name || itNow.name[l]; itNow.desc[l] = tr[l].desc || itNow.desc[l]; }
+  });
+  autoSaveItems();
+  renderAdminItems(getFilteredAdminItems());
+}
+
+async function autoTranslateCategory(catId) {
+  const cat = cats.find(c=>c.id===catId);
+  if (!cat) return;
+  const tr = await autoTranslateText(cat.name.fr, '');
+  const catNow = cats.find(c=>c.id===catId);
+  if (!tr || !catNow) return;
+  ['en','it','de','zh','ru','es'].forEach(l=>{ if (tr[l]?.name) catNow.name[l] = tr[l].name; });
+  autoSaveItems();
+  renderAdminCats(); renderPlatsCategoryNav(); renderMenu();
+}
+
+async function autoTranslateSubcat(catId, subcatName) {
+  const tr = await autoTranslateText(subcatName, '');
+  const catNow = cats.find(c=>c.id===catId);
+  if (!tr || !catNow) return;
+  if (!catNow.subcatTranslations) catNow.subcatTranslations = {};
+  const entry = {};
+  ['en','it','de','zh','ru','es'].forEach(l=>{ if (tr[l]?.name) entry[l] = tr[l].name; });
+  catNow.subcatTranslations[subcatName] = entry;
+  autoSaveItems();
+  renderMenu();
+}
+
+function renameSubcatTranslation(catId, oldName, newName) {
+  const cat = cats.find(c=>c.id===catId);
+  if (!cat || !cat.subcatTranslations) return;
+  if (cat.subcatTranslations[oldName]) {
+    cat.subcatTranslations[newName] = cat.subcatTranslations[oldName];
+    delete cat.subcatTranslations[oldName];
+  }
+}
+
+function subcatLabel(cat, sc) {
+  const tr = cat.subcatTranslations && cat.subcatTranslations[sc];
+  return (tr && tr[currentLang]) || sc;
+}
+
 function addNewItem(){
   const name=document.getElementById('newItemName').value.trim();
   const desc=document.getElementById('newItemDesc').value.trim();
@@ -2986,6 +3060,7 @@ function addNewItem(){
   document.getElementById('newItemPrice').value='';
   closeAddItemModal();
   renderAdminContent();
+  autoTranslateItem(id);
   autoSaveItems().then(ok=>showToast(ok?'✓ Plat ajouté':'❌ Échec de l\'enregistrement'));
 }
 
@@ -4501,7 +4576,7 @@ function buildSectionTabs(groupCats){
       const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null));
       subcats.forEach(sc => {
         const hasItems = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, sc));
-        if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
+        if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:subcatLabel(c,sc), catId:c.id, subcat:sc});
       });
       if (hasUnassigned) {
         tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
