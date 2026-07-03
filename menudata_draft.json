@@ -257,7 +257,17 @@
       "homeGroup": "food",
       "subcats": [
         "Salut"
-      ]
+      ],
+      "subcatTranslations": {
+        "Salut": {
+          "en": "Hello",
+          "it": "Ciao",
+          "de": "Hallo",
+          "zh": "你好",
+          "ru": "Привет",
+          "es": "Hola"
+        }
+      }
     }
   ],
   "items": [
@@ -3141,6 +3151,32 @@
       "photo": "",
       "archived": false,
       "allergens": []
+    },
+    {
+      "id": "i1783088678353",
+      "cat": "cat_1783080086500",
+      "subcat": "Salut",
+      "name": {
+        "fr": "Test produit",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "D",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "77",
+      "photo": "",
+      "archived": false
     }
   ],
   "upsells": [
