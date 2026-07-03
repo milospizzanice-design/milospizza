@@ -490,15 +490,8 @@ async function loadSalariePlanning(){
 
 
 // ── MODE NFC (badge) ────────────────────────────────────────────────────────
-var AUTH_MODE='pin';
 var nfcReader=null;
 var nfcScanning=false;
-async function loadAuthMode(){
-  try{
-    var r=await db.from('app_config').select('value').eq('key','auth_mode').single();
-    if(r.data&&r.data.value)AUTH_MODE=r.data.value;
-  }catch(e){}
-}
 function startIdleScreen(){
   // Badge par défaut. Sur Android NFC : écran "Démarrer" (geste initial requis par Chrome).
   // Sur appareil sans NFC (iPhone) : recherche par nom directement (le PIN passe par le choix du nom).
@@ -582,13 +575,13 @@ function nfcUsePin(){
   ouvrirPinName();
 }
 function backToIdleOrNfc(){
-  // Retour à l'écran d'accueil selon le mode
+  // Retour à l'écran d'accueil selon la disponibilité NFC de l'appareil
   pin='';upd&&upd();
-  if(AUTH_MODE==='nfc'&&('NDEFReader' in window)){
+  if('NDEFReader' in window){
     ss('nfc');
     var s=document.getElementById('nfc-status');if(s)s.innerHTML='';
   }else{
-    ss('idle');
+    ouvrirPinName();
   }
 }
 

@@ -335,21 +335,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="fr"><label class="fl2">D&#233;lai minimum (minutes)</label><input type="number" class="fi" id="pm-delai-badge" step="5" min="0" value="60" onchange="saveDelaiBadge()"></div>
     </div>
     <div class="card">
-      <div class="sec-title">&#128273; Mode d'authentification</div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:10px">Choisissez comment les salari&#233;s s'identifient sur la tablette pour badger.</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--bd);border-radius:10px;cursor:pointer" id="authmode-pin-lbl">
-          <input type="radio" name="authmode" value="pin" onchange="saveAuthMode('pin')" style="width:18px;height:18px;flex-shrink:0">
-          <div><div style="font-weight:600;font-size:13px">Code PIN</div><div style="font-size:11px;color:var(--txm)">Le salari&#233; saisit son code personnel à 4 chiffres.</div></div>
-        </label>
-        <label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--bd);border-radius:10px;cursor:pointer" id="authmode-nfc-lbl">
-          <input type="radio" name="authmode" value="nfc" onchange="saveAuthMode('nfc')" style="width:18px;height:18px;flex-shrink:0">
-          <div><div style="font-weight:600;font-size:13px">Badge NFC</div><div style="font-size:11px;color:var(--txm)">Le salari&#233; approche son badge sans contact. (Android uniquement)</div></div>
-        </label>
-      </div>
-      <div id="authmode-info" style="font-size:11px;color:#92400E;background:#FEF3C7;border-radius:8px;padding:8px;margin-top:8px;display:none"></div>
-    </div>
-    <div class="card">
       <div class="sec-title">&#128101; Secteurs</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;align-items:center;gap:8px"><span style="background:#FEE2E2;color:#991B1B;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Cuisine</span><span style="font-size:12px;color:var(--txm)">Pizzaiolo, Après cuisson, Labo, Barman</span></div>
