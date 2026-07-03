@@ -2045,7 +2045,7 @@ function openEditCatModal(catId){
     </div>
     <div style="display:flex;gap:0.4rem;margin-top:0.8rem;flex-wrap:wrap;">
       <button class="aic-btn archive" onclick="toggleArchiveCat('${catId}');closeEditCatModal();">${cat.archived?'↩ Réactiver':'🌙 Archiver'}</button>
-      <button class="aic-btn delete" onclick="deleteCategoryPermanently('${catId}');closeEditCatModal();">🗑️ Supprimer</button>
+      <button class="aic-btn delete" onclick="deleteCategoryPermanently('${catId}');">🗑️ Supprimer</button>
     </div>
     <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
       <button class="add-btn" style="background:#aaa;flex:1;" onclick="closeEditCatModal()">Annuler</button>
@@ -2083,7 +2083,7 @@ function openEditSubcatModal(catId, scName){
       ${cats.filter(c=>!c.archived&&c.id!==catId).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('')}
     </select>
     <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-      <button class="aic-btn delete" onclick="deleteSubcat('${catId}','${scName.replace(/'/g,"\\'")}');closeEditSubcatModal();">✕ Supprimer</button>
+      <button class="aic-btn delete" onclick="deleteSubcat('${catId}','${scName.replace(/'/g,"\\'")}');">✕ Supprimer</button>
     </div>
     <div style="display:flex;gap:0.5rem;margin-top:0.4rem;">
       <button class="add-btn" style="background:#aaa;flex:1;" onclick="closeEditSubcatModal()">Annuler</button>
@@ -2356,6 +2356,7 @@ function deleteSubcat(catId, subcatName){
   cat.subcats = cat.subcats.filter(s=>s!==subcatName);
   if (cat.subcatTranslations) delete cat.subcatTranslations[subcatName];
   items.forEach(i=>{ if(i.cat===catId && i.subcat===subcatName) i.subcat=''; });
+  closeEditSubcatModal();
   renderAdminCats();
   renderPlatsCategoryNav();
   renderAdminItems(getFilteredAdminItems());
@@ -2911,6 +2912,7 @@ function deleteCategoryPermanently(id){
   }
   if(!confirm(`Supprimer définitivement "${c.name.fr}" ? Cette action est irréversible.`)) return;
   cats = cats.filter(x=>x.id!==id);
+  closeEditCatModal();
   renderAdminCats();
   renderPlatsCategoryNav();
   autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie supprimée définitivement':'❌ Échec de l\'enregistrement'));
