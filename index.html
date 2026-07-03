@@ -2337,7 +2337,12 @@ function addSubcatToCategory(catId){
   renderPlatsCategoryNav();
   autoSaveItems().then(()=>{});
   autoTranslateSubcat(catId, val);
-  openBulkAssignModal(catId, val);
+  showToast('✓ Sous-catégorie créée : '+val);
+  try {
+    openBulkAssignModal(catId, val);
+  } catch(e) {
+    console.error('openBulkAssignModal error', e);
+  }
 }
 
 function deleteSubcat(catId, subcatName){
