@@ -576,6 +576,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <h2>⚙️ Administration</h2>
       <div style="display:flex;gap:0.5rem;align-items:center;">
         <button onclick="saveAll()" title="Enregistrer" style="background:var(--creme);border:1.5px solid var(--vert);color:var(--vert);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">💾</button>
+        <button onclick="bulkTranslateMissing()" title="Traduire tout ce qui manque" style="background:var(--creme);border:1.5px solid #4a7fb5;color:#4a7fb5;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">🌍</button>
         <button onclick="previewSite()" title="Aperçu" style="background:var(--creme);border:1.5px solid var(--rouge);color:var(--rouge);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">👁</button>
         <button class="publish-btn" onclick="publishDraft()" title="Publier" style="background:var(--vert);border:none;color:#fff;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">✅</button>
         <button onclick="adminLogout()" title="Se déconnecter" style="background:var(--creme);border:1.5px solid #aaa;color:#888;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">🚪</button>
@@ -3056,6 +3057,72 @@ function subcatLabel(cat, sc) {
   return (tr && tr[currentLang]) || sc;
 }
 
+const TRANSLATE_LANGS = ['en','it','de','zh','ru','es'];
+
+function itemMissingTranslation(it) {
+  return TRANSLATE_LANGS.some(l => (it.name.fr && !it.name[l]) || (it.desc && it.desc.fr && !it.desc[l]));
+}
+function catMissingTranslation(c) {
+  return TRANSLATE_LANGS.some(l => c.name.fr && !c.name[l]);
+}
+function subcatMissingTranslation(cat, sc) {
+  const tr = cat.subcatTranslations && cat.subcatTranslations[sc];
+  return TRANSLATE_LANGS.some(l => !tr || !tr[l]);
+}
+
+async function bulkTranslateMissing() {
+  const missingItems = items.filter(it => !it.archived && itemMissingTranslation(it));
+  const missingCats = cats.filter(c => !c.archived && catMissingTranslation(c));
+  const subcatJobs = [];
+  cats.forEach(c => {
+    (c.subcats || []).forEach(sc => { if (subcatMissingTranslation(c, sc)) subcatJobs.push({catId: c.id, sc}); });
+  });
+
+  const total = missingItems.length + missingCats.length + subcatJobs.length;
+  if (total === 0) { showToast('✓ Tout est déjà traduit !'); return; }
+  if (!confirm(`${total} élément(s) à traduire (${missingItems.length} plat(s), ${missingCats.length} catégorie(s), ${subcatJobs.length} sous-catégorie(s)).\n\nCela peut prendre plusieurs minutes. Continuer ?`)) return;
+
+  let done = 0;
+  showToast(`🌍 Traduction 0/${total}...`);
+
+  for (const c of missingCats) {
+    const tr = await autoTranslateText(c.name.fr, '');
+    if (tr) TRANSLATE_LANGS.forEach(l => { if (tr[l]?.name) c.name[l] = tr[l].name; });
+    done++;
+    showToast(`🌍 Traduction ${done}/${total}...`);
+    await new Promise(r=>setTimeout(r, 300));
+  }
+
+  for (const {catId, sc} of subcatJobs) {
+    const cat = cats.find(x=>x.id===catId);
+    if (!cat) { done++; continue; }
+    const tr = await autoTranslateText(sc, '');
+    if (tr) {
+      if (!cat.subcatTranslations) cat.subcatTranslations = {};
+      const entry = {};
+      TRANSLATE_LANGS.forEach(l => { if (tr[l]?.name) entry[l] = tr[l].name; });
+      cat.subcatTranslations[sc] = entry;
+    }
+    done++;
+    showToast(`🌍 Traduction ${done}/${total}...`);
+    await new Promise(r=>setTimeout(r, 300));
+  }
+
+  for (const it of missingItems) {
+    const tr = await autoTranslateText(it.name.fr, it.desc.fr);
+    if (tr) TRANSLATE_LANGS.forEach(l => {
+      if (tr[l]) { it.name[l] = tr[l].name || it.name[l]; it.desc[l] = tr[l].desc || it.desc[l]; }
+    });
+    done++;
+    showToast(`🌍 Traduction ${done}/${total}...`);
+    await new Promise(r=>setTimeout(r, 300));
+  }
+
+  renderAdminContent();
+  renderMenu();
+  autoSaveItems().then(ok=>showToast(ok ? `✓ ${total} élément(s) traduit(s) et enregistrés !` : '❌ Traduit mais échec de l\'enregistrement — retente "Enregistrer tout"'));
+}
+
 function addNewItem(){
   const name=document.getElementById('newItemName').value.trim();
   const desc=document.getElementById('newItemDesc').value.trim();
@@ -3226,7 +3293,7 @@ function addNewCat(){
   const name=document.getElementById('newCatName').value.trim();
   if(!name)return;
   const id='cat_'+Date.now();
-  const empty={fr:name,en:name,it:name,de:name,zh:name,ru:name};
+  const empty={fr:name,en:name,it:name,de:name,zh:name,ru:name,es:name};
   const homeGroup = window._pendingNewCatSection || 'food';
   window._pendingNewCatSection = null;
   cats.push({id,name:empty,archived:false,homeGroup});
@@ -3236,6 +3303,7 @@ function addNewCat(){
   closeAddCatModal();
   renderAdminContent();
   autoSaveItems().then(()=>{});
+  autoTranslateCategory(id);
   openBulkAssignModal(id, null);
 }
 
