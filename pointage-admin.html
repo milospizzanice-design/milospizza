@@ -173,46 +173,104 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <button onclick="doLogout()" title="Se déconnecter" style="margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;white-space:nowrap">↪ Déconnexion</button>
 </div>
 <div class="tabs">
-  <div class="tab" onclick="goTab('pt',this)">Pointages</div>
-  <div class="tab" onclick="goTab('pr',this)">Pr&#233;sences</div>
+  <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
   <div class="tab on" onclick="goTab('pl',this)">Planning</div>
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
-  <div class="tab" onclick="goTab('ab',this)">Demandes</div>
-  <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
   <div class="tab" onclick="goTab('pm',this)">&#9881; Paramètres</div>
 </div>
 <div class="page">
-  <div id="pt" style="display:none">
-    <div id="alc"></div>
-    <div class="stats">
-      <div class="stat"><div class="sv" id="sp">-</div><div class="sl">Pr&#233;sents</div></div>
-      <div class="stat"><div class="sv" id="spt">-</div><div class="sl">Pointages</div></div>
-      <div class="stat"><div class="sv" id="sal">-</div><div class="sl">Alertes</div></div>
+  <div id="rc" style="display:none">
+    <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd);overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <div class="subtab on" id="rcsubtab-pt" onclick="rcSubTab('pt')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx);white-space:nowrap">Pointages</div>
+      <div class="subtab" id="rcsubtab-pr" onclick="rcSubTab('pr')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Pr&#233;sences</div>
+      <div class="subtab" id="rcsubtab-recap" onclick="rcSubTab('recap')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">R&#233;cap</div>
+      <div class="subtab" id="rcsubtab-ab" onclick="rcSubTab('ab')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Demandes</div>
     </div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-      <select class="fs" id="fr" onchange="loadPt()">
-        <option value="all">Tous restaurants</option>
-        <option value="port">Port</option>
-        <option value="dabray">Dabray</option>
-      </select>
-      <select class="fs" id="fe" onchange="loadPt()"><option value="all">Tous salari&#233;s</option></select>
-      <select class="fs" id="fd" onchange="loadPt()">
-        <option value="today">Aujourd'hui</option>
-        <option value="yesterday">Hier</option>
-        <option value="week" selected>Cette semaine</option>
-        <option value="month">Ce mois</option>
-      </select>
-      <button class="btn bs sm" onclick="expCSV()">&#8595; CSV</button>
-      <button class="btn bp sm" onclick="openCor()">+ Correction</button>
+
+    <!-- Sous-onglet Pointages -->
+    <div id="rc-pane-pt">
+      <div id="alc"></div>
+      <div class="stats">
+        <div class="stat"><div class="sv" id="sp">-</div><div class="sl">Pr&#233;sents</div></div>
+        <div class="stat"><div class="sv" id="spt">-</div><div class="sl">Pointages</div></div>
+        <div class="stat"><div class="sv" id="sal">-</div><div class="sl">Alertes</div></div>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+        <select class="fs" id="fr" onchange="loadPt()">
+          <option value="all">Tous restaurants</option>
+          <option value="port">Port</option>
+          <option value="dabray">Dabray</option>
+        </select>
+        <select class="fs" id="fe" onchange="loadPt()"><option value="all">Tous salari&#233;s</option></select>
+        <select class="fs" id="fd" onchange="loadPt()">
+          <option value="today">Aujourd'hui</option>
+          <option value="yesterday">Hier</option>
+          <option value="week" selected>Cette semaine</option>
+          <option value="month">Ce mois</option>
+        </select>
+        <button class="btn bs sm" onclick="expCSV()">&#8595; CSV</button>
+        <button class="btn bp sm" onclick="openCor()">+ Correction</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="tbl">
+          <thead><tr><th>Salari&#233;</th><th>Resto</th><th>Type</th><th>Horodatage</th><th>IP</th><th>Mode</th></tr></thead>
+          <tbody id="ptb"><tr><td colspan="7" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr></tbody>
+        </table>
+      </div>
     </div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <table class="tbl">
-        <thead><tr><th>Salari&#233;</th><th>Resto</th><th>Type</th><th>Horodatage</th><th>IP</th><th>Mode</th></tr></thead>
-        <tbody id="ptb"><tr><td colspan="7" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr></tbody>
-      </table>
+
+    <!-- Sous-onglet Présences -->
+    <div id="rc-pane-pr" style="display:none"><div id="prb"></div></div>
+
+    <!-- Sous-onglet Récap -->
+    <div id="rc-pane-recap" style="display:none">
+      <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
+        <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
+        <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option></select>
+        <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
+      </div>
+      <div id="rcb"></div>
+    </div>
+
+    <!-- Sous-onglet Demandes -->
+    <div id="rc-pane-ab" style="display:none">
+      <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd)">
+        <div class="subtab on" id="subtab-dem" onclick="abSubTab('dem')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Abs. demand&#233;es <span id="dem-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
+        <div class="subtab" id="subtab-abs" onclick="abSubTab('abs')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Absences</div>
+        <div class="subtab" id="subtab-aco" onclick="abSubTab('aco')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Acomptes <span id="aco-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
+      </div>
+      <!-- Sous-onglet Demandes -->
+      <div id="ab-pane-dem">
+        <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Demandes de cong&#233;s et absences envoy&#233;es par les salari&#233;s</div>
+        <div id="dem-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
+      </div>
+      <!-- Sous-onglet Absences -->
+      <div id="ab-pane-abs" style="display:none">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <select class="fs" id="abr" onchange="loadAb()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
+          <div style="display:flex;gap:6px">
+            <button class="btn bs sm" onclick="toggleAbsArchive()" id="abs-arch-btn">&#128230; Archives</button>
+            <button class="btn bp sm" onclick="openAb()">+ Absence</button>
+          </div>
+        </div>
+        <div id="abs-arch-info" style="display:none;font-size:11px;color:var(--bx);margin-bottom:8px;text-align:center"></div>
+        <div class="card" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="tbl" style="min-width:560px">
+          <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th><th>Action</th></tr></thead>
+          <tbody id="abb"><tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+      <!-- Sous-onglet Acomptes -->
+      <div id="ab-pane-aco" style="display:none">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--txm)">Demandes d'avance sur salaire (par virement)</div>
+          <button class="btn bs sm" onclick="toggleAcoArchive()" id="aco-arch-btn">&#128230; Historique</button>
+        </div>
+        <div id="aco-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
+      </div>
     </div>
   </div>
-  <div id="pr" style="display:none"><div id="prb"></div></div>
   <div id="pl">
     <div class="plan-rtabs">
       <div class="plan-rtab on" id="plr-port" onclick="switchPlanResto('port',this)">Port</div>
@@ -235,52 +293,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="ptbl-wrap"><table class="ptbl" id="plan-main-tbl"></table></div>
     </div>
     <div id="plan-emp-list"></div>
-  </div>
-  <div id="rc" style="display:none">
-    <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
-      <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
-      <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option></select>
-      <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
-    </div>
-    <div id="rcb"></div>
-  </div>
-  <div id="ab" style="display:none">
-    <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd)">
-      <div class="subtab on" id="subtab-dem" onclick="abSubTab('dem')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Abs. demand&#233;es <span id="dem-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
-      <div class="subtab" id="subtab-abs" onclick="abSubTab('abs')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Absences</div>
-      <div class="subtab" id="subtab-aco" onclick="abSubTab('aco')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Acomptes <span id="aco-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
-    </div>
-    <!-- Sous-onglet Demandes -->
-    <div id="ab-pane-dem">
-      <div style="font-size:12px;color:var(--txm);margin-bottom:12px">Demandes de cong&#233;s et absences envoy&#233;es par les salari&#233;s</div>
-      <div id="dem-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
-    </div>
-    <!-- Sous-onglet Absences -->
-    <div id="ab-pane-abs" style="display:none">
-      <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <select class="fs" id="abr" onchange="loadAb()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
-        <div style="display:flex;gap:6px">
-          <button class="btn bs sm" onclick="toggleAbsArchive()" id="abs-arch-btn">&#128230; Archives</button>
-          <button class="btn bp sm" onclick="openAb()">+ Absence</button>
-        </div>
-      </div>
-      <div id="abs-arch-info" style="display:none;font-size:11px;color:var(--bx);margin-bottom:8px;text-align:center"></div>
-      <div class="card" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table class="tbl" style="min-width:560px">
-        <thead><tr><th>Salari&#233;</th><th>Type</th><th>Du</th><th>Au</th><th>Note</th><th>Justif.</th><th>Action</th></tr></thead>
-        <tbody id="abb"><tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr></tbody>
-      </table>
-      </div>
-    </div>
-    <!-- Sous-onglet Acomptes -->
-    <div id="ab-pane-aco" style="display:none">
-      <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:12px;color:var(--txm)">Demandes d'avance sur salaire (par virement)</div>
-        <button class="btn bs sm" onclick="toggleAcoArchive()" id="aco-arch-btn">&#128230; Historique</button>
-      </div>
-      <div id="aco-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
-    </div>
-
   </div>
   <div id="sa" style="display:none">
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
@@ -637,20 +649,37 @@ function openM(id){
 }
 
 function goTab(name,el){
-  document.querySelectorAll('[id^="pt"],[id="pr"],[id="pl"],[id="rc"],[id="ab"],[id="sa"],[id="dem"]').forEach(function(e){
-    var ids=['pt','pr','pl','rc','ab','sa','dem','au','pm'];
-    if(ids.indexOf(e.id)>=0)e.style.display='none';
+  ['sa','pl','rc','pm'].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.style.display='none';
   });
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
   document.getElementById(name).style.display='block';
   el.classList.add('on');
-  if(name==='pr')loadPr();
   if(name==='pl'){planUpdateLabel();loadPl();}
-  if(name==='rc')loadRc();
-  if(name==='ab')abSubTab('dem');
+  if(name==='rc')rcSubTab(rcCurrentSub);
   if(name==='sa')renderSal();
-  
   if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
+}
+
+// ── Sous-navigation de l'onglet Récap (Pointages/Présences/Récap/Demandes) ──
+var rcCurrentSub='pt';
+function rcSubTab(which){
+  rcCurrentSub=which;
+  var panes={pt:'rc-pane-pt',pr:'rc-pane-pr',recap:'rc-pane-recap',ab:'rc-pane-ab'};
+  var tabs={pt:'rcsubtab-pt',pr:'rcsubtab-pr',recap:'rcsubtab-recap',ab:'rcsubtab-ab'};
+  Object.keys(panes).forEach(function(k){
+    var pane=document.getElementById(panes[k]);
+    var tab=document.getElementById(tabs[k]);
+    if(pane)pane.style.display=(k===which)?'block':'none';
+    if(tab){
+      tab.style.borderBottom=(k===which)?'2px solid var(--bx)':'none';
+      tab.style.color=(k===which)?'var(--bx)':'var(--txm)';
+    }
+  });
+  if(which==='pt')loadPt();
+  if(which==='pr')loadPr();
+  if(which==='recap')loadRc();
+  if(which==='ab')abSubTab('dem');
 }
 
 function getDR(p){
