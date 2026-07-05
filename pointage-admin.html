@@ -295,6 +295,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="plan-emp-list"></div>
   </div>
   <div id="sa" style="display:none">
+    <div class="plan-rtabs">
+      <div class="plan-rtab on" id="salr-port" onclick="switchSalResto('port',this)">Port</div>
+      <div class="plan-rtab" id="salr-dabray" onclick="switchSalResto('dabray',this)">Dabray</div>
+    </div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
       <button class="btn bp" onclick="openAddSal()">+ Ajouter</button>
     </div>
@@ -892,9 +896,16 @@ function planGetWeekDates(){var r=[];for(var i=0;i<7;i++)r.push(planAddD(planWkS
 
 function switchPlanResto(r,el){
   planResto=r;
-  document.querySelectorAll('.plan-rtab').forEach(function(t){t.classList.remove('on');});
+  document.querySelectorAll('#pl .plan-rtab').forEach(function(t){t.classList.remove('on');});
   el.classList.add('on');
   loadPl();
+}
+var salResto='port';
+function switchSalResto(r,el){
+  salResto=r;
+  document.querySelectorAll('#sa .plan-rtab').forEach(function(t){t.classList.remove('on');});
+  el.classList.add('on');
+  renderSal();
 }
 
 function planUpdateLabel(){
@@ -3879,7 +3890,7 @@ async function renderSal(){
   h+='</div>';
   var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
   var SECCOL={cuisine:'#991B1B',salle:'#92400E',livraison:'#065F46'};
-  var actifs=emps.filter(function(e){return !e.archive;});
+  var actifs=emps.filter(function(e){return !e.archive&&e.restaurant_id===salResto;});
   ['cuisine','salle','livraison'].forEach(function(sec){
     var les=actifs.filter(function(e){return (e.secteur||'salle')===sec;});
     if(!les.length)return;
