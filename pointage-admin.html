@@ -213,7 +213,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <table class="tbl">
-          <thead><tr><th>Salari&#233;</th><th>Resto</th><th>Type</th><th>Horodatage</th><th>IP</th><th>Mode</th></tr></thead>
+          <thead><tr><th>Salari&#233;</th><th>Resto</th><th>Type</th><th>Horodatage</th><th>IP</th><th>Mode</th><th>Action</th></tr></thead>
           <tbody id="ptb"><tr><td colspan="7" style="text-align:center;padding:20px;color:#aaa">Chargement...</td></tr></tbody>
         </table>
       </div>
@@ -367,11 +367,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <!-- Modal correction -->
 <div class="mb" id="mc">
   <div class="md">
-    <div class="mdt">Correction manuelle</div>
+    <div class="mdt" id="mc-title">Correction manuelle</div>
+    <input type="hidden" id="cc-orig-id" value="">
     <div class="fr"><label class="fl2">Salari&#233;</label><select class="fi" id="cce"></select></div>
     <div class="fr"><label class="fl2">Type</label><select class="fi" id="cct"><option value="entree">Entr&#233;e</option><option value="sortie">Sortie</option></select></div>
     <div class="fr"><label class="fl2">Date et heure</label><input type="datetime-local" class="fi" id="ccd"></div>
-    <div class="fr"><label class="fl2">Motif</label><select class="fi" id="ccm"><option value="oubli">Oubli badge</option><option value="bug">Bug syst&#232;me</option><option value="correction">Correction horaire</option><option value="autre">Autre</option></select></div>
+    <div class="fr"><label class="fl2">Motif</label><select class="fi" id="ccm"><option value="" selected>-- Choisir un motif --</option><option value="oubli">Oubli badge</option><option value="bug">Bug syst&#232;me</option><option value="correction">Correction horaire</option><option value="autre">Autre</option></select></div>
     <div class="fr"><label class="fl2">Note</label><input type="text" class="fi" id="ccn" placeholder="Ex: parti &#224; 23h selon cam&#233;ra"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mc')">Annuler</button><button class="btn bp" onclick="saveCor()">Enregistrer</button></div>
   </div>
@@ -431,6 +432,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="sal-planning-type"></div>
       <div class="fr" style="margin-top:8px"><label class="fl2">Appliquer à partir du</label><input type="date" class="fi" id="sal-pt-start"></div>
       <button class="btn ba sm" onclick="applyPlanningType()" style="width:100%;margin-top:6px">Générer le planning sur 12 semaines</button>
+    </div>
+    <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px" id="msa-archive-zone">
+      <button type="button" class="btn ba sm" id="msa-archive-btn" onclick="closeM('msa');openArchiveSal(curSal)" style="width:100%">&#128193; Archiver ce salari&#233;</button>
     </div>
     <div class="ma"><button class="btn bs" onclick="closeM('msa')">Annuler</button><button class="btn bp" onclick="saveSal()">Enregistrer</button></div>
   </div>
@@ -771,13 +775,16 @@ function renderPt(){
     var tl=e.type==='entree'?'↗ Entrée':'↙ Sortie';
     var iph=e.ip_ok?'<span class="iok">✓ '+e.ip_address+'</span>':'<span class="iba">⚠ '+e.ip_address+'</span>';
     var md=e.manuel?'<span class="bg sup">Manuel</span>'+(e.motif?'<div style="font-size:9px;color:var(--txm);margin-top:2px">'+e.motif+'</div>':''):'<span style="color:#aaa;font-size:11px">Auto</span>';
-    h+='<tr'+(e.manuel?' style="background:rgba(254,243,199,.35)"':'')+'>';
+    if(e.corrige_de_id)md+='<div style="font-size:9px;color:var(--bx);margin-top:2px">&#8618; Corrige #'+e.corrige_de_id+'</div>';
+    var rowStyle=e.manuel?' style="background:rgba(254,243,199,.35)'+(e.remplace?';opacity:.55':'')+'"':(e.remplace?' style="opacity:.55"':'');
+    h+='<tr'+rowStyle+'>';
     h+='<td><strong style="color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+e.employee_id+')">'+em.prenom+' '+em.nom+'</strong></td>';
     h+='<td><span class="bg '+e.restaurant_id+'">'+rl+'</span></td>';
     h+='<td><span class="bg '+e.type+'">'+tl+'</span></td>';
-    h+='<td style="font-variant-numeric:tabular-nums">'+fmtF(e.timestamp)+'</td>';
+    h+='<td style="font-variant-numeric:tabular-nums'+(e.remplace?';text-decoration:line-through':'')+'">'+fmtF(e.timestamp)+'</td>';
     h+='<td>'+iph+'</td>';
     h+='<td>'+md+'</td>';
+    h+='<td>'+(e.remplace?'<span style="font-size:10px;color:var(--txm)">Remplac&#233;</span>':'<button class="btn bs sm" onclick="openCorEntry('+e.id+')" style="padding:4px 8px;font-size:11px">&#9998;</button>')+'</td>';
     h+='</tr>';
   });
   tb.innerHTML=h;
@@ -813,8 +820,20 @@ function renderAlerts(){
 async function showPh(){}
 
 
-function openCor(){document.getElementById('ccd').value=new Date().toISOString().slice(0,16);openM('mc');}
-function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=new Date().toISOString().slice(0,16);openM('mc');}
+function openCor(){document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
+function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
+function openCorEntry(entryId){
+  var entry=pts.find(function(p){return p.id===entryId;});
+  if(!entry){alert('Pointage introuvable.');return;}
+  document.getElementById('cce').value=entry.employee_id;
+  document.getElementById('cct').value=entry.type;
+  document.getElementById('ccd').value=entry.timestamp.slice(0,16);
+  document.getElementById('ccm').value='';
+  document.getElementById('ccn').value='';
+  document.getElementById('cc-orig-id').value=entryId;
+  document.getElementById('mc-title').textContent='Corriger ce pointage';
+  openM('mc');
+}
 
 async function saveCor(){
   var eid=parseInt(document.getElementById('cce').value);
@@ -822,9 +841,17 @@ async function saveCor(){
   var dt=document.getElementById('ccd').value;
   var motif=document.getElementById('ccm').value;
   var note=document.getElementById('ccn').value;
+  var origId=document.getElementById('cc-orig-id').value;
+  if(!motif){alert('Merci de choisir un motif.');return;}
   var em=emp(eid);
-  var r=await db.from('time_entries').insert({employee_id:eid,restaurant_id:em.restaurant_id,type:type,timestamp:new Date(dt).toISOString(),ip_address:'correction-manuelle',ip_ok:true,photo_b64:null,manuel:true,motif:motif+(note?' - '+note:'')});
+  var payload={employee_id:eid,restaurant_id:em.restaurant_id,type:type,timestamp:new Date(dt).toISOString(),ip_address:'correction-manuelle',ip_ok:true,photo_b64:null,manuel:true,motif:motif+(note?' - '+note:'')};
+  if(origId)payload.corrige_de_id=parseInt(origId);
+  var r=await db.from('time_entries').insert(payload);
   if(r.error){alert('Erreur: '+r.error.message);return;}
+  if(origId){
+    var ru=await db.from('time_entries').update({remplace:true}).eq('id',parseInt(origId));
+    if(ru.error){alert('Le nouveau pointage a bien &#233;t&#233; enregistr&#233;, mais l\u0027ancien n\u0027a pas pu &#234;tre marqu&#233; comme remplac&#233; : '+ru.error.message);}
+  }
   closeM('mc');
   document.getElementById('ccn').value='';
   await loadPt();
@@ -2946,6 +2973,7 @@ function exportIndivPDF(){
 
 
 function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
+  var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
 
 // ── POSTES PAR SALARIÉ ──────────────────────────────────────────────────────
@@ -3267,6 +3295,7 @@ function openEditSal(id){
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
   if(ptStart){if(em&&em.date_debut){ptStart.value=em.date_debut;}else{var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}}
+  var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='block';
   openM('msa');
 }
 
