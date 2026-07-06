@@ -290,7 +290,8 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
   </div>
   
   <div class="pin-card">
-    <div class="pin-title">ENTREZ VOTRE CODE PIN</div>
+    <div class="pin-title">CODE ADMIN UNIQUEMENT</div>
+    <div style="font-size:11px;color:var(--mid,#888);text-align:center;margin:-6px 0 10px;">Salarié ? Utilisez le bouton "Gérer les stocks" dans le pointage.</div>
     <div class="pin-dots">
       <div class="pdot" id="pd1"></div><div class="pdot" id="pd2"></div>
       <div class="pdot" id="pd3"></div><div class="pdot" id="pd4"></div>
@@ -302,6 +303,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
       <button class="pkey pkey-clear" onclick="pClear()">✕</button><button class="pkey" onclick="pk('0')">0</button><button class="pkey pkey-del" onclick="pDel()">⌫</button>
     </div>
     <div class="pin-error" id="pin-error"></div>
+    <div style="text-align:center;margin-top:10px;"><a href="pointage.html" style="font-size:12px;color:#25D366;text-decoration:underline;">← Retour au pointage</a></div>
   </div>
 </div>
 <!-- ADMIN -->
@@ -851,28 +853,54 @@ function pk(k){if(pinBuffer.length>=4)return;pinBuffer+=k;updDots();if(pinBuffer
 function pDel(){pinBuffer=pinBuffer.slice(0,-1);updDots();document.getElementById('pin-error').textContent='';}
 function pClear(){pinBuffer='';updDots();document.getElementById('pin-error').textContent='';}
 function updDots(){for(let i=1;i<=4;i++)document.getElementById('pd'+i).classList.toggle('filled',i<=pinBuffer.length);}
+async function completeLogin(user){
+  currentUser=user;
+  document.getElementById('pin-screen').style.display='none';
+  const rb=document.getElementById('role-badge');
+  rb.textContent=user.name;rb.style.background='#444';rb.style.color='white';rb.style.display='inline-block';
+  document.getElementById('footer').style.display='';
+  await loadStockState(); // récupère les comptages partagés du jour + commandes en retard avant d'afficher
+  setDay(currentDay);
+}
+
+async function categoriesForRoles(roleIds){
+  if(!roleIds||!roleIds.length)return[];
+  try{
+    const r=await sb.from('roles').select('id,stock_categories').in('id',roleIds);
+    if(r.error){console.error('categoriesForRoles',r.error);return[];}
+    const set=new Set();
+    (r.data||[]).forEach(function(ro){(ro.stock_categories||[]).forEach(function(c){set.add(c);});});
+    return Array.from(set);
+  }catch(e){console.error('categoriesForRoles',e);return[];}
+}
+
+// Connexion automatique via la session déposée par pointage.html (badge/PIN pointage -> rôles -> catégories stocks)
+async function tryAutoLogin(){
+  let session=null;
+  try{session=JSON.parse(localStorage.getItem('rg_session')||'null');}catch(e){}
+  if(!session||session.restaurant!==RESTAURANT_ID)return false;
+  const ageH=(Date.now()-new Date(session.at).getTime())/3600000;
+  if(!(ageH>=0)||ageH>16)return false;
+  const cats=await categoriesForRoles(session.roles||[]);
+  if(!cats.length){
+    document.getElementById('pin-error').textContent='Aucun rôle stocks configuré pour '+session.nom+' — voir Admin.';
+    return false;
+  }
+  await completeLogin({name:session.nom,cats:cats});
+  return true;
+}
+
 async function checkPin(){
   try{
     if(pinBuffer===ADMIN_PIN){pinBuffer='';updDots();document.getElementById('pin-screen').style.display='none';openAdmin();return;}
-    if(!DB.users||typeof DB.users!=='object'){DB.users=JSON.parse(JSON.stringify(DEFAULT_DB.users));saveDB();}
-    const user=DB.users[pinBuffer];
-    if(user){
-      currentUser=user;
-      document.getElementById('pin-screen').style.display='none';
-      const rb=document.getElementById('role-badge');
-      rb.textContent=user.name;rb.style.background='#444';rb.style.color='white';rb.style.display='inline-block';
-      document.getElementById('footer').style.display='';
-      await loadStockState(); // récupère les comptages partagés du jour + commandes en retard avant d'afficher
-      setDay(currentDay);
-    } else {
-      document.getElementById('pin-error').textContent='Code incorrect — réessayez';
-      pinBuffer='';updDots();
-    }
+    pinBuffer='';updDots();
+    document.getElementById('pin-error').textContent='Merci de vous connecter via le pointage (bouton "Gérer les stocks").';
   }catch(e){document.getElementById('pin-error').textContent='Erreur: '+e.message;pinBuffer='';updDots();}
 }
 function logout(){
   // STATE n'est plus remis à zéro ici : c'est un état partagé entre salariés (persisté côté serveur),
   // pas une donnée de session individuelle. Il sera rechargé au prochain login via loadStockState().
+  try{localStorage.removeItem('rg_session');}catch(e){}
   currentUser=null;pinBuffer='';updDots();
   document.getElementById('pin-error').textContent='';
   document.getElementById('role-badge').style.display='none';
@@ -2109,6 +2137,7 @@ document.querySelectorAll('.day-btn').forEach((b,i)=>b.classList.toggle('active'
 document.getElementById('day-badge').textContent=DAYS_FR[currentDay];
 checkFirstLaunch();
 applyInventoryMode();
+tryAutoLogin();
 
 // Scroll to top button
 window.addEventListener('scroll',function(){

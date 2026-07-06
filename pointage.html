@@ -829,10 +829,15 @@ function initAbsDates(){
   };
 }
 function menuStocks(){
-  // Dépose une trace de session pour une future fusion d'identité avec les fichiers stocks
-  // (aujourd'hui, l'employé doit encore taper son PIN stocks — voir note de livraison)
+  // Session lue par les fichiers stocks : identité + rôles -> plus besoin de PIN séparé.
   try{
-    localStorage.setItem('rg_session',JSON.stringify({id:emp.id,nom:emp.prenom+' '+emp.nom,restaurant:RESTAURANT_ID,at:new Date().toISOString()}));
+    localStorage.setItem('rg_session',JSON.stringify({
+      id:emp.id,
+      nom:emp.prenom+' '+emp.nom,
+      restaurant:RESTAURANT_ID,
+      roles:Array.isArray(emp.roles)?emp.roles:[],
+      at:new Date().toISOString()
+    }));
   }catch(e){}
   var url=RESTAURANT_ID==='dabray'?'milos-pizza-dabray.html':'milos-pizza-port.html';
   window.open(url,'_blank');
