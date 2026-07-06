@@ -188,6 +188,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
   html,body{font-size:15px;-webkit-text-size-adjust:none;}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <header>
@@ -337,6 +338,95 @@ const SK='milos_port_v3';
 const ADMIN_PIN='1704';
 function loadDB(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}return null;}
 function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){console.error('saveDB error',e);}}
+
+// ══ SYNC STOCKS (Supabase — partagé entre salariés/jours, même projet que pointage.html) ══
+const RESTAURANT_ID='port';
+const SURL='https://kkfccfipmxnsiohjxfdy.supabase.co';
+const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZmNjZmlwbXhuc2lvaGp4ZmR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjgwNjcsImV4cCI6MjA5Njg0NDA2N30.cMp5VhkkzSN6i04fJD1B6zVuDfMOHo8GfD91_Q6Rk-U';
+const sb=supabase.createClient(SURL,SKEY);
+let envoisEnRetard={}; // {fournisseurId: 'YYYY-MM-DD' la plus ancienne date en brouillon}
+
+function effectiveDateStr(){
+  const now=new Date();
+  const d=new Date(now);
+  if(now.getHours()<5)d.setDate(d.getDate()-1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+async function loadStockState(){
+  try{
+    const r=await sb.from('stock_etat').select('produit_id,valeur').eq('restaurant_id',RESTAURANT_ID);
+    if(r.error){console.error('loadStockState',r.error);return;}
+    STATE={};
+    (r.data||[]).forEach(function(row){STATE[row.produit_id]=row.valeur;});
+  }catch(e){console.error('loadStockState',e);}
+  await loadEnvoisEnRetard();
+}
+
+async function loadEnvoisEnRetard(){
+  try{
+    const today=effectiveDateStr();
+    const r=await sb.from('stock_envois').select('fournisseur_id,date').eq('restaurant_id',RESTAURANT_ID).eq('statut','brouillon').lt('date',today);
+    envoisEnRetard={};
+    if(r.error){console.error('loadEnvoisEnRetard',r.error);return;}
+    (r.data||[]).forEach(function(row){
+      if(!envoisEnRetard[row.fournisseur_id]||row.date<envoisEnRetard[row.fournisseur_id])envoisEnRetard[row.fournisseur_id]=row.date;
+    });
+  }catch(e){console.error('loadEnvoisEnRetard',e);}
+}
+
+async function sbUpsertEtat(produitId,fournisseurId,valeur,empNom){
+  try{
+    await sb.from('stock_etat').upsert({restaurant_id:RESTAURANT_ID,produit_id:produitId,fournisseur_id:fournisseurId,valeur:String(valeur),maj_par_nom:empNom,maj_at:new Date().toISOString()},{onConflict:'restaurant_id,produit_id'});
+  }catch(e){console.error('sbUpsertEtat',e);}
+}
+
+async function sbInsertAudit(produitId,fournisseurId,valeur,empNom){
+  try{
+    await sb.from('stock_audit').insert({restaurant_id:RESTAURANT_ID,produit_id:produitId,fournisseur_id:fournisseurId,valeur:String(valeur),employee_nom:empNom});
+  }catch(e){console.error('sbInsertAudit',e);}
+}
+
+async function ensureEnvoiOuvert(fournisseurId){
+  if(!fournisseurId)return;
+  try{
+    const today=effectiveDateStr();
+    const r=await sb.from('stock_envois').select('*').eq('restaurant_id',RESTAURANT_ID).eq('fournisseur_id',fournisseurId).order('date',{ascending:false}).limit(1);
+    if(r.error){console.error('ensureEnvoiOuvert',r.error);return;}
+    const last=r.data&&r.data[0];
+    if(!last){await sb.from('stock_envois').insert({restaurant_id:RESTAURANT_ID,fournisseur_id:fournisseurId,date:today,statut:'brouillon'});return;}
+    if(last.statut==='brouillon')return;
+    if(last.statut==='envoyee'&&last.date===today){
+      await sb.from('stock_envois').update({statut:'brouillon'}).eq('restaurant_id',RESTAURANT_ID).eq('fournisseur_id',fournisseurId).eq('date',today);
+      return;
+    }
+    await sb.from('stock_envois').insert({restaurant_id:RESTAURANT_ID,fournisseur_id:fournisseurId,date:today,statut:'brouillon'});
+  }catch(e){console.error('ensureEnvoiOuvert',e);}
+}
+
+async function markEnvoye(fournisseurId){
+  if(!fournisseurId)return;
+  try{
+    const empNom=(currentUser&&currentUser.name)?currentUser.name:'—';
+    const r=await sb.from('stock_envois').select('*').eq('restaurant_id',RESTAURANT_ID).eq('fournisseur_id',fournisseurId).eq('statut','brouillon').order('date',{ascending:true}).limit(1);
+    if(r.error){console.error('markEnvoye',r.error);return;}
+    const row=r.data&&r.data[0];
+    if(!row)return;
+    await sb.from('stock_envois').update({statut:'envoyee',envoyee_par_nom:empNom,envoyee_at:new Date().toISOString()}).eq('restaurant_id',RESTAURANT_ID).eq('fournisseur_id',fournisseurId).eq('date',row.date);
+    delete envoisEnRetard[fournisseurId];
+  }catch(e){console.error('markEnvoye',e);}
+}
+
+function syncStock(id){
+  const p=DB.products.find(function(x){return x.id===id;});
+  if(!p)return;
+  const val=STATE[id];
+  const empNom=(currentUser&&currentUser.name)?currentUser.name:'—';
+  sbUpsertEtat(id,p.sup,val,empNom);
+  sbInsertAudit(id,p.sup,val,empNom);
+  const st=getStatus(p);
+  if(st.order||st.rupture)ensureEnvoiOuvert(p.sup);
+}
 
 const RUPTURE_KEY=SK+'_ruptures';
 function saveRuptures(list){
@@ -761,7 +851,7 @@ function pk(k){if(pinBuffer.length>=4)return;pinBuffer+=k;updDots();if(pinBuffer
 function pDel(){pinBuffer=pinBuffer.slice(0,-1);updDots();document.getElementById('pin-error').textContent='';}
 function pClear(){pinBuffer='';updDots();document.getElementById('pin-error').textContent='';}
 function updDots(){for(let i=1;i<=4;i++)document.getElementById('pd'+i).classList.toggle('filled',i<=pinBuffer.length);}
-function checkPin(){
+async function checkPin(){
   try{
     if(pinBuffer===ADMIN_PIN){pinBuffer='';updDots();document.getElementById('pin-screen').style.display='none';openAdmin();return;}
     if(!DB.users||typeof DB.users!=='object'){DB.users=JSON.parse(JSON.stringify(DEFAULT_DB.users));saveDB();}
@@ -772,6 +862,7 @@ function checkPin(){
       const rb=document.getElementById('role-badge');
       rb.textContent=user.name;rb.style.background='#444';rb.style.color='white';rb.style.display='inline-block';
       document.getElementById('footer').style.display='';
+      await loadStockState(); // récupère les comptages partagés du jour + commandes en retard avant d'afficher
       setDay(currentDay);
     } else {
       document.getElementById('pin-error').textContent='Code incorrect — réessayez';
@@ -780,7 +871,9 @@ function checkPin(){
   }catch(e){document.getElementById('pin-error').textContent='Erreur: '+e.message;pinBuffer='';updDots();}
 }
 function logout(){
-  currentUser=null;pinBuffer='';STATE={};updDots();
+  // STATE n'est plus remis à zéro ici : c'est un état partagé entre salariés (persisté côté serveur),
+  // pas une donnée de session individuelle. Il sera rechargé au prochain login via loadStockState().
+  currentUser=null;pinBuffer='';updDots();
   document.getElementById('pin-error').textContent='';
   document.getElementById('role-badge').style.display='none';
   document.getElementById('pin-screen').style.display='flex';
@@ -893,16 +986,18 @@ function adjP(id,d){
   el.value=newVal;
   STATE[id]=newVal;
   recalc();
+  syncStock(id);
 }
 function onIn(id,sid){
   const el=document.getElementById('si-'+sid);
   if(el)STATE[id]=parseFloat(el.value||0);
   recalc();
+  syncStock(id);
 }
-function setTwo(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){r.querySelectorAll('.tbtn').forEach((b,i)=>{b.className='tbtn'+(i===0&&v==='ok'?' t-ok':i===1&&v==='cmd'?' t-cmd':'');});}recalc();}
-function setLvl(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.lbtn');bs[0].className='lbtn'+(v==='ok'?' lv-ok':'');bs[1].className='lbtn'+(v==='low'?' lv-low':'');bs[2].className='lbtn'+(v==='out'?' lv-out':'');}recalc();}
-function setYN(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.ybtn');bs[0].className='ybtn'+(v==='oui'?' y-ok':'');bs[1].className='ybtn'+(v==='non'?' y-cmd':'');}recalc();}
-function setRup(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.rbtn');bs[0].className='rbtn'+(v==='ok'?' r-ok':'');bs[1].className='rbtn'+(v==='low'?' r-low':'');bs[2].className='rbtn'+(v==='rup'?' r-rup':'');}recalc();}
+function setTwo(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){r.querySelectorAll('.tbtn').forEach((b,i)=>{b.className='tbtn'+(i===0&&v==='ok'?' t-ok':i===1&&v==='cmd'?' t-cmd':'');});}recalc();syncStock(id);}
+function setLvl(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.lbtn');bs[0].className='lbtn'+(v==='ok'?' lv-ok':'');bs[1].className='lbtn'+(v==='low'?' lv-low':'');bs[2].className='lbtn'+(v==='out'?' lv-out':'');}recalc();syncStock(id);}
+function setYN(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.ybtn');bs[0].className='ybtn'+(v==='oui'?' y-ok':'');bs[1].className='ybtn'+(v==='non'?' y-cmd':'');}recalc();syncStock(id);}
+function setRup(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id));if(r){const bs=r.querySelectorAll('.rbtn');bs[0].className='rbtn'+(v==='ok'?' r-ok':'');bs[1].className='rbtn'+(v==='low'?' r-low':'');bs[2].className='rbtn'+(v==='rup'?' r-rup':'');}recalc();syncStock(id);}
 
 // ══ STATUT ══
 function getStatus(p){
@@ -978,7 +1073,10 @@ function renderDispatch(){
     SUPS_ACTIVE_TODAY.push(id);
     const btn=document.createElement('button');
     btn.className='dbtn';btn.id='dbtn-'+id;btn.style.background=sup.color;btn.onclick=()=>checkAndOpenModal(id);
-    btn.innerHTML=`${sup.name.split('\u2192')[0].trim().split(' ')[0].substring(0,8).toUpperCase()}<div class="dc" id="dc-${id}">0</div>`;
+    const retard=envoisEnRetard[id];
+    const retardTag=retard?`<div style="font-size:8px;color:#FFE082;font-weight:700;">⚠️ en retard depuis le ${retard.split('-').reverse().join('/')}</div>`:'';
+    btn.title=retard?'Commande non envoyée depuis le '+retard:'';
+    btn.innerHTML=`${sup.name.split('\u2192')[0].trim().split(' ')[0].substring(0,8).toUpperCase()}<div class="dc" id="dc-${id}">0</div>${retardTag}`;
     grid.appendChild(btn);
   });
   const all=document.createElement('button');
@@ -1113,7 +1211,7 @@ function openModal(sup){
     } else {
       var txt=buildWA(sup);
       var url='https://wa.me/?text='+encodeURIComponent(txt);
-      waBtn.innerHTML='<a href="'+url+'" target="_blank" rel="noopener" class="btn-wa" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box;" onclick="setTimeout(closeModal,300)">📤 OUVRIR WHATSAPP</a>';
+      waBtn.innerHTML='<a href="'+url+'" target="_blank" rel="noopener" class="btn-wa" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box;" onclick="markEnvoyeForStep(\''+sup+'\');setTimeout(closeModal,300)">📤 OUVRIR WHATSAPP</a>';
     }
   }
   document.getElementById('modal').classList.add('open');
@@ -1255,6 +1353,14 @@ function startWizard(){
 }
 
 
+function markEnvoyeForStep(sup){
+  markEnvoye(sup);
+  if(sup==='dabray'){
+    Object.keys(DB.suppliers).forEach(function(s){
+      if(DB.suppliers[s]&&DB.suppliers[s].mergeIntoDabray)markEnvoye(s);
+    });
+  }
+}
 function sendCurrent(){
   if(currentSup==='all'){
     closeModal();
@@ -1264,6 +1370,7 @@ function sendCurrent(){
     const txt=buildWA(currentSup);
     // Ouvrir WA avant de fermer le modal (iOS exige action directe dans le tap)
     window.open('https://wa.me/?text='+encodeURIComponent(txt), '_blank');
+    markEnvoyeForStep(currentSup);
     closeModal();
   }
 }
@@ -1303,6 +1410,7 @@ function showWizardStep(){
       var link=document.getElementById('wiz-wa-link');
       if(link){
         link.addEventListener('click',function(){
+          markEnvoyeForStep(step.sup);
           setTimeout(function(){
             wizardIdx++;
             if(wizardIdx<wizardQueue.length) showWizardStep();

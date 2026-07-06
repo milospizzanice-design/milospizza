@@ -170,6 +170,11 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cl">Demande d'acompte</div>
         <div class="cs">Avance sur salaire</div>
       </div>
+      <div class="cbtn" onclick="menuStocks()">
+        <div class="ci">&#128230;</div>
+        <div class="cl">G&eacute;rer les stocks</div>
+        <div class="cs">Compter, commander</div>
+      </div>
       <button class="canc" onclick="reset()" style="margin-top:8px">D&#233;connexion</button>
     </div>
     
@@ -822,6 +827,15 @@ function initAbsDates(){
     if(at.value<af.value)at.value=af.value;
     setTimeout(function(){try{at.focus();if(at.showPicker)at.showPicker();}catch(e){}},100);
   };
+}
+function menuStocks(){
+  // Dépose une trace de session pour une future fusion d'identité avec les fichiers stocks
+  // (aujourd'hui, l'employé doit encore taper son PIN stocks — voir note de livraison)
+  try{
+    localStorage.setItem('rg_session',JSON.stringify({id:emp.id,nom:emp.prenom+' '+emp.nom,restaurant:RESTAURANT_ID,at:new Date().toISOString()}));
+  }catch(e){}
+  var url=RESTAURANT_ID==='dabray'?'milos-pizza-dabray.html':'milos-pizza-port.html';
+  window.open(url,'_blank');
 }
 function menuAcompte(){
   acoEmp=emp;
