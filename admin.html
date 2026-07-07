@@ -437,6 +437,14 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <label class="fl2">R&#244;les</label>
       <div id="sal-roles-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
     </div>
+    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
+      <label class="fl2">Personnalisation stocks (optionnel)</label>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">Ajuste l'acc&#232;s stocks de ce salari&#233; en plus de ce que donnent ses r&#244;les.</div>
+      <div style="font-size:10px;font-weight:700;color:#166534;margin-bottom:2px">+ Ajouter des cat&#233;gories</div>
+      <div id="sal-cats-add-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:2px">- Retirer des cat&#233;gories (m&#234;me si le r&#244;le les donne)</div>
+      <div id="sal-cats-remove-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
     <div class="fr">
       <label class="fl2">Badge NFC (UID)</label>
       <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace" oninput="cleanBadgeUid(this)">
@@ -1817,6 +1825,15 @@ function closeQrScanner(){
 
 // ── GESTION DES RÔLES ───────────────────────────────────────────────────────
 var rolesData=[];var roleEditId=null;var restoEditId=null;
+var STOCK_CATS_CANONICAL=[
+  {id:'boissons-emporter',label:'🥤 Boissons à emporter'},
+  {id:'boissons-place',label:'🍷 Boissons sur place'},
+  {id:'epicerie',label:'🍽 Épicerie'},
+  {id:'fromages',label:'🧀 Fromages & Frais'},
+  {id:'charcuterie',label:'🥩 Charcuterie & Cuissons'},
+  {id:'glaces',label:'🍦 Glaces'},
+  {id:'hygiene',label:'🧴 Hygiène'}
+];
 var restosData=[];
 var RESTAURANT_FILES={port:'milos-pizza-port.html',dabray:'milos-pizza-dabray.html'};
 async function loadRestaurants(){
@@ -1898,6 +1915,7 @@ function onGlobalRestoChange(){
   var iframe=document.getElementById('stock-iframe');
   var warn=document.getElementById('stock-nofile-warning');
   if(file){
+    try{localStorage.setItem('rg_admin_session',JSON.stringify({at:new Date().toISOString()}));}catch(e){}
     if(iframe){iframe.style.display='block';iframe.src=file;}
     if(warn)warn.style.display='none';
   }else{
@@ -1906,16 +1924,6 @@ function onGlobalRestoChange(){
   }
 }
 async function loadRoles(){
-  var STOCK_CATS_CANONICAL=[
-    {id:'boissons-emporter',label:'🥤 Boissons à emporter'},
-    {id:'boissons-place',label:'🍷 Boissons sur place'},
-    {id:'epicerie',label:'🍽 Épicerie'},
-    {id:'fromages',label:'🧀 Fromages & Frais'},
-    {id:'charcuterie',label:'🥩 Charcuterie & Cuissons'},
-    {id:'glaces',label:'🍦 Glaces'},
-    {id:'hygiene',label:'🧴 Hygiène'}
-  ];
-  window.STOCK_CATS_CANONICAL=STOCK_CATS_CANONICAL;
   var r=await db.from('roles').select('*').order('nom');
   rolesData=r.data||[];
   var box=document.getElementById('pm-roles');
@@ -3132,7 +3140,7 @@ function exportIndivPDF(){
 }
 
 
-function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
+function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalCatsOverrides(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
 
@@ -3297,6 +3305,41 @@ async function applyPlanningType(){
 
 // ── RÔLES DU SALARIÉ (attribution) ──────────────────────────────────────────
 var tmpSalRoles=[];
+var tmpSalCatsAdd=[];
+var tmpSalCatsRemove=[];
+function renderSalCatsOverrides(salId){
+  if(salId){
+    var em2=emp(salId);
+    tmpSalCatsAdd=(em2&&em2.stock_cats_add)?(Array.isArray(em2.stock_cats_add)?em2.stock_cats_add.slice():[]):[];
+    tmpSalCatsRemove=(em2&&em2.stock_cats_remove)?(Array.isArray(em2.stock_cats_remove)?em2.stock_cats_remove.slice():[]):[];
+  }else{
+    tmpSalCatsAdd=[];tmpSalCatsRemove=[];
+  }
+  renderSalCatsCheckboxes();
+}
+function renderSalCatsCheckboxes(){
+  var addBox=document.getElementById('sal-cats-add-list');
+  var remBox=document.getElementById('sal-cats-remove-list');
+  if(!addBox||!remBox)return;
+  addBox.innerHTML=STOCK_CATS_CANONICAL.map(function(c){
+    var on=tmpSalCatsAdd.indexOf(c.id)>=0;
+    return '<label style="display:flex;align-items:center;gap:5px;font-size:11px;background:'+(on?'#DCFCE7':'#fff')+';border:1px solid var(--bd);border-radius:8px;padding:4px 7px;cursor:pointer;">'
+      +'<input type="checkbox" value="'+c.id+'"'+(on?' checked':'')+' onchange="toggleSalCat(\'add\',\''+c.id+'\',this.checked);this.parentElement.style.background=this.checked?\'#DCFCE7\':\'#fff\'">'
+      +c.label+'</label>';
+  }).join('');
+  remBox.innerHTML=STOCK_CATS_CANONICAL.map(function(c){
+    var on=tmpSalCatsRemove.indexOf(c.id)>=0;
+    return '<label style="display:flex;align-items:center;gap:5px;font-size:11px;background:'+(on?'#FEE2E2':'#fff')+';border:1px solid var(--bd);border-radius:8px;padding:4px 7px;cursor:pointer;">'
+      +'<input type="checkbox" value="'+c.id+'"'+(on?' checked':'')+' onchange="toggleSalCat(\'remove\',\''+c.id+'\',this.checked);this.parentElement.style.background=this.checked?\'#FEE2E2\':\'#fff\'">'
+      +c.label+'</label>';
+  }).join('');
+}
+function toggleSalCat(kind,catId,checked){
+  var arr=kind==='add'?tmpSalCatsAdd:tmpSalCatsRemove;
+  var i=arr.indexOf(catId);
+  if(checked&&i<0)arr.push(catId);
+  else if(!checked&&i>=0)arr.splice(i,1);
+}
 function renderSalRolesList(salId){
   var div=document.getElementById('sal-roles-list');if(!div)return;
   // Initialiser la sélection
@@ -3451,7 +3494,7 @@ function openEditSal(id){
   document.getElementById('sapin').value='';
   var bu=document.getElementById('sal-badge-uid');if(bu)bu.value=em.badge_uid||'';
   loadSalPinState(em);
-  renderSalPostesList(id);renderSalRolesList(id);
+  renderSalPostesList(id);renderSalRolesList(id);renderSalCatsOverrides(id);
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
   if(ptStart){if(em&&em.date_debut){ptStart.value=em.date_debut;}else{var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}}
@@ -3471,7 +3514,7 @@ async function saveSal(){
     var mail=document.getElementById('samail').value||null;
     var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,badge_uid:badgeUid,pin_autorise:pinAut};
+  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,badge_uid:badgeUid,pin_autorise:pinAut};
     await db.from('employees').update(upd).eq('id',curSal);
   }else{
     var newSec=deduceSecteur('new');
@@ -3480,7 +3523,7 @@ async function saveSal(){
     var mail2=document.getElementById('samail').value||null;
     var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut2=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,badge_uid:badgeUid2,pin_autorise:pinAut2}).select();
+  var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,badge_uid:badgeUid2,pin_autorise:pinAut2}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');

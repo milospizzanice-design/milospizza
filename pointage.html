@@ -829,13 +829,15 @@ function initAbsDates(){
   };
 }
 function menuStocks(){
-  // Session lue par les fichiers stocks : identité + rôles -> plus besoin de PIN séparé.
+  // Session lue par les fichiers stocks : identité + rôles + overrides -> plus besoin de PIN séparé.
   try{
     localStorage.setItem('rg_session',JSON.stringify({
       id:emp.id,
       nom:emp.prenom+' '+emp.nom,
       restaurant:RESTAURANT_ID,
       roles:Array.isArray(emp.roles)?emp.roles:[],
+      catsAdd:Array.isArray(emp.stock_cats_add)?emp.stock_cats_add:[],
+      catsRemove:Array.isArray(emp.stock_cats_remove)?emp.stock_cats_remove:[],
       at:new Date().toISOString()
     }));
   }catch(e){}

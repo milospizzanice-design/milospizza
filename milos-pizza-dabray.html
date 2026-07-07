@@ -288,22 +288,15 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
   <div style="flex:1;display:flex;align-items:center;justify-content:center;">
     <div class="pin-logo">🍕 MILO'S PIZZA DABRAY</div>
   </div>
-  
+
   <div class="pin-card">
-    <div class="pin-title">CODE ADMIN UNIQUEMENT</div>
-    <div style="font-size:11px;color:var(--mid,#888);text-align:center;margin:-6px 0 10px;">Salarié ? Utilisez le bouton "Gérer les stocks" dans le pointage.</div>
-    <div class="pin-dots">
-      <div class="pdot" id="pd1"></div><div class="pdot" id="pd2"></div>
-      <div class="pdot" id="pd3"></div><div class="pdot" id="pd4"></div>
-    </div>
-    <div class="pin-grid">
-      <button class="pkey" onclick="pk('1')">1</button><button class="pkey" onclick="pk('2')">2</button><button class="pkey" onclick="pk('3')">3</button>
-      <button class="pkey" onclick="pk('4')">4</button><button class="pkey" onclick="pk('5')">5</button><button class="pkey" onclick="pk('6')">6</button>
-      <button class="pkey" onclick="pk('7')">7</button><button class="pkey" onclick="pk('8')">8</button><button class="pkey" onclick="pk('9')">9</button>
-      <button class="pkey pkey-clear" onclick="pClear()">✕</button><button class="pkey" onclick="pk('0')">0</button><button class="pkey pkey-del" onclick="pDel()">⌫</button>
+    <div class="pin-title">NON CONNECT&#201;</div>
+    <div style="font-size:12px;color:var(--mid,#888);text-align:center;margin:6px 0 16px;line-height:1.5;">
+      Salari&#233; ? Utilisez le bouton "G&#233;rer les stocks" dans le pointage.<br>
+      Admin ? Ouvrez cette page depuis l'espace Admin.
     </div>
     <div class="pin-error" id="pin-error"></div>
-    <div style="text-align:center;margin-top:10px;"><a href="pointage.html" style="font-size:12px;color:#25D366;text-decoration:underline;">← Retour au pointage</a></div>
+    <div style="text-align:center;margin-top:6px;"><a href="pointage.html" style="font-size:13px;color:#25D366;text-decoration:underline;">← Retour au pointage</a></div>
   </div>
 </div>
 <!-- ADMIN -->
@@ -337,7 +330,6 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 <script>
 // ══ STORAGE ══
 const SK='milos_dabray_v3';
-const ADMIN_PIN='6934';
 function loadDB(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}return null;}
 function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){console.error('saveDB error',e);}}
 
@@ -725,7 +717,6 @@ const DAYS_FR=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'
 const DAY_ORDER=[1,2,3,4,5,6,0];
 let currentDay=new Date().getDay();
 let currentUser=null;
-let pinBuffer='';
 let STATE={};
 let currentSup=null;
 
@@ -849,10 +840,6 @@ function san(s){return(s||'').replace(/[^a-zA-Z0-9]/g,'_');}
 function thresh(lt){return lt==='half'?'½':lt==='third'?'⅓':lt==='twothird'?'⅔':'¾';}
 
 // ══ PIN ══
-function pk(k){if(pinBuffer.length>=4)return;pinBuffer+=k;updDots();if(pinBuffer.length===4)setTimeout(checkPin,150);}
-function pDel(){pinBuffer=pinBuffer.slice(0,-1);updDots();document.getElementById('pin-error').textContent='';}
-function pClear(){pinBuffer='';updDots();document.getElementById('pin-error').textContent='';}
-function updDots(){for(let i=1;i<=4;i++)document.getElementById('pd'+i).classList.toggle('filled',i<=pinBuffer.length);}
 async function completeLogin(user){
   currentUser=user;
   document.getElementById('pin-screen').style.display='none';
@@ -874,34 +861,44 @@ async function categoriesForRoles(roleIds){
   }catch(e){console.error('categoriesForRoles',e);return[];}
 }
 
-// Connexion automatique via la session déposée par pointage.html (badge/PIN pointage -> rôles -> catégories stocks)
+// Connexion automatique via la session déposée par pointage.html (badge/PIN pointage -> rôles + réglages salarié -> catégories stocks)
 async function tryAutoLogin(){
   let session=null;
   try{session=JSON.parse(localStorage.getItem('rg_session')||'null');}catch(e){}
   if(!session||session.restaurant!==RESTAURANT_ID)return false;
   const ageH=(Date.now()-new Date(session.at).getTime())/3600000;
   if(!(ageH>=0)||ageH>16)return false;
-  const cats=await categoriesForRoles(session.roles||[]);
-  if(!cats.length){
-    document.getElementById('pin-error').textContent='Aucun rôle stocks configuré pour '+session.nom+' — voir Admin.';
+  const roleCats=await categoriesForRoles(session.roles||[]);
+  const add=session.catsAdd||[];
+  const remove=session.catsRemove||[];
+  const finalCats=Array.from(new Set(roleCats.concat(add))).filter(function(c){return remove.indexOf(c)<0;});
+  if(!finalCats.length){
+    document.getElementById('pin-error').textContent='Aucun accès stocks configuré pour '+session.nom+' — voir Admin.';
     return false;
   }
-  await completeLogin({name:session.nom,cats:cats});
+  await completeLogin({name:session.nom,cats:finalCats});
   return true;
 }
 
-async function checkPin(){
-  try{
-    if(pinBuffer===ADMIN_PIN){pinBuffer='';updDots();document.getElementById('pin-screen').style.display='none';openAdmin();return;}
-    pinBuffer='';updDots();
-    document.getElementById('pin-error').textContent='Merci de vous connecter via le pointage (bouton "Gérer les stocks").';
-  }catch(e){document.getElementById('pin-error').textContent='Erreur: '+e.message;pinBuffer='';updDots();}
+// Connexion admin automatique : déclenchée uniquement depuis l'iframe intégrée dans admin.html (voir rg_admin_session)
+// Jeton à usage unique et de très courte durée : réduit le risque si la tablette partagée est aussi utilisée pour l'admin.
+async function tryAutoAdmin(){
+  let flag=null;
+  try{flag=JSON.parse(localStorage.getItem('rg_admin_session')||'null');}catch(e){}
+  if(!flag)return false;
+  const ageMin=(Date.now()-new Date(flag.at).getTime())/60000;
+  try{localStorage.removeItem('rg_admin_session');}catch(e){}
+  if(!(ageMin>=0)||ageMin>5)return false;
+  document.getElementById('pin-screen').style.display='none';
+  openAdmin();
+  return true;
 }
+
 function logout(){
   // STATE n'est plus remis à zéro ici : c'est un état partagé entre salariés (persisté côté serveur),
   // pas une donnée de session individuelle. Il sera rechargé au prochain login via loadStockState().
   try{localStorage.removeItem('rg_session');}catch(e){}
-  currentUser=null;pinBuffer='';updDots();
+  currentUser=null;
   document.getElementById('pin-error').textContent='';
   document.getElementById('role-badge').style.display='none';
   document.getElementById('pin-screen').style.display='flex';
@@ -1534,7 +1531,7 @@ function renderAdminProduits(body){
     card.id='admcat-'+cat.id;
     const titleDiv=document.createElement('div');
     titleDiv.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:10px;';
-    titleDiv.innerHTML=`<div class="col-swatch" style="background:${cat.color||'#555'}"></div><div class="acard-title" style="margin:0;">${cat.label}</div>`;
+    titleDiv.innerHTML=`<div class="col-swatch" style="background:${cat.color||'#555'}"></div><div class="acard-title" style="margin:0;flex:1;">${cat.label}</div><button class="abtn abtn-ghost" style="padding:4px 10px;font-size:11px;" onclick="duplicateCategory('${cat.id}')">⎘ Dupliquer la catégorie</button>`;
     card.appendChild(titleDiv);
 
     // Grouper par sous-cat dans l'admin aussi
@@ -1548,7 +1545,7 @@ function renderAdminProduits(body){
       const subDef=(cat.subcats||[]).find(s=>s.id===subId);
       const block=document.createElement('div');block.className='subcat-block';
       const bHdr=document.createElement('div');bHdr.className='subcat-block-header';
-      bHdr.innerHTML=`<span>${subDef?subDef.label:'Sans sous-catégorie'}</span><span style="font-size:10px;color:var(--mid)">${prods.length} produit(s)</span>`;
+      bHdr.innerHTML=`<span>${subDef?subDef.label:'Sans sous-catégorie'}</span><span style="display:flex;align-items:center;gap:8px;"><button class="abtn abtn-ghost" style="padding:2px 8px;font-size:10px;" onclick="duplicateSubcat('${cat.id}','${subId==='__none__'?'':subId}')">⎘ Dupliquer</button><span style="font-size:10px;color:var(--mid)">${prods.length} produit(s)</span></span>`;
       block.appendChild(bHdr);
       prods.forEach(p=>{
         const o=DB.overrides[p.id]||{};
@@ -1582,6 +1579,7 @@ function renderAdminProduits(body){
               ${ptype==='qty'?`<div style="text-align:center"><div style="font-size:9px;color:var(--mid)">Colis</div><input class="ainput ainput-w52" type="number" value="${colisVal}" step="1" min="1" onchange="updOvr('${p.id}','colis',this.value)"></div>`:''}
             </div>
             <button class="abtn abtn-danger" style="padding:4px 10px;font-size:11px;width:100%;" onclick="delProd('${p.id}')">✕ Supprimer</button>
+            <button class="abtn abtn-ghost" style="padding:4px 10px;font-size:11px;width:100%;margin-top:4px;" onclick="duplicateProduct('${p.id}')">⎘ Dupliquer</button>
             <button class="abtn abtn-ghost" style="padding:4px 10px;font-size:11px;width:100%;margin-top:4px;" onclick="openDayRules('${p.id}')">📅 Seuils par jour</button>
           </div>`;
         block.appendChild(row);
@@ -1600,6 +1598,68 @@ function renderAdminProduits(body){
   });
 }
 
+function copyCatalogToOtherRestaurant(){
+  const targetSK=(SK==='milos_port_v3')?'milos_dabray_v3':'milos_port_v3';
+  const targetName=(SK==='milos_port_v3')?'Dabray':'Port';
+  if(!confirm('Copier les '+DB.products.length+' produit(s) de ce restaurant vers '+targetName+' ? (ajout uniquement, rien n\'est écrasé là-bas)'))return;
+  try{
+    const raw=localStorage.getItem(targetSK);
+    const targetDB=raw?JSON.parse(raw):JSON.parse(JSON.stringify(DEFAULT_DB));
+    targetDB.cats=targetDB.cats||[];
+    targetDB.suppliers=targetDB.suppliers||{};
+    targetDB.products=targetDB.products||[];
+    targetDB.overrides=targetDB.overrides||{};
+    DB.cats.forEach(function(c){
+      if(!targetDB.cats.some(function(tc){return tc.id===c.id;}))targetDB.cats.push(JSON.parse(JSON.stringify(c)));
+    });
+    Object.keys(DB.suppliers).forEach(function(sid){
+      if(!targetDB.suppliers[sid])targetDB.suppliers[sid]=JSON.parse(JSON.stringify(DB.suppliers[sid]));
+    });
+    const idSuffix='-imp'+Date.now().toString(36);
+    DB.products.forEach(function(p){
+      const copy=JSON.parse(JSON.stringify(p));
+      copy.id=p.id+idSuffix;
+      targetDB.products.push(copy);
+      if(DB.overrides[p.id])targetDB.overrides[copy.id]=JSON.parse(JSON.stringify(DB.overrides[p.id]));
+    });
+    localStorage.setItem(targetSK,JSON.stringify(targetDB));
+    alert(DB.products.length+' produit(s) copié(s) vers '+targetName+'. Ouvrez l\'admin de ce restaurant pour les ajuster.');
+  }catch(e){alert('Erreur: '+e.message);}
+}
+function duplicateProduct(id){
+  const p=DB.products.find(x=>x.id===id);if(!p)return;
+  const copy=JSON.parse(JSON.stringify(p));
+  copy.id=p.id+'-copie-'+Date.now().toString(36);
+  copy.name=p.name+' (copie)';
+  DB.products.push(copy);
+  if(DB.overrides[p.id])DB.overrides[copy.id]=JSON.parse(JSON.stringify(DB.overrides[p.id]));
+  saveDB();
+  renderAdminProduits(document.getElementById('admin-body'));
+}
+function duplicateGroup(ids){
+  ids.forEach(function(id,i){
+    const p=DB.products.find(x=>x.id===id);if(!p)return;
+    const copy=JSON.parse(JSON.stringify(p));
+    copy.id=p.id+'-copie-'+Date.now().toString(36)+'-'+i;
+    copy.name=p.name+' (copie)';
+    DB.products.push(copy);
+    if(DB.overrides[p.id])DB.overrides[copy.id]=JSON.parse(JSON.stringify(DB.overrides[p.id]));
+  });
+  saveDB();
+  renderAdminProduits(document.getElementById('admin-body'));
+}
+function duplicateSubcat(catId,subId){
+  const ids=DB.products.filter(function(p){return p.cat===catId&&(p.sub||'')===(subId||'');}).map(function(p){return p.id;});
+  if(!ids.length)return;
+  if(!confirm('Dupliquer '+ids.length+' produit(s) de cette sous-catégorie ?'))return;
+  duplicateGroup(ids);
+}
+function duplicateCategory(catId){
+  const ids=DB.products.filter(function(p){return p.cat===catId;}).map(function(p){return p.id;});
+  if(!ids.length)return;
+  if(!confirm('Dupliquer les '+ids.length+' produit(s) de cette catégorie ?'))return;
+  duplicateGroup(ids);
+}
 function openInlineAddProd(catId, subId, btn){
   // Si un formulaire inline est déjà ouvert, le fermer
   var existing=document.getElementById('inline-add-form');
@@ -2000,7 +2060,6 @@ function addUser(){
   const cats=[...document.querySelectorAll('#nu-cats input:checked')].map(c=>c.value);
   if(!name||!pin){alert('Prénom et PIN obligatoires.');return;}
   if(!/^\d{4}$/.test(pin)){alert('PIN doit être 4 chiffres.');return;}
-  if(pin===ADMIN_PIN){alert('PIN réservé admin.');return;}
   if(DB.users[pin]){alert('PIN déjà utilisé.');return;}
   if(!cats.length){alert('Sélectionnez au moins une catégorie.');return;}
   DB.users[pin]={name,cats};saveDB();showTab('acces');
@@ -2009,7 +2068,6 @@ function updUser(pin,field,val){if(DB.users[pin])DB.users[pin][field]=val;saveDB
 function toggleUserCat(pin,catId,checked){const user=DB.users[pin];if(!user)return;if(checked){if(!user.cats.includes(catId))user.cats.push(catId);}else{user.cats=user.cats.filter(c=>c!==catId);}saveDB();}
 function changePIN(oldPin,newPin){
   if(!/^\d{4}$/.test(newPin)){alert('PIN doit être 4 chiffres.');showTab('acces');return;}
-  if(newPin===ADMIN_PIN){alert('PIN réservé admin.');showTab('acces');return;}
   if(DB.users[newPin]&&newPin!==oldPin){alert('PIN déjà utilisé.');showTab('acces');return;}
   const user=DB.users[oldPin];delete DB.users[oldPin];DB.users[newPin]=user;saveDB();
 }
@@ -2051,6 +2109,13 @@ function renderAdminConfig(body){
     <textarea id="restore-url" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:8px;font-size:11px;background:var(--cream);min-height:60px;" placeholder="Collez le lien ici..."></textarea>
     <button class="abtn abtn-primary" style="width:100%;margin-top:8px;padding:10px;" onclick="restoreConfig()">↺ Restaurer</button>`;
   body.appendChild(restoreCard);
+  // Dupliquer le catalogue vers l'autre restaurant
+  var dupCard=document.createElement('div');dupCard.className='acard';
+  var otherName=(SK==='milos_port_v3')?'Dabray':'Port';
+  dupCard.innerHTML=`<div class="acard-title">⎘ Copier ce catalogue vers ${otherName}</div>
+    <p style="font-size:12px;color:var(--mid);margin-bottom:12px;">Copie tous les produits (+ catégories/fournisseurs manquants) de ce restaurant vers ${otherName}, sans écraser ce qui existe déjà là-bas. Pratique pour démarrer un nouveau restaurant sans tout retaper.</p>
+    <button class="abtn abtn-primary" style="width:100%;padding:12px;" onclick="copyCatalogToOtherRestaurant()">⎘ Copier vers ${otherName}</button>`;
+  body.appendChild(dupCard);
   // Mode inventaire complet
   var invCard=document.createElement('div');invCard.className='acard';
   var invActive=DB.inventoryMode&&DB.inventoryMode.active&&DB.inventoryMode.endTime&&Date.now()<new Date(DB.inventoryMode.endTime).getTime();
@@ -2137,7 +2202,7 @@ document.querySelectorAll('.day-btn').forEach((b,i)=>b.classList.toggle('active'
 document.getElementById('day-badge').textContent=DAYS_FR[currentDay];
 checkFirstLaunch();
 applyInventoryMode();
-tryAutoLogin();
+tryAutoLogin().then(function(ok){if(!ok)tryAutoAdmin();});
 
 // Scroll to top button
 window.addEventListener('scroll',function(){
