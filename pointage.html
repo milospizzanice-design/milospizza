@@ -828,7 +828,17 @@ function initAbsDates(){
     setTimeout(function(){try{at.focus();if(at.showPicker)at.showPicker();}catch(e){}},100);
   };
 }
-function menuStocks(){
+async function menuStocks(){
+  // Recharge la fiche depuis la base : évite d'utiliser un rôle périmé si l'admin
+  // a modifié les accès stocks pendant que ce salarié était déjà connecté au pointage.
+  try{
+    var fresh=await db.from('employees').select('roles,stock_cats_add,stock_cats_remove').eq('id',emp.id).single();
+    if(fresh&&fresh.data){
+      emp.roles=fresh.data.roles;
+      emp.stock_cats_add=fresh.data.stock_cats_add;
+      emp.stock_cats_remove=fresh.data.stock_cats_remove;
+    }
+  }catch(e){}
   // Session lue par les fichiers stocks : identité + rôles + overrides -> plus besoin de PIN séparé.
   try{
     localStorage.setItem('rg_session',JSON.stringify({
