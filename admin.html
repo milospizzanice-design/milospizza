@@ -176,6 +176,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="module-nav" style="display:flex;background:#7A0F14;">
   <div class="module-btn on" id="modbtn-rh" onclick="goModule('rh')" style="flex:1;text-align:center;padding:11px 6px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid #fff;">👥 RH</div>
   <div class="module-btn" id="modbtn-stocks" onclick="goModule('stocks')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">📦 STOCKS</div>
+  <div class="module-btn" id="modbtn-recettes" onclick="goModule('recettes')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">🍕 RECETTES</div>
   <div class="module-btn" id="modbtn-menu" onclick="goModule('menu')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">📱 MENU</div>
 </div>
 <div class="tabs" id="tabs-rh">
@@ -379,6 +380,65 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<!-- ══ MODULE RECETTES ══ -->
+<div id="page-recettes" style="display:none;">
+  <div class="page" style="padding-top:14px;">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <div class="rct-subtab on" id="rctbtn-list" onclick="goRecettesSub('list')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🍕 Produits &amp; recettes</div>
+      <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📥 Import ventes</div>
+    </div>
+
+    <!-- Sous-onglet: liste produits vendus / recettes -->
+    <div id="rct-pane-list">
+      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+        Le restaurant suit le sélecteur en haut de page. Chaque produit vendu (pizza, dessert…) peut avoir une recette : les ingrédients du stock et leur quantité, pour calculer la consommation théorique.
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" class="fi" id="rct-search" placeholder="Rechercher un produit…" oninput="renderRecettesList()" style="flex:1;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txm);white-space:nowrap;">
+          <input type="checkbox" id="rct-show-inactive" onchange="renderRecettesList()"> Voir inactifs
+        </label>
+      </div>
+      <button class="btn bs sm" onclick="openNewProduitVenduModal()" style="margin-bottom:10px;">+ Ajouter un produit vendu manuellement</button>
+      <div id="rct-list-container"></div>
+    </div>
+
+    <!-- Sous-onglet: import CSV caisse -->
+    <div id="rct-pane-import" style="display:none;">
+      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+        Exporte depuis la caisse la liste des articles vendus sur une période, puis importe le fichier ici. Le fichier n'a pas de date : indique la période correspondant à l'export choisi.
+      </div>
+      <div class="card">
+        <div class="fr"><label class="fl2">Début de période</label><input type="date" class="fi" id="rct-imp-debut"></div>
+        <div class="fr"><label class="fl2">Fin de période</label><input type="date" class="fi" id="rct-imp-fin"></div>
+        <div class="fr"><label class="fl2">Fichier CSV caisse</label><input type="file" class="fi" id="rct-imp-file" accept=".csv,text/csv" style="padding:5px"></div>
+        <button class="btn bp" onclick="previewVentesImport()" style="width:100%;">Analyser le fichier</button>
+      </div>
+      <div id="rct-imp-preview"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal édition recette d'un produit vendu -->
+<div class="mb" id="mrct">
+  <div class="md" style="max-width:420px;">
+    <div class="mdt" id="mrct-title">Recette</div>
+    <div id="mrct-lines"></div>
+    <button class="btn bs sm" onclick="addRecetteLine()" style="width:100%;margin-top:6px;">+ Ajouter un ingrédient</button>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mrct')">Annuler</button><button class="btn bp" onclick="saveRecette()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal nouveau produit vendu manuel -->
+<div class="mb" id="mnpv">
+  <div class="md">
+    <div class="mdt">Nouveau produit vendu</div>
+    <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="npv-nom" placeholder="Ex: MARGUERITE"></div>
+    <div class="fr"><label class="fl2">Catégorie</label><input type="text" class="fi" id="npv-cat" placeholder="Ex: PIZZAS"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('mnpv')">Annuler</button><button class="btn bp" onclick="saveNewProduitVendu()">Créer</button></div>
+  </div>
+</div>
+
 <!-- ══ MODULE MENU (digital) ══ -->
 <div id="page-menu" style="display:none;">
   <div class="page" style="padding-top:14px;">
@@ -389,6 +449,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
   </div>
 </div>
+
 
 <!-- Modal correction -->
 <div class="mb" id="mc">
@@ -691,7 +752,7 @@ function openM(id){
 }
 
 function goModule(name){
-  var pages={rh:'page-rh',stocks:'page-stocks',menu:'page-menu'};
+  var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu'};
   var tabsBar=document.getElementById('tabs-rh');
   Object.keys(pages).forEach(function(k){
     var e=document.getElementById(pages[k]);
@@ -704,6 +765,7 @@ function goModule(name){
     }
   });
   if(tabsBar)tabsBar.style.display=(name==='rh')?'flex':'none';
+  if(name==='recettes')loadRecettesModule();
 }
 function goTab(name,el){
   ['sa','pl','rc','pm'].forEach(function(id){
@@ -1954,6 +2016,9 @@ function applyGlobalRestoDefault(id){
 
   var drhSel=document.getElementById('drh-resto');
   if(drhSel)drhSel.value=id;
+
+  var rctPage=document.getElementById('page-recettes');
+  if(rctPage&&rctPage.style.display!=='none')loadRecettesModule();
 }
 async function loadRoles(){
   var r=await db.from('roles').select('*').order('nom');
@@ -4629,6 +4694,330 @@ async function showDashboard(refresh){
   openM('modal-dash');
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// ══ MODULE RECETTES (produits vendus, composition, import ventes caisse) ══
+// ══════════════════════════════════════════════════════════════════════════
+let rctProduitsVendus=[];   // produits_vendus du restaurant courant
+let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,unite}]}
+let rctIngredients=[];      // produits (catalogue stock) du restaurant courant, pour le sélecteur d'ingrédient
+let rctCurrentSub='list';
+let rctPendingImport=null;  // lignes prêtes à être importées, en attente de confirmation
+
+function slugify(str){
+  return (str||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+function rctResto(){
+  var sel=document.getElementById('global-resto-select');
+  return sel?sel.value:'port';
+}
+
+function goRecettesSub(name){
+  rctCurrentSub=name;
+  document.getElementById('rct-pane-list').style.display=(name==='list')?'block':'none';
+  document.getElementById('rct-pane-import').style.display=(name==='import')?'block':'none';
+  ['list','import'].forEach(function(k){
+    var b=document.getElementById('rctbtn-'+k);
+    if(!b)return;
+    if(k===name){b.style.background='var(--bx)';b.style.color='#fff';b.style.border='none';}
+    else{b.style.background='#FAF4EC';b.style.color='var(--tx)';b.style.border='1px solid var(--bd)';}
+  });
+}
+
+async function loadRecettesModule(){
+  var resto=rctResto();
+  if(resto!=='port'&&resto!=='dabray'){
+    document.getElementById('rct-list-container').innerHTML='<div class="card" style="color:var(--txm);font-size:12px;">Module recettes disponible uniquement pour Port et Dabray pour l\'instant.</div>';
+    return;
+  }
+  try{
+    var [pv,rc,pr]=await Promise.all([
+      db.from('produits_vendus').select('*').eq('restaurant_id',resto).order('categorie').order('nom'),
+      db.from('recettes').select('*').eq('restaurant_id',resto),
+      db.from('produits').select('*').eq('restaurant_id',resto).order('nom')
+    ]);
+    rctProduitsVendus=pv.data||[];
+    rctIngredients=pr.data||[];
+    rctRecettes={};
+    (rc.data||[]).forEach(function(r){
+      rctRecettes[r.produit_vendu_code]=rctRecettes[r.produit_vendu_code]||[];
+      rctRecettes[r.produit_vendu_code].push(r);
+    });
+    renderRecettesList();
+  }catch(e){
+    console.error('loadRecettesModule',e);
+    document.getElementById('rct-list-container').innerHTML='<div class="card" style="color:#C0392B;font-size:12px;">Erreur de chargement.</div>';
+  }
+}
+
+function renderRecettesList(){
+  var search=(document.getElementById('rct-search').value||'').toLowerCase();
+  var showInactive=document.getElementById('rct-show-inactive').checked;
+  var list=rctProduitsVendus.filter(function(p){
+    if(!showInactive&&p.actif===false)return false;
+    if(search&&p.nom.toLowerCase().indexOf(search)<0)return false;
+    return true;
+  });
+  var groups={};
+  list.forEach(function(p){
+    var cat=p.categorie||'Sans catégorie';
+    groups[cat]=groups[cat]||[];
+    groups[cat].push(p);
+  });
+  var catNames=Object.keys(groups).sort();
+  if(!catNames.length){
+    document.getElementById('rct-list-container').innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun produit vendu pour l\'instant. Importe un export de caisse ou ajoute-en un manuellement.</div>';
+    return;
+  }
+  var html='';
+  catNames.forEach(function(cat){
+    html+='<div style="font-size:11px;font-weight:700;color:var(--txm);text-transform:uppercase;margin:14px 0 6px;">'+esc(cat)+'</div>';
+    groups[cat].forEach(function(p){
+      var lines=rctRecettes[p.code]||[];
+      var inactive=p.actif===false;
+      html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(inactive?'opacity:.5;':'')+'">'
+        +'<div style="flex:1;">'
+        +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(p.nom)+(inactive?' <span style="font-size:10px;color:var(--txm);">(inactif)</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--txm);">'+(lines.length?lines.length+' ingrédient'+(lines.length>1?'s':''):'Aucune recette définie')+'</div>'
+        +'</div>'
+        +'<button class="btn bs sm" onclick="openRecetteModal(\''+p.code+'\')">Recette</button>'
+        +'<button class="btn bs sm" onclick="toggleProduitVenduActif(\''+p.code+'\')">'+(inactive?'Réactiver':'Désactiver')+'</button>'
+        +'</div>';
+    });
+  });
+  document.getElementById('rct-list-container').innerHTML=html;
+}
+
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+async function toggleProduitVenduActif(code){
+  var resto=rctResto();
+  var p=rctProduitsVendus.find(function(x){return x.code===code;});
+  if(!p)return;
+  var newActif=!(p.actif!==false);
+  await db.from('produits_vendus').update({actif:newActif}).eq('restaurant_id',resto).eq('code',code);
+  p.actif=newActif;
+  renderRecettesList();
+}
+
+// ── Modal recette ──────────────────────────────────────────────────────────
+let mrctCurrentCode=null;
+function openRecetteModal(code){
+  mrctCurrentCode=code;
+  var p=rctProduitsVendus.find(function(x){return x.code===code;});
+  document.getElementById('mrct-title').textContent='Recette — '+(p?p.nom:code);
+  var lines=(rctRecettes[code]||[]).map(function(l){return {ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};});
+  renderRecetteLines(lines);
+  document.getElementById('mrct').classList.add('op');
+}
+function renderRecetteLines(lines){
+  var opts=rctIngredients.map(function(i){return '<option value="'+i.code+'">'+esc(i.nom)+'</option>';}).join('');
+  var html=lines.map(function(l,idx){
+    return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
+      +'<select class="fi mrct-ing" style="flex:2;"><option value="">-- ingrédient --</option>'+opts+'</select>'
+      +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1">'
+      +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="ml">ml</option><option value="piece">pièce</option></select>'
+      +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>'
+      +'</div>';
+  }).join('');
+  document.getElementById('mrct-lines').innerHTML=html;
+  var rows=document.querySelectorAll('#mrct-lines [data-idx]');
+  rows.forEach(function(row,idx){
+    var l=lines[idx];
+    if(!l)return;
+    row.querySelector('.mrct-ing').value=l.ingredient_code||'';
+    row.querySelector('.mrct-qty').value=l.quantite!=null?l.quantite:'';
+    row.querySelector('.mrct-unit').value=l.unite||'g';
+  });
+}
+function addRecetteLine(){
+  var container=document.getElementById('mrct-lines');
+  var idx=container.querySelectorAll('[data-idx]').length;
+  var opts=rctIngredients.map(function(i){return '<option value="'+i.code+'">'+esc(i.nom)+'</option>';}).join('');
+  var div=document.createElement('div');
+  div.className='fr';
+  div.setAttribute('data-idx',idx);
+  div.style.cssText='display:flex;gap:6px;align-items:center;';
+  div.innerHTML='<select class="fi mrct-ing" style="flex:2;"><option value="">-- ingrédient --</option>'+opts+'</select>'
+    +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1">'
+    +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="ml">ml</option><option value="piece">pièce</option></select>'
+    +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>';
+  container.appendChild(div);
+}
+async function saveRecette(){
+  var resto=rctResto();
+  var code=mrctCurrentCode;
+  var rows=document.querySelectorAll('#mrct-lines [data-idx]');
+  var lines=[];
+  rows.forEach(function(row){
+    var ing=row.querySelector('.mrct-ing').value;
+    var qty=parseFloat(row.querySelector('.mrct-qty').value);
+    var unit=row.querySelector('.mrct-unit').value;
+    if(ing&&qty>0)lines.push({restaurant_id:resto,produit_vendu_code:code,ingredient_code:ing,quantite:qty,unite:unit});
+  });
+  try{
+    await db.from('recettes').delete().eq('restaurant_id',resto).eq('produit_vendu_code',code);
+    if(lines.length)await db.from('recettes').insert(lines);
+    rctRecettes[code]=lines;
+    closeM('mrct');
+    renderRecettesList();
+  }catch(e){console.error('saveRecette',e);alert('Erreur lors de l\'enregistrement de la recette.');}
+}
+
+// ── Nouveau produit vendu manuel ────────────────────────────────────────────
+function openNewProduitVenduModal(){
+  document.getElementById('npv-nom').value='';
+  document.getElementById('npv-cat').value='';
+  document.getElementById('mnpv').classList.add('op');
+}
+async function saveNewProduitVendu(){
+  var resto=rctResto();
+  var nom=(document.getElementById('npv-nom').value||'').trim();
+  var cat=(document.getElementById('npv-cat').value||'').trim();
+  if(!nom){alert('Indique un nom.');return;}
+  var code=slugify(nom);
+  try{
+    await db.from('produits_vendus').upsert([{restaurant_id:resto,code:code,nom:nom,categorie:cat||null,actif:true}],{onConflict:'restaurant_id,code'});
+    closeM('mnpv');
+    await loadRecettesModule();
+  }catch(e){console.error('saveNewProduitVendu',e);alert('Erreur lors de la création.');}
+}
+
+// ── Import CSV caisse ───────────────────────────────────────────────────────
+function parseCsvSemicolon(text){
+  var lines=text.split(/\r?\n/).filter(function(l){return l.trim().length>0;});
+  return lines.map(function(line){
+    var out=[],cur='',inQ=false;
+    for(var i=0;i<line.length;i++){
+      var ch=line[i];
+      if(ch==='"'){
+        if(inQ&&line[i+1]==='"'){cur+='"';i++;}
+        else inQ=!inQ;
+      }else if(ch===';'&&!inQ){out.push(cur);cur='';}
+      else cur+=ch;
+    }
+    out.push(cur);
+    return out;
+  });
+}
+function csvColIndex(headers,name,occurrence){
+  occurrence=occurrence||0;
+  var count=0;
+  for(var i=0;i<headers.length;i++){
+    if((headers[i]||'').trim()===name){
+      if(count===occurrence)return i;
+      count++;
+    }
+  }
+  return -1;
+}
+function parseVentesCsv(text){
+  var rows=parseCsvSemicolon(text);
+  if(!rows.length)return [];
+  var headers=rows[0];
+  var idxId=csvColIndex(headers,'Produit ID',0);
+  var idxProduit=csvColIndex(headers,'Produit',0);
+  var idxQty=csvColIndex(headers,'Quantité',0);
+  var idxTTC=csvColIndex(headers,'Total TTC',0);
+  var idxCatFull=csvColIndex(headers,'Catégorie',1);
+  var idxCatShort=csvColIndex(headers,'Catégorie',0);
+  var byCode={};
+  for(var r=1;r<rows.length;r++){
+    var row=rows[r];
+    if(!row||row.length<2)continue;
+    var id=(row[idxId]||'').trim();
+    if(id==='0')continue; // ligne remise/avoir/bon cadeau, pas un vrai produit
+    var nom=(row[idxProduit]||'').trim();
+    if(!nom)continue;
+    var qty=parseFloat((row[idxQty]||'0').replace(',','.'))||0;
+    if(qty<=0)continue;
+    var ttc=parseFloat((row[idxTTC]||'0').replace(',','.'))||0;
+    var catFull=(idxCatFull>=0?row[idxCatFull]:'')||'';
+    var catShort=(idxCatShort>=0?row[idxCatShort]:'')||'';
+    var cat=catFull.trim();
+    if(cat.indexOf('>')>=0)cat=cat.split('>').pop().trim();
+    if(!cat)cat=catShort.trim();
+    if(!cat||cat==='N/A')cat='Sans catégorie';
+    var code=slugify(nom);
+    if(!byCode[code])byCode[code]={code:code,nom:nom,categorie:cat,quantite:0,ca_ttc:0};
+    byCode[code].quantite+=qty;
+    byCode[code].ca_ttc+=ttc;
+  }
+  return Object.keys(byCode).map(function(k){return byCode[k];}).sort(function(a,b){return b.quantite-a.quantite;});
+}
+
+function previewVentesImport(){
+  var fileInput=document.getElementById('rct-imp-file');
+  var debut=document.getElementById('rct-imp-debut').value;
+  var fin=document.getElementById('rct-imp-fin').value;
+  if(!fileInput.files.length){alert('Choisis un fichier CSV.');return;}
+  if(!debut||!fin){alert('Indique la période (début et fin).');return;}
+  var file=fileInput.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var parsed;
+    try{parsed=parseVentesCsv(e.target.result);}
+    catch(err){console.error(err);alert('Le fichier n\'a pas pu être lu. Vérifie que c\'est bien un export CSV de la caisse.');return;}
+    if(!parsed.length){alert('Aucune ligne de vente exploitable trouvée dans ce fichier.');return;}
+    rctPendingImport={debut:debut,fin:fin,rows:parsed};
+    renderVentesPreview();
+  };
+  reader.onerror=function(){alert('Erreur de lecture du fichier.');};
+  reader.readAsText(file,'UTF-8');
+}
+
+function renderVentesPreview(){
+  if(!rctPendingImport){document.getElementById('rct-imp-preview').innerHTML='';return;}
+  var existingCodes={};
+  rctProduitsVendus.forEach(function(p){existingCodes[p.code]=true;});
+  var totalQty=0,totalTTC=0,newCount=0;
+  var rowsHtml=rctPendingImport.rows.map(function(r){
+    totalQty+=r.quantite;totalTTC+=r.ca_ttc;
+    var isNew=!existingCodes[r.code];
+    if(isNew)newCount++;
+    return '<tr>'
+      +'<td style="padding:4px 6px;font-size:12px;">'+esc(r.nom)+(isNew?' <span style="color:#2980B9;font-size:10px;">(nouveau)</span>':'')+'</td>'
+      +'<td style="padding:4px 6px;font-size:12px;color:var(--txm);">'+esc(r.categorie)+'</td>'
+      +'<td style="padding:4px 6px;font-size:12px;text-align:right;">'+r.quantite+'</td>'
+      +'<td style="padding:4px 6px;font-size:12px;text-align:right;">'+r.ca_ttc.toFixed(2)+' €</td>'
+      +'</tr>';
+  }).join('');
+  var html='<div class="card">'
+    +'<div style="font-size:12px;color:var(--txm);margin-bottom:8px;">Période du '+rctPendingImport.debut+' au '+rctPendingImport.fin+' — '+rctPendingImport.rows.length+' produits, '+totalQty+' unités vendues, '+totalTTC.toFixed(2)+' € TTC'+(newCount?' — '+newCount+' nouveau(x) produit(s) seront créés':'')+'.</div>'
+    +'<div style="max-height:320px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">'
+    +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:4px 6px;">Produit</th><th style="padding:4px 6px;">Catégorie</th><th style="padding:4px 6px;text-align:right;">Qté</th><th style="padding:4px 6px;text-align:right;">CA TTC</th></tr></thead>'
+    +'<tbody>'+rowsHtml+'</tbody></table></div>'
+    +'<div style="font-size:11px;color:var(--txm);margin:10px 0;">⚠️ Si un import existe déjà pour cette période exacte, il sera remplacé par celui-ci.</div>'
+    +'<button class="btn bp" onclick="confirmVentesImport()" style="width:100%;">Confirmer l\'import</button>'
+    +'</div>';
+  document.getElementById('rct-imp-preview').innerHTML=html;
+}
+
+async function confirmVentesImport(){
+  if(!rctPendingImport)return;
+  var resto=rctResto();
+  var debut=rctPendingImport.debut, fin=rctPendingImport.fin, rows=rctPendingImport.rows;
+  try{
+    var existingCodes={};
+    rctProduitsVendus.forEach(function(p){existingCodes[p.code]=true;});
+    var toCreate=rows.filter(function(r){return !existingCodes[r.code];})
+      .map(function(r){return {restaurant_id:resto,code:r.code,nom:r.nom,categorie:r.categorie,actif:true};});
+    if(toCreate.length)await db.from('produits_vendus').upsert(toCreate,{onConflict:'restaurant_id,code'});
+
+    await db.from('ventes').delete().eq('restaurant_id',resto).eq('periode_debut',debut).eq('periode_fin',fin);
+    var ventesRows=rows.map(function(r){return {restaurant_id:resto,produit_vendu_code:r.code,periode_debut:debut,periode_fin:fin,quantite:r.quantite,ca_ttc:r.ca_ttc,source:'caisse'};});
+    await db.from('ventes').insert(ventesRows);
+
+    rctPendingImport=null;
+    document.getElementById('rct-imp-preview').innerHTML='<div class="card" style="background:#ECFDF5;color:#065F46;">✅ Import réussi : '+ventesRows.length+' produits importés pour la période du '+debut+' au '+fin+'.</div>';
+    document.getElementById('rct-imp-file').value='';
+    await loadRecettesModule();
+  }catch(e){
+    console.error('confirmVentesImport',e);
+    document.getElementById('rct-imp-preview').innerHTML+='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import. Réessaie.</div>';
+  }
+}
 
 async function init(){
   await loadRestaurants();
