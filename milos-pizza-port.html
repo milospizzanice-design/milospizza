@@ -296,7 +296,14 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
       Admin ? Ouvrez cette page depuis l'espace Admin.
     </div>
     <div class="pin-error" id="pin-error"></div>
-    <div style="text-align:center;margin-top:6px;"><a href="pointage.html" style="font-size:13px;color:#25D366;text-decoration:underline;">← Retour au pointage</a></div>
+    <div style="text-align:center;margin-top:4px;"><a href="pointage.html" style="font-size:13px;color:#25D366;text-decoration:underline;">← Retour au pointage</a></div>
+    <div style="text-align:center;margin-top:14px;border-top:1px solid var(--border,#eee);padding-top:12px;">
+      <a href="#" onclick="toggleDirectPin(event)" style="font-size:12px;color:var(--mid,#888);text-decoration:underline;">Acc&#232;s direct par code</a>
+      <div id="direct-pin-box" style="display:none;margin-top:10px;">
+        <input type="text" id="direct-pin-input" maxlength="4" inputmode="numeric" placeholder="Code &#224; 4 chiffres" style="width:100%;box-sizing:border-box;text-align:center;font-size:18px;letter-spacing:4px;padding:10px;border:1.5px solid var(--border,#ddd);border-radius:8px;">
+        <button onclick="tryDirectPin()" style="width:100%;margin-top:8px;padding:10px;background:var(--dark,#333);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Valider</button>
+      </div>
+    </div>
   </div>
 </div>
 <!-- ADMIN -->
@@ -894,6 +901,26 @@ async function tryAutoAdmin(){
   return true;
 }
 
+function toggleDirectPin(e){
+  if(e)e.preventDefault();
+  const box=document.getElementById('direct-pin-box');
+  if(!box)return;
+  box.style.display=(box.style.display==='none')?'block':'none';
+  if(box.style.display==='block'){
+    const inp=document.getElementById('direct-pin-input');
+    if(inp){inp.value='';inp.focus();}
+  }
+}
+async function tryDirectPin(){
+  const inp=document.getElementById('direct-pin-input');
+  const pin=inp?inp.value.trim():'';
+  if(!/^\d{4}$/.test(pin)){document.getElementById('pin-error').textContent='Code à 4 chiffres requis.';return;}
+  if(!DB.users||typeof DB.users!=='object'){DB.users=JSON.parse(JSON.stringify(DEFAULT_DB.users||{}));saveDB();}
+  const user=DB.users[pin];
+  if(!user){document.getElementById('pin-error').textContent='Code incorrect — voir Admin > Accès pour en créer un.';return;}
+  document.getElementById('pin-error').textContent='';
+  await completeLogin({name:user.name,cats:user.cats});
+}
 function logout(){
   // STATE n'est plus remis à zéro ici : c'est un état partagé entre salariés (persisté côté serveur),
   // pas une donnée de session individuelle. Il sera rechargé au prochain login via loadStockState().
