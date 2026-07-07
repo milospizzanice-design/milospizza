@@ -1922,6 +1922,38 @@ function onGlobalRestoChange(){
     if(iframe)iframe.style.display='none';
     if(warn)warn.style.display='block';
   }
+  applyGlobalRestoDefault(id);
+}
+// Pré-sélectionne le restaurant du sélecteur global dans les modules RH (Planning, Salariés,
+// Récap, Absences, Export PDF). Chaque module garde son propre contrôle local et peut être
+// changé indépendamment ensuite — le global ne fait que fixer la valeur par défaut au moment
+// où il change. Les onglets RH ne connaissant que 'port'/'dabray' pour l'instant, on ignore
+// les autres restaurants (limite connue, cf. résumé projet).
+function applyGlobalRestoDefault(id){
+  if(id!=='port'&&id!=='dabray')return;
+
+  planResto=id;
+  document.querySelectorAll('#pl .plan-rtab').forEach(function(t){t.classList.remove('on');});
+  var plTab=document.getElementById('plr-'+id);
+  if(plTab)plTab.classList.add('on');
+  var plPage=document.getElementById('pl');
+  if(plPage&&plPage.style.display!=='none')loadPl();
+
+  salResto=id;
+  document.querySelectorAll('#sa .plan-rtab').forEach(function(t){t.classList.remove('on');});
+  var saTab=document.getElementById('salr-'+id);
+  if(saTab)saTab.classList.add('on');
+  var saPage=document.getElementById('sa');
+  if(saPage&&saPage.style.display!=='none')renderSal();
+
+  var rcrSel=document.getElementById('rcr');
+  if(rcrSel){rcrSel.value=id;if(rcCurrentSub==='recap')loadRc();}
+
+  var abrSel=document.getElementById('abr');
+  if(abrSel){abrSel.value=id;if(rcCurrentSub==='ab')loadAb();}
+
+  var drhSel=document.getElementById('drh-resto');
+  if(drhSel)drhSel.value=id;
 }
 async function loadRoles(){
   var r=await db.from('roles').select('*').order('nom');
