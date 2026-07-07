@@ -385,6 +385,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="page" style="padding-top:14px;">
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <div class="rct-subtab on" id="rctbtn-list" onclick="goRecettesSub('list')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🍕 Produits &amp; recettes</div>
+      <div class="rct-subtab" id="rctbtn-ingredients" onclick="goRecettesSub('ingredients')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧂 Ingrédients</div>
       <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📥 Import ventes</div>
     </div>
 
@@ -403,6 +404,28 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="rct-list-container"></div>
     </div>
 
+    <!-- Sous-onglet: ingrédients de la carte -->
+    <div id="rct-pane-ingredients" style="display:none;">
+      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+        Liste des ingrédients tels qu'ils apparaissent sur la carte, groupés par catégorie (base, fromages, charcuterie, légumes, condiments…). C'est cette liste qui est utilisée pour composer les recettes. Tu peux relier chaque ingrédient à un produit du stock (facultatif, mais nécessaire plus tard pour le calcul théorique/réel).
+      </div>
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:8px;">Importer depuis un fichier</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Fichier CSV avec 2 colonnes : <strong>Catégorie;Ingrédient</strong> (une ligne d'en-tête optionnelle). Un nouvel import s'ajoute à la liste existante sans effacer ce qui est déjà rattaché.</div>
+        <div class="fr"><label class="fl2">Fichier CSV</label><input type="file" class="fi" id="rct-ing-file" accept=".csv,text/csv" style="padding:5px"></div>
+        <button class="btn bp" onclick="previewIngredientsImport()" style="width:100%;">Analyser le fichier</button>
+      </div>
+      <div id="rct-ing-preview"></div>
+      <div style="display:flex;gap:8px;margin:14px 0 10px;">
+        <input type="text" class="fi" id="rct-ing-search" placeholder="Rechercher un ingrédient…" oninput="renderIngredientsList()" style="flex:1;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txm);white-space:nowrap;">
+          <input type="checkbox" id="rct-ing-show-unlinked" onchange="renderIngredientsList()"> Non reliés seulement
+        </label>
+      </div>
+      <button class="btn bs sm" onclick="openNewIngredientModal()" style="margin-bottom:10px;">+ Ajouter un ingrédient manuellement</button>
+      <div id="rct-ing-list-container"></div>
+    </div>
+
     <!-- Sous-onglet: import CSV caisse -->
     <div id="rct-pane-import" style="display:none;">
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
@@ -418,14 +441,31 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
   </div>
 </div>
-
-<!-- Modal édition recette d'un produit vendu -->
 <div class="mb" id="mrct">
   <div class="md" style="max-width:420px;">
     <div class="mdt" id="mrct-title">Recette</div>
     <div id="mrct-lines"></div>
     <button class="btn bs sm" onclick="addRecetteLine()" style="width:100%;margin-top:6px;">+ Ajouter un ingrédient</button>
     <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mrct')">Annuler</button><button class="btn bp" onclick="saveRecette()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal nouveau ingrédient manuel -->
+<div class="mb" id="mnig">
+  <div class="md">
+    <div class="mdt">Nouvel ingrédient</div>
+    <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="nig-nom" placeholder="Ex: Mozzarella"></div>
+    <div class="fr"><label class="fl2">Catégorie</label><input type="text" class="fi" id="nig-cat" placeholder="Ex: Fromages"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('mnig')">Annuler</button><button class="btn bp" onclick="saveNewIngredient()">Créer</button></div>
+  </div>
+</div>
+
+<!-- Modal rattachement d'un ingrédient au stock -->
+<div class="mb" id="mlink">
+  <div class="md">
+    <div class="mdt" id="mlink-title">Relier au stock</div>
+    <div class="fr"><label class="fl2">Produit du stock correspondant</label><select class="fi" id="mlink-select"><option value="">-- Non relié --</option></select></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('mlink')">Annuler</button><button class="btn bp" onclick="saveIngredientLink()">Enregistrer</button></div>
   </div>
 </div>
 
@@ -4700,9 +4740,12 @@ async function showDashboard(refresh){
 // ══════════════════════════════════════════════════════════════════════════
 let rctProduitsVendus=[];   // produits_vendus du restaurant courant
 let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,unite}]}
-let rctIngredients=[];      // produits (catalogue stock) du restaurant courant, pour le sélecteur d'ingrédient
+let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), pour composer les recettes
+let rctStockProduits=[];    // catalogue stock (table 'produits'), pour relier un ingrédient à une unité de stock
 let rctCurrentSub='list';
-let rctPendingImport=null;  // lignes prêtes à être importées, en attente de confirmation
+let rctPendingImport=null;      // import ventes en attente de confirmation
+let rctPendingIngImport=null;   // import ingrédients en attente de confirmation
+let mlinkCurrentCode=null;      // ingrédient en cours de rattachement au stock
 
 function slugify(str){
   return (str||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -4716,8 +4759,9 @@ function rctResto(){
 function goRecettesSub(name){
   rctCurrentSub=name;
   document.getElementById('rct-pane-list').style.display=(name==='list')?'block':'none';
+  document.getElementById('rct-pane-ingredients').style.display=(name==='ingredients')?'block':'none';
   document.getElementById('rct-pane-import').style.display=(name==='import')?'block':'none';
-  ['list','import'].forEach(function(k){
+  ['list','ingredients','import'].forEach(function(k){
     var b=document.getElementById('rctbtn-'+k);
     if(!b)return;
     if(k===name){b.style.background='var(--bx)';b.style.color='#fff';b.style.border='none';}
@@ -4732,19 +4776,22 @@ async function loadRecettesModule(){
     return;
   }
   try{
-    var [pv,rc,pr]=await Promise.all([
+    var [pv,rc,ing,pr]=await Promise.all([
       db.from('produits_vendus').select('*').eq('restaurant_id',resto).order('categorie').order('nom'),
       db.from('recettes').select('*').eq('restaurant_id',resto),
+      db.from('ingredients').select('*').eq('restaurant_id',resto).order('categorie').order('nom'),
       db.from('produits').select('*').eq('restaurant_id',resto).order('nom')
     ]);
     rctProduitsVendus=pv.data||[];
-    rctIngredients=pr.data||[];
+    rctIngredients=ing.data||[];
+    rctStockProduits=pr.data||[];
     rctRecettes={};
     (rc.data||[]).forEach(function(r){
       rctRecettes[r.produit_vendu_code]=rctRecettes[r.produit_vendu_code]||[];
       rctRecettes[r.produit_vendu_code].push(r);
     });
     renderRecettesList();
+    renderIngredientsList();
   }catch(e){
     console.error('loadRecettesModule',e);
     document.getElementById('rct-list-container').innerHTML='<div class="card" style="color:#C0392B;font-size:12px;">Erreur de chargement.</div>';
@@ -4811,8 +4858,20 @@ function openRecetteModal(code){
   renderRecetteLines(lines);
   document.getElementById('mrct').classList.add('op');
 }
+function ingredientOptionsHtml(){
+  var groups={};
+  rctIngredients.filter(function(i){return i.actif!==false;}).forEach(function(i){
+    var cat=i.categorie||'Autres';
+    groups[cat]=groups[cat]||[];
+    groups[cat].push(i);
+  });
+  return Object.keys(groups).sort().map(function(cat){
+    var opts=groups[cat].map(function(i){return '<option value="'+i.code+'">'+esc(i.nom)+'</option>';}).join('');
+    return '<optgroup label="'+esc(cat)+'">'+opts+'</optgroup>';
+  }).join('');
+}
 function renderRecetteLines(lines){
-  var opts=rctIngredients.map(function(i){return '<option value="'+i.code+'">'+esc(i.nom)+'</option>';}).join('');
+  var opts=ingredientOptionsHtml();
   var html=lines.map(function(l,idx){
     return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
       +'<select class="fi mrct-ing" style="flex:2;"><option value="">-- ingrédient --</option>'+opts+'</select>'
@@ -4834,7 +4893,7 @@ function renderRecetteLines(lines){
 function addRecetteLine(){
   var container=document.getElementById('mrct-lines');
   var idx=container.querySelectorAll('[data-idx]').length;
-  var opts=rctIngredients.map(function(i){return '<option value="'+i.code+'">'+esc(i.nom)+'</option>';}).join('');
+  var opts=ingredientOptionsHtml();
   var div=document.createElement('div');
   div.className='fr';
   div.setAttribute('data-idx',idx);
@@ -5016,6 +5075,175 @@ async function confirmVentesImport(){
   }catch(e){
     console.error('confirmVentesImport',e);
     document.getElementById('rct-imp-preview').innerHTML+='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import. Réessaie.</div>';
+  }
+}
+
+// ── Ingrédients de la carte ──────────────────────────────────────────────────
+function renderIngredientsList(){
+  var searchEl=document.getElementById('rct-ing-search');
+  var unlinkedEl=document.getElementById('rct-ing-show-unlinked');
+  var container=document.getElementById('rct-ing-list-container');
+  if(!searchEl||!unlinkedEl||!container)return;
+  var search=(searchEl.value||'').toLowerCase();
+  var onlyUnlinked=unlinkedEl.checked;
+  var list=rctIngredients.filter(function(i){
+    if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
+    if(onlyUnlinked&&i.stock_produit_code)return false;
+    return true;
+  });
+  var groups={};
+  list.forEach(function(i){
+    var cat=i.categorie||'Autres';
+    groups[cat]=groups[cat]||[];
+    groups[cat].push(i);
+  });
+  var catNames=Object.keys(groups).sort();
+  if(!catNames.length){
+    container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.</div>';
+    return;
+  }
+  var html='';
+  catNames.forEach(function(cat){
+    html+='<div style="font-size:11px;font-weight:700;color:var(--txm);text-transform:uppercase;margin:14px 0 6px;">'+esc(cat)+'</div>';
+    groups[cat].forEach(function(i){
+      var stockProd=rctStockProduits.find(function(p){return p.code===i.stock_produit_code;});
+      var linkLabel=stockProd?('🔗 '+esc(stockProd.nom)):'<span style="color:#C0392B;">Non relié</span>';
+      html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;">'
+        +'<div style="flex:1;">'
+        +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(i.nom)+'</div>'
+        +'<div style="font-size:11px;color:var(--txm);">'+linkLabel+'</div>'
+        +'</div>'
+        +'<button class="btn bs sm" onclick="openLinkModal(\''+i.code+'\')">Relier</button>'
+        +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
+        +'</div>';
+    });
+  });
+  container.innerHTML=html;
+}
+
+async function deleteIngredient(code){
+  if(!confirm('Supprimer cet ingrédient ? Les recettes qui l\'utilisent perdront cette ligne.'))return;
+  var resto=rctResto();
+  try{
+    await db.from('ingredients').delete().eq('restaurant_id',resto).eq('code',code);
+    rctIngredients=rctIngredients.filter(function(i){return i.code!==code;});
+    renderIngredientsList();
+  }catch(e){console.error('deleteIngredient',e);alert('Erreur lors de la suppression.');}
+}
+
+function openNewIngredientModal(){
+  document.getElementById('nig-nom').value='';
+  document.getElementById('nig-cat').value='';
+  document.getElementById('mnig').classList.add('op');
+}
+async function saveNewIngredient(){
+  var resto=rctResto();
+  var nom=(document.getElementById('nig-nom').value||'').trim();
+  var cat=(document.getElementById('nig-cat').value||'').trim()||'Autres';
+  if(!nom){alert('Indique un nom.');return;}
+  var code=slugify(nom);
+  try{
+    await db.from('ingredients').upsert([{restaurant_id:resto,code:code,nom:nom,categorie:cat,actif:true}],{onConflict:'restaurant_id,code'});
+    closeM('mnig');
+    await loadRecettesModule();
+  }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création.');}
+}
+
+function openLinkModal(code){
+  mlinkCurrentCode=code;
+  var i=rctIngredients.find(function(x){return x.code===code;});
+  document.getElementById('mlink-title').textContent='Relier "'+(i?i.nom:code)+'" au stock';
+  var opts='<option value="">-- Non relié --</option>'+rctStockProduits.map(function(p){
+    return '<option value="'+p.code+'">'+esc(p.nom)+'</option>';
+  }).join('');
+  var sel=document.getElementById('mlink-select');
+  sel.innerHTML=opts;
+  sel.value=(i&&i.stock_produit_code)||'';
+  document.getElementById('mlink').classList.add('op');
+}
+async function saveIngredientLink(){
+  var resto=rctResto();
+  var code=mlinkCurrentCode;
+  var stockCode=document.getElementById('mlink-select').value||null;
+  try{
+    await db.from('ingredients').update({stock_produit_code:stockCode}).eq('restaurant_id',resto).eq('code',code);
+    var i=rctIngredients.find(function(x){return x.code===code;});
+    if(i)i.stock_produit_code=stockCode;
+    closeM('mlink');
+    renderIngredientsList();
+  }catch(e){console.error('saveIngredientLink',e);alert('Erreur lors de l\'enregistrement.');}
+}
+
+// ── Import CSV ingrédients (carte) ──────────────────────────────────────────
+function parseIngredientsCsv(text){
+  var rows=parseCsvSemicolon(text);
+  var out=[];
+  for(var r=0;r<rows.length;r++){
+    var row=rows[r];
+    if(!row||row.length<2)continue;
+    var c0=(row[0]||'').trim();
+    var c1=(row[1]||'').trim();
+    if(r===0){
+      var norm=c0.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
+      if(norm.indexOf('categ')>=0)continue; // ligne d'en-tête détectée, on l'ignore
+    }
+    if(!c0||!c1)continue;
+    out.push({categorie:c0,nom:c1});
+  }
+  return out;
+}
+function previewIngredientsImport(){
+  var fileInput=document.getElementById('rct-ing-file');
+  if(!fileInput.files.length){alert('Choisis un fichier CSV.');return;}
+  var file=fileInput.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var parsed;
+    try{parsed=parseIngredientsCsv(e.target.result);}
+    catch(err){console.error(err);alert('Le fichier n\'a pas pu être lu.');return;}
+    if(!parsed.length){alert('Aucun ingrédient exploitable trouvé. Format attendu : Catégorie;Ingrédient (une ligne par ingrédient).');return;}
+    rctPendingIngImport=parsed;
+    renderIngredientsPreview();
+  };
+  reader.onerror=function(){alert('Erreur de lecture du fichier.');};
+  reader.readAsText(file,'UTF-8');
+}
+function renderIngredientsPreview(){
+  if(!rctPendingIngImport){document.getElementById('rct-ing-preview').innerHTML='';return;}
+  var existingCodes={};
+  rctIngredients.forEach(function(i){existingCodes[i.code]=true;});
+  var newCount=0;
+  var rowsHtml=rctPendingIngImport.map(function(r){
+    var code=slugify(r.nom);
+    var isNew=!existingCodes[code];
+    if(isNew)newCount++;
+    return '<tr><td style="padding:4px 6px;font-size:12px;">'+esc(r.nom)+(isNew?' <span style="color:#2980B9;font-size:10px;">(nouveau)</span>':' <span style="color:var(--txm);font-size:10px;">(déjà présent)</span>')+'</td>'
+      +'<td style="padding:4px 6px;font-size:12px;color:var(--txm);">'+esc(r.categorie)+'</td></tr>';
+  }).join('');
+  var html='<div class="card">'
+    +'<div style="font-size:12px;color:var(--txm);margin-bottom:8px;">'+rctPendingIngImport.length+' lignes détectées — '+newCount+' nouveau(x) ingrédient(s), '+(rctPendingIngImport.length-newCount)+' déjà existant(s) (mis à jour, rattachement conservé).</div>'
+    +'<div style="max-height:300px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">'
+    +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:4px 6px;">Ingrédient</th><th style="padding:4px 6px;">Catégorie</th></tr></thead>'
+    +'<tbody>'+rowsHtml+'</tbody></table></div>'
+    +'<button class="btn bp" onclick="confirmIngredientsImport()" style="width:100%;margin-top:10px;">Confirmer l\'import</button>'
+    +'</div>';
+  document.getElementById('rct-ing-preview').innerHTML=html;
+}
+async function confirmIngredientsImport(){
+  if(!rctPendingIngImport)return;
+  var resto=rctResto();
+  try{
+    var rows=rctPendingIngImport.map(function(r){
+      return {restaurant_id:resto,code:slugify(r.nom),nom:r.nom,categorie:r.categorie,actif:true};
+    });
+    await db.from('ingredients').upsert(rows,{onConflict:'restaurant_id,code'});
+    rctPendingIngImport=null;
+    document.getElementById('rct-ing-preview').innerHTML='<div class="card" style="background:#ECFDF5;color:#065F46;">✅ Import réussi : '+rows.length+' ingrédients importés/mis à jour.</div>';
+    document.getElementById('rct-ing-file').value='';
+    await loadRecettesModule();
+  }catch(e){
+    console.error('confirmIngredientsImport',e);
+    document.getElementById('rct-ing-preview').innerHTML+='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import. Réessaie.</div>';
   }
 }
 
