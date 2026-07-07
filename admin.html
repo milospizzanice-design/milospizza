@@ -4755,6 +4755,13 @@ function rctResto(){
   var sel=document.getElementById('global-resto-select');
   return sel?sel.value:'port';
 }
+function sbCheck(result){
+  if(result&&result.error){
+    console.error('Supabase error',result.error);
+    throw new Error(result.error.message||'Erreur Supabase');
+  }
+  return result;
+}
 
 function goRecettesSub(name){
   rctCurrentSub=name;
@@ -4843,9 +4850,11 @@ async function toggleProduitVenduActif(code){
   var p=rctProduitsVendus.find(function(x){return x.code===code;});
   if(!p)return;
   var newActif=!(p.actif!==false);
-  await db.from('produits_vendus').update({actif:newActif}).eq('restaurant_id',resto).eq('code',code);
-  p.actif=newActif;
-  renderRecettesList();
+  try{
+    sbCheck(await db.from('produits_vendus').update({actif:newActif}).eq('restaurant_id',resto).eq('code',code));
+    p.actif=newActif;
+    renderRecettesList();
+  }catch(e){console.error('toggleProduitVenduActif',e);alert('Erreur : '+e.message);}
 }
 
 // ── Modal recette ──────────────────────────────────────────────────────────
@@ -4916,12 +4925,12 @@ async function saveRecette(){
     if(ing&&qty>0)lines.push({restaurant_id:resto,produit_vendu_code:code,ingredient_code:ing,quantite:qty,unite:unit});
   });
   try{
-    await db.from('recettes').delete().eq('restaurant_id',resto).eq('produit_vendu_code',code);
-    if(lines.length)await db.from('recettes').insert(lines);
+    sbCheck(await db.from('recettes').delete().eq('restaurant_id',resto).eq('produit_vendu_code',code));
+    if(lines.length)sbCheck(await db.from('recettes').insert(lines));
     rctRecettes[code]=lines;
     closeM('mrct');
     renderRecettesList();
-  }catch(e){console.error('saveRecette',e);alert('Erreur lors de l\'enregistrement de la recette.');}
+  }catch(e){console.error('saveRecette',e);alert('Erreur lors de l\'enregistrement de la recette : '+e.message);}
 }
 
 // ── Nouveau produit vendu manuel ────────────────────────────────────────────
@@ -4937,10 +4946,10 @@ async function saveNewProduitVendu(){
   if(!nom){alert('Indique un nom.');return;}
   var code=slugify(nom);
   try{
-    await db.from('produits_vendus').upsert([{restaurant_id:resto,code:code,nom:nom,categorie:cat||null,actif:true}],{onConflict:'restaurant_id,code'});
+    sbCheck(await db.from('produits_vendus').upsert([{restaurant_id:resto,code:code,nom:nom,categorie:cat||null,actif:true}],{onConflict:'restaurant_id,code'}));
     closeM('mnpv');
     await loadRecettesModule();
-  }catch(e){console.error('saveNewProduitVendu',e);alert('Erreur lors de la création.');}
+  }catch(e){console.error('saveNewProduitVendu',e);alert('Erreur lors de la création : '+e.message);}
 }
 
 // ── Import CSV caisse ───────────────────────────────────────────────────────
@@ -5062,11 +5071,11 @@ async function confirmVentesImport(){
     rctProduitsVendus.forEach(function(p){existingCodes[p.code]=true;});
     var toCreate=rows.filter(function(r){return !existingCodes[r.code];})
       .map(function(r){return {restaurant_id:resto,code:r.code,nom:r.nom,categorie:r.categorie,actif:true};});
-    if(toCreate.length)await db.from('produits_vendus').upsert(toCreate,{onConflict:'restaurant_id,code'});
+    if(toCreate.length)sbCheck(await db.from('produits_vendus').upsert(toCreate,{onConflict:'restaurant_id,code'}));
 
-    await db.from('ventes').delete().eq('restaurant_id',resto).eq('periode_debut',debut).eq('periode_fin',fin);
+    sbCheck(await db.from('ventes').delete().eq('restaurant_id',resto).eq('periode_debut',debut).eq('periode_fin',fin));
     var ventesRows=rows.map(function(r){return {restaurant_id:resto,produit_vendu_code:r.code,periode_debut:debut,periode_fin:fin,quantite:r.quantite,ca_ttc:r.ca_ttc,source:'caisse'};});
-    await db.from('ventes').insert(ventesRows);
+    sbCheck(await db.from('ventes').insert(ventesRows));
 
     rctPendingImport=null;
     document.getElementById('rct-imp-preview').innerHTML='<div class="card" style="background:#ECFDF5;color:#065F46;">✅ Import réussi : '+ventesRows.length+' produits importés pour la période du '+debut+' au '+fin+'.</div>';
@@ -5074,7 +5083,7 @@ async function confirmVentesImport(){
     await loadRecettesModule();
   }catch(e){
     console.error('confirmVentesImport',e);
-    document.getElementById('rct-imp-preview').innerHTML+='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import. Réessaie.</div>';
+    document.getElementById('rct-imp-preview').innerHTML+='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import : '+esc(e.message)+'</div>';
   }
 }
 
@@ -5125,10 +5134,10 @@ async function deleteIngredient(code){
   if(!confirm('Supprimer cet ingrédient ? Les recettes qui l\'utilisent perdront cette ligne.'))return;
   var resto=rctResto();
   try{
-    await db.from('ingredients').delete().eq('restaurant_id',resto).eq('code',code);
+    sbCheck(await db.from('ingredients').delete().eq('restaurant_id',resto).eq('code',code));
     rctIngredients=rctIngredients.filter(function(i){return i.code!==code;});
     renderIngredientsList();
-  }catch(e){console.error('deleteIngredient',e);alert('Erreur lors de la suppression.');}
+  }catch(e){console.error('deleteIngredient',e);alert('Erreur lors de la suppression : '+e.message);}
 }
 
 function openNewIngredientModal(){
@@ -5143,10 +5152,10 @@ async function saveNewIngredient(){
   if(!nom){alert('Indique un nom.');return;}
   var code=slugify(nom);
   try{
-    await db.from('ingredients').upsert([{restaurant_id:resto,code:code,nom:nom,categorie:cat,actif:true}],{onConflict:'restaurant_id,code'});
+    sbCheck(await db.from('ingredients').upsert([{restaurant_id:resto,code:code,nom:nom,categorie:cat,actif:true}],{onConflict:'restaurant_id,code'}));
     closeM('mnig');
     await loadRecettesModule();
-  }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création.');}
+  }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création : '+e.message);}
 }
 
 function openLinkModal(code){
@@ -5166,12 +5175,12 @@ async function saveIngredientLink(){
   var code=mlinkCurrentCode;
   var stockCode=document.getElementById('mlink-select').value||null;
   try{
-    await db.from('ingredients').update({stock_produit_code:stockCode}).eq('restaurant_id',resto).eq('code',code);
+    sbCheck(await db.from('ingredients').update({stock_produit_code:stockCode}).eq('restaurant_id',resto).eq('code',code));
     var i=rctIngredients.find(function(x){return x.code===code;});
     if(i)i.stock_produit_code=stockCode;
     closeM('mlink');
     renderIngredientsList();
-  }catch(e){console.error('saveIngredientLink',e);alert('Erreur lors de l\'enregistrement.');}
+  }catch(e){console.error('saveIngredientLink',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
 // ── Import CSV ingrédients (carte) ──────────────────────────────────────────
@@ -5236,14 +5245,14 @@ async function confirmIngredientsImport(){
     var rows=rctPendingIngImport.map(function(r){
       return {restaurant_id:resto,code:slugify(r.nom),nom:r.nom,categorie:r.categorie,actif:true};
     });
-    await db.from('ingredients').upsert(rows,{onConflict:'restaurant_id,code'});
+    sbCheck(await db.from('ingredients').upsert(rows,{onConflict:'restaurant_id,code'}));
     rctPendingIngImport=null;
     document.getElementById('rct-ing-preview').innerHTML='<div class="card" style="background:#ECFDF5;color:#065F46;">✅ Import réussi : '+rows.length+' ingrédients importés/mis à jour.</div>';
     document.getElementById('rct-ing-file').value='';
     await loadRecettesModule();
   }catch(e){
     console.error('confirmIngredientsImport',e);
-    document.getElementById('rct-ing-preview').innerHTML+='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import. Réessaie.</div>';
+    document.getElementById('rct-ing-preview').innerHTML+='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import : '+esc(e.message)+'</div>';
   }
 }
 
