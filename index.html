@@ -576,7 +576,6 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       <h2>⚙️ Administration</h2>
       <div style="display:flex;gap:0.5rem;align-items:center;">
         <button onclick="saveAll()" title="Enregistrer" style="background:var(--creme);border:1.5px solid var(--vert);color:var(--vert);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">💾</button>
-        <button onclick="bulkTranslateMissing()" title="Traduire tout ce qui manque" style="background:var(--creme);border:1.5px solid #4a7fb5;color:#4a7fb5;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">🌍</button>
         <button onclick="previewSite()" title="Aperçu" style="background:var(--creme);border:1.5px solid var(--rouge);color:var(--rouge);border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">👁</button>
         <button class="publish-btn" onclick="publishDraft()" title="Publier" style="background:var(--vert);border:none;color:#fff;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">✅</button>
         <button onclick="adminLogout()" title="Se déconnecter" style="background:var(--creme);border:1.5px solid #aaa;color:#888;border-radius:8px;width:34px;height:34px;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">🚪</button>
@@ -1580,7 +1579,6 @@ function renameSubcatPrompt(catId, oldName){
   if(cat.subcats.includes(name)){ showToast('❌ Cette sous-catégorie existe déjà'); return; }
   const idx = cat.subcats.indexOf(oldName);
   if(idx===-1) return;
-  renameSubcatTranslation(catId, oldName, name);
   cat.subcats[idx] = name;
   items.forEach(it=>{
     if(it.cat===catId && it.subcat===oldName) it.subcat=name;
@@ -1592,7 +1590,6 @@ function renameSubcatPrompt(catId, oldName){
   renderAdminItemsContextHeader();
   renderAdminItems(getFilteredAdminItems());
   autoSaveItems().then(ok=>showToast(ok?'✓ Renommé':'❌ Échec de l\'enregistrement'));
-  autoTranslateSubcat(catId, name);
 }
 
 function addSubcatPrompt(catId){
@@ -1760,7 +1757,6 @@ function closeItemEditModal(){
   _editModalItemId = null;
   renderAdminItems(getFilteredAdminItems());
   if (editedId) {
-    autoTranslateItem(editedId);
     autoSaveItems().then(ok=>{
       showToast(ok ? '✓ Modifications enregistrées' : '❌ Échec de l\'enregistrement - réessayez');
     });
@@ -2045,7 +2041,7 @@ function openEditCatModal(catId){
     </div>
     <div style="display:flex;gap:0.4rem;margin-top:0.8rem;flex-wrap:wrap;">
       <button class="aic-btn archive" onclick="toggleArchiveCat('${catId}');closeEditCatModal();">${cat.archived?'↩ Réactiver':'🌙 Archiver'}</button>
-      <button class="aic-btn delete" onclick="deleteCategoryPermanently('${catId}');">🗑️ Supprimer</button>
+      <button class="aic-btn delete" onclick="deleteCategoryPermanently('${catId}');closeEditCatModal();">🗑️ Supprimer</button>
     </div>
     <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
       <button class="add-btn" style="background:#aaa;flex:1;" onclick="closeEditCatModal()">Annuler</button>
@@ -2083,7 +2079,7 @@ function openEditSubcatModal(catId, scName){
       ${cats.filter(c=>!c.archived&&c.id!==catId).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('')}
     </select>
     <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-      <button class="aic-btn delete" onclick="deleteSubcat('${catId}','${scName.replace(/'/g,"\\'")}');">✕ Supprimer</button>
+      <button class="aic-btn delete" onclick="deleteSubcat('${catId}','${scName.replace(/'/g,"\\'")}');closeEditSubcatModal();">✕ Supprimer</button>
     </div>
     <div style="display:flex;gap:0.5rem;margin-top:0.4rem;">
       <button class="add-btn" style="background:#aaa;flex:1;" onclick="closeEditSubcatModal()">Annuler</button>
@@ -2118,14 +2114,12 @@ function saveEditSubcat(catId, oldName){
 renameSubcatPrompt._direct = function(catId, oldName, newName){
   const cat = cats.find(c=>c.id===catId); if(!cat||!cat.subcats) return;
   const idx = cat.subcats.indexOf(oldName); if(idx===-1) return;
-  renameSubcatTranslation(catId, oldName, newName);
   cat.subcats[idx] = newName;
   items.forEach(it=>{
     if(it.cat===catId&&it.subcat===oldName) it.subcat=newName;
     if(it.extraPlacements) it.extraPlacements.forEach(p=>{if(p.cat===catId&&p.subcat===oldName)p.subcat=newName;});
   });
   if(adminItemsFilter.subcat===oldName) adminItemsFilter.subcat=newName;
-  autoTranslateSubcat(catId, newName);
 };
 
 function updateQuickAddBtn(){
@@ -2336,13 +2330,7 @@ function addSubcatToCategory(catId){
   renderAdminCats();
   renderPlatsCategoryNav();
   autoSaveItems().then(()=>{});
-  autoTranslateSubcat(catId, val);
-  showToast('✓ Sous-catégorie créée : '+val);
-  try {
-    openBulkAssignModal(catId, val);
-  } catch(e) {
-    console.error('openBulkAssignModal error', e);
-  }
+  openBulkAssignModal(catId, val);
 }
 
 function deleteSubcat(catId, subcatName){
@@ -2354,9 +2342,7 @@ function deleteSubcat(catId, subcatName){
     : `Supprimer la sous-catégorie "${subcatName}" ?`;
   if(!confirm(msg)) return;
   cat.subcats = cat.subcats.filter(s=>s!==subcatName);
-  if (cat.subcatTranslations) delete cat.subcatTranslations[subcatName];
   items.forEach(i=>{ if(i.cat===catId && i.subcat===subcatName) i.subcat=''; });
-  closeEditSubcatModal();
   renderAdminCats();
   renderPlatsCategoryNav();
   renderAdminItems(getFilteredAdminItems());
@@ -2508,36 +2494,59 @@ function renderQRDesign(){
   ctx.fillStyle=QR_CREME;
   _rrect(ctx,0,0,W,H,32); ctx.fill();
 
+  const bandH=H*0.22;
+
   // Bandeau bordeaux haut
   ctx.fillStyle=QR_ROUGE;
-  _rrectTop(ctx,0,0,W,H*0.22,32); ctx.fill();
+  _rrectTop(ctx,0,0,W,bandH,32); ctx.fill();
 
   // Bandeau bordeaux bas
   ctx.fillStyle=QR_ROUGE;
   _rrectBottom(ctx,0,H*0.77,W,H*0.23,32); ctx.fill();
 
-  // Logo dans le bandeau haut
+  // Motif discret de points dans la zone crème (entre les deux bandeaux)
+  _drawDotPattern(ctx, 0, bandH, W, H*0.77-bandH, 26, 1.7, QR_ROUGE, 0.05);
+
+  // Logo agrandi, mis en valeur sur une plaque blanche arrondie
   const logoEl=document.querySelector('.logo-img');
   if(logoEl&&logoEl.complete&&logoEl.naturalWidth){
-    const lh=H*0.15, lw=lh*(logoEl.naturalWidth/logoEl.naturalHeight);
-    try{ ctx.drawImage(logoEl,(W-lw)/2,(H*0.22-lh)/2,lw,lh); }catch(e){}
+    const lh=H*0.17, ratio=logoEl.naturalWidth/logoEl.naturalHeight, lw=lh*ratio;
+    const plaqueW=lw+30, plaqueH=lh+26;
+    const px=(W-plaqueW)/2, py=(bandH-plaqueH)/2;
+    ctx.save();
+    ctx.shadowColor='rgba(61,43,31,0.25)'; ctx.shadowBlur=14; ctx.shadowOffsetY=2;
+    ctx.fillStyle='#fff';
+    _rrect(ctx,px,py,plaqueW,plaqueH,16); ctx.fill();
+    ctx.restore();
+    try{ ctx.drawImage(logoEl,(W-lw)/2,(bandH-lh)/2,lw,lh); }catch(e){}
   }
 
-  // QR code centré
+  // QR code centré, coins arrondis, double cadre
   const qrSize=Math.round(W*0.7);
   const qr=makeQRCanvas(QR_URL,qrSize);
   const qx=(W-qrSize)/2, qy=H*0.24;
-  // Ombre blanche
-  ctx.fillStyle='#fff'; ctx.shadowColor='rgba(0,0,0,0.13)'; ctx.shadowBlur=18;
-  _rrect(ctx,qx-14,qy-14,qrSize+28,qrSize+28,18); ctx.fill();
-  ctx.shadowBlur=0;
+  const pad=14, cardR=20;
+  // Ombre + carte blanche
+  ctx.save();
+  ctx.fillStyle='#fff'; ctx.shadowColor='rgba(0,0,0,0.14)'; ctx.shadowBlur=20;
+  _rrect(ctx,qx-pad,qy-pad,qrSize+pad*2,qrSize+pad*2,cardR); ctx.fill();
+  ctx.restore();
+  // QR code au coins arrondis (clip)
+  ctx.save();
+  _rrect(ctx,qx,qy,qrSize,qrSize,12); ctx.clip();
   ctx.drawImage(qr,qx,qy);
+  ctx.restore();
+  // Double liseré autour de la carte : fin bordeaux + fin crème en retrait
+  ctx.lineWidth=2; ctx.strokeStyle=QR_ROUGE;
+  _rrect(ctx,qx-pad,qy-pad,qrSize+pad*2,qrSize+pad*2,cardR); ctx.stroke();
+  ctx.lineWidth=1.5; ctx.strokeStyle=QR_CREME;
+  _rrect(ctx,qx-pad+6,qy-pad+6,qrSize+pad*2-12,qrSize+pad*2-12,cardR-5); ctx.stroke();
 
   // Flèche + "Scanner ici"
-  const ay=qy+qrSize+28;
+  const ay=qy+qrSize+pad+28;
   ctx.fillStyle=QR_ROUGE; ctx.textAlign='center';
   ctx.font=`bold ${Math.round(W*0.044)}px Montserrat,sans-serif`;
-  ctx.fillText('↓  Scanner ici', W/2, ay+36);
+  ctx.fillText('↓  Scanner ici', W/2, ay+24);
 
   // Texte accroche dans le bas
   ctx.fillStyle='#fff'; ctx.textAlign='center';
@@ -2549,6 +2558,19 @@ function renderQRDesign(){
   ctx.globalAlpha=1;
 
   dest.style.maxWidth='100%'; dest.style.borderRadius='14px';
+}
+
+function _drawDotPattern(ctx,x,y,w,h,spacing,r,color,alpha){
+  ctx.save();
+  _rrect(ctx,x,y,w,h,0); ctx.clip();
+  ctx.fillStyle=color; ctx.globalAlpha=alpha;
+  for(let py=y+spacing/2; py<y+h; py+=spacing){
+    for(let px=x+spacing/2; px<x+w; px+=spacing){
+      ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
 }
 
 function _rrect(ctx,x,y,w,h,r){
@@ -2888,11 +2910,10 @@ function renameCat(id, val){
   if(!c || !val.trim()) return;
   const name = val.trim();
   c.name.fr = name;
-  ['en','it','de','zh','ru','es'].forEach(l=>{ if(!c.name[l]) c.name[l]=name; });
+  ['en','it','de','zh','ru'].forEach(l=>{ if(!c.name[l]||c.name[l]===c.name.fr) c.name[l]=name; });
   renderMenu();
   renderPlatsCategoryNav();
   autoSaveItems().then(ok=>showToast(ok?'✓ Nom enregistré':'❌ Échec de l\'enregistrement'));
-  autoTranslateCategory(id);
 }
 
 function toggleArchiveCat(id){
@@ -2912,7 +2933,6 @@ function deleteCategoryPermanently(id){
   }
   if(!confirm(`Supprimer définitivement "${c.name.fr}" ? Cette action est irréversible.`)) return;
   cats = cats.filter(x=>x.id!==id);
-  closeEditCatModal();
   renderAdminCats();
   renderPlatsCategoryNav();
   autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie supprimée définitivement':'❌ Échec de l\'enregistrement'));
@@ -2986,150 +3006,6 @@ function deleteUpsell(id){
   autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
 }
 
-// ═══════════════════════════════════════
-// TRADUCTION AUTOMATIQUE (IA)
-// ═══════════════════════════════════════
-async function autoTranslateText(name, desc) {
-  try {
-    const token = localStorage.getItem('milos_token');
-    if (!token) { showToast('❌ Traduction: pas de session (reconnecte-toi)'); return null; }
-    const res = await fetch(`${PROXY_URL}/admin/translate`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+token},
-      body: JSON.stringify({name, desc})
-    });
-    let data = null;
-    try { data = await res.json(); } catch(parseErr) {}
-    if (!res.ok) {
-      showToast('❌ Traduction (' + res.status + '): ' + (data?.error || 'erreur inconnue'));
-      return null;
-    }
-    return data;
-  } catch(e) { showToast('❌ Traduction: ' + e.message); return null; }
-}
-
-async function autoTranslateItem(itemId) {
-  const it = items.find(i=>i.id===itemId);
-  if (!it) return;
-  showToast('🌍 Traduction en cours...');
-  const tr = await autoTranslateText(it.name.fr, it.desc.fr);
-  const itNow = items.find(i=>i.id===itemId);
-  if (!tr || !itNow) return;
-  ['en','it','de','zh','ru','es'].forEach(l=>{
-    if (tr[l]) { itNow.name[l] = tr[l].name || itNow.name[l]; itNow.desc[l] = tr[l].desc || itNow.desc[l]; }
-  });
-  autoSaveItems();
-  renderAdminItems(getFilteredAdminItems());
-  showToast('🌍 Plat traduit dans les 6 langues !');
-}
-
-async function autoTranslateCategory(catId) {
-  const cat = cats.find(c=>c.id===catId);
-  if (!cat) return;
-  showToast('🌍 Traduction en cours...');
-  const tr = await autoTranslateText(cat.name.fr, '');
-  const catNow = cats.find(c=>c.id===catId);
-  if (!tr || !catNow) return;
-  ['en','it','de','zh','ru','es'].forEach(l=>{ if (tr[l]?.name) catNow.name[l] = tr[l].name; });
-  autoSaveItems();
-  renderAdminCats(); renderPlatsCategoryNav(); renderMenu();
-  showToast('🌍 Catégorie traduite dans les 6 langues !');
-}
-
-async function autoTranslateSubcat(catId, subcatName) {
-  showToast('🌍 Traduction en cours...');
-  const tr = await autoTranslateText(subcatName, '');
-  const catNow = cats.find(c=>c.id===catId);
-  if (!tr || !catNow) return;
-  if (!catNow.subcatTranslations) catNow.subcatTranslations = {};
-  const entry = {};
-  ['en','it','de','zh','ru','es'].forEach(l=>{ if (tr[l]?.name) entry[l] = tr[l].name; });
-  catNow.subcatTranslations[subcatName] = entry;
-  autoSaveItems();
-  renderMenu();
-  showToast('🌍 Sous-catégorie traduite dans les 6 langues !');
-}
-
-function renameSubcatTranslation(catId, oldName, newName) {
-  const cat = cats.find(c=>c.id===catId);
-  if (!cat || !cat.subcatTranslations) return;
-  if (cat.subcatTranslations[oldName]) {
-    cat.subcatTranslations[newName] = cat.subcatTranslations[oldName];
-    delete cat.subcatTranslations[oldName];
-  }
-}
-
-function subcatLabel(cat, sc) {
-  const tr = cat.subcatTranslations && cat.subcatTranslations[sc];
-  return (tr && tr[currentLang]) || sc;
-}
-
-const TRANSLATE_LANGS = ['en','it','de','zh','ru','es'];
-
-function itemMissingTranslation(it) {
-  return TRANSLATE_LANGS.some(l => (it.name.fr && !it.name[l]) || (it.desc && it.desc.fr && !it.desc[l]));
-}
-function catMissingTranslation(c) {
-  return TRANSLATE_LANGS.some(l => c.name.fr && !c.name[l]);
-}
-function subcatMissingTranslation(cat, sc) {
-  const tr = cat.subcatTranslations && cat.subcatTranslations[sc];
-  return TRANSLATE_LANGS.some(l => !tr || !tr[l]);
-}
-
-async function bulkTranslateMissing() {
-  const missingItems = items.filter(it => !it.archived && itemMissingTranslation(it));
-  const missingCats = cats.filter(c => !c.archived && catMissingTranslation(c));
-  const subcatJobs = [];
-  cats.forEach(c => {
-    (c.subcats || []).forEach(sc => { if (subcatMissingTranslation(c, sc)) subcatJobs.push({catId: c.id, sc}); });
-  });
-
-  const total = missingItems.length + missingCats.length + subcatJobs.length;
-  if (total === 0) { showToast('✓ Tout est déjà traduit !'); return; }
-  if (!confirm(`${total} élément(s) à traduire (${missingItems.length} plat(s), ${missingCats.length} catégorie(s), ${subcatJobs.length} sous-catégorie(s)).\n\nCela peut prendre plusieurs minutes. Continuer ?`)) return;
-
-  let done = 0;
-  showToast(`🌍 Traduction 0/${total}...`);
-
-  for (const c of missingCats) {
-    const tr = await autoTranslateText(c.name.fr, '');
-    if (tr) TRANSLATE_LANGS.forEach(l => { if (tr[l]?.name) c.name[l] = tr[l].name; });
-    done++;
-    showToast(`🌍 Traduction ${done}/${total}...`);
-    await new Promise(r=>setTimeout(r, 300));
-  }
-
-  for (const {catId, sc} of subcatJobs) {
-    const cat = cats.find(x=>x.id===catId);
-    if (!cat) { done++; continue; }
-    const tr = await autoTranslateText(sc, '');
-    if (tr) {
-      if (!cat.subcatTranslations) cat.subcatTranslations = {};
-      const entry = {};
-      TRANSLATE_LANGS.forEach(l => { if (tr[l]?.name) entry[l] = tr[l].name; });
-      cat.subcatTranslations[sc] = entry;
-    }
-    done++;
-    showToast(`🌍 Traduction ${done}/${total}...`);
-    await new Promise(r=>setTimeout(r, 300));
-  }
-
-  for (const it of missingItems) {
-    const tr = await autoTranslateText(it.name.fr, it.desc.fr);
-    if (tr) TRANSLATE_LANGS.forEach(l => {
-      if (tr[l]) { it.name[l] = tr[l].name || it.name[l]; it.desc[l] = tr[l].desc || it.desc[l]; }
-    });
-    done++;
-    showToast(`🌍 Traduction ${done}/${total}...`);
-    await new Promise(r=>setTimeout(r, 300));
-  }
-
-  renderAdminContent();
-  renderMenu();
-  autoSaveItems().then(ok=>showToast(ok ? `✓ ${total} élément(s) traduit(s) et enregistrés !` : '❌ Traduit mais échec de l\'enregistrement — retente "Enregistrer tout"'));
-}
-
 function addNewItem(){
   const name=document.getElementById('newItemName').value.trim();
   const desc=document.getElementById('newItemDesc').value.trim();
@@ -3146,7 +3022,6 @@ function addNewItem(){
   document.getElementById('newItemPrice').value='';
   closeAddItemModal();
   renderAdminContent();
-  autoTranslateItem(id);
   autoSaveItems().then(ok=>showToast(ok?'✓ Plat ajouté':'❌ Échec de l\'enregistrement'));
 }
 
@@ -3300,7 +3175,7 @@ function addNewCat(){
   const name=document.getElementById('newCatName').value.trim();
   if(!name)return;
   const id='cat_'+Date.now();
-  const empty={fr:name,en:name,it:name,de:name,zh:name,ru:name,es:name};
+  const empty={fr:name,en:name,it:name,de:name,zh:name,ru:name};
   const homeGroup = window._pendingNewCatSection || 'food';
   window._pendingNewCatSection = null;
   cats.push({id,name:empty,archived:false,homeGroup});
@@ -3310,7 +3185,6 @@ function addNewCat(){
   closeAddCatModal();
   renderAdminContent();
   autoSaveItems().then(()=>{});
-  autoTranslateCategory(id);
   openBulkAssignModal(id, null);
 }
 
@@ -4663,7 +4537,7 @@ function buildSectionTabs(groupCats){
       const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null));
       subcats.forEach(sc => {
         const hasItems = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, sc));
-        if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:subcatLabel(c,sc), catId:c.id, subcat:sc});
+        if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
       });
       if (hasUnassigned) {
         tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
