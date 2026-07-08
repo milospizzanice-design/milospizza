@@ -2482,6 +2482,17 @@ function printGridQR(){
 }
 
 // ─── Option 3 : Design personnalisé ─────────────────────────────────────
+function tintCanvas(imgEl, color){
+  const c=document.createElement('canvas');
+  c.width=imgEl.naturalWidth; c.height=imgEl.naturalHeight;
+  const cctx=c.getContext('2d');
+  cctx.drawImage(imgEl,0,0);
+  cctx.globalCompositeOperation='source-in';
+  cctx.fillStyle=color;
+  cctx.fillRect(0,0,c.width,c.height);
+  return c;
+}
+
 function renderQRDesign(){
   const text=(document.getElementById('qrDesignText')||{}).value||"Scannez notre menu 🍕";
   const sub=(document.getElementById('qrDesignSub')||{}).value||"C'est rapide et sans contact !";
@@ -2490,72 +2501,70 @@ function renderQRDesign(){
   dest.width=W; dest.height=H;
   const ctx=dest.getContext('2d');
 
-  // Fond crème arrondi
+  // Fond crème arrondi, jusqu'en haut
   ctx.fillStyle=QR_CREME;
   _rrect(ctx,0,0,W,H,32); ctx.fill();
 
-  const bandH=H*0.22;
+  const bandTop=H*0.77, bandH=H*0.23;
 
-  // Bandeau bordeaux haut
+  // Motif discret de points sur tout le fond crème (recouvert ensuite par le bandeau bas)
+  _drawDotPattern(ctx, 0, 0, W, H, 26, 1.7, QR_ROUGE, 0.05);
+
+  // Bandeau bordeaux bas (recouvre le motif de points en dessous)
   ctx.fillStyle=QR_ROUGE;
-  _rrectTop(ctx,0,0,W,bandH,32); ctx.fill();
+  _rrectBottom(ctx,0,bandTop,W,bandH,32); ctx.fill();
 
-  // Bandeau bordeaux bas
-  ctx.fillStyle=QR_ROUGE;
-  _rrectBottom(ctx,0,H*0.77,W,H*0.23,32); ctx.fill();
-
-  // Motif discret de points dans la zone crème (entre les deux bandeaux)
-  _drawDotPattern(ctx, 0, bandH, W, H*0.77-bandH, 26, 1.7, QR_ROUGE, 0.05);
-
-  // Logo agrandi, mis en valeur sur une plaque blanche arrondie
+  // Logo agrandi, teinté bordeaux, directement sur le fond crème
   const logoEl=document.querySelector('.logo-img');
+  const topMargin=34;
+  let logoBottom=topMargin+H*0.185;
   if(logoEl&&logoEl.complete&&logoEl.naturalWidth){
-    const lh=H*0.17, ratio=logoEl.naturalWidth/logoEl.naturalHeight, lw=lh*ratio;
-    const plaqueW=lw+30, plaqueH=lh+26;
-    const px=(W-plaqueW)/2, py=(bandH-plaqueH)/2;
-    ctx.save();
-    ctx.shadowColor='rgba(61,43,31,0.25)'; ctx.shadowBlur=14; ctx.shadowOffsetY=2;
-    ctx.fillStyle='#fff';
-    _rrect(ctx,px,py,plaqueW,plaqueH,16); ctx.fill();
-    ctx.restore();
-    try{ ctx.drawImage(logoEl,(W-lw)/2,(bandH-lh)/2,lw,lh); }catch(e){}
+    const lh=H*0.185, ratio=logoEl.naturalWidth/logoEl.naturalHeight;
+    let lw=lh*ratio;
+    if(lw>W*0.78){ lw=W*0.78; }
+    logoBottom=topMargin+lh;
+    try{
+      const tinted=tintCanvas(logoEl,QR_ROUGE);
+      ctx.drawImage(tinted,(W-lw)/2,topMargin,lw,lh);
+    }catch(e){
+      try{ ctx.drawImage(logoEl,(W-lw)/2,topMargin,lw,lh); }catch(e2){}
+    }
   }
 
-  // QR code centré, coins arrondis, double cadre
-  const qrSize=Math.round(W*0.7);
+  // QR code centré — identique à celui de la planche d'impression (non recadré)
+  const qrSize=Math.round(W*0.64);
   const qr=makeQRCanvas(QR_URL,qrSize);
-  const qx=(W-qrSize)/2, qy=H*0.24;
-  const pad=14, cardR=20;
+  const qx=(W-qrSize)/2, qy=logoBottom+30;
+  const pad=14, cardR=18;
   // Ombre + carte blanche
   ctx.save();
   ctx.fillStyle='#fff'; ctx.shadowColor='rgba(0,0,0,0.14)'; ctx.shadowBlur=20;
   _rrect(ctx,qx-pad,qy-pad,qrSize+pad*2,qrSize+pad*2,cardR); ctx.fill();
   ctx.restore();
-  // QR code au coins arrondis (clip)
-  ctx.save();
-  _rrect(ctx,qx,qy,qrSize,qrSize,12); ctx.clip();
+  // QR code complet, sans recadrage (identique à la planche)
   ctx.drawImage(qr,qx,qy);
-  ctx.restore();
   // Double liseré autour de la carte : fin bordeaux + fin crème en retrait
   ctx.lineWidth=2; ctx.strokeStyle=QR_ROUGE;
   _rrect(ctx,qx-pad,qy-pad,qrSize+pad*2,qrSize+pad*2,cardR); ctx.stroke();
   ctx.lineWidth=1.5; ctx.strokeStyle=QR_CREME;
   _rrect(ctx,qx-pad+6,qy-pad+6,qrSize+pad*2-12,qrSize+pad*2-12,cardR-5); ctx.stroke();
 
-  // Flèche + "Scanner ici"
-  const ay=qy+qrSize+pad+28;
+  // Flèche + "Scanner ici" — reste entièrement sur le fond crème, au-dessus du bandeau
+  const cardBottom=qy+qrSize+pad;
+  const arrowBaseline=Math.min(cardBottom+42, bandTop-16);
   ctx.fillStyle=QR_ROUGE; ctx.textAlign='center';
   ctx.font=`bold ${Math.round(W*0.044)}px Montserrat,sans-serif`;
-  ctx.fillText('↓  Scanner ici', W/2, ay+24);
+  ctx.fillText('↓  Scanner ici', W/2, arrowBaseline);
 
   // Texte accroche dans le bas
   ctx.fillStyle='#fff'; ctx.textAlign='center';
   ctx.font=`bold ${Math.round(W*0.052)}px Montserrat,sans-serif`;
-  _wrapText(ctx, text, W/2, H*0.82, W*0.82, Math.round(W*0.062));
-  ctx.font=`${Math.round(W*0.036)}px Montserrat,sans-serif`;
-  ctx.globalAlpha=0.82;
-  ctx.fillText(sub.slice(0,38), W/2, H*0.945);
-  ctx.globalAlpha=1;
+  _wrapText(ctx, text, W/2, H*0.815, W*0.85, Math.round(W*0.062));
+
+  // Sous-texte : bien visible, gras, pleine opacité
+  ctx.font=`700 ${Math.round(W*0.044)}px Montserrat,sans-serif`;
+  ctx.fillStyle='#fff';
+  ctx.fillText(sub.slice(0,38), W/2, H*0.935);
 
   dest.style.maxWidth='100%'; dest.style.borderRadius='14px';
 }
