@@ -401,7 +401,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
           <input type="checkbox" id="rct-show-inactive" onchange="renderRecettesList()"> Voir inactifs
         </label>
       </div>
-      <button class="btn bs sm" onclick="openNewProduitVenduModal()" style="margin-bottom:10px;">+ Ajouter un produit vendu manuellement</button>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button class="btn bs sm" onclick="openNewProduitVenduModal()">+ Produit vendu manuellement</button>
+        <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
+      </div>
       <div id="rct-list-container"></div>
     </div>
 
@@ -502,6 +505,30 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="npv-nom" placeholder="Ex: MARGUERITE"></div>
     <div class="fr"><label class="fl2">Catégorie</label><input type="text" class="fi" id="npv-cat" placeholder="Ex: PIZZAS"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mnpv')">Annuler</button><button class="btn bp" onclick="saveNewProduitVendu()">Créer</button></div>
+  </div>
+</div>
+
+<!-- Modal gestion d'une catégorie (nom, position, sous-catégories, affectation de produits) -->
+<div class="mb" id="mcat">
+  <div class="md" style="max-width:460px;">
+    <div class="mdt" id="mcat-title">Catégorie</div>
+    <div class="fr"><label class="fl2">Nom de la catégorie</label><input type="text" class="fi" id="mcat-nom"></div>
+    <div class="fr"><label class="fl2">Position d'affichage</label><input type="number" class="fi" id="mcat-ordre" step="1" style="width:100px;"></div>
+    <button class="btn bp sm" onclick="saveCategoryMeta()" style="width:100%;margin-bottom:6px;">💾 Enregistrer nom / position</button>
+
+    <div style="font-size:11px;color:var(--txm);margin:14px 0 4px;font-weight:700;text-transform:uppercase;">Sous-catégories</div>
+    <div id="mcat-subcats"></div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <input type="text" class="fi" id="mcat-new-sub" placeholder="Nouvelle sous-catégorie" style="flex:1;">
+      <button class="btn bs sm" onclick="addSubcatToCategory()">+ Ajouter</button>
+    </div>
+
+    <div style="font-size:11px;color:var(--txm);margin:14px 0 4px;font-weight:700;text-transform:uppercase;">Ajouter des produits ici</div>
+    <select class="fi" id="mcat-assign-dest" style="margin-bottom:6px;"></select>
+    <input type="text" class="fi" id="mcat-assign-search" placeholder="🔍 Rechercher un produit à ajouter…" oninput="renderMcatAssignResults()" style="margin-bottom:6px;">
+    <div id="mcat-assign-results" style="max-height:180px;overflow-y:auto;"></div>
+
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mcat')">Fermer</button></div>
   </div>
 </div>
 
@@ -4784,6 +4811,8 @@ let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), c
 let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT
 let rctIngredientStockLink={}; // {ingredient_code: stock_produit_code} — rattachement stock, propre au restaurant courant
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
+let rctCategoriesOrdre={};       // {nom_categorie: ordre}
+let rctSousCategoriesOrdre={};   // {nom_categorie: {nom_sous_categorie: ordre}}
 let rctIngredientComposition={}; // {ingredient_code: [{stock_produit_code,quantite,unite}]} — propre au restaurant courant
 let rctCurrentSub='list';
 let rctPendingImport=null;      // import ventes en attente de confirmation
@@ -4829,14 +4858,16 @@ async function loadRecettesModule(){
     return;
   }
   try{
-    var [pv,rc,ing,pr,ic,link,dispo]=await Promise.all([
+    var [pv,rc,ing,pr,ic,link,dispo,catOrd,subOrd]=await Promise.all([
       db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('produits').select('*').eq('restaurant_id',resto).order('nom'),
       db.from('ingredient_composition').select('*').eq('restaurant_id',resto),
       db.from('ingredient_stock_link').select('*').eq('restaurant_id',resto),
-      db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto)
+      db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto),
+      db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
+      db.from('sous_categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL)
     ]);
     rctProduitsVendus=pv.data||[];
     rctIngredients=ing.data||[];
@@ -4845,6 +4876,13 @@ async function loadRecettesModule(){
     (link.data||[]).forEach(function(r){rctIngredientStockLink[r.ingredient_code]=r.stock_produit_code;});
     rctProduitDispo={};
     (dispo.data||[]).forEach(function(r){rctProduitDispo[r.produit_vendu_code]=r.actif;});
+    rctCategoriesOrdre={};
+    (catOrd.data||[]).forEach(function(r){rctCategoriesOrdre[r.nom]=r.ordre;});
+    rctSousCategoriesOrdre={};
+    (subOrd.data||[]).forEach(function(r){
+      rctSousCategoriesOrdre[r.categorie]=rctSousCategoriesOrdre[r.categorie]||{};
+      rctSousCategoriesOrdre[r.categorie][r.nom]=r.ordre;
+    });
     rctIngredientComposition={};
     (ic.data||[]).forEach(function(r){
       rctIngredientComposition[r.ingredient_code]=rctIngredientComposition[r.ingredient_code]||[];
@@ -4880,15 +4918,27 @@ function renderRecettesList(){
     groups[cat][sub]=groups[cat][sub]||[];
     groups[cat][sub].push(p);
   });
-  var catNames=Object.keys(groups).sort();
+  var catNames=Object.keys(groups).sort(function(a,b){
+    var oa=rctCategoriesOrdre[a]!=null?rctCategoriesOrdre[a]:9999;
+    var ob=rctCategoriesOrdre[b]!=null?rctCategoriesOrdre[b]:9999;
+    return oa!==ob?oa-ob:a.localeCompare(b);
+  });
   if(!catNames.length){
     document.getElementById('rct-list-container').innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun produit vendu pour l\'instant. Importe un export de caisse ou ajoute-en un manuellement.</div>';
     return;
   }
   var html='';
   catNames.forEach(function(cat){
-    html+='<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;margin:16px 0 4px;">'+esc(cat)+'</div>';
-    var subNames=Object.keys(groups[cat]).sort();
+    html+='<div style="display:flex;align-items:center;gap:6px;margin:16px 0 4px;" data-catname="'+esc(cat)+'">'
+      +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;flex:1;">'+esc(cat)+'</div>'
+      +'<button class="btn bs sm" onclick="openCategoryEditModalFromBtn(this)" style="padding:3px 8px;font-size:11px;">✏️</button>'
+      +'</div>';
+    var subOrdMap=rctSousCategoriesOrdre[cat]||{};
+    var subNames=Object.keys(groups[cat]).sort(function(a,b){
+      var oa=a&&subOrdMap[a]!=null?subOrdMap[a]:9999;
+      var ob=b&&subOrdMap[b]!=null?subOrdMap[b]:9999;
+      return oa!==ob?oa-ob:a.localeCompare(b);
+    });
     subNames.forEach(function(sub){
       if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:8px 0 4px 8px;">↳ '+esc(sub)+'</div>';
       groups[cat][sub].forEach(function(p){
@@ -5625,6 +5675,164 @@ async function saveIngredientComposition(){
     closeM('mingcomp');
     renderIngredientsList();
   }catch(e){console.error('saveIngredientComposition',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
+}
+
+// ── Gestion des catégories / sous-catégories de produits vendus ─────────────
+let mcatCurrentCat=null; // null = mode création d'une nouvelle catégorie
+
+function openCategoryEditModalFromBtn(btn){
+  var host=btn.closest('[data-catname]');
+  openCategoryEditModal(host?host.getAttribute('data-catname'):null);
+}
+function openCategoryEditModal(catName){
+  mcatCurrentCat=catName;
+  document.getElementById('mcat-title').textContent=catName?('Catégorie : '+catName):'Nouvelle catégorie';
+  document.getElementById('mcat-nom').value=catName||'';
+  var nextOrdre=(Object.keys(rctCategoriesOrdre).length+1)*10;
+  document.getElementById('mcat-ordre').value=catName&&rctCategoriesOrdre[catName]!=null?rctCategoriesOrdre[catName]:nextOrdre;
+  renderCategoryEditSubcats();
+  renderMcatAssignDest();
+  document.getElementById('mcat-assign-search').value='';
+  document.getElementById('mcat-assign-results').innerHTML='';
+  document.getElementById('mcat').classList.add('op');
+}
+function renderCategoryEditSubcats(){
+  var cat=mcatCurrentCat;
+  var container=document.getElementById('mcat-subcats');
+  if(!cat){container.innerHTML='<div style="font-size:11px;color:var(--txm);">Enregistre d\'abord le nom de la catégorie pour pouvoir ajouter des sous-catégories.</div>';return;}
+  var subs=rctSousCategoriesOrdre[cat]||{};
+  var names=Object.keys(subs).sort(function(a,b){return (subs[a]||0)-(subs[b]||0);});
+  if(!names.length){container.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucune sous-catégorie pour l\'instant.</div>';return;}
+  container.innerHTML=names.map(function(n){
+    return '<div class="mcat-subcat-row" data-name="'+esc(n)+'" style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">'
+      +'<input type="text" class="fi mcat-sub-nom" value="'+esc(n)+'" style="flex:2;">'
+      +'<input type="number" class="fi mcat-sub-ordre" value="'+(subs[n]||0)+'" style="width:70px;">'
+      +'<button class="btn bs sm" onclick="saveSubcatRow(this)" style="padding:6px 8px;">💾</button>'
+      +'<button class="btn bs sm" onclick="deleteSubcatRow(this)" style="padding:6px 8px;background:#FEE2E2;color:#991B1B;">✕</button>'
+      +'</div>';
+  }).join('');
+}
+async function saveCategoryMeta(){
+  var oldName=mcatCurrentCat;
+  var newName=(document.getElementById('mcat-nom').value||'').trim();
+  var ordre=parseInt(document.getElementById('mcat-ordre').value,10)||0;
+  if(!newName){alert('Indique un nom de catégorie.');return;}
+  try{
+    if(oldName&&oldName!==newName){
+      // renommage : cascade sur tous les produits qui utilisaient l'ancien nom
+      sbCheck(await db.from('produits_vendus').update({categorie:newName}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',oldName));
+      sbCheck(await db.from('sous_categories_ordre').update({categorie:newName}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',oldName));
+      sbCheck(await db.from('categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('nom',oldName));
+      rctProduitsVendus.forEach(function(p){if(p.categorie===oldName)p.categorie=newName;});
+      delete rctCategoriesOrdre[oldName];
+      if(rctSousCategoriesOrdre[oldName]){rctSousCategoriesOrdre[newName]=rctSousCategoriesOrdre[oldName];delete rctSousCategoriesOrdre[oldName];}
+    }
+    sbCheck(await db.from('categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,nom:newName,ordre:ordre}],{onConflict:'restaurant_id,nom'}));
+    rctCategoriesOrdre[newName]=ordre;
+    mcatCurrentCat=newName;
+    document.getElementById('mcat-title').textContent='Catégorie : '+newName;
+    renderCategoryEditSubcats();
+    renderMcatAssignDest();
+    renderRecettesList();
+  }catch(e){console.error('saveCategoryMeta',e);alert('Erreur : '+e.message);}
+}
+async function saveSubcatRow(btn){
+  var row=btn.closest('.mcat-subcat-row');
+  var oldName=row.getAttribute('data-name');
+  var newName=(row.querySelector('.mcat-sub-nom').value||'').trim();
+  var ordre=parseInt(row.querySelector('.mcat-sub-ordre').value,10)||0;
+  var cat=mcatCurrentCat;
+  if(!newName){alert('Le nom ne peut pas être vide.');return;}
+  try{
+    if(newName!==oldName){
+      sbCheck(await db.from('produits_vendus').update({sous_categorie:newName}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat).eq('sous_categorie',oldName));
+      sbCheck(await db.from('sous_categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat).eq('nom',oldName));
+      rctProduitsVendus.forEach(function(p){if(p.categorie===cat&&p.sous_categorie===oldName)p.sous_categorie=newName;});
+      if(rctSousCategoriesOrdre[cat]){delete rctSousCategoriesOrdre[cat][oldName];}
+    }
+    sbCheck(await db.from('sous_categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,categorie:cat,nom:newName,ordre:ordre}],{onConflict:'restaurant_id,categorie,nom'}));
+    rctSousCategoriesOrdre[cat]=rctSousCategoriesOrdre[cat]||{};
+    rctSousCategoriesOrdre[cat][newName]=ordre;
+    renderCategoryEditSubcats();
+    renderMcatAssignDest();
+    renderRecettesList();
+  }catch(e){console.error('saveSubcatRow',e);alert('Erreur : '+e.message);}
+}
+async function deleteSubcatRow(btn){
+  var row=btn.closest('.mcat-subcat-row');
+  var name=row.getAttribute('data-name');
+  var cat=mcatCurrentCat;
+  if(!confirm('Supprimer la sous-catégorie "'+name+'" ? Les produits concernés repasseront directement dans "'+cat+'" sans sous-catégorie.'))return;
+  try{
+    sbCheck(await db.from('produits_vendus').update({sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat).eq('sous_categorie',name));
+    sbCheck(await db.from('sous_categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat).eq('nom',name));
+    rctProduitsVendus.forEach(function(p){if(p.categorie===cat&&p.sous_categorie===name)p.sous_categorie=null;});
+    if(rctSousCategoriesOrdre[cat])delete rctSousCategoriesOrdre[cat][name];
+    renderCategoryEditSubcats();
+    renderMcatAssignDest();
+    renderRecettesList();
+  }catch(e){console.error('deleteSubcatRow',e);alert('Erreur : '+e.message);}
+}
+async function addSubcatToCategory(){
+  var cat=mcatCurrentCat;
+  if(!cat){alert('Enregistre d\'abord le nom de la catégorie.');return;}
+  var name=(document.getElementById('mcat-new-sub').value||'').trim();
+  if(!name)return;
+  var existing=rctSousCategoriesOrdre[cat]||{};
+  var nextOrdre=(Object.keys(existing).length+1)*10;
+  try{
+    sbCheck(await db.from('sous_categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,categorie:cat,nom:name,ordre:nextOrdre}],{onConflict:'restaurant_id,categorie,nom'}));
+    rctSousCategoriesOrdre[cat]=rctSousCategoriesOrdre[cat]||{};
+    rctSousCategoriesOrdre[cat][name]=nextOrdre;
+    document.getElementById('mcat-new-sub').value='';
+    renderCategoryEditSubcats();
+    renderMcatAssignDest();
+  }catch(e){console.error('addSubcatToCategory',e);alert('Erreur : '+e.message);}
+}
+
+// ── Affectation de produits à la catégorie ouverte (recherche + cochage) ────
+function renderMcatAssignDest(){
+  var cat=mcatCurrentCat;
+  var sel=document.getElementById('mcat-assign-dest');
+  if(!cat){sel.innerHTML='<option value="">Enregistre d\'abord la catégorie</option>';return;}
+  var subs=rctSousCategoriesOrdre[cat]||{};
+  var subNames=Object.keys(subs).sort(function(a,b){return (subs[a]||0)-(subs[b]||0);});
+  var html='<option value="">Directement dans « '+esc(cat)+' » (sans sous-catégorie)</option>';
+  html+=subNames.map(function(n){return '<option value="'+esc(n)+'">↳ '+esc(n)+'</option>';}).join('');
+  sel.innerHTML=html;
+}
+function renderMcatAssignResults(){
+  var cat=mcatCurrentCat;
+  var searchEl=document.getElementById('mcat-assign-search');
+  var resultsEl=document.getElementById('mcat-assign-results');
+  if(!cat||!searchEl||!resultsEl)return;
+  var q=(searchEl.value||'').trim();
+  if(!q){resultsEl.innerHTML='';return;}
+  var qn=normText(q);
+  var matches=rctProduitsVendus.filter(function(p){return normText(p.nom).indexOf(qn)>=0;}).slice(0,30);
+  if(!matches.length){resultsEl.innerHTML='<div style="font-size:11px;color:var(--txm);padding:6px;">Aucun résultat.</div>';return;}
+  var destSub=document.getElementById('mcat-assign-dest').value||null;
+  resultsEl.innerHTML=matches.map(function(p){
+    var here=p.categorie===cat&&(p.sous_categorie||null)===destSub;
+    var loc=p.categorie?(p.categorie+(p.sous_categorie?' ↳ '+p.sous_categorie:'')):'Sans catégorie';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12px;cursor:pointer;">'
+      +'<input type="checkbox" class="mcat-assign-check" value="'+p.code+'" onchange="toggleMcatAssign(this)"'+(here?' checked':'')+'> '+esc(p.nom)
+      +' <span style="color:var(--txm);font-size:10px;">('+esc(loc)+')</span>'
+      +'</label>';
+  }).join('');
+}
+async function toggleMcatAssign(checkbox){
+  if(!checkbox.checked)return; // le décochage ne fait rien : réaffecter ailleurs se fait en cochant une autre catégorie
+  var code=checkbox.value;
+  var cat=mcatCurrentCat;
+  var destSub=document.getElementById('mcat-assign-dest').value||null;
+  try{
+    sbCheck(await db.from('produits_vendus').update({categorie:cat,sous_categorie:destSub}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var p=rctProduitsVendus.find(function(x){return x.code===code;});
+    if(p){p.categorie=cat;p.sous_categorie=destSub;}
+    renderRecettesList();
+    renderMcatAssignResults();
+  }catch(e){console.error('toggleMcatAssign',e);alert('Erreur : '+e.message);checkbox.checked=false;}
 }
 
 async function init(){
