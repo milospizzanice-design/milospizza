@@ -2608,8 +2608,8 @@ function renderQRDesign(){
   const qrSize=Math.round(W*0.58);
   const cardPad=Math.round(qrSize*0.09);
   const qr=makeQRCanvasPadded(QR_URL,qrSize,cardPad);
-  const cardSize=qrSize+cardPad*2;
-  const qx=(W-cardSize)/2, qy=logoBottom+28;
+  const cardSize=qr.width;
+  const qx=(W-cardSize)/2, qy=(H-cardSize)/2;
   const cardR=18;
   // Ombre
   ctx.save();
@@ -2628,14 +2628,10 @@ function renderQRDesign(){
   ctx.lineWidth=1.5; ctx.strokeStyle=QR_CREME;
   _rrect(ctx,qx+6,qy+6,cardSize-12,cardSize-12,cardR-5); ctx.stroke();
 
-  // Flèche courbe vers le haut, dans le bandeau, juste avant l'accroche
-  const arrowCy=H*0.80;
-  drawCurvedArrowUp(ctx, W/2, arrowCy, 22, '#fff');
-
   // Texte accroche
   ctx.fillStyle='#fff'; ctx.textAlign='center';
   ctx.font=`bold ${Math.round(W*0.052)}px Montserrat,sans-serif`;
-  _wrapText(ctx, text, W/2, arrowCy+46, W*0.85, Math.round(W*0.062));
+  _wrapText(ctx, text, W/2, bandTop+58, W*0.85, Math.round(W*0.062));
 
   // Sous-texte : bien visible, gras, pleine opacité
   ctx.font=`700 ${Math.round(W*0.044)}px Montserrat,sans-serif`;
@@ -2645,40 +2641,37 @@ function renderQRDesign(){
   dest.style.maxWidth='100%'; dest.style.borderRadius='14px';
 }
 
-// QR avec sa propre marge blanche (quiet zone) intégrée au canvas, pour un centrage garanti
+// QR recadré sur son contenu réel puis recentré avec une marge blanche uniforme :
+// évite tout décalage causé par un arrondi interne de la librairie QR
 function makeQRCanvasPadded(url, qrSize, pad){
-  const total=qrSize+pad*2;
+  const raw=document.createElement('canvas');
+  new QRious({element:raw, value:url, size:qrSize, backgroundAlpha:1, background:'#ffffff', foreground:QR_ROUGE, padding:0, level:'H'});
+  const rctx=raw.getContext('2d');
+  const id=rctx.getImageData(0,0,raw.width,raw.height).data;
+  let minX=raw.width, minY=raw.height, maxX=0, maxY=0, found=false;
+  for(let y=0;y<raw.height;y++){
+    for(let x=0;x<raw.width;x++){
+      const i=(y*raw.width+x)*4;
+      if(id[i]<245||id[i+1]<245||id[i+2]<245){
+        found=true;
+        if(x<minX)minX=x; if(x>maxX)maxX=x;
+        if(y<minY)minY=y; if(y>maxY)maxY=y;
+      }
+    }
+  }
+  if(!found){ minX=0; minY=0; maxX=raw.width-1; maxY=raw.height-1; }
+  const cw=maxX-minX+1, ch=maxY-minY+1, side=Math.max(cw,ch);
+  const total=side+pad*2;
   const c=document.createElement('canvas');
   c.width=total; c.height=total;
   const cctx=c.getContext('2d');
   cctx.fillStyle='#ffffff'; cctx.fillRect(0,0,total,total);
-  const inner=document.createElement('canvas');
-  new QRious({element:inner, value:url, size:qrSize, backgroundAlpha:1, background:'#ffffff', foreground:QR_ROUGE, padding:0, level:'H'});
-  cctx.drawImage(inner,pad,pad);
+  const dx=pad+(side-cw)/2, dy=pad+(side-ch)/2;
+  cctx.drawImage(raw, minX, minY, cw, ch, dx, dy, cw, ch);
   return c;
 }
 
-// Flèche courbe pointant vers le haut (icône dessinée à la main sur canvas)
-function drawCurvedArrowUp(ctx, cx, cy, r, color){
-  ctx.save();
-  ctx.strokeStyle=color; ctx.fillStyle=color;
-  ctx.lineWidth=Math.max(2.5, r*0.13);
-  ctx.lineCap='round'; ctx.lineJoin='round';
-  // Corps courbe (arc partant du bas-droit vers le haut)
-  ctx.beginPath();
-  ctx.arc(cx, cy+r*0.15, r*0.75, Math.PI*0.15, Math.PI*1.15, true);
-  ctx.stroke();
-  // Pointe de flèche en haut
-  const tipX=cx - r*0.72, tipY=cy - r*0.42;
-  const ang=-0.55;
-  ctx.beginPath();
-  ctx.moveTo(tipX, tipY);
-  ctx.lineTo(tipX + r*0.42*Math.cos(ang+2.5), tipY + r*0.42*Math.sin(ang+2.5));
-  ctx.lineTo(tipX + r*0.42*Math.cos(ang-2.5+Math.PI), tipY + r*0.42*Math.sin(ang-2.5+Math.PI));
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
+
 
 function _drawDotPattern(ctx,x,y,w,h,spacing,r,color,alpha){
   ctx.save();
