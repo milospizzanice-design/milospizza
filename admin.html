@@ -4759,15 +4759,18 @@ async function showDashboard(refresh){
 // ══════════════════════════════════════════════════════════════════════════
 // ══ MODULE RECETTES (produits vendus, composition, import ventes caisse) ══
 // ══════════════════════════════════════════════════════════════════════════
-let rctProduitsVendus=[];   // produits_vendus du restaurant courant
-let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,unite}]}
-let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), pour composer les recettes
-let rctStockProduits=[];    // catalogue stock (table 'produits'), pour relier un ingrédient à une unité de stock
-let rctIngredientComposition={}; // {ingredient_code: [{stock_produit_code,quantite,unite}]} — ingrédients composés (ex: crème moutarde-miel)
+let rctProduitsVendus=[];   // produits_vendus (communs à tous les restaurants)
+let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,unite}]} — communes
+let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), communs à tous les restaurants
+let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT
+let rctIngredientStockLink={}; // {ingredient_code: stock_produit_code} — rattachement stock, propre au restaurant courant
+let rctIngredientComposition={}; // {ingredient_code: [{stock_produit_code,quantite,unite}]} — propre au restaurant courant
 let rctCurrentSub='list';
 let rctPendingImport=null;      // import ventes en attente de confirmation
 let rctPendingIngImport=null;   // import ingrédients en attente de confirmation
 let mlinkCurrentCode=null;      // ingrédient en cours de rattachement au stock
+
+var RCT_GLOBAL='global'; // pseudo-restaurant_id utilisé pour les données communes (ingrédients, recettes, produits vendus)
 
 function slugify(str){
   return (str||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -4806,16 +4809,19 @@ async function loadRecettesModule(){
     return;
   }
   try{
-    var [pv,rc,ing,pr,ic]=await Promise.all([
-      db.from('produits_vendus').select('*').eq('restaurant_id',resto).order('categorie').order('nom'),
-      db.from('recettes').select('*').eq('restaurant_id',resto),
-      db.from('ingredients').select('*').eq('restaurant_id',resto).order('categorie').order('nom'),
+    var [pv,rc,ing,pr,ic,link]=await Promise.all([
+      db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
+      db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
+      db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('produits').select('*').eq('restaurant_id',resto).order('nom'),
-      db.from('ingredient_composition').select('*').eq('restaurant_id',resto)
+      db.from('ingredient_composition').select('*').eq('restaurant_id',resto),
+      db.from('ingredient_stock_link').select('*').eq('restaurant_id',resto)
     ]);
     rctProduitsVendus=pv.data||[];
     rctIngredients=ing.data||[];
     rctStockProduits=pr.data||[];
+    rctIngredientStockLink={};
+    (link.data||[]).forEach(function(r){rctIngredientStockLink[r.ingredient_code]=r.stock_produit_code;});
     rctIngredientComposition={};
     (ic.data||[]).forEach(function(r){
       rctIngredientComposition[r.ingredient_code]=rctIngredientComposition[r.ingredient_code]||[];
@@ -4876,12 +4882,11 @@ function renderRecettesList(){
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 
 async function toggleProduitVenduActif(code){
-  var resto=rctResto();
   var p=rctProduitsVendus.find(function(x){return x.code===code;});
   if(!p)return;
   var newActif=!(p.actif!==false);
   try{
-    sbCheck(await db.from('produits_vendus').update({actif:newActif}).eq('restaurant_id',resto).eq('code',code));
+    sbCheck(await db.from('produits_vendus').update({actif:newActif}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
     p.actif=newActif;
     renderRecettesList();
   }catch(e){console.error('toggleProduitVenduActif',e);alert('Erreur : '+e.message);}
@@ -4944,7 +4949,6 @@ function addRecetteLine(){
   container.appendChild(div);
 }
 async function saveRecette(){
-  var resto=rctResto();
   var code=mrctCurrentCode;
   var rows=document.querySelectorAll('#mrct-lines [data-idx]');
   var lines=[];
@@ -4952,10 +4956,10 @@ async function saveRecette(){
     var ing=row.querySelector('.mrct-ing').value;
     var qty=parseFloat(row.querySelector('.mrct-qty').value);
     var unit=row.querySelector('.mrct-unit').value;
-    if(ing&&qty>0)lines.push({restaurant_id:resto,produit_vendu_code:code,ingredient_code:ing,quantite:qty,unite:unit});
+    if(ing&&qty>0)lines.push({restaurant_id:RCT_GLOBAL,produit_vendu_code:code,ingredient_code:ing,quantite:qty,unite:unit});
   });
   try{
-    sbCheck(await db.from('recettes').delete().eq('restaurant_id',resto).eq('produit_vendu_code',code));
+    sbCheck(await db.from('recettes').delete().eq('restaurant_id',RCT_GLOBAL).eq('produit_vendu_code',code));
     if(lines.length)sbCheck(await db.from('recettes').insert(lines));
     rctRecettes[code]=lines;
     closeM('mrct');
@@ -4970,13 +4974,12 @@ function openNewProduitVenduModal(){
   document.getElementById('mnpv').classList.add('op');
 }
 async function saveNewProduitVendu(){
-  var resto=rctResto();
   var nom=(document.getElementById('npv-nom').value||'').trim();
   var cat=(document.getElementById('npv-cat').value||'').trim();
   if(!nom){alert('Indique un nom.');return;}
   var code=slugify(nom);
   try{
-    sbCheck(await db.from('produits_vendus').upsert([{restaurant_id:resto,code:code,nom:nom,categorie:cat||null,actif:true}],{onConflict:'restaurant_id,code'}));
+    sbCheck(await db.from('produits_vendus').upsert([{restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:cat||null,actif:true}],{onConflict:'restaurant_id,code'}));
     closeM('mnpv');
     await loadRecettesModule();
   }catch(e){console.error('saveNewProduitVendu',e);alert('Erreur lors de la création : '+e.message);}
@@ -5100,7 +5103,7 @@ async function confirmVentesImport(){
     var existingCodes={};
     rctProduitsVendus.forEach(function(p){existingCodes[p.code]=true;});
     var toCreate=rows.filter(function(r){return !existingCodes[r.code];})
-      .map(function(r){return {restaurant_id:resto,code:r.code,nom:r.nom,categorie:r.categorie,actif:true};});
+      .map(function(r){return {restaurant_id:RCT_GLOBAL,code:r.code,nom:r.nom,categorie:r.categorie,actif:true};});
     if(toCreate.length)sbCheck(await db.from('produits_vendus').upsert(toCreate,{onConflict:'restaurant_id,code'}));
 
     sbCheck(await db.from('ventes').delete().eq('restaurant_id',resto).eq('periode_debut',debut).eq('periode_fin',fin));
@@ -5127,7 +5130,7 @@ function renderIngredientsList(){
   var onlyUnlinked=unlinkedEl.checked;
   var list=rctIngredients.filter(function(i){
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
-    if(onlyUnlinked&&i.stock_produit_code)return false;
+    if(onlyUnlinked&&rctIngredientStockLink[i.code])return false;
     return true;
   });
   var groups={};
@@ -5146,7 +5149,7 @@ function renderIngredientsList(){
     html+='<div style="font-size:11px;font-weight:700;color:var(--txm);text-transform:uppercase;margin:14px 0 6px;">'+esc(cat)+'</div>';
     groups[cat].forEach(function(i){
       var compo=rctIngredientComposition[i.code]||[];
-      var stockProd=rctStockProduits.find(function(p){return p.code===i.stock_produit_code;});
+      var stockProd=rctStockProduits.find(function(p){return p.code===rctIngredientStockLink[i.code];});
       var linkLabel;
       if(compo.length)linkLabel='🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)';
       else if(stockProd)linkLabel='🔗 '+esc(stockProd.nom);
@@ -5166,10 +5169,9 @@ function renderIngredientsList(){
 }
 
 async function deleteIngredient(code){
-  if(!confirm('Supprimer cet ingrédient ? Les recettes qui l\'utilisent perdront cette ligne.'))return;
-  var resto=rctResto();
+  if(!confirm('Supprimer cet ingrédient ? Les recettes qui l\'utilisent perdront cette ligne, sur tous les restaurants.'))return;
   try{
-    sbCheck(await db.from('ingredients').delete().eq('restaurant_id',resto).eq('code',code));
+    sbCheck(await db.from('ingredients').delete().eq('restaurant_id',RCT_GLOBAL).eq('code',code));
     rctIngredients=rctIngredients.filter(function(i){return i.code!==code;});
     renderIngredientsList();
   }catch(e){console.error('deleteIngredient',e);alert('Erreur lors de la suppression : '+e.message);}
@@ -5181,13 +5183,12 @@ function openNewIngredientModal(){
   document.getElementById('mnig').classList.add('op');
 }
 async function saveNewIngredient(){
-  var resto=rctResto();
   var nom=(document.getElementById('nig-nom').value||'').trim();
   var cat=(document.getElementById('nig-cat').value||'').trim()||'Autres';
   if(!nom){alert('Indique un nom.');return;}
   var code=slugify(nom);
   try{
-    sbCheck(await db.from('ingredients').upsert([{restaurant_id:resto,code:code,nom:nom,categorie:cat,actif:true}],{onConflict:'restaurant_id,code'}));
+    sbCheck(await db.from('ingredients').upsert([{restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:cat,actif:true}],{onConflict:'restaurant_id,code'}));
     closeM('mnig');
     await loadRecettesModule();
   }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création : '+e.message);}
@@ -5196,13 +5197,13 @@ async function saveNewIngredient(){
 function openLinkModal(code){
   mlinkCurrentCode=code;
   var i=rctIngredients.find(function(x){return x.code===code;});
-  document.getElementById('mlink-title').textContent='Relier "'+(i?i.nom:code)+'" au stock';
+  document.getElementById('mlink-title').textContent='Relier "'+(i?i.nom:code)+'" au stock ('+rctResto()+')';
   var opts='<option value="">-- Non relié --</option>'+rctStockProduits.map(function(p){
     return '<option value="'+p.code+'">'+esc(p.nom)+'</option>';
   }).join('');
   var sel=document.getElementById('mlink-select');
   sel.innerHTML=opts;
-  sel.value=(i&&i.stock_produit_code)||'';
+  sel.value=rctIngredientStockLink[code]||'';
   document.getElementById('mlink').classList.add('op');
 }
 async function saveIngredientLink(){
@@ -5210,9 +5211,8 @@ async function saveIngredientLink(){
   var code=mlinkCurrentCode;
   var stockCode=document.getElementById('mlink-select').value||null;
   try{
-    sbCheck(await db.from('ingredients').update({stock_produit_code:stockCode}).eq('restaurant_id',resto).eq('code',code));
-    var i=rctIngredients.find(function(x){return x.code===code;});
-    if(i)i.stock_produit_code=stockCode;
+    sbCheck(await db.from('ingredient_stock_link').upsert([{restaurant_id:resto,ingredient_code:code,stock_produit_code:stockCode}],{onConflict:'restaurant_id,ingredient_code'}));
+    rctIngredientStockLink[code]=stockCode;
     closeM('mlink');
     renderIngredientsList();
   }catch(e){console.error('saveIngredientLink',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
@@ -5275,14 +5275,13 @@ function renderIngredientsPreview(){
 }
 async function confirmIngredientsImport(){
   if(!rctPendingIngImport)return;
-  var resto=rctResto();
   try{
     var rows=rctPendingIngImport.map(function(r){
-      return {restaurant_id:resto,code:slugify(r.nom),nom:r.nom,categorie:r.categorie,actif:true};
+      return {restaurant_id:RCT_GLOBAL,code:slugify(r.nom),nom:r.nom,categorie:r.categorie,actif:true};
     });
     sbCheck(await db.from('ingredients').upsert(rows,{onConflict:'restaurant_id,code'}));
     rctPendingIngImport=null;
-    document.getElementById('rct-ing-preview').innerHTML='<div class="card" style="background:#ECFDF5;color:#065F46;">✅ Import réussi : '+rows.length+' ingrédients importés/mis à jour.</div>';
+    document.getElementById('rct-ing-preview').innerHTML='<div class="card" style="background:#ECFDF5;color:#065F46;">✅ Import réussi : '+rows.length+' ingrédients importés/mis à jour (communs à tous les restaurants).</div>';
     document.getElementById('rct-ing-file').value='';
     await loadRecettesModule();
   }catch(e){
