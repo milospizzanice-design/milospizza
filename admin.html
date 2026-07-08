@@ -458,8 +458,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <button class="btn bs sm" onclick="addRecetteLine()" style="width:100%;margin-top:6px;">+ Ajouter un ingrédient (ligne vide)</button>
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bd);">
       <input type="text" class="fi" id="mrct-search" placeholder="🔍 Rechercher des ingrédients à ajouter…" oninput="renderMrctSearchResults()" style="width:100%;margin-bottom:8px;">
-      <div id="mrct-search-results" style="max-height:180px;overflow-y:auto;"></div>
-      <button class="btn bs sm" id="mrct-add-selected-btn" onclick="addSelectedIngredients()" style="width:100%;margin-top:8px;display:none;">+ Ajouter la sélection</button>
+      <div id="mrct-search-results" style="max-height:220px;overflow-y:auto;"></div>
     </div>
     <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mrct')">Annuler</button><button class="btn bp" onclick="saveRecette()">Enregistrer</button></div>
   </div>
@@ -503,6 +502,20 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="npv-nom" placeholder="Ex: MARGUERITE"></div>
     <div class="fr"><label class="fl2">Catégorie</label><input type="text" class="fi" id="npv-cat" placeholder="Ex: PIZZAS"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mnpv')">Annuler</button><button class="btn bp" onclick="saveNewProduitVendu()">Créer</button></div>
+  </div>
+</div>
+
+<!-- Modal édition produit vendu (catégorie, sous-catégorie, disponibilité par restaurant) -->
+<div class="mb" id="mpved">
+  <div class="md">
+    <div class="mdt" id="mpved-title">Éditer</div>
+    <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="mpved-nom"></div>
+    <div class="fr"><label class="fl2">Catégorie</label><input type="text" class="fi" id="mpved-cat" list="mpved-cat-list"><datalist id="mpved-cat-list"></datalist></div>
+    <div class="fr"><label class="fl2">Sous-catégorie</label><input type="text" class="fi" id="mpved-sub" list="mpved-sub-list" placeholder="Ex: Veggie, Fromages, Viandes…"><datalist id="mpved-sub-list"></datalist></div>
+    <div style="font-size:11px;color:var(--txm);margin:10px 0 6px;">Commun à tous les restaurants : nom, catégorie, sous-catégorie, archivage. Propre à ce restaurant : disponibilité.</div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;cursor:pointer;"><input type="checkbox" id="mpved-dispo"> <span id="mpved-dispo-label">Disponible ici</span></label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;cursor:pointer;"><input type="checkbox" id="mpved-actif"> Actif (décoche pour archiver partout)</label>
+    <div class="ma" style="margin-top:10px;"><button class="btn bs" onclick="closeM('mpved')">Annuler</button><button class="btn bp" onclick="saveEditProduitVendu()">Enregistrer</button></div>
   </div>
 </div>
 
@@ -4770,6 +4783,7 @@ let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,u
 let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), communs à tous les restaurants
 let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT
 let rctIngredientStockLink={}; // {ingredient_code: stock_produit_code} — rattachement stock, propre au restaurant courant
+let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
 let rctIngredientComposition={}; // {ingredient_code: [{stock_produit_code,quantite,unite}]} — propre au restaurant courant
 let rctCurrentSub='list';
 let rctPendingImport=null;      // import ventes en attente de confirmation
@@ -4815,19 +4829,22 @@ async function loadRecettesModule(){
     return;
   }
   try{
-    var [pv,rc,ing,pr,ic,link]=await Promise.all([
+    var [pv,rc,ing,pr,ic,link,dispo]=await Promise.all([
       db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('produits').select('*').eq('restaurant_id',resto).order('nom'),
       db.from('ingredient_composition').select('*').eq('restaurant_id',resto),
-      db.from('ingredient_stock_link').select('*').eq('restaurant_id',resto)
+      db.from('ingredient_stock_link').select('*').eq('restaurant_id',resto),
+      db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto)
     ]);
     rctProduitsVendus=pv.data||[];
     rctIngredients=ing.data||[];
     rctStockProduits=pr.data||[];
     rctIngredientStockLink={};
     (link.data||[]).forEach(function(r){rctIngredientStockLink[r.ingredient_code]=r.stock_produit_code;});
+    rctProduitDispo={};
+    (dispo.data||[]).forEach(function(r){rctProduitDispo[r.produit_vendu_code]=r.actif;});
     rctIngredientComposition={};
     (ic.data||[]).forEach(function(r){
       rctIngredientComposition[r.ingredient_code]=rctIngredientComposition[r.ingredient_code]||[];
@@ -4858,8 +4875,10 @@ function renderRecettesList(){
   var groups={};
   list.forEach(function(p){
     var cat=p.categorie||'Sans catégorie';
-    groups[cat]=groups[cat]||[];
-    groups[cat].push(p);
+    var sub=p.sous_categorie||'';
+    groups[cat]=groups[cat]||{};
+    groups[cat][sub]=groups[cat][sub]||[];
+    groups[cat][sub].push(p);
   });
   var catNames=Object.keys(groups).sort();
   if(!catNames.length){
@@ -4868,18 +4887,23 @@ function renderRecettesList(){
   }
   var html='';
   catNames.forEach(function(cat){
-    html+='<div style="font-size:11px;font-weight:700;color:var(--txm);text-transform:uppercase;margin:14px 0 6px;">'+esc(cat)+'</div>';
-    groups[cat].forEach(function(p){
-      var lines=rctRecettes[p.code]||[];
-      var inactive=p.actif===false;
-      html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(inactive?'opacity:.5;':'')+'">'
-        +'<div style="flex:1;">'
-        +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(p.nom)+(inactive?' <span style="font-size:10px;color:var(--txm);">(inactif)</span>':'')+'</div>'
-        +'<div style="font-size:11px;color:var(--txm);">'+(lines.length?lines.length+' ingrédient'+(lines.length>1?'s':''):'Aucune recette définie')+'</div>'
-        +'</div>'
-        +'<button class="btn bs sm" onclick="openRecetteModal(\''+p.code+'\')">Recette</button>'
-        +'<button class="btn bs sm" onclick="toggleProduitVenduActif(\''+p.code+'\')">'+(inactive?'Réactiver':'Désactiver')+'</button>'
-        +'</div>';
+    html+='<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;margin:16px 0 4px;">'+esc(cat)+'</div>';
+    var subNames=Object.keys(groups[cat]).sort();
+    subNames.forEach(function(sub){
+      if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:8px 0 4px 8px;">↳ '+esc(sub)+'</div>';
+      groups[cat][sub].forEach(function(p){
+        var lines=rctRecettes[p.code]||[];
+        var inactive=p.actif===false;
+        var dispoIci=rctProduitDispo[p.code]!==false; // par défaut disponible tant que rien n'est explicitement désactivé ici
+        html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';'+(inactive||!dispoIci?'opacity:.5;':'')+'">'
+          +'<div style="flex:1;">'
+          +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(p.nom)+(inactive?' <span style="font-size:10px;color:var(--txm);">(archivé)</span>':'')+(!inactive&&!dispoIci?' <span style="font-size:10px;color:#C0392B;">(indisponible ici)</span>':'')+'</div>'
+          +'<div style="font-size:11px;color:var(--txm);">'+(lines.length?lines.length+' ingrédient'+(lines.length>1?'s':''):'Aucune recette définie')+'</div>'
+          +'</div>'
+          +'<button class="btn bs sm" onclick="openRecetteModal(\''+p.code+'\')">Recette</button>'
+          +'<button class="btn bs sm" onclick="openEditProduitVenduModal(\''+p.code+'\')">✏️ Éditer</button>'
+          +'</div>';
+      });
     });
   });
   document.getElementById('rct-list-container').innerHTML=html;
@@ -4887,15 +4911,50 @@ function renderRecettesList(){
 
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 
-async function toggleProduitVenduActif(code){
+let mpvedCurrentCode=null;
+function distinctValues(arr,field){
+  var seen={},out=[];
+  arr.forEach(function(x){
+    var v=x[field];
+    if(v&&!seen[v]){seen[v]=true;out.push(v);}
+  });
+  return out.sort();
+}
+function openEditProduitVenduModal(code){
+  mpvedCurrentCode=code;
   var p=rctProduitsVendus.find(function(x){return x.code===code;});
   if(!p)return;
-  var newActif=!(p.actif!==false);
+  document.getElementById('mpved-title').textContent='Éditer — '+p.nom;
+  document.getElementById('mpved-nom').value=p.nom||'';
+  document.getElementById('mpved-cat').value=p.categorie||'';
+  document.getElementById('mpved-sub').value=p.sous_categorie||'';
+  document.getElementById('mpved-dispo').checked=rctProduitDispo[code]!==false;
+  document.getElementById('mpved-actif').checked=p.actif!==false;
+  document.getElementById('mpved-dispo-label').textContent='Disponible sur '+(rctResto()==='port'?'Port':'Dabray');
+  var catList=document.getElementById('mpved-cat-list');
+  catList.innerHTML=distinctValues(rctProduitsVendus,'categorie').map(function(v){return '<option value="'+esc(v)+'">';}).join('');
+  var subList=document.getElementById('mpved-sub-list');
+  subList.innerHTML=distinctValues(rctProduitsVendus,'sous_categorie').map(function(v){return '<option value="'+esc(v)+'">';}).join('');
+  document.getElementById('mpved').classList.add('op');
+}
+async function saveEditProduitVendu(){
+  var code=mpvedCurrentCode;
+  var resto=rctResto();
+  var nom=(document.getElementById('mpved-nom').value||'').trim();
+  var cat=(document.getElementById('mpved-cat').value||'').trim()||null;
+  var sub=(document.getElementById('mpved-sub').value||'').trim()||null;
+  var dispo=document.getElementById('mpved-dispo').checked;
+  var actif=document.getElementById('mpved-actif').checked;
+  if(!nom){alert('Le nom ne peut pas être vide.');return;}
   try{
-    sbCheck(await db.from('produits_vendus').update({actif:newActif}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
-    p.actif=newActif;
+    sbCheck(await db.from('produits_vendus').update({nom:nom,categorie:cat,sous_categorie:sub,actif:actif}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    sbCheck(await db.from('produit_vendu_disponibilite').upsert([{restaurant_id:resto,produit_vendu_code:code,actif:dispo}],{onConflict:'restaurant_id,produit_vendu_code'}));
+    var p=rctProduitsVendus.find(function(x){return x.code===code;});
+    if(p){p.nom=nom;p.categorie=cat;p.sous_categorie=sub;p.actif=actif;}
+    rctProduitDispo[code]=dispo;
+    closeM('mpved');
     renderRecettesList();
-  }catch(e){console.error('toggleProduitVenduActif',e);alert('Erreur : '+e.message);}
+  }catch(e){console.error('saveEditProduitVendu',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
 // ── Modal recette ──────────────────────────────────────────────────────────
@@ -4908,7 +4967,6 @@ function openRecetteModal(code){
   renderRecetteLines(lines);
   document.getElementById('mrct-search').value='';
   document.getElementById('mrct-search-results').innerHTML='';
-  document.getElementById('mrct-add-selected-btn').style.display='none';
   document.getElementById('mrct').classList.add('op');
 }
 function ingredientOptionsHtml(){
@@ -4927,7 +4985,7 @@ function renderRecetteLines(lines){
   var opts=ingredientOptionsHtml();
   var html=lines.map(function(l,idx){
     return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
-      +'<select class="fi mrct-ing" style="flex:2;"><option value="">-- ingrédient --</option>'+opts+'</select>'
+      +'<select class="fi mrct-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
       +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1">'
       +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="ml">ml</option><option value="piece">pièce</option></select>'
       +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>'
@@ -4954,45 +5012,83 @@ function addRecetteLineWithIngredient(ingredientCode){
   div.className='fr';
   div.setAttribute('data-idx',idx);
   div.style.cssText='display:flex;gap:6px;align-items:center;';
-  div.innerHTML='<select class="fi mrct-ing" style="flex:2;"><option value="">-- ingrédient --</option>'+opts+'</select>'
+  div.innerHTML='<select class="fi mrct-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
     +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1">'
     +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="ml">ml</option><option value="piece">pièce</option></select>'
     +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>';
   container.appendChild(div);
-  if(ingredientCode)div.querySelector('.mrct-ing').value=ingredientCode;
+  if(ingredientCode){
+    var ingSel=div.querySelector('.mrct-ing');
+    ingSel.value=ingredientCode;
+    applyDefaultUnitToRow(ingSel);
+  }
+}
+function applyDefaultUnitToRow(ingSelectEl){
+  var row=ingSelectEl.closest('[data-idx]');
+  if(!row)return;
+  var ing=rctIngredients.find(function(i){return i.code===ingSelectEl.value;});
+  var unitSel=row.querySelector('.mrct-unit');
+  if(ing&&ing.unite_defaut&&unitSel)unitSel.value=ing.unite_defaut;
 }
 
 // ── Recherche + sélection multiple d'ingrédients pour la recette ────────────
 function renderMrctSearchResults(){
   var searchEl=document.getElementById('mrct-search');
   var resultsEl=document.getElementById('mrct-search-results');
-  var btnEl=document.getElementById('mrct-add-selected-btn');
-  if(!searchEl||!resultsEl||!btnEl)return;
+  if(!searchEl||!resultsEl)return;
   var q=(searchEl.value||'').trim();
-  if(!q){resultsEl.innerHTML='';btnEl.style.display='none';return;}
+  if(!q){resultsEl.innerHTML='';return;}
   var qn=normText(q);
-  var matches=rctIngredients.filter(function(i){return i.actif!==false&&normText(i.nom).indexOf(qn)>=0;}).slice(0,30);
-  if(!matches.length){resultsEl.innerHTML='<div style="font-size:11px;color:var(--txm);padding:6px;">Aucun résultat.</div>';btnEl.style.display='none';return;}
-  resultsEl.innerHTML=matches.map(function(i){
+  var currentCodes={};
+  document.querySelectorAll('#mrct-lines .mrct-ing').forEach(function(sel){if(sel.value)currentCodes[sel.value]=true;});
+  var actifs=rctIngredients.filter(function(i){return i.actif!==false;});
+  var matches=actifs.filter(function(i){return normText(i.nom).indexOf(qn)>=0;}).slice(0,30);
+  var fuzzyNote='';
+  if(!matches.length){
+    // repli : recherche floue (tolère une faute de frappe), seulement si la recherche exacte ne trouve rien
+    var scored=actifs.map(function(i){
+      var words=normText(i.nom).split(' ');
+      var best=Math.min.apply(null,words.map(function(w){return levenshtein(qn,w);}).concat([levenshtein(qn,normText(i.nom))]));
+      return {i:i,dist:best};
+    }).filter(function(x){return x.dist<=Math.max(1,Math.ceil(qn.length/3));})
+      .sort(function(a,b){return a.dist-b.dist;});
+    matches=scored.slice(0,10).map(function(x){return x.i;});
+    if(matches.length)fuzzyNote='<div style="font-size:10px;color:var(--txm);padding:4px;">Aucune correspondance exacte — suggestions proches :</div>';
+  }
+  if(!matches.length){resultsEl.innerHTML='<div style="font-size:11px;color:var(--txm);padding:6px;">Aucun résultat.</div>';return;}
+  resultsEl.innerHTML=fuzzyNote+matches.map(function(i){
+    var checked=currentCodes[i.code]?' checked':'';
     return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12px;cursor:pointer;">'
-      +'<input type="checkbox" class="mrct-search-check" value="'+i.code+'"> '+esc(i.nom)
+      +'<input type="checkbox" class="mrct-search-check" value="'+i.code+'" onchange="toggleIngredientInRecette(this)"'+checked+'> '+esc(i.nom)
       +' <span style="color:var(--txm);font-size:10px;">('+esc(i.categorie||'Autres')+')</span>'
       +'</label>';
   }).join('');
-  btnEl.style.display='block';
 }
-function addSelectedIngredients(){
-  var checks=document.querySelectorAll('.mrct-search-check:checked');
-  if(!checks.length)return;
-  var existingInLines={};
-  document.querySelectorAll('#mrct-lines .mrct-ing').forEach(function(sel){if(sel.value)existingInLines[sel.value]=true;});
-  checks.forEach(function(chk){
-    if(existingInLines[chk.value])return; // déjà présent dans la recette, pas de doublon
-    addRecetteLineWithIngredient(chk.value);
-  });
-  document.getElementById('mrct-search').value='';
-  document.getElementById('mrct-search-results').innerHTML='';
-  document.getElementById('mrct-add-selected-btn').style.display='none';
+function toggleIngredientInRecette(checkbox){
+  var code=checkbox.value;
+  if(checkbox.checked){
+    var already=false;
+    document.querySelectorAll('#mrct-lines .mrct-ing').forEach(function(sel){if(sel.value===code)already=true;});
+    if(!already)addRecetteLineWithIngredient(code);
+  }else{
+    document.querySelectorAll('#mrct-lines [data-idx]').forEach(function(row){
+      if(row.querySelector('.mrct-ing').value===code)row.remove();
+    });
+  }
+}
+// Distance de Levenshtein simple, pour la recherche floue de secours
+function levenshtein(a,b){
+  var m=a.length,n=b.length;
+  if(!m)return n; if(!n)return m;
+  var d=[];
+  for(var i=0;i<=m;i++)d[i]=[i];
+  for(var j=0;j<=n;j++)d[0][j]=j;
+  for(i=1;i<=m;i++){
+    for(j=1;j<=n;j++){
+      d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+    }
+  }
+  return d[m][n];
 }
 async function saveRecette(){
   var code=mrctCurrentCode;
@@ -5205,6 +5301,11 @@ function renderIngredientsList(){
         +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(i.nom)+'</div>'
         +'<div style="font-size:11px;color:var(--txm);">'+linkLabel+'</div>'
         +'</div>'
+        +'<select class="fi" style="width:80px;font-size:11px;" title="Unité par défaut en recette" onchange="updateIngredientUniteDefaut(\''+i.code+'\',this.value)">'
+          +'<option value="g"'+(( i.unite_defaut||'g')==='g'?' selected':'')+'>g</option>'
+          +'<option value="ml"'+((i.unite_defaut)==='ml'?' selected':'')+'>ml</option>'
+          +'<option value="piece"'+((i.unite_defaut)==='piece'?' selected':'')+'>pièce</option>'
+        +'</select>'
         +'<button class="btn bs sm" onclick="openLinkModal(\''+i.code+'\')">Relier</button>'
         +'<button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')">Recette</button>'
         +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
@@ -5227,6 +5328,13 @@ function openNewIngredientModal(){
   document.getElementById('nig-nom').value='';
   document.getElementById('nig-cat').value='';
   document.getElementById('mnig').classList.add('op');
+}
+async function updateIngredientUniteDefaut(code,unite){
+  try{
+    sbCheck(await db.from('ingredients').update({unite_defaut:unite}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var ing=rctIngredients.find(function(i){return i.code===code;});
+    if(ing)ing.unite_defaut=unite;
+  }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
 }
 async function saveNewIngredient(){
   var nom=(document.getElementById('nig-nom').value||'').trim();
