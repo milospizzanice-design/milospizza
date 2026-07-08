@@ -474,6 +474,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="mlink">
   <div class="md">
     <div class="mdt" id="mlink-title">Relier au stock</div>
+    <div id="mlink-suggestions" style="margin-bottom:8px;"></div>
     <div class="fr"><label class="fl2">Produit du stock correspondant</label><select class="fi" id="mlink-select"><option value="">-- Non relié --</option></select></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mlink')">Annuler</button><button class="btn bp" onclick="saveIngredientLink()">Enregistrer</button></div>
   </div>
@@ -5194,6 +5195,31 @@ async function saveNewIngredient(){
   }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création : '+e.message);}
 }
 
+// ── Suggestions de rattachement (similarité de nom, jamais automatique) ─────
+function normText(str){
+  return (str||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+function matchScore(a,b){
+  var na=normText(a),nb=normText(b);
+  if(!na||!nb)return 0;
+  if(na===nb)return 100;
+  if(nb.indexOf(na)>=0||na.indexOf(nb)>=0)return 80;
+  var wa=na.split(' ').filter(function(w){return w.length>2;});
+  var wb=nb.split(' ').filter(function(w){return w.length>2;});
+  if(!wa.length||!wb.length)return 0;
+  var common=wa.filter(function(w){return wb.indexOf(w)>=0;});
+  if(!common.length)return 0;
+  return Math.round(100*common.length/Math.max(wa.length,wb.length))*0.7; // pondéré, reste sous les matches directs
+}
+function suggestStockMatches(ingredientNom){
+  return rctStockProduits
+    .map(function(p){return {produit:p,score:matchScore(ingredientNom,p.nom)};})
+    .filter(function(x){return x.score>=25;})
+    .sort(function(a,b){return b.score-a.score;})
+    .slice(0,4);
+}
+
 function openLinkModal(code){
   mlinkCurrentCode=code;
   var i=rctIngredients.find(function(x){return x.code===code;});
@@ -5204,6 +5230,19 @@ function openLinkModal(code){
   var sel=document.getElementById('mlink-select');
   sel.innerHTML=opts;
   sel.value=rctIngredientStockLink[code]||'';
+
+  var suggestBox=document.getElementById('mlink-suggestions');
+  var suggestions=i?suggestStockMatches(i.nom):[];
+  if(suggestions.length){
+    suggestBox.innerHTML='<div style="font-size:11px;color:var(--txm);margin-bottom:6px;">Suggestions (à confirmer, rien n\'est choisi automatiquement) :</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+      +suggestions.map(function(s){
+        return '<button type="button" class="btn bs sm" onclick="document.getElementById(\'mlink-select\').value=\''+s.produit.code+'\'" style="font-size:11px;">'+esc(s.produit.nom)+'</button>';
+      }).join('')
+      +'</div>';
+  }else{
+    suggestBox.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucune suggestion trouvée, choisis dans la liste ci-dessous.</div>';
+  }
   document.getElementById('mlink').classList.add('op');
 }
 async function saveIngredientLink(){
