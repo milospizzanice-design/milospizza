@@ -572,9 +572,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <input type="text" class="fi" id="mcat-assign-search-vendus" placeholder="🔍 Rechercher un produit vendu…" oninput="renderMcatAssignResultsVendus()" style="margin-bottom:6px;">
     <div id="mcat-assign-results-vendus" style="max-height:150px;overflow-y:auto;"></div>
 
-    <div style="font-size:11px;color:var(--txm);margin:14px 0 4px;font-weight:700;">📦 Ajouter des produits stock (onglet Coûts)</div>
+   <div style="font-size:11px;color:var(--txm);margin:14px 0 4px;font-weight:700;">📦 document.getElementById('mcat-assign-search-stock').value='' (onglet Coûts)</div>
     <input type="text" class="fi" id="mcat-assign-search-stock" placeholder="🔍 Rechercher un produit stock…" oninput="renderMcatAssignResultsStock()" style="margin-bottom:6px;">
     <div id="mcat-assign-results-stock" style="max-height:150px;overflow-y:auto;"></div>
+
+    <div style="font-size:11px;color:var(--txm);margin:14px 0 4px;font-weight:700;">🧪 Ajouter des ingrédients (carte)</div>
+    <input type="text" class="fi" id="mcat-assign-search-ingredients" placeholder="🔍 Rechercher un ingrédient…" oninput="renderMcatAssignResultsIngredients()" style="margin-bottom:6px;">
+    <div id="mcat-assign-results-ingredients" style="max-height:150px;overflow-y:auto;"></div>
+
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mcat')">Fermer</button></div>
 
     <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mcat')">Fermer</button></div>
   </div>
@@ -5414,28 +5420,46 @@ async function confirmVentesImport(){
 }
 
 // ── Ingrédients de la carte ──────────────────────────────────────────────────
-function renderIngredientsList(){
-  var searchEl=document.getElementById('rct-ing-search');
-  var unlinkedEl=document.getElementById('rct-ing-show-unlinked');
-  var container=document.getElementById('rct-ing-list-container');
-  if(!searchEl||!unlinkedEl||!container)return;
-  var search=(searchEl.value||'').toLowerCase();
-  var onlyUnlinked=unlinkedEl.checked;
-  var list=rctIngredients.filter(function(i){
-    if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
-    if(onlyUnlinked&&rctIngredientStockLink[i.code])return false;
-    return true;
-  });
-  var groups={};
-  list.forEach(function(i){
-    var cat=i.categorie||'Autres';
-    groups[cat]=groups[cat]||[];
-    groups[cat].push(i);
-  });
-  var catNames=Object.keys(groups).sort();
-  if(!catNames.length){
+if(!list.length){
     container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.</div>';
     return;
+  }
+  // Même hiérarchie Onglet > Catégorie que Produits&recettes et Coûts (categories_ordre partagé).
+  // Les ingrédients n'ont pas de sous-catégorie propre (pas de champ sous_categorie sur la table ingredients).
+  var byOnglet=groupByOnglet(list,function(i){return i.categorie;},function(){return null;});
+  function renderIngredientCard(i){
+    var compo=rctIngredientComposition[i.code]||[];
+    var stockProd=rctStockProduits.find(function(p){return p.code===rctIngredientStockLink[i.code];});
+    var linkLabel;
+    if(compo.length)linkLabel='🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)';
+    else if(stockProd)linkLabel='🔗 '+esc(stockProd.nom);
+    else linkLabel='<span style="color:#C0392B;">Non relié</span>';
+    return '<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;">'
+      +'<div style="flex:1;">'
+      +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(i.nom)+'</div>'
+      +'<div style="font-size:11px;color:var(--txm);">'+linkLabel+'</div>'
+      +'</div>'
+      +'<input type="number" class="fi" style="width:56px;font-size:11px;" step="0.1" title="Quantité par défaut en recette" placeholder="Qté" value="'+(i.quantite_defaut!=null?i.quantite_defaut:'')+'" onchange="updateIngredientQuantiteDefaut(\''+i.code+'\',this.value)">'
+      +'<select class="fi" style="width:80px;font-size:11px;" title="Unité par défaut en recette" onchange="updateIngredientUniteDefaut(\''+i.code+'\',this.value)">'
+        +'<option value="g"'+(( i.unite_defaut||'g')==='g'?' selected':'')+'>g</option>'
+        +'<option value="ml"'+((i.unite_defaut)==='ml'?' selected':'')+'>ml</option>'
+        +'<option value="piece"'+((i.unite_defaut)==='piece'?' selected':'')+'>pièce</option>'
+      +'</select>'
+      +'<button class="btn bs sm" onclick="openLinkModal(\''+i.code+'\')">Relier</button>'
+      +'<button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')">Recette</button>'
+      +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
+      +'</div>';
+  }
+  var html='';
+  sortedOngletNames(byOnglet).forEach(function(ong){
+    html+=ongletHeaderHtml(ong);
+    var catNames=sortedCatNames(byOnglet[ong]);
+    catNames.forEach(function(cat){
+      html+=catHeaderHtml(cat);
+      byOnglet[ong][cat][''].forEach(function(i){html+=renderIngredientCard(i);});
+    });
+  });
+  container.innerHTML=html;
   }
   var html='';
   catNames.forEach(function(cat){
@@ -5838,8 +5862,10 @@ function openCategoryEditModal(catName){
   renderMcatAssignDest();
   document.getElementById('mcat-assign-search-vendus').value='';
   document.getElementById('mcat-assign-results-vendus').innerHTML='';
-  document.getElementById('mcat-assign-search-stock').value='';
+document.getElementById('mcat-assign-search-stock').value='';
   document.getElementById('mcat-assign-results-stock').innerHTML='';
+  document.getElementById('mcat-assign-search-ingredients').value='';
+  document.getElementById('mcat-assign-results-ingredients').innerHTML='';
   document.getElementById('mcat').classList.add('op');
 }
 function renderCategoryEditSubcats(){
@@ -6026,7 +6052,37 @@ async function toggleMcatAssignStock(checkbox){
     renderMcatAssignResultsStock();
   }catch(e){console.error('toggleMcatAssignStock',e);alert('Erreur : '+e.message);checkbox.checked=false;}
 }
-
+function renderMcatAssignResultsIngredients(){
+  var cat=mcatCurrentCat;
+  var searchEl=document.getElementById('mcat-assign-search-ingredients');
+  var resultsEl=document.getElementById('mcat-assign-results-ingredients');
+  if(!cat||!searchEl||!resultsEl)return;
+  var q=(searchEl.value||'').trim();
+  if(!q){resultsEl.innerHTML='';return;}
+  var qn=normText(q);
+  var matches=rctIngredients.filter(function(i){return normText(i.nom).indexOf(qn)>=0;}).slice(0,30);
+  if(!matches.length){resultsEl.innerHTML='<div style="font-size:11px;color:var(--txm);padding:6px;">Aucun résultat.</div>';return;}
+  resultsEl.innerHTML=matches.map(function(i){
+    var here=i.categorie===cat;
+    var loc=i.categorie||'Sans catégorie';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12px;cursor:pointer;">'
+      +'<input type="checkbox" value="'+i.code+'" onchange="toggleMcatAssignIngredients(this)"'+(here?' checked':'')+'> '+esc(i.nom)
+      +' <span style="color:var(--txm);font-size:10px;">('+esc(loc)+')</span>'
+      +'</label>';
+  }).join('');
+}
+async function toggleMcatAssignIngredients(checkbox){
+  if(!checkbox.checked)return; // note : les ingrédients n'ont pas de sous-catégorie propre, seule la catégorie est affectée
+  var code=checkbox.value;
+  var cat=mcatCurrentCat;
+  try{
+    sbCheck(await db.from('ingredients').update({categorie:cat}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var i=rctIngredients.find(function(x){return x.code===code;});
+    if(i)i.categorie=cat;
+    renderIngredientsList();
+    renderMcatAssignResultsIngredients();
+  }catch(e){console.error('toggleMcatAssignIngredients',e);alert('Erreur : '+e.message);checkbox.checked=false;}
+}
 // ── Gestion des onglets (Food, Boissons, ...) ────────────────────────────────
 let mongCurrentOnglet=null;
 function openOngletEditModalFromBtn(btn){
