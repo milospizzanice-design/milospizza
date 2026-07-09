@@ -1906,30 +1906,29 @@ function updOvr(id,field,val){
 function delProd(id){if(!confirm('Supprimer ce produit ?'))return;DB.products=DB.products.filter(p=>p.id!==id);delete DB.overrides[id];saveDB();showTab('produits');}
 
 // ── Admin Catégories ──
+function moveCatToPosition(catId,newPos1based){
+  const from=DB.cats.findIndex(c=>c.id===catId);
+  if(from<0)return;
+  let to=Math.round(newPos1based)-1;
+  if(isNaN(to))return;
+  to=Math.max(0,Math.min(DB.cats.length-1,to));
+  if(to===from)return;
+  const[moved]=DB.cats.splice(from,1);
+  DB.cats.splice(to,0,moved);
+  saveDB();showTab('cats');
+}
 function renderAdminCats(body){
   body.innerHTML='';
   // Éditer catégories
   const editCard=document.createElement('div');editCard.className='acard';
-  editCard.innerHTML='<div class="acard-title">✏️ Modifier les catégories (glisse ⠿ pour réordonner)</div>';
+  editCard.innerHTML='<div class="acard-title">✏️ Modifier les catégories (change le numéro de position pour réordonner)</div>';
   DB.cats.forEach((cat,idx)=>{
-    const row=document.createElement('div');row.className='arow draggable';row.draggable=true;
-    row.dataset.idx=idx;
-    row.style.cssText='flex-wrap:wrap;gap:6px;cursor:grab;';
-    row.innerHTML=`<span style="font-size:16px;color:var(--mid);margin-right:2px;">⠿</span>
+    const row=document.createElement('div');row.className='arow';
+    row.style.cssText='flex-wrap:wrap;gap:6px;';
+    row.innerHTML=`<input type="number" class="ainput" style="width:48px;text-align:center;font-weight:700;" value="${idx+1}" min="1" max="${DB.cats.length}" onchange="moveCatToPosition('${cat.id}',this.value)">
       <div class="col-swatch" style="background:${cat.color||'#555'};cursor:pointer;" onclick="document.getElementById('cc-${cat.id}').click()"></div>
       <input type="color" id="cc-${cat.id}" value="${cat.color||'#555555'}" style="display:none;" onchange="updCat('${cat.id}','color',this.value)">
       <input class="ainput" style="flex:1;min-width:140px;" value="${cat.label}" onchange="updCat('${cat.id}','label',this.value)">`;
-    row.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',JSON.stringify({idx}));row.classList.add('dragging');});
-    row.addEventListener('dragend',()=>row.classList.remove('dragging'));
-    row.addEventListener('dragover',e=>{e.preventDefault();row.classList.add('drag-over');});
-    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
-    row.addEventListener('drop',e=>{
-      e.preventDefault();row.classList.remove('drag-over');
-      const data=JSON.parse(e.dataTransfer.getData('text/plain'));
-      const from=data.idx,to=idx;if(from===to)return;
-      const[moved]=DB.cats.splice(from,1);DB.cats.splice(to,0,moved);
-      saveDB();showTab('cats');
-    });
     editCard.appendChild(row);
   });
   body.appendChild(editCard);
