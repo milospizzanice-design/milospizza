@@ -338,7 +338,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 // ══ STORAGE ══
 const SK='milos_port_v3';
 function loadDB(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}return null;}
-function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));syncCatalogueToSupabase();}catch(e){console.error('saveDB error',e);}}
+function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){console.error('saveDB error',e);}}
 
 // ══ SYNC STOCKS (Supabase — partagé entre salariés/jours, même projet que pointage.html) ══
 const RESTAURANT_ID='port';
@@ -346,44 +346,6 @@ const SURL='https://kkfccfipmxnsiohjxfdy.supabase.co';
 const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZmNjZmlwbXhuc2lvaGp4ZmR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjgwNjcsImV4cCI6MjA5Njg0NDA2N30.cMp5VhkkzSN6i04fJD1B6zVuDfMOHo8GfD91_Q6Rk-U';
 const sb=supabase.createClient(SURL,SKEY);
 let envoisEnRetard={}; // {fournisseurId: 'YYYY-MM-DD' la plus ancienne date en brouillon}
-
-// ══ SYNC CATALOGUE (miroir localStorage → Supabase, pour recettes/rapports) ══
-let _catSyncTimer=null;
-function syncCatalogueToSupabase(){
-  if(_catSyncTimer)clearTimeout(_catSyncTimer);
-  _catSyncTimer=setTimeout(_doSyncCatalogue,800);
-}
-async function _syncTable(table,codes,rows,onConflict){
-  try{
-    if(rows.length)await sb.from(table).upsert(rows,{onConflict:onConflict});
-    const existing=await sb.from(table).select('code').eq('restaurant_id',RESTAURANT_ID);
-    const toDelete=(existing.data||[]).map(function(r){return r.code;}).filter(function(c){return codes.indexOf(c)<0;});
-    if(toDelete.length)await sb.from(table).delete().eq('restaurant_id',RESTAURANT_ID).in('code',toDelete);
-  }catch(e){console.error('_syncTable',table,e);}
-}
-async function _doSyncCatalogue(){
-  try{
-    const supCodes=Object.keys(DB.suppliers||{});
-    const fournisseurs=supCodes.map(function(code){
-      const s=DB.suppliers[code]||{};
-      return {restaurant_id:RESTAURANT_ID,code:code,nom:s.name||code,couleur:s.color||null,wa:s.wa||null,wa_group:s.waGroup||null,phone:s.phone||null,email:s.email||null,commercial_name:s.commercialName||null,days:s.days||[],day_start:(s.dayStart!=null?s.dayStart:null),day_end:(s.dayEnd!=null?s.dayEnd:null),via_dabray:!!s.viaDabray,merge_into_dabray:!!s.mergeIntoDabray};
-    });
-    await _syncTable('fournisseurs',supCodes,fournisseurs,'restaurant_id,code');
-
-    const catCodes=(DB.cats||[]).map(function(c){return c.id;});
-    const categories=(DB.cats||[]).map(function(c,i){
-      return {restaurant_id:RESTAURANT_ID,code:c.id,label:c.label||c.id,couleur:c.color||null,ordre:i,subcats:c.subcats||[]};
-    });
-    await _syncTable('categories',catCodes,categories,'restaurant_id,code');
-
-    const prodCodes=(DB.products||[]).map(function(p){return p.id;});
-    const produits=(DB.products||[]).map(function(p,i){
-      const o=(DB.overrides&&DB.overrides[p.id])||{};
-      return {restaurant_id:RESTAURANT_ID,code:p.id,nom:p.name,categorie_code:p.cat||null,sous_categorie_code:p.sub||null,fournisseur_code:p.sup||null,unite:p.unit||null,type:(o.type||p.type||null),colis_qty:(o.colisQty!=null?o.colisQty:(p.colisQty!=null?p.colisQty:null)),s_default:(p.sDefault!=null?p.sDefault:null),c_default:(p.cDefault!=null?p.cDefault:null),level_type:(o.levelType||p.levelType||null),metro_fallback:!!p.metroFallback,ordre:i,actif:true};
-    });
-    await _syncTable('produits',prodCodes,produits,'restaurant_id,code');
-  }catch(e){console.error('_doSyncCatalogue',e);}
-}
 
 function effectiveDateStr(){
   const now=new Date();
@@ -756,13 +718,6 @@ if(_raw){
   if(!_raw.overrides) _raw.overrides={};
 }
 let DB=_raw||JSON.parse(JSON.stringify(DEFAULT_DB));
-
-try{
-  if(!sessionStorage.getItem('_catalogueSynced')){
-    sessionStorage.setItem('_catalogueSynced','1');
-    syncCatalogueToSupabase();
-  }
-}catch(e){}
 
 // ══ HELPERS ══
 const DAYS_FR=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
@@ -1955,12 +1910,26 @@ function renderAdminCats(body){
   body.innerHTML='';
   // Éditer catégories
   const editCard=document.createElement('div');editCard.className='acard';
-  editCard.innerHTML='<div class="acard-title">✏️ Modifier les catégories</div>';
-  DB.cats.forEach(cat=>{
-    const row=document.createElement('div');row.className='arow';row.style.flexWrap='wrap';row.style.gap='6px';
-    row.innerHTML=`<div class="col-swatch" style="background:${cat.color||'#555'};cursor:pointer;" onclick="document.getElementById('cc-${cat.id}').click()"></div>
+  editCard.innerHTML='<div class="acard-title">✏️ Modifier les catégories (glisse ⠿ pour réordonner)</div>';
+  DB.cats.forEach((cat,idx)=>{
+    const row=document.createElement('div');row.className='arow draggable';row.draggable=true;
+    row.dataset.idx=idx;
+    row.style.cssText='flex-wrap:wrap;gap:6px;cursor:grab;';
+    row.innerHTML=`<span style="font-size:16px;color:var(--mid);margin-right:2px;">⠿</span>
+      <div class="col-swatch" style="background:${cat.color||'#555'};cursor:pointer;" onclick="document.getElementById('cc-${cat.id}').click()"></div>
       <input type="color" id="cc-${cat.id}" value="${cat.color||'#555555'}" style="display:none;" onchange="updCat('${cat.id}','color',this.value)">
       <input class="ainput" style="flex:1;min-width:140px;" value="${cat.label}" onchange="updCat('${cat.id}','label',this.value)">`;
+    row.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',JSON.stringify({idx}));row.classList.add('dragging');});
+    row.addEventListener('dragend',()=>row.classList.remove('dragging'));
+    row.addEventListener('dragover',e=>{e.preventDefault();row.classList.add('drag-over');});
+    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
+    row.addEventListener('drop',e=>{
+      e.preventDefault();row.classList.remove('drag-over');
+      const data=JSON.parse(e.dataTransfer.getData('text/plain'));
+      const from=data.idx,to=idx;if(from===to)return;
+      const[moved]=DB.cats.splice(from,1);DB.cats.splice(to,0,moved);
+      saveDB();showTab('cats');
+    });
     editCard.appendChild(row);
   });
   body.appendChild(editCard);
