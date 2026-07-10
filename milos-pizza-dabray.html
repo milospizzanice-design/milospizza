@@ -196,6 +196,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
   <div class="hrow">
     <span class="day-badge" id="day-badge">—</span>
     <span id="role-badge" class="role-badge"></span>
+    <span id="labo-recep-badge" onclick="openLaboRecepModal()" style="display:none;background:#1ABC9C;color:white;border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">🔬 0</span>
     <button class="btn-logout" onclick="logout()">⏻ Quitter</button>
   </div>
 </header>
@@ -238,6 +239,18 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
     <div id="rupture-list" style="background:#FFF4F3;border-radius:10px;padding:10px 14px;font-size:13px;color:#C0392B;margin-bottom:16px;max-height:200px;overflow-y:auto;"></div>
     <button id="rupture-ack-btn" style="width:100%;background:#C0392B;color:white;border:none;border-radius:12px;padding:13px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;cursor:pointer;">
       J'AI PRIS NOTE → CONTINUER
+    </button>
+  </div>
+</div>
+
+<!-- RÉCEPTION LABO -->
+<div id="labo-recep-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:410;display:none;align-items:center;justify-content:center;padding:20px;overflow:hidden;">
+  <div style="background:white;border-radius:18px;padding:22px 20px;width:100%;max-width:400px;max-height:85vh;overflow-y:auto;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.5px;color:#1ABC9C;margin-bottom:8px;">🔬 Réception Labo</div>
+    <div style="font-size:13px;color:var(--mid);margin-bottom:12px;">Accepte ou rejette chaque bac/lot reçu.</div>
+    <div id="labo-recep-list" style="margin-bottom:16px;"></div>
+    <button id="labo-recep-close-btn" onclick="closeLaboRecepModal()" style="width:100%;background:#444;color:white;border:none;border-radius:12px;padding:13px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;cursor:pointer;">
+      FERMER
     </button>
   </div>
 </div>
@@ -855,6 +868,7 @@ async function completeLogin(user){
   document.getElementById('footer').style.display='';
   await loadStockState(); // récupère les comptages partagés du jour + commandes en retard avant d'afficher
   setDay(currentDay);
+  loadLaboReceptions();
 }
 
 async function categoriesForRoles(roleIds){
@@ -1440,6 +1454,155 @@ async function pushLaboCommande(supId){
     console.error('Erreur commande Labo',e);
     alert('⚠️ Le message WhatsApp a été préparé, mais l\'enregistrement numérique vers le Labo a échoué : '+e.message+'\nPréviens le Labo directement pour cette fois.');
   }
+}
+
+// ══ LABO — Réception des envois (accepter/rejeter lot par lot + effet stock) ══
+var laboPendingReceptions=[]; // [{envoi_ligne_id, lot, commande_ligne}]
+async function loadLaboReceptions(){
+  try{
+    var cmdRes=await sb.from('labo_commandes').select('id,numero').eq('restaurant_id',RESTAURANT_ID);
+    if(cmdRes.error)throw new Error(cmdRes.error.message);
+    var commandes=cmdRes.data||[];
+    if(!commandes.length){laboPendingReceptions=[];updateLaboRecepBadge();return;}
+    var cmdIds=commandes.map(function(c){return c.id;});
+    var lignesRes=await sb.from('labo_commandes_lignes').select('*').in('commande_id',cmdIds);
+    if(lignesRes.error)throw new Error(lignesRes.error.message);
+    var lignes=lignesRes.data||[];
+    var ligneIds=lignes.map(function(l){return l.id;});
+    if(!ligneIds.length){laboPendingReceptions=[];updateLaboRecepBadge();return;}
+    var envoisRes=await sb.from('labo_envois').select('id,commande_id').in('commande_id',cmdIds);
+    if(envoisRes.error)throw new Error(envoisRes.error.message);
+    var envois=envoisRes.data||[];
+    var envoiIds=envois.map(function(e){return e.id;});
+    if(!envoiIds.length){laboPendingReceptions=[];updateLaboRecepBadge();return;}
+    var envoiLignesRes=await sb.from('labo_envois_lignes').select('*').in('envoi_id',envoiIds);
+    if(envoiLignesRes.error)throw new Error(envoiLignesRes.error.message);
+    var envoiLignes=envoiLignesRes.data||[];
+    var envoiLigneIds=envoiLignes.map(function(el){return el.id;});
+    var recuesRes=await sb.from('labo_receptions_lignes').select('envoi_ligne_id').in('envoi_ligne_id',envoiLigneIds.length?envoiLigneIds:['00000000-0000-0000-0000-000000000000']);
+    if(recuesRes.error)throw new Error(recuesRes.error.message);
+    var dejaTraitees=new Set((recuesRes.data||[]).map(function(r){return r.envoi_ligne_id;}));
+    var lotIds=envoiLignes.map(function(el){return el.lot_id;});
+    var lotsRes=await sb.from('labo_lots').select('*').in('id',lotIds.length?lotIds:['00000000-0000-0000-0000-000000000000']);
+    if(lotsRes.error)throw new Error(lotsRes.error.message);
+    var lots=lotsRes.data||[];
+    var ligneById={};lignes.forEach(function(l){ligneById[l.id]=l;});
+    var cmdById={};commandes.forEach(function(c){cmdById[c.id]=c;});
+    var lotById={};lots.forEach(function(lo){lotById[lo.id]=lo;});
+    var envoiCmd={};envois.forEach(function(e){envoiCmd[e.id]=e.commande_id;});
+    laboPendingReceptions=envoiLignes.filter(function(el){return !dejaTraitees.has(el.id);}).map(function(el){
+      var commandeLigne=ligneById[el.commande_ligne_id];
+      var commandeId=envoiCmd[el.envoi_id];
+      return{
+        envoi_ligne_id:el.id,
+        lot:lotById[el.lot_id],
+        commande_ligne:commandeLigne,
+        commande_numero:commandeLigne?(cmdById[commandeId]||{}).numero:null
+      };
+    }).filter(function(r){return r.lot&&r.commande_ligne;});
+  }catch(e){
+    console.error('Erreur chargement réceptions Labo',e);
+    laboPendingReceptions=[];
+  }
+  updateLaboRecepBadge();
+  if(laboPendingReceptions.length)openLaboRecepModal();
+}
+function updateLaboRecepBadge(){
+  var b=document.getElementById('labo-recep-badge');
+  if(!b)return;
+  if(laboPendingReceptions.length){b.textContent='🔬 '+laboPendingReceptions.length;b.style.display='inline-block';}
+  else b.style.display='none';
+}
+function openLaboRecepModal(){
+  renderLaboRecepList();
+  var m=document.getElementById('labo-recep-modal');
+  if(m)m.style.display='flex';
+}
+function closeLaboRecepModal(){
+  var m=document.getElementById('labo-recep-modal');
+  if(m)m.style.display='none';
+}
+function renderLaboRecepList(){
+  var el=document.getElementById('labo-recep-list');
+  if(!el)return;
+  if(!laboPendingReceptions.length){
+    el.innerHTML='<div style="color:var(--mid);font-size:13px;">Rien à réceptionner pour le moment.</div>';
+    return;
+  }
+  el.innerHTML=laboPendingReceptions.map(function(r){
+    return '<div style="border:1px solid #eee;border-radius:10px;padding:10px;margin-bottom:8px;">'
+      +'<div style="font-weight:700;font-size:13px;">'+(r.commande_numero?'Commande #'+r.commande_numero+' — ':'')+(r.commande_ligne.produit_nom||r.commande_ligne.produit_code)+'</div>'
+      +'<div style="font-size:12px;color:var(--mid);margin-bottom:8px;">'+Number(r.lot.poids_reel_g).toFixed(0)+' g</div>'
+      +'<div style="display:flex;gap:8px;">'
+      +'<button onclick="accepterLotLabo(\''+r.envoi_ligne_id+'\')" style="flex:1;background:#27AE60;color:white;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:12px;cursor:pointer;">✓ Accepter</button>'
+      +'<button onclick="rejeterLotLabo(\''+r.envoi_ligne_id+'\')" style="flex:1;background:#C0392B;color:white;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:12px;cursor:pointer;">✗ Rejeter</button>'
+      +'</div></div>';
+  }).join('');
+}
+async function accepterLotLabo(envoiLigneId){
+  var r=laboPendingReceptions.find(function(x){return x.envoi_ligne_id===envoiLigneId;});
+  if(!r)return;
+  var empNom=(currentUser&&currentUser.name)?currentUser.name:'—';
+  try{
+    var ins=await sb.from('labo_receptions_lignes').insert({envoi_ligne_id:envoiLigneId,statut:'accepte',recu_par_nom:empNom});
+    if(ins.error)throw new Error(ins.error.message);
+    var upl=await sb.from('labo_lots').update({statut:'recu'}).eq('id',r.lot.id);
+    if(upl.error)throw new Error(upl.error.message);
+    var produitId=r.commande_ligne.produit_code;
+    var cur=await sb.from('stock_etat').select('valeur').eq('restaurant_id',RESTAURANT_ID).eq('produit_id',produitId).maybeSingle();
+    if(cur.error)throw new Error(cur.error.message);
+    var curVal=parseFloat((cur.data&&cur.data.valeur)||0)||0;
+    var nouvelleValeur=curVal+1;
+    var upd=await sb.from('stock_etat').upsert({restaurant_id:RESTAURANT_ID,produit_id:produitId,valeur:String(nouvelleValeur),maj_par_nom:empNom,maj_at:new Date().toISOString()},{onConflict:'restaurant_id,produit_id'});
+    if(upd.error)throw new Error(upd.error.message);
+    var p=DB.products.find(function(pp){return pp.id===produitId;});
+    if(p)STATE[p.id]=nouvelleValeur;
+  }catch(e){
+    alert('Erreur lors de l\'acceptation : '+e.message);
+    return;
+  }
+  await checkAndCloseLaboCommande(r.commande_ligne.commande_id);
+  await afterLaboRecepAction();
+}
+async function rejeterLotLabo(envoiLigneId){
+  var r=laboPendingReceptions.find(function(x){return x.envoi_ligne_id===envoiLigneId;});
+  if(!r)return;
+  var commentaire=prompt('Raison du rejet (optionnel) :')||'';
+  var empNom=(currentUser&&currentUser.name)?currentUser.name:'—';
+  try{
+    var ins=await sb.from('labo_receptions_lignes').insert({envoi_ligne_id:envoiLigneId,statut:'rejete',commentaire:commentaire,recu_par_nom:empNom});
+    if(ins.error)throw new Error(ins.error.message);
+    var upl=await sb.from('labo_lots').update({statut:'rejete'}).eq('id',r.lot.id);
+    if(upl.error)throw new Error(upl.error.message);
+  }catch(e){
+    alert('Erreur lors du rejet : '+e.message);
+    return;
+  }
+  await checkAndCloseLaboCommande(r.commande_ligne.commande_id);
+  await afterLaboRecepAction();
+}
+async function checkAndCloseLaboCommande(commandeId){
+  if(!commandeId)return;
+  try{
+    var envoisRes=await sb.from('labo_envois').select('id').eq('commande_id',commandeId);
+    if(envoisRes.error)throw new Error(envoisRes.error.message);
+    var envoiIds=(envoisRes.data||[]).map(function(e){return e.id;});
+    if(!envoiIds.length)return;
+    var elRes=await sb.from('labo_envois_lignes').select('id').in('envoi_id',envoiIds);
+    if(elRes.error)throw new Error(elRes.error.message);
+    var elIds=(elRes.data||[]).map(function(x){return x.id;});
+    if(!elIds.length)return;
+    var recRes=await sb.from('labo_receptions_lignes').select('envoi_ligne_id').in('envoi_ligne_id',elIds);
+    if(recRes.error)throw new Error(recRes.error.message);
+    if((recRes.data||[]).length>=elIds.length){
+      await sb.from('labo_commandes').update({statut:'cloturee'}).eq('id',commandeId);
+    }
+  }catch(e){console.error('checkAndCloseLaboCommande',e);}
+}
+async function afterLaboRecepAction(){
+  await loadLaboReceptions();
+  renderLaboRecepList();
+  if(currentUser)recalc();
 }
 function sendCurrent(){
   if(currentSup==='all'){
