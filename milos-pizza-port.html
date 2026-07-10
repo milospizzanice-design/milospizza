@@ -1055,15 +1055,15 @@ function setRup(id,v){STATE[id]=v;const r=document.getElementById('row-'+san(id)
 function getStatus(p){
   const v=STATE[p.id];
   const ptype=getPtype(p);
-  if(ptype==='threshold'){const cur=v??'ok';return cur==='cmd'?{order:true,label:'Commander'}:{ok:true,label:'✓ OK'};}
+  if(ptype==='threshold'){const cur=v??'ok';return cur==='cmd'?{order:true,label:'Commander',qty:1}:{ok:true,label:'✓ OK'};}
   if(ptype==='qty'){
     const stock=parseFloat(v??0),s=getS(p),c=getC(p),colis=getColisQty(p);
-    if(stock<s){const diff=c-stock;const n=Math.ceil(diff/colis);return{order:true,label:colis>1?`${n} colis×${colis}`:`Cmd ${diff}`};}
+    if(stock<s){const diff=c-stock;const n=Math.ceil(diff/colis);const qty=colis>1?n*colis:diff;return{order:true,label:colis>1?`${n} colis×${colis}`:`Cmd ${diff}`,qty:qty};}
     if(stock<=s*1.3)return{warn:true,label:'Stock bas'};
     return{ok:true,label:'✓ OK'};
   }
-  if(ptype==='two'||ptype==='level'||ptype==='threshold'){const cur=v??'ok';return cur==='cmd'?{order:true,label:'Commander'}:{ok:true,label:'✓ OK'};}
-  if(ptype==='yn'){return(v??'oui')==='non'?{order:true,label:'Commander'}:{ok:true,label:'✓ OK'};}
+  if(ptype==='two'||ptype==='level'||ptype==='threshold'){const cur=v??'ok';return cur==='cmd'?{order:true,label:'Commander',qty:1}:{ok:true,label:'✓ OK'};}
+  if(ptype==='yn'){return(v??'oui')==='non'?{order:true,label:'Commander',qty:1}:{ok:true,label:'✓ OK'};}
 
   return{ok:true,label:'✓ OK'};
 }
@@ -1407,10 +1407,38 @@ function startWizard(){
 
 function markEnvoyeForStep(sup){
   markEnvoye(sup);
+  if(DB.suppliers[sup]&&DB.suppliers[sup].isLabo)pushLaboCommande(sup);
   if(sup==='dabray'){
     Object.keys(DB.suppliers).forEach(function(s){
       if(DB.suppliers[s]&&DB.suppliers[s].mergeIntoDabray)markEnvoye(s);
     });
+  }
+}
+
+// ══ LABO — écrit une vraie commande numérique en plus du WhatsApp ══
+async function pushLaboCommande(supId){
+  var sup=DB.suppliers[supId];
+  if(!sup||!sup.isLabo)return;
+  var lignes=[];
+  DB.products.filter(function(p){return p.sup===supId;}).forEach(function(p){
+    var pill=document.getElementById('pi-'+san(p.id));
+    var st=getStatus(p);
+    var isOrdered=pill?pill.classList.contains('p-order'):st.order;
+    if(!isOrdered)return;
+    lignes.push({produit_code:p.id,produit_nom:p.name,quantite_demandee:st.qty||1});
+  });
+  if(!lignes.length)return;
+  try{
+    var empNom=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)?currentUser.name:'—';
+    var cmd=await sb.from('labo_commandes').insert({restaurant_id:RESTAURANT_ID,statut:'en_attente',created_by_nom:empNom}).select().single();
+    if(cmd.error)throw new Error(cmd.error.message);
+    var commandeId=cmd.data.id;
+    var rows=lignes.map(function(l){return{commande_id:commandeId,produit_code:l.produit_code,produit_nom:l.produit_nom,quantite_demandee:l.quantite_demandee};});
+    var ins=await sb.from('labo_commandes_lignes').insert(rows);
+    if(ins.error)throw new Error(ins.error.message);
+  }catch(e){
+    console.error('Erreur commande Labo',e);
+    alert('⚠️ Le message WhatsApp a été préparé, mais l\'enregistrement numérique vers le Labo a échoué : '+e.message+'\nPréviens le Labo directement pour cette fois.');
   }
 }
 function sendCurrent(){
@@ -2039,6 +2067,10 @@ function renderAdminFournisseurs(body){
       <select class="aselect" style="font-size:11px;" onchange="updSup('${id}','viaDabray',this.value==='via_dabray')">
         <option value="direct"${!sup.viaDabray?' selected':''}>Commande directe</option>
         <option value="via_dabray"${sup.viaDabray?' selected':''}>Via Dabray</option>
+      </select>
+      <select class="aselect" style="font-size:11px;margin-top:4px;" onchange="updSup('${id}','isLabo',this.value==='oui')">
+        <option value="non"${!sup.isLabo?' selected':''}>Fournisseur normal</option>
+        <option value="oui"${sup.isLabo?' selected':''}>🔬 C'est le Labo (commande numérique)</option>
       </select>
     </div>
     <button class="abtn abtn-danger" style="padding:5px 8px;font-size:11px;align-self:flex-start;" onclick="delSupplier('${id}')">✕</button>`;
