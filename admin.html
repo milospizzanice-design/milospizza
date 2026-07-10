@@ -178,6 +178,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="module-btn" id="modbtn-stocks" onclick="goModule('stocks')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">📦 STOCKS</div>
   <div class="module-btn" id="modbtn-recettes" onclick="goModule('recettes')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">🍕 RECETTES</div>
   <div class="module-btn" id="modbtn-menu" onclick="goModule('menu')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">📱 MENU</div>
+  <div class="module-btn" id="modbtn-labo" onclick="goModule('labo')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">🔬 LABO</div>
 </div>
 <div class="tabs" id="tabs-rh">
   <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
@@ -626,6 +627,51 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<!-- ══ MODULE LABO — Transformation (lots) ══ -->
+<div id="page-labo" style="display:none;">
+  <div class="page" style="padding-top:14px;">
+    <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+      Le Labo transforme des blocs de matière première en lots pesés (bacs, bûches…) destinés à Port et Dabray.
+      Cette étape gère la <b>transformation</b> uniquement — commande, envoi et réception arriveront dans une prochaine mise à jour.
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:10px;">➕ Nouveau lot</div>
+      <div class="fr">
+        <label class="fl2">Produit</label>
+        <input type="text" class="fi" id="labo-new-produit" list="labo-produits-list" placeholder="Ex: Bûche de chèvre 400g">
+        <datalist id="labo-produits-list"></datalist>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="fr" style="flex:1;min-width:140px;">
+          <label class="fl2">Poids réel (g)</label>
+          <input type="number" class="fi" id="labo-new-poids" placeholder="Ex: 405" min="0" step="1">
+        </div>
+        <div class="fr" style="flex:2;min-width:200px;">
+          <label class="fl2">Matière première utilisée (optionnel)</label>
+          <input type="text" class="fi" id="labo-new-source" placeholder="Ex: bloc jambon #12">
+        </div>
+      </div>
+      <button class="btn bp" onclick="createLaboLot()">Créer le lot</button>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:10px;">📦 Lots en stock (par produit)</div>
+      <div id="labo-lots-summary" style="font-size:12px;"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:10px;">🧾 Détail des lots en stock</div>
+      <div id="labo-lots-list"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:10px;">🕓 Historique récent</div>
+      <div id="labo-lots-history" style="font-size:12px;"></div>
+    </div>
+  </div>
+</div>
+
 
 <!-- Modal correction -->
 <div class="mb" id="mc">
@@ -928,7 +974,7 @@ function openM(id){
 }
 
 function goModule(name){
-  var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu'};
+  var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu',labo:'page-labo'};
   var tabsBar=document.getElementById('tabs-rh');
   Object.keys(pages).forEach(function(k){
     var e=document.getElementById(pages[k]);
@@ -942,6 +988,7 @@ function goModule(name){
   });
   if(tabsBar)tabsBar.style.display=(name==='rh')?'flex':'none';
   if(name==='recettes')loadRecettesModule();
+  if(name==='labo')loadLaboModule();
 }
 
 function goTab(name,el){
@@ -4906,6 +4953,119 @@ function sbCheck(result){
     throw new Error(result.error.message||'Erreur Supabase');
   }
   return result;
+}
+
+// ══ MODULE LABO — Transformation (lots) ══════════════════════════════════
+var laboLotsCache=[];
+async function loadLaboModule(){
+  try{
+    var r=sbCheck(await db.from('labo_lots').select('*').order('created_at',{ascending:false}));
+    laboLotsCache=r.data||[];
+  }catch(e){
+    console.error('Erreur chargement labo_lots',e);
+    laboLotsCache=[];
+  }
+  renderLaboProduitsList();
+  renderLaboLots();
+}
+function renderLaboProduitsList(){
+  var dl=document.getElementById('labo-produits-list');
+  if(!dl)return;
+  var noms=Array.from(new Set(laboLotsCache.map(function(l){return l.produit_nom;}))).sort();
+  dl.innerHTML=noms.map(function(n){return '<option value="'+esc(n)+'">';}).join('');
+}
+async function laboCurrentUserNom(){
+  try{
+    var s=await db.auth.getSession();
+    if(s&&s.data&&s.data.session&&s.data.session.user)return s.data.session.user.email||'Labo';
+  }catch(e){}
+  return 'Labo';
+}
+async function createLaboLot(){
+  var nomEl=document.getElementById('labo-new-produit');
+  var poidsEl=document.getElementById('labo-new-poids');
+  var srcEl=document.getElementById('labo-new-source');
+  var nom=nomEl.value.trim();
+  var poids=parseFloat(poidsEl.value);
+  if(!nom){alert('Indiquez le nom du produit.');return;}
+  if(!poids||poids<=0){alert('Indiquez un poids réel valide (en grammes).');return;}
+  var code=slugify(nom);
+  var creePar=await laboCurrentUserNom();
+  try{
+    sbCheck(await db.from('labo_lots').insert({
+      produit_code:code,
+      produit_nom:nom,
+      poids_reel_g:poids,
+      statut:'en_stock',
+      cree_par_nom:creePar,
+      source_bloc_ref:srcEl.value.trim()||null
+    }));
+  }catch(e){
+    alert('Erreur lors de la création du lot : '+e.message);
+    return;
+  }
+  nomEl.value='';poidsEl.value='';srcEl.value='';
+  loadLaboModule();
+}
+function renderLaboLots(){
+  var enStock=laboLotsCache.filter(function(l){return l.statut==='en_stock';});
+  var groups={};
+  enStock.forEach(function(l){
+    var k=l.produit_nom;
+    if(!groups[k])groups[k]={count:0,poids:0};
+    groups[k].count++;
+    groups[k].poids+=Number(l.poids_reel_g)||0;
+  });
+  var sumEl=document.getElementById('labo-lots-summary');
+  var keys=Object.keys(groups).sort();
+  if(sumEl){
+    if(keys.length===0){
+      sumEl.innerHTML='<div style="color:var(--txm);">Aucun lot en stock actuellement.</div>';
+    }else{
+      sumEl.innerHTML=keys.map(function(k){
+        var g=groups[k];
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd);">'
+          +'<span>'+esc(k)+'</span>'
+          +'<span style="font-weight:600;">'+g.count+' lot(s) — '+(g.poids/1000).toFixed(2)+' kg</span>'
+          +'</div>';
+      }).join('');
+    }
+  }
+  var listEl=document.getElementById('labo-lots-list');
+  if(listEl){
+    if(enStock.length===0){
+      listEl.innerHTML='<div style="font-size:12px;color:var(--txm);">—</div>';
+    }else{
+      listEl.innerHTML=enStock.map(function(l){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);">'
+          +'<div><div style="font-weight:600;">'+esc(l.produit_nom)+'</div>'
+          +'<div style="font-size:11px;color:var(--txm);">'+Number(l.poids_reel_g).toFixed(0)+' g — créé le '+fmtD(l.created_at)+(l.cree_par_nom?' par '+esc(l.cree_par_nom):'')+(l.source_bloc_ref?' — '+esc(l.source_bloc_ref):'')+'</div></div>'
+          +'<button class="btn bs" onclick="deleteLaboLot(\''+l.id+'\')">🗑️</button>'
+          +'</div>';
+      }).join('');
+    }
+  }
+  var histEl=document.getElementById('labo-lots-history');
+  if(histEl){
+    var others=laboLotsCache.filter(function(l){return l.statut!=='en_stock';}).slice(0,20);
+    if(others.length===0){
+      histEl.innerHTML='<div style="color:var(--txm);">Aucun mouvement pour l\'instant (tout le reste arrivera avec la commande/envoi/réception).</div>';
+    }else{
+      histEl.innerHTML=others.map(function(l){
+        return '<div style="padding:4px 0;border-bottom:1px solid var(--bd);">'+esc(l.produit_nom)+' — '+Number(l.poids_reel_g).toFixed(0)+' g — <b>'+esc(l.statut)+'</b> — '+fmtD(l.created_at)+'</div>';
+      }).join('');
+    }
+  }
+}
+async function deleteLaboLot(id){
+  if(!confirm('Supprimer ce lot ? (à utiliser seulement en cas d\'erreur de saisie)'))return;
+  try{
+    sbCheck(await db.from('labo_lots').delete().eq('id',id));
+  }catch(e){
+    alert('Erreur : '+e.message);
+    return;
+  }
+  loadLaboModule();
 }
 
 function goRecettesSub(name){
