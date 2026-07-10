@@ -608,53 +608,20 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
-<!-- ══ MODULE MENU (digital) — Générateur QR code ══ -->
+<!-- ══ MODULE MENU (digital) — CMS complet intégré (index.html?admin=1) ══ -->
 <div id="page-menu" style="display:none;">
   <div class="page" style="padding-top:14px;">
-    <div class="card">
-      <div style="display:flex;gap:6px;margin-bottom:14px;">
-        <button class="btn bp" id="qrtab_simple" style="flex:1;" onclick="switchQRTab('simple')">1. Simple</button>
-        <button class="btn bs" id="qrtab_grid" style="flex:1;" onclick="switchQRTab('grid')">2. Planche</button>
-        <button class="btn bs" id="qrtab_design" style="flex:1;" onclick="switchQRTab('design')">3. Design ✨</button>
+    <div class="card" style="padding:10px 14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:12px;color:var(--txm);">Gestion complète du menu en ligne (catégories, plats, design, pop-up, QR code…) — l'écran d'origine du site, affiché ici.</div>
+        <a href="index.html?admin=1" target="_blank" rel="noopener" class="btn bs sm" style="white-space:nowrap;">🔗 Ouvrir en plein écran</a>
       </div>
-
-      <div id="qrpanel_simple">
-        <div style="font-size:12px;color:var(--txm);margin-bottom:10px;">QR code classique 10×15cm, prêt à découper ou intégrer dans un document.</div>
-        <div style="display:flex;justify-content:center;padding:14px;background:#fff;border-radius:12px;border:1px solid var(--bd);">
-          <canvas id="qrSimpleCanvas" style="width:150px;height:225px;border-radius:4px;"></canvas>
-        </div>
-        <button class="btn bp" style="width:100%;margin-top:10px;" onclick="downloadCanvas('qrSimpleCanvas','qr-simple-10x15.png')">⬇️ Télécharger PNG</button>
-      </div>
-
-      <div id="qrpanel_grid" style="display:none;">
-        <div style="font-size:12px;color:var(--txm);margin-bottom:10px;">Une planche de QR codes à imprimer puis découper. Choisissez votre format papier.</div>
-        <div style="display:flex;gap:8px;margin-bottom:10px;">
-          <button class="btn bp" id="qrgrid_a4" style="flex:1;" onclick="selectGridFormat('A4')">A4</button>
-          <button class="btn bs" id="qrgrid_a3" style="flex:1;" onclick="selectGridFormat('A3')">A3</button>
-        </div>
-        <div style="display:flex;justify-content:center;padding:10px;background:#f5f5f5;border-radius:8px;">
-          <canvas id="qrGridCanvas" style="max-width:100%;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);"></canvas>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn bp" style="flex:1;" onclick="downloadCanvas('qrGridCanvas','qr-planche.png')">⬇️ Télécharger PNG</button>
-          <button class="btn bs" style="flex:1;" onclick="printGridQR()">🖨️ Imprimer</button>
-        </div>
-      </div>
-
-      <div id="qrpanel_design" style="display:none;">
-        <div style="font-size:12px;color:var(--txm);margin-bottom:10px;">Un visuel prêt à imprimer avec un texte d'accroche.</div>
-        <label style="font-size:11px;color:var(--txm);">Texte d'accroche (max 40 caractères)</label>
-        <input class="fi" id="qrDesignText" maxlength="40" value="Scannez notre menu 🍕" oninput="renderQRDesign()" style="width:100%;margin:4px 0 8px;">
-        <label style="font-size:11px;color:var(--txm);">Sous-texte (max 35 caractères)</label>
-        <input class="fi" id="qrDesignSub" maxlength="35" value="C'est rapide et sans contact !" oninput="renderQRDesign()" style="width:100%;margin-top:4px;">
-        <div style="display:flex;justify-content:center;padding:10px;background:#f5f5f5;border-radius:8px;margin-top:10px;">
-          <canvas id="qrDesignCanvas" style="max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.18);"></canvas>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn bp" style="flex:1;" onclick="downloadCanvas('qrDesignCanvas','qr-design-milospizza.png')">⬇️ Télécharger PNG</button>
-          <button class="btn bs" style="flex:1;" onclick="printDesignQR()">🖨️ Imprimer</button>
-        </div>
-      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <iframe id="menuAdminFrame" src="index.html?admin=1" style="width:100%;height:78vh;min-height:520px;border:0;display:block;" title="Administration du menu en ligne"></iframe>
+    </div>
+    <div style="font-size:11px;color:var(--txm);text-align:center;margin-top:8px;">
+      Pas connecté ? Ouvre <a href="login.html" target="_blank" rel="noopener">login.html</a> dans un onglet une première fois, puis reviens ici.
     </div>
   </div>
 </div>
@@ -975,177 +942,8 @@ function goModule(name){
   });
   if(tabsBar)tabsBar.style.display=(name==='rh')?'flex':'none';
   if(name==='recettes')loadRecettesModule();
-  if(name==='menu')initQRCode();
 }
 
-// ── Générateur QR code (porté depuis index.html — module MENU) ──────────────
-const QR_URL='https://milospizza.restoglobal.fr';
-const QR_ROUGE='#9B1C1C';
-const QR_CREME='#F5F0E8';
-let _qrGridFormat='A4';
-let _qriosPending=[];
-
-function loadQRious(cb){
-  if(typeof QRious!=='undefined'){cb();return;}
-  _qriosPending.push(cb);
-  if(_qriosPending.length>1)return;
-  var s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
-  s.onload=function(){var cbs=_qriosPending.slice();_qriosPending=[];cbs.forEach(function(f){f();});};
-  document.head.appendChild(s);
-}
-function makeQRCanvas(url,size){
-  var c=document.createElement('canvas');
-  new QRious({element:c,value:url,size:size,backgroundAlpha:1,background:'#ffffff',foreground:QR_ROUGE,padding:Math.round(size*0.04),level:'H'});
-  return c;
-}
-function initQRCode(){
-  loadQRious(function(){switchQRTab('simple');});
-}
-function switchQRTab(tab){
-  ['simple','grid','design'].forEach(function(t){
-    var panel=document.getElementById('qrpanel_'+t);
-    if(panel)panel.style.display=t===tab?'block':'none';
-    var btn=document.getElementById('qrtab_'+t);
-    if(btn){btn.classList.toggle('bp',t===tab);btn.classList.toggle('bs',t!==tab);}
-  });
-  loadQRious(function(){
-    if(tab==='simple')renderQRSimple();
-    else if(tab==='grid')renderQRGrid();
-    else if(tab==='design')renderQRDesign();
-  });
-}
-function renderQRSimple(){
-  var W=591,H=886;
-  var off=document.createElement('canvas');off.width=W;off.height=H;
-  var ctx=off.getContext('2d');
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
-  var qrSize=480;var qr=makeQRCanvas(QR_URL,qrSize);
-  var qx=(W-qrSize)/2,qy=(H-qrSize)/2-30;
-  ctx.drawImage(qr,qx,qy);
-  ctx.fillStyle=QR_ROUGE;ctx.font='bold 20px sans-serif';ctx.textAlign='center';
-  ctx.fillText(QR_URL,W/2,qy+qrSize+44);
-  var dest=document.getElementById('qrSimpleCanvas');
-  if(!dest)return;
-  dest.width=W;dest.height=H;
-  dest.getContext('2d').drawImage(off,0,0);
-}
-function selectGridFormat(fmt){
-  _qrGridFormat=fmt;
-  ['A4','A3'].forEach(function(f){
-    var btn=document.getElementById('qrgrid_'+f.toLowerCase());
-    if(!btn)return;
-    btn.classList.toggle('bp',f===fmt);btn.classList.toggle('bs',f!==fmt);
-  });
-  renderQRGrid();
-}
-function renderQRGrid(){
-  var isA3=_qrGridFormat==='A3';
-  var DPI=150;
-  var W=Math.round((isA3?297:210)*DPI/25.4);
-  var H=Math.round((isA3?420:297)*DPI/25.4);
-  var COLS=isA3?4:3,ROWS=isA3?5:4;
-  var MARGIN=Math.round(10*DPI/25.4),GAP=Math.round(5*DPI/25.4);
-  var qrSize=Math.floor((W-2*MARGIN-(COLS-1)*GAP)/COLS);
-  var off=document.createElement('canvas');off.width=W;off.height=H;
-  var ctx=off.getContext('2d');
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
-  var qr=makeQRCanvas(QR_URL,qrSize);
-  var totalW=COLS*qrSize+(COLS-1)*GAP,totalH=ROWS*qrSize+(ROWS-1)*GAP;
-  var sx=(W-totalW)/2,sy=(H-totalH)/2;
-  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++)
-    ctx.drawImage(qr,sx+c*(qrSize+GAP),sy+r*(qrSize+GAP));
-  ctx.fillStyle=QR_ROUGE;ctx.font='bold '+Math.round(8*DPI/72)+'px sans-serif';
-  ctx.textAlign='center';ctx.fillText(QR_URL,W/2,H-Math.round(4*DPI/25.4));
-  var dest=document.getElementById('qrGridCanvas');
-  if(!dest)return;
-  dest.width=W;dest.height=H;
-  dest.style.maxHeight='350px';dest.style.width='auto';
-  dest.getContext('2d').drawImage(off,0,0);
-  dest._off=off;
-}
-function printGridQR(){
-  var dest=document.getElementById('qrGridCanvas');
-  var src=dest?(dest._off||dest):null;if(!src)return;
-  var url=src.toDataURL('image/png');
-  var isA3=_qrGridFormat==='A3';
-  var win=window.open('','_blank');
-  win.document.write('<!DOCTYPE html><html><head><title>Planche QR</title><style>@page{size:'+(isA3?'A3':'A4')+';margin:0}*{margin:0;padding:0}body{display:flex;align-items:center;justify-content:center;width:100vw;height:100vh}img{width:100%;height:100%;object-fit:contain}</style></head><body><img src="'+url+'"></body></html>');
-  win.document.close();setTimeout(function(){win.focus();win.print();},600);
-}
-function renderQRDesign(){
-  var text=(document.getElementById('qrDesignText')||{}).value||"Scannez notre menu 🍕";
-  var sub=(document.getElementById('qrDesignSub')||{}).value||"C'est rapide et sans contact !";
-  var dest=document.getElementById('qrDesignCanvas');if(!dest)return;
-  var W=591,H=886;
-  dest.width=W;dest.height=H;
-  var ctx=dest.getContext('2d');
-  ctx.fillStyle=QR_CREME;
-  _rrect(ctx,0,0,W,H,32);ctx.fill();
-  ctx.fillStyle=QR_ROUGE;
-  _rrectTop(ctx,0,0,W,H*0.22,32);ctx.fill();
-  ctx.fillStyle=QR_ROUGE;
-  _rrectBottom(ctx,0,H*0.77,W,H*0.23,32);ctx.fill();
-  // Pas de logo disponible côté admin.html (contrairement au site vitrine) — bandeau texte seul.
-  var qrSize=Math.round(W*0.7);
-  var qr=makeQRCanvas(QR_URL,qrSize);
-  var qx=(W-qrSize)/2,qy=H*0.24;
-  ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,0.13)';ctx.shadowBlur=18;
-  _rrect(ctx,qx-14,qy-14,qrSize+28,qrSize+28,18);ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.drawImage(qr,qx,qy);
-  var ay=qy+qrSize+28;
-  ctx.fillStyle=QR_ROUGE;ctx.textAlign='center';
-  ctx.font='bold '+Math.round(W*0.044)+'px Montserrat,sans-serif';
-  ctx.fillText('↓  Scanner ici',W/2,ay+36);
-  ctx.fillStyle='#fff';ctx.textAlign='center';
-  ctx.font='bold '+Math.round(W*0.052)+'px Montserrat,sans-serif';
-  _wrapText(ctx,text,W/2,H*0.82,W*0.82,Math.round(W*0.062));
-  ctx.font=Math.round(W*0.036)+'px Montserrat,sans-serif';
-  ctx.globalAlpha=0.82;
-  ctx.fillText(sub.slice(0,38),W/2,H*0.945);
-  ctx.globalAlpha=1;
-  dest.style.maxWidth='100%';dest.style.borderRadius='14px';
-}
-function _rrect(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
-  ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);
-  ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
-}
-function _rrectTop(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
-  ctx.lineTo(x+w,y+h);ctx.lineTo(x,y+h);
-  ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
-}
-function _rrectBottom(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x,y);ctx.lineTo(x+w,y);
-  ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.arcTo(x,y+h,x,y+h-r,r);
-  ctx.closePath();
-}
-function _wrapText(ctx,text,x,y,maxW,lineH){
-  var words=text.split(' ');var line='';
-  for(var i=0;i<words.length;i++){
-    var t=line+words[i]+' ';
-    if(ctx.measureText(t).width>maxW&&i>0){ctx.fillText(line.trim(),x,y);line=words[i]+' ';y+=lineH;}
-    else line=t;
-  }
-  ctx.fillText(line.trim(),x,y);
-}
-function downloadCanvas(id,filename){
-  var c=document.getElementById(id);if(!c)return;
-  var a=document.createElement('a');a.download=filename;
-  a.href=c.toDataURL('image/png');a.click();
-}
-function printDesignQR(){
-  var c=document.getElementById('qrDesignCanvas');if(!c)return;
-  var url=c.toDataURL('image/png');
-  var win=window.open('','_blank');
-  win.document.write('<!DOCTYPE html><html><head><title>QR Milo\'s Pizza</title><style>@page{size:A4;margin:10mm}*{margin:0;padding:0}body{display:flex;align-items:center;justify-content:center;height:100%}img{width:10cm;height:15cm;object-fit:contain}</style></head><body><img src="'+url+'"></body></html>');
-  win.document.close();setTimeout(function(){win.focus();win.print();},600);
-}
 function goTab(name,el){
   ['sa','pl','rc','pm'].forEach(function(id){
     var e=document.getElementById(id);if(e)e.style.display='none';
