@@ -629,10 +629,26 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 <!-- ══ MODULE LABO — Transformation (lots) ══ -->
 <div id="page-labo" style="display:none;">
+  <!-- Pop-up commandes en attente (affiché une fois par connexion) -->
+  <div id="labo-popup-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#fff;border-radius:14px;max-width:480px;width:100%;max-height:85vh;overflow:auto;padding:16px;">
+      <div style="font-weight:700;font-size:16px;margin-bottom:10px;">📋 Commandes en attente de préparation</div>
+      <div id="labo-popup-list" style="font-size:13px;"></div>
+      <button class="btn bp" style="width:100%;margin-top:12px;" onclick="closeLaboPopup()">Fermer</button>
+    </div>
+  </div>
+
   <div class="page" style="padding-top:14px;">
     <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
       Le Labo transforme des blocs de matière première en lots pesés (bacs, bûches…) destinés à Port et Dabray.
-      Cette étape gère la <b>transformation</b> uniquement — commande, envoi et réception arriveront dans une prochaine mise à jour.
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-weight:700;">📋 Commandes à préparer</div>
+        <button class="btn bs" onclick="openLaboPopup()">Voir le résumé</button>
+      </div>
+      <div id="labo-prep-list" style="font-size:13px;"></div>
     </div>
 
     <div class="card">
@@ -4957,6 +4973,9 @@ function sbCheck(result){
 
 // ══ MODULE LABO — Transformation (lots) ══════════════════════════════════
 var laboLotsCache=[];
+var laboCommandesCache=[]; // commandes en_attente / partiellement_envoyee, avec .lignes[]
+var laboPrepSelections={}; // {commandeId: {ligneId: [lotId,...]}}
+var LABO_RESTO_LABELS={port:'Port',dabray:'Dabray'};
 async function loadLaboModule(){
   try{
     var r=sbCheck(await db.from('labo_lots').select('*').order('created_at',{ascending:false}));
@@ -4965,8 +4984,133 @@ async function loadLaboModule(){
     console.error('Erreur chargement labo_lots',e);
     laboLotsCache=[];
   }
+  try{
+    var rc=sbCheck(await db.from('labo_commandes').select('*').in('statut',['en_attente','partiellement_envoyee']).order('created_at',{ascending:true}));
+    var commandes=rc.data||[];
+    if(commandes.length){
+      var ids=commandes.map(function(c){return c.id;});
+      var rl=sbCheck(await db.from('labo_commandes_lignes').select('*').in('commande_id',ids));
+      var lignes=rl.data||[];
+      commandes.forEach(function(c){
+        c.lignes=lignes.filter(function(l){return l.commande_id===c.id;});
+      });
+    }
+    laboCommandesCache=commandes;
+  }catch(e){
+    console.error('Erreur chargement labo_commandes',e);
+    laboCommandesCache=[];
+  }
   renderLaboProduitsList();
   renderLaboLots();
+  renderLaboPrepList();
+  maybeShowLaboPopup();
+}
+function maybeShowLaboPopup(){
+  if(!laboCommandesCache.length)return;
+  if(sessionStorage.getItem('labo_popup_shown')==='1')return;
+  sessionStorage.setItem('labo_popup_shown','1');
+  openLaboPopup();
+}
+function openLaboPopup(){
+  var el=document.getElementById('labo-popup-list');
+  if(el)el.innerHTML=laboCommandesHtml(true);
+  var ov=document.getElementById('labo-popup-overlay');
+  if(ov)ov.style.display='flex';
+}
+function closeLaboPopup(){
+  var ov=document.getElementById('labo-popup-overlay');
+  if(ov)ov.style.display='none';
+}
+function laboCommandesHtml(compact){
+  if(!laboCommandesCache.length)return '<div style="color:var(--txm);">Aucune commande en attente.</div>';
+  return laboCommandesCache.map(function(c){
+    var lignesHtml=(c.lignes||[]).map(function(l){
+      return '<div style="padding:2px 0;">• '+esc(l.produit_nom||l.produit_code)+' — '+(l.quantite_couverte||0)+'/'+l.quantite_demandee+'</div>';
+    }).join('');
+    return '<div style="padding:8px 0;border-bottom:1px solid var(--bd);">'
+      +'<div style="font-weight:700;">Commande #'+c.numero+' — '+(LABO_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+'</div>'
+      +lignesHtml
+      +'</div>';
+  }).join('');
+}
+function renderLaboPrepList(){
+  var el=document.getElementById('labo-prep-list');
+  if(!el)return;
+  if(!laboCommandesCache.length){
+    el.innerHTML='<div style="color:var(--txm);">Aucune commande en attente de préparation.</div>';
+    return;
+  }
+  el.innerHTML=laboCommandesCache.map(function(c){
+    if(!laboPrepSelections[c.id])laboPrepSelections[c.id]={};
+    var lignesHtml=(c.lignes||[]).map(function(l){
+      var restant=l.quantite_demandee-(l.quantite_couverte||0);
+      var candidats=laboLotsCache.filter(function(lot){return lot.statut==='en_stock'&&lot.produit_nom===l.produit_nom;});
+      var selected=laboPrepSelections[c.id][l.id]||[];
+      var lotsHtml=candidats.length?candidats.map(function(lot){
+        var checked=selected.indexOf(lot.id)>=0?' checked':'';
+        return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;">'
+          +'<input type="checkbox" '+checked+' onchange="toggleLaboLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
+          +Number(lot.poids_reel_g).toFixed(0)+' g — créé le '+fmtD(lot.created_at)
+          +'</label>';
+      }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit — transforme-le d\'abord ci-dessous.</div>';
+      return '<div style="margin:8px 0;padding:8px;background:#FAF4EC;border-radius:8px;">'
+        +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+l.quantite_demandee+', couvert '+(l.quantite_couverte||0)+(restant>0?' <span style="color:#C0392B;">(reste '+restant+')</span>':' ✓')+'</div>'
+        +lotsHtml
+        +'</div>';
+    }).join('');
+    return '<div style="border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:10px;">'
+      +'<div style="font-weight:700;margin-bottom:4px;">Commande #'+c.numero+' — '+(LABO_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span style="font-weight:400;font-size:11px;color:var(--txm);">('+fmtD(c.created_at)+')</span></div>'
+      +lignesHtml
+      +'<button class="btn bp" style="width:100%;margin-top:6px;" onclick="envoyerLaboCommande(\''+c.id+'\')">📤 Envoyer les lots cochés</button>'
+      +'</div>';
+  }).join('');
+}
+function toggleLaboLotSel(commandeId,ligneId,lotId,checked){
+  if(!laboPrepSelections[commandeId])laboPrepSelections[commandeId]={};
+  if(!laboPrepSelections[commandeId][ligneId])laboPrepSelections[commandeId][ligneId]=[];
+  var arr=laboPrepSelections[commandeId][ligneId];
+  var idx=arr.indexOf(lotId);
+  if(checked&&idx<0)arr.push(lotId);
+  if(!checked&&idx>=0)arr.splice(idx,1);
+}
+async function envoyerLaboCommande(commandeId){
+  var sel=laboPrepSelections[commandeId]||{};
+  var pairs=[]; // {ligneId, lotId}
+  Object.keys(sel).forEach(function(ligneId){
+    (sel[ligneId]||[]).forEach(function(lotId){pairs.push({ligneId:ligneId,lotId:lotId});});
+  });
+  if(!pairs.length){alert('Coche au moins un lot avant d\'envoyer.');return;}
+  var commande=laboCommandesCache.find(function(c){return c.id===commandeId;});
+  if(!commande)return;
+  try{
+    var creePar=await laboCurrentUserNom();
+    var envoi=sbCheck(await db.from('labo_envois').insert({commande_id:commandeId,envoye_par_nom:creePar}).select().single());
+    var envoiId=envoi.data.id;
+    var rows=pairs.map(function(p){return{envoi_id:envoiId,lot_id:p.lotId,commande_ligne_id:p.ligneId};});
+    sbCheck(await db.from('labo_envois_lignes').insert(rows));
+    // Marquer les lots comme envoyés
+    var lotIds=pairs.map(function(p){return p.lotId;});
+    sbCheck(await db.from('labo_lots').update({statut:'envoye'}).in('id',lotIds));
+    // Mettre à jour quantite_couverte par ligne
+    var countByLigne={};
+    pairs.forEach(function(p){countByLigne[p.ligneId]=(countByLigne[p.ligneId]||0)+1;});
+    for(var ligneId in countByLigne){
+      var ligne=(commande.lignes||[]).find(function(l){return l.id===ligneId;});
+      if(!ligne)continue;
+      var nouvelleCouverture=(ligne.quantite_couverte||0)+countByLigne[ligneId];
+      sbCheck(await db.from('labo_commandes_lignes').update({quantite_couverte:nouvelleCouverture}).eq('id',ligneId));
+      ligne.quantite_couverte=nouvelleCouverture; // maj locale pour le check ci-dessous
+    }
+    // Déterminer le nouveau statut de la commande
+    var toutesCouvertes=(commande.lignes||[]).every(function(l){return (l.quantite_couverte||0)>=l.quantite_demandee;});
+    var nouveauStatut=toutesCouvertes?'envoyee':'partiellement_envoyee';
+    sbCheck(await db.from('labo_commandes').update({statut:nouveauStatut}).eq('id',commandeId));
+  }catch(e){
+    alert('Erreur lors de l\'envoi : '+e.message);
+    return;
+  }
+  delete laboPrepSelections[commandeId];
+  loadLaboModule();
 }
 function renderLaboProduitsList(){
   var dl=document.getElementById('labo-produits-list');
