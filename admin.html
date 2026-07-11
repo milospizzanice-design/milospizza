@@ -652,10 +652,14 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
 
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
         <div style="font-weight:700;">🗂 Catégories &amp; produits Labo</div>
-        <button class="btn bs" onclick="toggleLaboCatalogueEditor()">Gérer</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn bs" onclick="importLaboCatalogueDepuisStocks()">🔄 Actualiser depuis Stocks</button>
+          <button class="btn bs" onclick="toggleLaboCatalogueEditor()">Gérer</button>
+        </div>
       </div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">"Actualiser" importe les catégories et produits de Port + Dabray sans dupliquer ce qui existe déjà — utilise-le à tout moment pour récupérer les nouveautés.</div>
       <div id="labo-catalogue-editor" style="display:none;">
         <div class="fr" style="display:flex;gap:8px;align-items:flex-end;">
           <div style="flex:1;">
@@ -666,6 +670,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         </div>
         <div id="labo-cat-editor-list"></div>
       </div>
+    </div>
+
+    <div class="card" id="labo-orphans-card" style="display:none;border:1px solid #E67E22;">
+      <div style="font-weight:700;margin-bottom:8px;color:#E67E22;">⚠️ Produits à vérifier</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Ces produits sont dans le catalogue Labo mais ne sont plus marqués "fournisseur = Labo" sur Port ni Dabray. Vérifie si c'est normal, puis désactive si besoin.</div>
+      <div id="labo-orphans-list"></div>
     </div>
 
     <div class="card">
@@ -5029,6 +5039,7 @@ async function loadLaboModule(){
   }
   renderLaboProduitsList();
   renderLaboCatalogueEditor();
+  renderLaboOrphans();
   renderLaboLots();
   renderLaboPrepList();
   maybeShowLaboPopup();
@@ -5310,6 +5321,84 @@ async function deleteLaboProduit(code){
   try{sbCheck(await db.from('labo_produits').delete().eq('code',code));}
   catch(e){alert('Erreur : '+e.message);}
   loadLaboModule();
+}
+
+// ══ Import / Actualisation depuis les catalogues Stock (Port + Dabray) ══
+// Ne récupère QUE les produits dont le fournisseur est marqué "Labo" sur Port ou Dabray
+// (pas tout le catalogue Stock) — c'est le seul critère de pertinence pour ce catalogue.
+var laboOrphanCache=[];
+async function importLaboCatalogueDepuisStocks(){
+  var btn=event&&event.target;
+  if(btn)btn.disabled=true;
+  try{
+    var r=sbCheck(await db.from('stock_catalogue').select('restaurant_id,cats,products,suppliers').in('restaurant_id',['port','dabray']));
+    var rows=r.data||[];
+    if(!rows.length){
+      alert('Aucun catalogue Stock trouvé dans le cloud pour Port/Dabray.\nOuvre d\'abord l\'admin de Port ou Dabray et clique sur "☁️ Sync cloud" pour qu\'il y ait quelque chose à importer.');
+      return;
+    }
+    var catsByCode={};
+    var prodsByCode={};
+    var relevantCodes={};
+    rows.forEach(function(row){
+      var suppliers=row.suppliers||{};
+      var laboSupIds=Object.keys(suppliers).filter(function(sid){return suppliers[sid]&&suppliers[sid].isLabo;});
+      if(!laboSupIds.length)return; // aucun fournisseur "Labo" configuré sur ce restaurant
+      var catsById={};
+      (row.cats||[]).forEach(function(c){if(c&&c.id)catsById[c.id]=c;});
+      (row.products||[]).forEach(function(p){
+        if(!p||!p.name)return;
+        if(laboSupIds.indexOf(p.sup)<0)return; // pas fourni par le Labo sur ce restaurant
+        var code=slugify(p.name);
+        if(!code)return;
+        relevantCodes[code]=true;
+        if(!prodsByCode[code])prodsByCode[code]={code:code,nom:p.name,categorie_code:p.cat||null};
+        var cat=catsById[p.cat];
+        if(cat&&!catsByCode[cat.id])catsByCode[cat.id]={code:cat.id,label:cat.label||cat.id};
+      });
+    });
+    var catRows=Object.values(catsByCode);
+    var prodRows=Object.values(prodsByCode);
+    if(catRows.length){
+      var insCat=await db.from('labo_categories').upsert(catRows,{onConflict:'code'});
+      if(insCat.error)throw new Error(insCat.error.message);
+    }
+    if(prodRows.length){
+      var insProd=await db.from('labo_produits').upsert(prodRows,{onConflict:'code'});
+      if(insProd.error)throw new Error(insProd.error.message);
+    }
+    // Produits déjà présents dans le catalogue Labo mais plus "Labo-pertinents" nulle part
+    laboOrphanCache=laboProdCache.filter(function(p){return p.actif!==false&&!relevantCodes[p.code];});
+    var msg='✅ Import terminé : '+catRows.length+' catégorie(s), '+prodRows.length+' produit(s) fournis par le Labo (Port + Dabray fusionnés, sans doublons).';
+    if(laboOrphanCache.length)msg+='\n⚠️ '+laboOrphanCache.length+' produit(s) déjà dans le catalogue Labo ne sont plus fournis par le Labo nulle part — vois la liste "à vérifier" ci-dessous.';
+    alert(msg);
+  }catch(e){
+    alert('Erreur lors de l\'import : '+e.message);
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+  await loadLaboModule();
+  renderLaboOrphans();
+}
+function renderLaboOrphans(){
+  var card=document.getElementById('labo-orphans-card');
+  var el=document.getElementById('labo-orphans-list');
+  if(!card||!el)return;
+  if(!laboOrphanCache.length){card.style.display='none';return;}
+  card.style.display='block';
+  el.innerHTML=laboOrphanCache.map(function(p){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd);">'
+      +'<span>'+esc(p.nom)+'</span>'
+      +'<button class="btn bs" onclick="desactiverLaboOrphan(\''+p.code+'\')">Désactiver</button>'
+      +'</div>';
+  }).join('');
+}
+async function desactiverLaboOrphan(code){
+  try{sbCheck(await db.from('labo_produits').update({actif:false}).eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);return;}
+  laboOrphanCache=laboOrphanCache.filter(function(p){return p.code!==code;});
+  loadLaboModule();
+  renderLaboOrphans();
 }
 function renderLaboLots(){
   var enStock=laboLotsCache.filter(function(l){return l.statut==='en_stock';});
