@@ -5093,7 +5093,7 @@ function renderLaboPrepList(){
           +'</label>';
       }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit — transforme-le d\'abord ci-dessous.</div>';
       return '<div style="margin:8px 0;padding:8px;background:#FAF4EC;border-radius:8px;">'
-        +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+l.quantite_demandee+', couvert '+(l.quantite_couverte||0)+(restant>0?' <span style="color:#C0392B;">(reste '+restant+')</span>':' ✓')+'</div>'
+        +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+l.quantite_demandee+', déjà couvert '+(l.quantite_couverte||0)+(selected.length?' <span style="color:#1ABC9C;">+ '+selected.length+' coché(s) maintenant</span>':'')+(restant>0?' <span style="color:#C0392B;">(reste '+restant+')</span>':' ✓')+'</div>'
         +lotsHtml
         +'</div>';
     }).join('');
@@ -5111,6 +5111,7 @@ function toggleLaboLotSel(commandeId,ligneId,lotId,checked){
   var idx=arr.indexOf(lotId);
   if(checked&&idx<0)arr.push(lotId);
   if(!checked&&idx>=0)arr.splice(idx,1);
+  renderLaboPrepList(); // retour visuel immédiat (compteur "coché maintenant")
 }
 async function envoyerLaboCommande(commandeId){
   var sel=laboPrepSelections[commandeId]||{};
@@ -5231,9 +5232,10 @@ function renderLaboCatalogueEditor(){
   el.innerHTML=laboCatCache.map(function(cat,idx){
     var prods=laboProdCache.filter(function(p){return p.categorie_code===cat.code;});
     var prodsHtml=prods.map(function(p){
-      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;">'
+      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;flex-wrap:wrap;">'
         +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+p.ordre+'" onchange="moveLaboProduitToPosition(\''+p.code+'\',this.value)">'
-        +'<input type="text" class="fi" style="flex:1;padding:4px;" value="'+esc(p.nom)+'" onchange="renameLaboProduit(\''+p.code+'\',this.value)">'
+        +'<input type="text" class="fi" style="flex:1;min-width:100px;padding:4px;" value="'+esc(p.nom)+'" onchange="renameLaboProduit(\''+p.code+'\',this.value)">'
+        +'<input type="text" class="fi" style="width:110px;padding:4px;" placeholder="Origine (ex: Carrefour)" value="'+esc(p.origine||'')+'" onchange="updateLaboProduitOrigine(\''+p.code+'\',this.value)">'
         +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif!==false?'checked':'')+' onchange="toggleLaboProduitActif(\''+p.code+'\',this.checked)">actif</label>'
         +'<button class="btn bs" style="padding:4px 8px;" onclick="deleteLaboProduit(\''+p.code+'\')">🗑️</button>'
         +'</div>';
@@ -5301,6 +5303,11 @@ async function renameLaboProduit(code,nom){
   nom=nom.trim();
   if(!nom)return;
   try{sbCheck(await db.from('labo_produits').update({nom:nom}).eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
+  loadLaboModule();
+}
+async function updateLaboProduitOrigine(code,origine){
+  try{sbCheck(await db.from('labo_produits').update({origine:origine.trim()||null}).eq('code',code));}
   catch(e){alert('Erreur : '+e.message);}
   loadLaboModule();
 }
