@@ -652,11 +652,27 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
 
     <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-weight:700;">🗂 Catégories &amp; produits Labo</div>
+        <button class="btn bs" onclick="toggleLaboCatalogueEditor()">Gérer</button>
+      </div>
+      <div id="labo-catalogue-editor" style="display:none;">
+        <div class="fr" style="display:flex;gap:8px;align-items:flex-end;">
+          <div style="flex:1;">
+            <label class="fl2">Nouvelle catégorie</label>
+            <input type="text" class="fi" id="labo-new-cat-nom" placeholder="Ex: Légumes">
+          </div>
+          <button class="btn bp" onclick="createLaboCategorie()">Ajouter</button>
+        </div>
+        <div id="labo-cat-editor-list"></div>
+      </div>
+    </div>
+
+    <div class="card">
       <div style="font-weight:700;margin-bottom:10px;">➕ Nouveau lot</div>
       <div class="fr">
         <label class="fl2">Produit</label>
-        <input type="text" class="fi" id="labo-new-produit" list="labo-produits-list" placeholder="Ex: Bûche de chèvre 400g">
-        <datalist id="labo-produits-list"></datalist>
+        <select class="fi" id="labo-new-produit"></select>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <div class="fr" style="flex:1;min-width:140px;">
@@ -4975,6 +4991,8 @@ function sbCheck(result){
 var laboLotsCache=[];
 var laboCommandesCache=[]; // commandes en_attente / partiellement_envoyee, avec .lignes[]
 var laboPrepSelections={}; // {commandeId: {ligneId: [lotId,...]}}
+var laboCatCache=[]; // catalogue partagé : catégories
+var laboProdCache=[]; // catalogue partagé : produits
 var LABO_RESTO_LABELS={port:'Port',dabray:'Dabray'};
 async function loadLaboModule(){
   try{
@@ -4983,6 +5001,15 @@ async function loadLaboModule(){
   }catch(e){
     console.error('Erreur chargement labo_lots',e);
     laboLotsCache=[];
+  }
+  try{
+    var rcat=sbCheck(await db.from('labo_categories').select('*').order('ordre',{ascending:true}));
+    laboCatCache=rcat.data||[];
+    var rprod=sbCheck(await db.from('labo_produits').select('*').order('ordre',{ascending:true}));
+    laboProdCache=rprod.data||[];
+  }catch(e){
+    console.error('Erreur chargement catalogue Labo',e);
+    laboCatCache=[];laboProdCache=[];
   }
   try{
     var rc=sbCheck(await db.from('labo_commandes').select('*').in('statut',['en_attente','partiellement_envoyee']).order('created_at',{ascending:true}));
@@ -5001,6 +5028,7 @@ async function loadLaboModule(){
     laboCommandesCache=[];
   }
   renderLaboProduitsList();
+  renderLaboCatalogueEditor();
   renderLaboLots();
   renderLaboPrepList();
   maybeShowLaboPopup();
@@ -5044,7 +5072,7 @@ function renderLaboPrepList(){
     if(!laboPrepSelections[c.id])laboPrepSelections[c.id]={};
     var lignesHtml=(c.lignes||[]).map(function(l){
       var restant=l.quantite_demandee-(l.quantite_couverte||0);
-      var candidats=laboLotsCache.filter(function(lot){return lot.statut==='en_stock'&&lot.produit_nom===l.produit_nom;});
+      var candidats=laboLotsCache.filter(function(lot){return lot.statut==='en_stock'&&lot.produit_code===l.produit_code;});
       var selected=laboPrepSelections[c.id][l.id]||[];
       var lotsHtml=candidats.length?candidats.map(function(lot){
         var checked=selected.indexOf(lot.id)>=0?' checked':'';
@@ -5113,10 +5141,34 @@ async function envoyerLaboCommande(commandeId){
   loadLaboModule();
 }
 function renderLaboProduitsList(){
-  var dl=document.getElementById('labo-produits-list');
-  if(!dl)return;
-  var noms=Array.from(new Set(laboLotsCache.map(function(l){return l.produit_nom;}))).sort();
-  dl.innerHTML=noms.map(function(n){return '<option value="'+esc(n)+'">';}).join('');
+  var sel=document.getElementById('labo-new-produit');
+  if(!sel)return;
+  var actifs=laboProdCache.filter(function(p){return p.actif!==false;});
+  if(!actifs.length){
+    sel.innerHTML='<option value="">Aucun produit Labo créé — utilise "Gérer" ci-dessus</option>';
+    return;
+  }
+  var byCat={};
+  actifs.forEach(function(p){
+    var k=p.categorie_code||'__none__';
+    if(!byCat[k])byCat[k]=[];
+    byCat[k].push(p);
+  });
+  var html='';
+  laboCatCache.forEach(function(cat){
+    var prods=byCat[cat.code];
+    if(!prods||!prods.length)return;
+    html+='<optgroup label="'+esc(cat.label)+'">'+prods.map(function(p){
+      return '<option value="'+esc(p.code)+'">'+esc(p.nom)+'</option>';
+    }).join('')+'</optgroup>';
+    delete byCat[cat.code];
+  });
+  if(byCat.__none__&&byCat.__none__.length){
+    html+='<optgroup label="Non classé">'+byCat.__none__.map(function(p){
+      return '<option value="'+esc(p.code)+'">'+esc(p.nom)+'</option>';
+    }).join('')+'</optgroup>';
+  }
+  sel.innerHTML=html;
 }
 async function laboCurrentUserNom(){
   try{
@@ -5126,19 +5178,19 @@ async function laboCurrentUserNom(){
   return 'Labo';
 }
 async function createLaboLot(){
-  var nomEl=document.getElementById('labo-new-produit');
+  var selEl=document.getElementById('labo-new-produit');
   var poidsEl=document.getElementById('labo-new-poids');
   var srcEl=document.getElementById('labo-new-source');
-  var nom=nomEl.value.trim();
+  var code=selEl.value;
   var poids=parseFloat(poidsEl.value);
-  if(!nom){alert('Indiquez le nom du produit.');return;}
+  if(!code){alert('Choisis un produit (crée-le d\'abord via "Gérer" si besoin).');return;}
   if(!poids||poids<=0){alert('Indiquez un poids réel valide (en grammes).');return;}
-  var code=slugify(nom);
+  var prod=laboProdCache.find(function(p){return p.code===code;});
   var creePar=await laboCurrentUserNom();
   try{
     sbCheck(await db.from('labo_lots').insert({
       produit_code:code,
-      produit_nom:nom,
+      produit_nom:prod?prod.nom:code,
       poids_reel_g:poids,
       statut:'en_stock',
       cree_par_nom:creePar,
@@ -5148,7 +5200,115 @@ async function createLaboLot(){
     alert('Erreur lors de la création du lot : '+e.message);
     return;
   }
-  nomEl.value='';poidsEl.value='';srcEl.value='';
+  poidsEl.value='';srcEl.value='';
+  loadLaboModule();
+}
+
+// ══ Catalogue partagé Labo (catégories + produits) ══
+function toggleLaboCatalogueEditor(){
+  var el=document.getElementById('labo-catalogue-editor');
+  if(!el)return;
+  el.style.display=(el.style.display==='none')?'block':'none';
+}
+function renderLaboCatalogueEditor(){
+  var el=document.getElementById('labo-cat-editor-list');
+  if(!el)return;
+  if(!laboCatCache.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--txm);margin-top:8px;">Aucune catégorie — ajoute-en une ci-dessus.</div>';
+    return;
+  }
+  el.innerHTML=laboCatCache.map(function(cat,idx){
+    var prods=laboProdCache.filter(function(p){return p.categorie_code===cat.code;});
+    var prodsHtml=prods.map(function(p){
+      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;">'
+        +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+p.ordre+'" onchange="moveLaboProduitToPosition(\''+p.code+'\',this.value)">'
+        +'<input type="text" class="fi" style="flex:1;padding:4px;" value="'+esc(p.nom)+'" onchange="renameLaboProduit(\''+p.code+'\',this.value)">'
+        +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif!==false?'checked':'')+' onchange="toggleLaboProduitActif(\''+p.code+'\',this.checked)">actif</label>'
+        +'<button class="btn bs" style="padding:4px 8px;" onclick="deleteLaboProduit(\''+p.code+'\')">🗑️</button>'
+        +'</div>';
+    }).join('');
+    return '<div style="border:1px solid var(--bd);border-radius:8px;padding:8px;margin-top:8px;">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+      +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+cat.ordre+'" onchange="moveLaboCategorieToPosition(\''+cat.code+'\',this.value)">'
+      +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;" value="'+esc(cat.label)+'" onchange="renameLaboCategorie(\''+cat.code+'\',this.value)">'
+      +'<button class="btn bs" style="padding:4px 8px;" onclick="deleteLaboCategorie(\''+cat.code+'\')">🗑️</button>'
+      +'</div>'
+      +prodsHtml
+      +'<div style="display:flex;gap:6px;margin-top:6px;">'
+      +'<input type="text" class="fi" style="flex:1;padding:5px;" id="labo-new-prod-'+cat.code+'" placeholder="Nouveau produit dans cette catégorie">'
+      +'<button class="btn bp" style="padding:5px 10px;" onclick="createLaboProduit(\''+cat.code+'\')">+</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+async function createLaboCategorie(){
+  var inp=document.getElementById('labo-new-cat-nom');
+  var label=inp.value.trim();
+  if(!label){alert('Indique un nom de catégorie.');return;}
+  var code=slugify(label);
+  var maxOrdre=laboCatCache.reduce(function(m,c){return Math.max(m,c.ordre||0);},0);
+  try{
+    sbCheck(await db.from('labo_categories').insert({code:code,label:label,ordre:maxOrdre+10}));
+  }catch(e){alert('Erreur : '+e.message);return;}
+  inp.value='';
+  loadLaboModule();
+}
+async function renameLaboCategorie(code,label){
+  label=label.trim();
+  if(!label)return;
+  try{sbCheck(await db.from('labo_categories').update({label:label}).eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
+  loadLaboModule();
+}
+async function moveLaboCategorieToPosition(code,val){
+  var ordre=parseInt(val,10);
+  if(isNaN(ordre))return;
+  try{sbCheck(await db.from('labo_categories').update({ordre:ordre}).eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
+  loadLaboModule();
+}
+async function deleteLaboCategorie(code){
+  if(!confirm('Supprimer cette catégorie ? Les produits qu\'elle contient passeront en "Non classé".'))return;
+  try{sbCheck(await db.from('labo_categories').delete().eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
+  loadLaboModule();
+}
+async function createLaboProduit(catCode){
+  var inp=document.getElementById('labo-new-prod-'+catCode);
+  if(!inp)return;
+  var nom=inp.value.trim();
+  if(!nom){alert('Indique un nom de produit.');return;}
+  var code=slugify(nom);
+  var maxOrdre=laboProdCache.filter(function(p){return p.categorie_code===catCode;}).reduce(function(m,p){return Math.max(m,p.ordre||0);},0);
+  try{
+    sbCheck(await db.from('labo_produits').insert({code:code,nom:nom,categorie_code:catCode,ordre:maxOrdre+10,actif:true}));
+  }catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
+  inp.value='';
+  loadLaboModule();
+}
+async function renameLaboProduit(code,nom){
+  nom=nom.trim();
+  if(!nom)return;
+  try{sbCheck(await db.from('labo_produits').update({nom:nom}).eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
+  loadLaboModule();
+}
+async function moveLaboProduitToPosition(code,val){
+  var ordre=parseInt(val,10);
+  if(isNaN(ordre))return;
+  try{sbCheck(await db.from('labo_produits').update({ordre:ordre}).eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
+  loadLaboModule();
+}
+async function toggleLaboProduitActif(code,checked){
+  try{sbCheck(await db.from('labo_produits').update({actif:checked}).eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
+  loadLaboModule();
+}
+async function deleteLaboProduit(code){
+  if(!confirm('Supprimer ce produit du catalogue Labo ?'))return;
+  try{sbCheck(await db.from('labo_produits').delete().eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
   loadLaboModule();
 }
 function renderLaboLots(){
