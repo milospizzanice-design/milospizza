@@ -323,6 +323,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 <div id="admin-screen">
   <div class="admin-header">
     <h2>⚙️ Admin · Port</h2>
+    <button class="abtn abtn-ghost" onclick="forceSyncCatalogue()">☁️ Sync cloud</button>
     <button class="abtn abtn-ghost" onclick="closeAdmin()">✕ Fermer</button>
   </div>
   <div class="admin-tabs">
@@ -351,7 +352,52 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 // ══ STORAGE ══
 const SK='milos_port_v3';
 function loadDB(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}return null;}
-function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){console.error('saveDB error',e);}}
+function saveDB(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){console.error('saveDB error',e);}scheduleCataloguePush();}
+
+// ══ SYNC CATALOGUE (produits/fournisseurs/catégories/overrides) ══════════
+// DB.products/DB.suppliers/DB.cats/DB.overrides vivaient uniquement en localStorage jusqu'ici (pas de partage entre appareils).
+// On les pousse/tire désormais via une table Supabase dédiée, par restaurant.
+var _catalogPushTimer=null;
+function scheduleCataloguePush(){
+  if(_catalogPushTimer)clearTimeout(_catalogPushTimer);
+  _catalogPushTimer=setTimeout(pushCatalogueToSupabase,900);
+}
+async function pushCatalogueToSupabase(){
+  try{
+    var empNom=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)?currentUser.name:'admin';
+    var r=await sb.from('stock_catalogue').upsert({
+      restaurant_id:RESTAURANT_ID,
+      products:DB.products,
+      suppliers:DB.suppliers,
+      cats:DB.cats,
+      overrides:DB.overrides,
+      updated_by_nom:empNom,
+      updated_at:new Date().toISOString()
+    },{onConflict:'restaurant_id'});
+    if(r.error)console.error('push catalogue error',r.error);
+  }catch(e){console.error('push catalogue exception',e);}
+}
+async function pullCatalogueFromSupabase(){
+  try{
+    var r=await sb.from('stock_catalogue').select('*').eq('restaurant_id',RESTAURANT_ID).maybeSingle();
+    if(r.error){console.error('pull catalogue error',r.error);return;}
+    if(!r.data){
+      // Rien dans le cloud pour ce restaurant : on pousse le catalogue local pour l'amorcer.
+      pushCatalogueToSupabase();
+      return;
+    }
+    var d=r.data;
+    if(Array.isArray(d.products))DB.products=d.products;
+    if(d.suppliers&&typeof d.suppliers==='object')DB.suppliers=d.suppliers;
+    if(Array.isArray(d.cats))DB.cats=d.cats;
+    if(d.overrides&&typeof d.overrides==='object')DB.overrides=d.overrides;
+    try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){}
+  }catch(e){console.error('pull catalogue exception',e);}
+}
+async function forceSyncCatalogue(){
+  await pushCatalogueToSupabase();
+  alert('☁️ Catalogue envoyé vers le cloud (produits, fournisseurs, catégories).\nLes autres appareils le recevront à leur prochaine connexion.');
+}
 
 // ══ SYNC STOCKS (Supabase — partagé entre salariés/jours, même projet que pointage.html) ══
 const RESTAURANT_ID='port';
@@ -866,6 +912,7 @@ async function completeLogin(user){
   const rb=document.getElementById('role-badge');
   rb.textContent=user.name;rb.style.background='#444';rb.style.color='white';rb.style.display='inline-block';
   document.getElementById('footer').style.display='';
+  await pullCatalogueFromSupabase(); // recharge le catalogue (produits/fournisseurs/catégories) avant d'afficher, pour éviter tout écart entre appareils
   await loadStockState(); // récupère les comptages partagés du jour + commandes en retard avant d'afficher
   setDay(currentDay);
   loadLaboReceptions();
@@ -911,6 +958,7 @@ async function tryAutoAdmin(){
   try{localStorage.removeItem('rg_admin_session');}catch(e){} // usage unique, consommé qu'il soit valide ou non
   if(!(ageMin>=0)||ageMin>5)return false; // jeton valide 5 minutes seulement
   document.getElementById('pin-screen').style.display='none';
+  await pullCatalogueFromSupabase();
   openAdmin();
   return true;
 }
@@ -1434,20 +1482,25 @@ async function pushLaboCommande(supId){
   var sup=DB.suppliers[supId];
   if(!sup||!sup.isLabo)return;
   var lignes=[];
+  var manquants=[];
   DB.products.filter(function(p){return p.sup===supId;}).forEach(function(p){
     var pill=document.getElementById('pi-'+san(p.id));
     var st=getStatus(p);
     var isOrdered=pill?pill.classList.contains('p-order'):st.order;
     if(!isOrdered)return;
-    lignes.push({produit_code:p.id,produit_nom:p.name,quantite_demandee:st.qty||1});
+    if(!p.laboProduitCode){manquants.push(p.name);return;}
+    lignes.push({produit_code:p.laboProduitCode,produit_nom:p.name,restaurant_produit_id:p.id,quantite_demandee:st.qty||1});
   });
+  if(manquants.length){
+    alert('⚠️ Ces produits sont fournis par le Labo mais ne sont pas reliés au catalogue Labo (voir Admin > Produits) : '+manquants.join(', ')+'.\nIls ne seront pas inclus dans la commande numérique (le WhatsApp, lui, les inclut).');
+  }
   if(!lignes.length)return;
   try{
     var empNom=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)?currentUser.name:'—';
     var cmd=await sb.from('labo_commandes').insert({restaurant_id:RESTAURANT_ID,statut:'en_attente',created_by_nom:empNom}).select().single();
     if(cmd.error)throw new Error(cmd.error.message);
     var commandeId=cmd.data.id;
-    var rows=lignes.map(function(l){return{commande_id:commandeId,produit_code:l.produit_code,produit_nom:l.produit_nom,quantite_demandee:l.quantite_demandee};});
+    var rows=lignes.map(function(l){return{commande_id:commandeId,produit_code:l.produit_code,produit_nom:l.produit_nom,restaurant_produit_id:l.restaurant_produit_id,quantite_demandee:l.quantite_demandee};});
     var ins=await sb.from('labo_commandes_lignes').insert(rows);
     if(ins.error)throw new Error(ins.error.message);
   }catch(e){
@@ -1548,7 +1601,7 @@ async function accepterLotLabo(envoiLigneId){
     if(ins.error)throw new Error(ins.error.message);
     var upl=await sb.from('labo_lots').update({statut:'recu'}).eq('id',r.lot.id);
     if(upl.error)throw new Error(upl.error.message);
-    var produitId=r.commande_ligne.produit_code;
+    var produitId=r.commande_ligne.restaurant_produit_id||r.commande_ligne.produit_code;
     var cur=await sb.from('stock_etat').select('valeur').eq('restaurant_id',RESTAURANT_ID).eq('produit_id',produitId).maybeSingle();
     if(cur.error)throw new Error(cur.error.message);
     var curVal=parseFloat((cur.data&&cur.data.valeur)||0)||0;
@@ -1675,7 +1728,7 @@ function closeWizard(){
 function toggleSec(h){h.classList.toggle('coll');h.nextElementSibling.classList.toggle('coll');}
 
 // ══ ADMIN ══
-function openAdmin(){document.getElementById('admin-screen').style.display='flex';showTab('produits');}
+async function openAdmin(){document.getElementById('admin-screen').style.display='flex';await loadLaboProduitsCache();showTab('produits');}
 function closeAdmin(){document.getElementById('admin-screen').style.display='none';document.getElementById('pin-screen').style.display='flex';}
 function showTab(tab){
   document.querySelectorAll('.atab').forEach(t=>t.classList.remove('active'));
@@ -1778,6 +1831,7 @@ function renderAdminProduits(body){
             <input class="ainput ainput-full" style="margin-bottom:4px;" value="${p.name}" onchange="updProd('${p.id}','name',this.value)">
             <div style="display:flex;flex-direction:column;gap:3px;">
               <select class="aselect" style="font-size:10px;" onchange="updProdSup('${p.id}',this.value)">${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}"${id===p.sup?' selected':''}>${s.name}</option>`).join('')}</select>
+              ${(DB.suppliers[p.sup]&&DB.suppliers[p.sup].isLabo)?`<select class="aselect" style="font-size:10px;background:#E8FBF6;" onchange="updProdLaboLink('${p.id}',this.value)"><option value="">— relier au produit Labo —</option>${laboProduitsCache.map(lp=>`<option value="${lp.code}"${lp.code===p.laboProduitCode?' selected':''}>${lp.nom}</option>`).join('')}</select>`:''}
               <select class="aselect" style="font-size:10px;" onchange="updProdCat('${p.id}',this.value,this)">${DB.cats.map(c2=>`<option value="${c2.id}"${c2.id===p.cat?' selected':''}>${c2.label}</option>`).join('')}</select>
               <select class="aselect" style="font-size:10px;" id="subsel-${san(p.id)}" onchange="updProdSub('${p.id}',this.value)"><option value="">— sous-cat —</option>${(DB.cats.find(c2=>c2.id===p.cat)?.subcats||[]).map(s=>`<option value="${s.id}"${s.id===p.sub?' selected':''}>${s.label}</option>`).join('')}</select>
               <select class="aselect" style="font-size:10px;" onchange="updProdType('${p.id}',this.value)">
@@ -2037,6 +2091,14 @@ function addProduct(){
 }
 function updProd(id,field,val){const p=DB.products.find(p=>p.id===id);if(p&&val.trim()){p[field]=val;saveDB();}}
 function updProdSup(id,supId){const p=DB.products.find(p=>p.id===id);if(p){p.sup=supId;saveDB();}}
+function updProdLaboLink(id,code){const p=DB.products.find(p=>p.id===id);if(p){p.laboProduitCode=code;saveDB();}}
+let laboProduitsCache=[];
+async function loadLaboProduitsCache(){
+  try{
+    var r=await sb.from('labo_produits').select('code,nom,categorie_code,actif').eq('actif',true);
+    if(!r.error)laboProduitsCache=r.data||[];
+  }catch(e){console.error('loadLaboProduitsCache',e);}
+}
 function updProdCat(id,catId){
   const p=DB.products.find(p=>p.id===id);
   if(!p)return;
