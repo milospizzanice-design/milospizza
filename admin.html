@@ -686,8 +686,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <div class="fr" style="flex:1;min-width:140px;">
-          <label class="fl2">Poids réel (g)</label>
-          <input type="number" class="fi" id="labo-new-poids" placeholder="Ex: 405" min="0" step="1">
+          <label class="fl2">Poids réel (kg)</label>
+          <input type="number" class="fi" id="labo-new-poids" placeholder="Ex: 0.405" min="0" step="0.001">
         </div>
         <div class="fr" style="flex:2;min-width:200px;">
           <label class="fl2">Matière première utilisée (optionnel)</label>
@@ -5089,7 +5089,7 @@ function renderLaboPrepList(){
         var checked=selected.indexOf(lot.id)>=0?' checked':'';
         return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;">'
           +'<input type="checkbox" '+checked+' onchange="toggleLaboLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
-          +Number(lot.poids_reel_g).toFixed(0)+' g — créé le '+fmtD(lot.created_at)
+          +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg — créé le '+fmtD(lot.created_at)
           +'</label>';
       }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit — transforme-le d\'abord ci-dessous.</div>';
       return '<div style="margin:8px 0;padding:8px;background:#FAF4EC;border-radius:8px;">'
@@ -5122,6 +5122,7 @@ async function envoyerLaboCommande(commandeId){
   if(!pairs.length){alert('Coche au moins un lot avant d\'envoyer.');return;}
   var commande=laboCommandesCache.find(function(c){return c.id===commandeId;});
   if(!commande)return;
+  var toutesCouvertes=false;
   try{
     var creePar=await laboCurrentUserNom();
     var envoi=sbCheck(await db.from('labo_envois').insert({commande_id:commandeId,envoye_par_nom:creePar}).select().single());
@@ -5142,7 +5143,7 @@ async function envoyerLaboCommande(commandeId){
       ligne.quantite_couverte=nouvelleCouverture; // maj locale pour le check ci-dessous
     }
     // Déterminer le nouveau statut de la commande
-    var toutesCouvertes=(commande.lignes||[]).every(function(l){return (l.quantite_couverte||0)>=l.quantite_demandee;});
+    toutesCouvertes=(commande.lignes||[]).every(function(l){return (l.quantite_couverte||0)>=l.quantite_demandee;});
     var nouveauStatut=toutesCouvertes?'envoyee':'partiellement_envoyee';
     sbCheck(await db.from('labo_commandes').update({statut:nouveauStatut}).eq('id',commandeId));
   }catch(e){
@@ -5150,6 +5151,7 @@ async function envoyerLaboCommande(commandeId){
     return;
   }
   delete laboPrepSelections[commandeId];
+  alert('✅ '+pairs.length+' lot(s) envoyé(s) pour la commande #'+commande.numero+'.\nStatut : '+(toutesCouvertes?'commande complète':'commande partiellement couverte, il en reste à envoyer'));
   loadLaboModule();
 }
 function renderLaboProduitsList(){
@@ -5194,16 +5196,16 @@ async function createLaboLot(){
   var poidsEl=document.getElementById('labo-new-poids');
   var srcEl=document.getElementById('labo-new-source');
   var code=selEl.value;
-  var poids=parseFloat(poidsEl.value);
+  var poidsKg=parseFloat(poidsEl.value);
   if(!code){alert('Choisis un produit (crée-le d\'abord via "Gérer" si besoin).');return;}
-  if(!poids||poids<=0){alert('Indiquez un poids réel valide (en grammes).');return;}
+  if(!poidsKg||poidsKg<=0){alert('Indiquez un poids réel valide (en kg).');return;}
   var prod=laboProdCache.find(function(p){return p.code===code;});
   var creePar=await laboCurrentUserNom();
   try{
     sbCheck(await db.from('labo_lots').insert({
       produit_code:code,
       produit_nom:prod?prod.nom:code,
-      poids_reel_g:poids,
+      poids_reel_g:Math.round(poidsKg*1000),
       statut:'en_stock',
       cree_par_nom:creePar,
       source_bloc_ref:srcEl.value.trim()||null
@@ -5439,7 +5441,7 @@ function renderLaboLots(){
       listEl.innerHTML=enStock.map(function(l){
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);">'
           +'<div><div style="font-weight:600;">'+esc(l.produit_nom)+'</div>'
-          +'<div style="font-size:11px;color:var(--txm);">'+Number(l.poids_reel_g).toFixed(0)+' g — créé le '+fmtD(l.created_at)+(l.cree_par_nom?' par '+esc(l.cree_par_nom):'')+(l.source_bloc_ref?' — '+esc(l.source_bloc_ref):'')+'</div></div>'
+          +'<div style="font-size:11px;color:var(--txm);">'+(Number(l.poids_reel_g)/1000).toFixed(3)+' kg — créé le '+fmtD(l.created_at)+(l.cree_par_nom?' par '+esc(l.cree_par_nom):'')+(l.source_bloc_ref?' — '+esc(l.source_bloc_ref):'')+'</div></div>'
           +'<button class="btn bs" onclick="deleteLaboLot(\''+l.id+'\')">🗑️</button>'
           +'</div>';
       }).join('');
@@ -5452,12 +5454,17 @@ function renderLaboLots(){
       histEl.innerHTML='<div style="color:var(--txm);">Aucun mouvement pour l\'instant (tout le reste arrivera avec la commande/envoi/réception).</div>';
     }else{
       histEl.innerHTML=others.map(function(l){
-        return '<div style="padding:4px 0;border-bottom:1px solid var(--bd);">'+esc(l.produit_nom)+' — '+Number(l.poids_reel_g).toFixed(0)+' g — <b>'+esc(l.statut)+'</b> — '+fmtD(l.created_at)+'</div>';
+        return '<div style="padding:4px 0;border-bottom:1px solid var(--bd);">'+esc(l.produit_nom)+' — '+(Number(l.poids_reel_g)/1000).toFixed(3)+' kg — <b>'+esc(l.statut)+'</b> — '+fmtD(l.created_at)+'</div>';
       }).join('');
     }
   }
 }
 async function deleteLaboLot(id){
+  var lot=laboLotsCache.find(function(l){return l.id===id;});
+  if(lot&&lot.statut!=='en_stock'){
+    alert('Ce lot a déjà été envoyé (statut : '+lot.statut+'). Impossible de le supprimer sans fausser la commande liée — si c\'est une erreur, préviens Port/Dabray pour qu\'ils rejettent le lot à la réception à la place.');
+    return;
+  }
   if(!confirm('Supprimer ce lot ? (à utiliser seulement en cas d\'erreur de saisie)'))return;
   try{
     sbCheck(await db.from('labo_lots').delete().eq('id',id));
