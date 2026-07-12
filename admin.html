@@ -644,6 +644,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
 
     <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:700;">🧑‍🍳 Stock du Labo (matières premières)</div>
+          <div style="font-size:11px;color:var(--txm);">Fournisseurs, produits bruts, commandes — géré dans son propre écran, comme Port et Dabray.</div>
+        </div>
+        <button class="btn bp" onclick="openLaboStockAdmin()">Ouvrir</button>
+      </div>
+    </div>
+
+    <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div style="font-weight:700;">📋 Commandes à préparer</div>
         <button class="btn bs" onclick="openLaboPopup()">Voir le résumé</button>
@@ -4998,6 +5008,10 @@ function sbCheck(result){
 }
 
 // ══ MODULE LABO — Transformation (lots) ══════════════════════════════════
+function openLaboStockAdmin(){
+  try{localStorage.setItem('rg_admin_session',JSON.stringify({at:new Date().toISOString()}));}catch(e){}
+  window.open('milos-pizza-labo.html','_blank');
+}
 var laboLotsCache=[];
 var laboCommandesCache=[]; // commandes en_attente / partiellement_envoyee, avec .lignes[]
 var laboPrepSelections={}; // {commandeId: {ligneId: [lotId,...]}}
