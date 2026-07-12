@@ -5097,12 +5097,25 @@ async function loadStocksModule(){
   }
   renderStocksCatalogue();
 }
-function stkProduitVisible(p,filter){
+function stkVisible(item,filter){
   if(!filter)return true;
-  if(filter==='port')return p.actif_port!==false;
-  if(filter==='dabray')return p.actif_dabray!==false;
-  if(filter==='labo')return p.actif_labo===true;
+  if(filter==='port')return item.actif_port!==false;
+  if(filter==='dabray')return item.actif_dabray!==false;
+  if(filter==='labo')return item.actif_labo!==false;
   return true;
+}
+function stkVisiCheckboxesHtml(item,code,kind){
+  // kind: 'onglet' | 'categorie' | 'souscat'
+  return '<label style="font-size:9px;display:flex;align-items:center;gap:1px;"><input type="checkbox" '+(item.actif_port!==false?'checked':'')+' onchange="stkToggleContainerActif(\''+kind+'\',\''+code+'\',\'port\',this.checked)">P</label>'
+    +'<label style="font-size:9px;display:flex;align-items:center;gap:1px;"><input type="checkbox" '+(item.actif_dabray!==false?'checked':'')+' onchange="stkToggleContainerActif(\''+kind+'\',\''+code+'\',\'dabray\',this.checked)">D</label>'
+    +'<label style="font-size:9px;display:flex;align-items:center;gap:1px;"><input type="checkbox" '+(item.actif_labo!==false?'checked':'')+' onchange="stkToggleContainerActif(\''+kind+'\',\''+code+'\',\'labo\',this.checked)">L</label>';
+}
+async function stkToggleContainerActif(kind,code,resto,checked){
+  var table=kind==='onglet'?'master_onglets':(kind==='categorie'?'master_categories':'master_sous_categories');
+  var field='actif_'+resto;
+  var patch={};patch[field]=checked;
+  try{sbCheck(await db.from(table).update(patch).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
 }
 function stkProduitRowHtml(p){
   var uniteOpts=STK_UNITES.map(function(u){return '<option value="'+u+'"'+(u===p.prix_unite?' selected':'')+'>'+u+'</option>';}).join('');
@@ -5113,7 +5126,7 @@ function stkProduitRowHtml(p){
     +'<select class="fi" style="width:66px;padding:4px;" onchange="stkUpdProduitUnite(\''+p.code+'\',this.value)">'+uniteOpts+'</select>'
     +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_port!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'port\',this.checked)">Port</label>'
     +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_dabray!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'dabray\',this.checked)">Dabray</label>'
-    +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_labo===true?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'labo\',this.checked)">Labo</label>'
+    +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_labo!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'labo\',this.checked)">Labo</label>'
     +'<button class="btn bs" style="padding:4px 8px;" onclick="stkDeleteProduit(\''+p.code+'\')">🗑️</button>'
     +'</div>';
 }
@@ -5126,17 +5139,18 @@ function renderStocksCatalogue(){
     el.innerHTML='<div class="card" style="color:var(--txm);">Aucun onglet — crée-en un ci-dessus (ex: "Food", "Boissons").</div>';
     return;
   }
-  el.innerHTML=stkOnglets.map(function(ong){
-    var cats=stkCategories.filter(function(c){return c.onglet_code===ong.code;});
+  el.innerHTML=stkOnglets.filter(function(ong){return stkVisible(ong,filter);}).map(function(ong){
+    var cats=stkCategories.filter(function(c){return c.onglet_code===ong.code&&stkVisible(c,filter);});
     var catsHtml=cats.map(function(cat){
-      var sousCats=stkSousCategories.filter(function(s){return s.categorie_code===cat.code;});
-      var prodsDirects=stkProduits.filter(function(p){return p.categorie_code===cat.code&&!p.sous_categorie_code&&stkProduitVisible(p,filter);});
+      var sousCats=stkSousCategories.filter(function(s){return s.categorie_code===cat.code&&stkVisible(s,filter);});
+      var prodsDirects=stkProduits.filter(function(p){return p.categorie_code===cat.code&&!p.sous_categorie_code&&stkVisible(p,filter);});
       var sousCatsHtml=sousCats.map(function(sc){
-        var prods=stkProduits.filter(function(p){return p.sous_categorie_code===sc.code&&stkProduitVisible(p,filter);});
+        var prods=stkProduits.filter(function(p){return p.sous_categorie_code===sc.code&&stkVisible(p,filter);});
         return '<div style="margin-left:14px;margin-top:6px;padding:8px;background:#fff;border-radius:8px;border:1px solid var(--bd);">'
-          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">'
           +'<input type="number" class="fi" style="width:40px;padding:3px;font-size:11px;" value="'+(sc.ordre||0)+'" onchange="stkMoveSousCat(\''+sc.code+'\',this.value)">'
           +'<input type="text" class="fi" style="flex:1;padding:3px;font-size:12px;font-weight:600;" value="'+esc(sc.label)+'" onchange="stkRenameSousCat(\''+sc.code+'\',this.value)">'
+          +stkVisiCheckboxesHtml(sc,sc.code,'souscat')
           +'<button class="btn bs" style="padding:3px 7px;" onclick="stkDeleteSousCat(\''+sc.code+'\')">🗑️</button>'
           +'</div>'
           +prods.map(stkProduitRowHtml).join('')
@@ -5147,9 +5161,10 @@ function renderStocksCatalogue(){
           +'</div>';
       }).join('');
       return '<div style="margin-left:10px;margin-top:8px;padding:10px;background:#FAF4EC;border-radius:10px;">'
-        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">'
         +'<input type="number" class="fi" style="width:42px;padding:4px;" value="'+(cat.ordre||0)+'" onchange="stkMoveCategorie(\''+cat.code+'\',this.value)">'
         +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;" value="'+esc(cat.label)+'" onchange="stkRenameCategorie(\''+cat.code+'\',this.value)">'
+        +stkVisiCheckboxesHtml(cat,cat.code,'categorie')
         +'<button class="btn bs" onclick="stkDeleteCategorie(\''+cat.code+'\')">🗑️</button>'
         +'</div>'
         +prodsDirects.map(stkProduitRowHtml).join('')
@@ -5163,9 +5178,10 @@ function renderStocksCatalogue(){
         +'</div>';
     }).join('');
     return '<div class="card">'
-      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">'
       +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+(ong.ordre||0)+'" onchange="stkMoveOnglet(\''+ong.code+'\',this.value)">'
       +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;font-size:14px;" value="'+esc(ong.label)+'" onchange="stkRenameOnglet(\''+ong.code+'\',this.value)">'
+      +stkVisiCheckboxesHtml(ong,ong.code,'onglet')
       +'<button class="btn bs" onclick="stkDeleteOnglet(\''+ong.code+'\')">🗑️</button>'
       +'</div>'
       +catsHtml
