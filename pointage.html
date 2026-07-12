@@ -829,6 +829,10 @@ function initAbsDates(){
   };
 }
 async function menuStocks(){
+  // Ouvrir l'onglet TOUT DE SUITE, en synchrone avec le tap : Safari iOS bloque ou déconnecte
+  // window.open() s'il est appelé après un await, même court. On redirige cet onglet une fois prêt.
+  var newTab=null;
+  try{newTab=window.open('','_blank');}catch(e){}
   // Recharge la fiche depuis la base : évite d'utiliser un rôle périmé si l'admin
   // a modifié les accès stocks pendant que ce salarié était déjà connecté au pointage.
   try{
@@ -852,7 +856,8 @@ async function menuStocks(){
     }));
   }catch(e){}
   var url=RESTAURANT_ID==='dabray'?'milos-pizza-dabray.html':'milos-pizza-port.html';
-  window.open(url,'_blank');
+  if(newTab&&!newTab.closed){newTab.location.href=url;}
+  else{window.open(url,'_blank');}
 }
 function menuAcompte(){
   acoEmp=emp;
