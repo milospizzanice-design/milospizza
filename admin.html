@@ -5101,8 +5101,20 @@ function renderLaboPrepList(){
       +'<div style="font-weight:700;margin-bottom:4px;">Commande #'+c.numero+' — '+(LABO_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span style="font-weight:400;font-size:11px;color:var(--txm);">('+fmtD(c.created_at)+')</span></div>'
       +lignesHtml
       +'<button class="btn bp" style="width:100%;margin-top:6px;" onclick="envoyerLaboCommande(\''+c.id+'\')">📤 Envoyer les lots cochés</button>'
+      +'<button class="btn bs" style="width:100%;margin-top:6px;color:#C0392B;" onclick="annulerLaboCommande(\''+c.id+'\')">✕ Annuler cette commande (cassée / obsolète)</button>'
       +'</div>';
   }).join('');
+}
+async function annulerLaboCommande(commandeId){
+  if(!confirm('Annuler cette commande ? Utile pour les commandes cassées créées avant que les produits soient reliés au catalogue Labo. Cette action ne peut pas être annulée.'))return;
+  try{
+    sbCheck(await db.from('labo_commandes').update({statut:'cloturee'}).eq('id',commandeId));
+  }catch(e){
+    alert('Erreur : '+e.message);
+    return;
+  }
+  delete laboPrepSelections[commandeId];
+  loadLaboModule();
 }
 function toggleLaboLotSel(commandeId,ligneId,lotId,checked){
   if(!laboPrepSelections[commandeId])laboPrepSelections[commandeId]={};
