@@ -383,14 +383,47 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <!-- ══ MODULE STOCKS ══ -->
 <div id="page-stocks" style="display:none;">
   <div class="page" style="padding-top:14px;">
-    <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-      Le restaurant affich&#233; ci-dessous suit le s&#233;lecteur en haut de page. Gestion produits / cat&#233;gories / fournisseurs / config.
-      Code Admin identique &#224; celui utilis&#233; sur la tablette.
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <div class="stk-subtab on" id="stksubtab-cat" onclick="stkSubTab('cat')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🗂 Catalogue</div>
+      <div class="stk-subtab" id="stksubtab-reglages" onclick="stkSubTab('reglages')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">⚙️ Réglages restaurant</div>
     </div>
-    <div id="stock-nofile-warning" class="card" style="display:none;background:#FEF3C7;color:#92400E;">
-      &#9888;&#65039; Aucun fichier de gestion des stocks n'existe encore pour ce restaurant. Demandez-en la cr&#233;ation avant de pouvoir l'utiliser ici.
+
+    <!-- Sous-onglet Catalogue (nom / catégorie / prix / visibilité par restaurant) -->
+    <div id="stk-pane-cat">
+      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+        Catalogue partagé entre Port, Dabray et Labo. Le nom, la catégorie et le prix sont communs — chaque restaurant garde ses propres seuils/fournisseur dans "Réglages restaurant". Décoche un restaurant pour lui masquer un produit sans le supprimer ailleurs.
+      </div>
+      <div class="card" style="display:flex;align-items:center;gap:8px;">
+        <label class="fl2" style="margin:0;">Filtrer par restaurant</label>
+        <select class="fi" id="stk-cat-filter" style="flex:1;" onchange="renderStocksCatalogue()">
+          <option value="">— Tous les produits —</option>
+          <option value="port">Port</option>
+          <option value="dabray">Dabray</option>
+          <option value="labo">Labo</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px;">➕ Nouvel onglet</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" class="fi" id="stk-new-onglet-nom" placeholder="Ex: Food, Boissons...">
+          <button class="btn bp" onclick="createStkOnglet()">Ajouter</button>
+        </div>
+      </div>
+
+      <div id="stk-catalogue-list"></div>
     </div>
-    <iframe id="stock-iframe" src="milos-pizza-port.html" style="width:100%;height:75vh;border:1px solid var(--bd);border-radius:12px;background:#fff;"></iframe>
+
+    <!-- Sous-onglet Réglages restaurant (seuils/colisage/fournisseur — inchangé) -->
+    <div id="stk-pane-reglages" style="display:none;">
+      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+        Le restaurant affich&#233; ci-dessous suit le s&#233;lecteur en haut de page. Seuils / colisage / fournisseurs / config propres &#224; ce restaurant.
+      </div>
+      <div id="stock-nofile-warning" class="card" style="display:none;background:#FEF3C7;color:#92400E;">
+        &#9888;&#65039; Aucun fichier de gestion des stocks n'existe encore pour ce restaurant. Demandez-en la cr&#233;ation avant de pouvoir l'utiliser ici.
+      </div>
+      <iframe id="stock-iframe" src="milos-pizza-port.html" style="width:100%;height:75vh;border:1px solid var(--bd);border-radius:12px;background:#fff;"></iframe>
+    </div>
   </div>
 </div>
 
@@ -1056,6 +1089,7 @@ function goModule(name){
     }
   });
   if(tabsBar)tabsBar.style.display=(name==='rh')?'flex':'none';
+  if(name==='stocks')loadStocksModule();
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
 }
@@ -5035,6 +5069,254 @@ function sbCheck(result){
     throw new Error(result.error.message||'Erreur Supabase');
   }
   return result;
+}
+
+// ══ MODULE STOCKS — Catalogue partagé (Onglets > Catégories > Sous-catégories > Produits) ══
+var stkOnglets=[],stkCategories=[],stkSousCategories=[],stkProduits=[];
+var STK_UNITES=['kg','g','L','ml','pièce','colis','bac'];
+function stkSubTab(name){
+  var a=document.getElementById('stk-pane-cat'),b=document.getElementById('stk-pane-reglages');
+  if(a)a.style.display=(name==='cat')?'block':'none';
+  if(b)b.style.display=(name==='reglages')?'block':'none';
+  var ta=document.getElementById('stksubtab-cat'),tb=document.getElementById('stksubtab-reglages');
+  if(ta){ta.style.background=(name==='cat')?'var(--bx)':'#FAF4EC';ta.style.color=(name==='cat')?'#fff':'var(--tx)';}
+  if(tb){tb.style.background=(name==='reglages')?'var(--bx)':'#FAF4EC';tb.style.color=(name==='reglages')?'#fff':'var(--tx)';}
+}
+async function loadStocksModule(){
+  try{
+    var ro=sbCheck(await db.from('master_onglets').select('*').order('ordre',{ascending:true}));
+    stkOnglets=ro.data||[];
+    var rc=sbCheck(await db.from('master_categories').select('*').order('ordre',{ascending:true}));
+    stkCategories=rc.data||[];
+    var rs=sbCheck(await db.from('master_sous_categories').select('*').order('ordre',{ascending:true}));
+    stkSousCategories=rs.data||[];
+    var rp=sbCheck(await db.from('master_produits').select('*').order('ordre',{ascending:true}));
+    stkProduits=rp.data||[];
+  }catch(e){
+    console.error('Erreur chargement catalogue Stocks',e);
+  }
+  renderStocksCatalogue();
+}
+function stkProduitVisible(p,filter){
+  if(!filter)return true;
+  if(filter==='port')return p.actif_port!==false;
+  if(filter==='dabray')return p.actif_dabray!==false;
+  if(filter==='labo')return p.actif_labo===true;
+  return true;
+}
+function stkProduitRowHtml(p){
+  var uniteOpts=STK_UNITES.map(function(u){return '<option value="'+u+'"'+(u===p.prix_unite?' selected':'')+'>'+u+'</option>';}).join('');
+  return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;flex-wrap:wrap;">'
+    +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+(p.ordre||0)+'" onchange="stkMoveProduit(\''+p.code+'\',this.value)">'
+    +'<input type="text" class="fi" style="flex:1;min-width:110px;padding:4px;" value="'+esc(p.nom)+'" onchange="stkRenameProduit(\''+p.code+'\',this.value)">'
+    +'<input type="number" class="fi" style="width:70px;padding:4px;" step="0.01" placeholder="Prix" value="'+(p.prix!=null?p.prix:'')+'" onchange="stkUpdProduitPrix(\''+p.code+'\',this.value)">'
+    +'<select class="fi" style="width:66px;padding:4px;" onchange="stkUpdProduitUnite(\''+p.code+'\',this.value)">'+uniteOpts+'</select>'
+    +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_port!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'port\',this.checked)">Port</label>'
+    +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_dabray!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'dabray\',this.checked)">Dabray</label>'
+    +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_labo===true?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'labo\',this.checked)">Labo</label>'
+    +'<button class="btn bs" style="padding:4px 8px;" onclick="stkDeleteProduit(\''+p.code+'\')">🗑️</button>'
+    +'</div>';
+}
+function renderStocksCatalogue(){
+  var el=document.getElementById('stk-catalogue-list');
+  if(!el)return;
+  var filterEl=document.getElementById('stk-cat-filter');
+  var filter=filterEl?filterEl.value:'';
+  if(!stkOnglets.length){
+    el.innerHTML='<div class="card" style="color:var(--txm);">Aucun onglet — crée-en un ci-dessus (ex: "Food", "Boissons").</div>';
+    return;
+  }
+  el.innerHTML=stkOnglets.map(function(ong){
+    var cats=stkCategories.filter(function(c){return c.onglet_code===ong.code;});
+    var catsHtml=cats.map(function(cat){
+      var sousCats=stkSousCategories.filter(function(s){return s.categorie_code===cat.code;});
+      var prodsDirects=stkProduits.filter(function(p){return p.categorie_code===cat.code&&!p.sous_categorie_code&&stkProduitVisible(p,filter);});
+      var sousCatsHtml=sousCats.map(function(sc){
+        var prods=stkProduits.filter(function(p){return p.sous_categorie_code===sc.code&&stkProduitVisible(p,filter);});
+        return '<div style="margin-left:14px;margin-top:6px;padding:8px;background:#fff;border-radius:8px;border:1px solid var(--bd);">'
+          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+          +'<input type="number" class="fi" style="width:40px;padding:3px;font-size:11px;" value="'+(sc.ordre||0)+'" onchange="stkMoveSousCat(\''+sc.code+'\',this.value)">'
+          +'<input type="text" class="fi" style="flex:1;padding:3px;font-size:12px;font-weight:600;" value="'+esc(sc.label)+'" onchange="stkRenameSousCat(\''+sc.code+'\',this.value)">'
+          +'<button class="btn bs" style="padding:3px 7px;" onclick="stkDeleteSousCat(\''+sc.code+'\')">🗑️</button>'
+          +'</div>'
+          +prods.map(stkProduitRowHtml).join('')
+          +'<div style="display:flex;gap:6px;margin-top:4px;">'
+          +'<input type="text" class="fi" style="flex:1;padding:4px;font-size:12px;" id="stk-newprod-sc-'+sc.code+'" placeholder="Nouveau produit...">'
+          +'<button class="btn bp" style="padding:4px 10px;" onclick="stkCreateProduit(\''+cat.code+'\',\''+sc.code+'\')">+</button>'
+          +'</div>'
+          +'</div>';
+      }).join('');
+      return '<div style="margin-left:10px;margin-top:8px;padding:10px;background:#FAF4EC;border-radius:10px;">'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+        +'<input type="number" class="fi" style="width:42px;padding:4px;" value="'+(cat.ordre||0)+'" onchange="stkMoveCategorie(\''+cat.code+'\',this.value)">'
+        +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;" value="'+esc(cat.label)+'" onchange="stkRenameCategorie(\''+cat.code+'\',this.value)">'
+        +'<button class="btn bs" onclick="stkDeleteCategorie(\''+cat.code+'\')">🗑️</button>'
+        +'</div>'
+        +prodsDirects.map(stkProduitRowHtml).join('')
+        +sousCatsHtml
+        +'<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">'
+        +'<input type="text" class="fi" style="flex:1;min-width:100px;padding:5px;font-size:12px;" id="stk-newprod-cat-'+cat.code+'" placeholder="Nouveau produit direct...">'
+        +'<button class="btn bp" style="padding:5px 10px;" onclick="stkCreateProduit(\''+cat.code+'\',null)">+ Produit</button>'
+        +'<input type="text" class="fi" style="flex:1;min-width:100px;padding:5px;font-size:12px;" id="stk-newsc-'+cat.code+'" placeholder="Nouvelle sous-catégorie...">'
+        +'<button class="btn bs" style="padding:5px 10px;" onclick="stkCreateSousCat(\''+cat.code+'\')">+ Sous-cat</button>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+    return '<div class="card">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+      +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+(ong.ordre||0)+'" onchange="stkMoveOnglet(\''+ong.code+'\',this.value)">'
+      +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;font-size:14px;" value="'+esc(ong.label)+'" onchange="stkRenameOnglet(\''+ong.code+'\',this.value)">'
+      +'<button class="btn bs" onclick="stkDeleteOnglet(\''+ong.code+'\')">🗑️</button>'
+      +'</div>'
+      +catsHtml
+      +'<div style="margin-top:8px;display:flex;gap:6px;">'
+      +'<input type="text" class="fi" style="flex:1;padding:5px;font-size:12px;" id="stk-newcat-'+ong.code+'" placeholder="Nouvelle catégorie...">'
+      +'<button class="btn bp" style="padding:5px 10px;" onclick="stkCreateCategorie(\''+ong.code+'\')">+ Catégorie</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+// -- Onglets --
+async function createStkOnglet(){
+  var inp=document.getElementById('stk-new-onglet-nom');
+  var label=inp.value.trim();
+  if(!label){alert('Indique un nom d\'onglet.');return;}
+  var code=slugify(label);
+  var maxOrdre=stkOnglets.reduce(function(m,o){return Math.max(m,o.ordre||0);},0);
+  try{sbCheck(await db.from('master_onglets').insert({code:code,label:label,ordre:maxOrdre+10}));}
+  catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
+  inp.value='';
+  loadStocksModule();
+}
+async function stkRenameOnglet(code,label){
+  label=label.trim();if(!label)return;
+  try{sbCheck(await db.from('master_onglets').update({label:label}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkMoveOnglet(code,val){
+  var ordre=parseInt(val,10);if(isNaN(ordre))return;
+  try{sbCheck(await db.from('master_onglets').update({ordre:ordre}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkDeleteOnglet(code){
+  if(!confirm('Supprimer cet onglet et toutes ses catégories/produits ?'))return;
+  try{
+    var cats=stkCategories.filter(function(c){return c.onglet_code===code;}).map(function(c){return c.code;});
+    for(var i=0;i<cats.length;i++)await stkDeleteCategorieSilent(cats[i]);
+    sbCheck(await db.from('master_onglets').delete().eq('code',code));
+  }catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+// -- Catégories --
+async function stkCreateCategorie(ongletCode){
+  var inp=document.getElementById('stk-newcat-'+ongletCode);
+  if(!inp)return;
+  var label=inp.value.trim();
+  if(!label){alert('Indique un nom de catégorie.');return;}
+  var code=slugify(label);
+  var maxOrdre=stkCategories.filter(function(c){return c.onglet_code===ongletCode;}).reduce(function(m,c){return Math.max(m,c.ordre||0);},0);
+  try{sbCheck(await db.from('master_categories').insert({code:code,label:label,onglet_code:ongletCode,ordre:maxOrdre+10}));}
+  catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
+  inp.value='';
+  loadStocksModule();
+}
+async function stkRenameCategorie(code,label){
+  label=label.trim();if(!label)return;
+  try{sbCheck(await db.from('master_categories').update({label:label}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkMoveCategorie(code,val){
+  var ordre=parseInt(val,10);if(isNaN(ordre))return;
+  try{sbCheck(await db.from('master_categories').update({ordre:ordre}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkDeleteCategorieSilent(code){
+  var sousCats=stkSousCategories.filter(function(s){return s.categorie_code===code;}).map(function(s){return s.code;});
+  for(var i=0;i<sousCats.length;i++)await stkDeleteSousCatSilent(sousCats[i]);
+  await db.from('master_produits').delete().eq('categorie_code',code);
+  await db.from('master_categories').delete().eq('code',code);
+}
+async function stkDeleteCategorie(code){
+  if(!confirm('Supprimer cette catégorie et tout ce qu\'elle contient (sous-catégories, produits) ?'))return;
+  try{await stkDeleteCategorieSilent(code);}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+// -- Sous-catégories --
+async function stkCreateSousCat(catCode){
+  var inp=document.getElementById('stk-newsc-'+catCode);
+  if(!inp)return;
+  var label=inp.value.trim();
+  if(!label){alert('Indique un nom de sous-catégorie.');return;}
+  var code=slugify(label);
+  var maxOrdre=stkSousCategories.filter(function(s){return s.categorie_code===catCode;}).reduce(function(m,s){return Math.max(m,s.ordre||0);},0);
+  try{sbCheck(await db.from('master_sous_categories').insert({code:code,label:label,categorie_code:catCode,ordre:maxOrdre+10}));}
+  catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
+  inp.value='';
+  loadStocksModule();
+}
+async function stkRenameSousCat(code,label){
+  label=label.trim();if(!label)return;
+  try{sbCheck(await db.from('master_sous_categories').update({label:label}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkMoveSousCat(code,val){
+  var ordre=parseInt(val,10);if(isNaN(ordre))return;
+  try{sbCheck(await db.from('master_sous_categories').update({ordre:ordre}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkDeleteSousCatSilent(code){
+  await db.from('master_produits').delete().eq('sous_categorie_code',code);
+  await db.from('master_sous_categories').delete().eq('code',code);
+}
+async function stkDeleteSousCat(code){
+  if(!confirm('Supprimer cette sous-catégorie et ses produits ?'))return;
+  try{await stkDeleteSousCatSilent(code);}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+// -- Produits --
+async function stkCreateProduit(catCode,sousCode){
+  var inpId=sousCode?('stk-newprod-sc-'+sousCode):('stk-newprod-cat-'+catCode);
+  var inp=document.getElementById(inpId);
+  if(!inp)return;
+  var nom=inp.value.trim();
+  if(!nom){alert('Indique un nom de produit.');return;}
+  var code=slugify(nom);
+  var maxOrdre=stkProduits.filter(function(p){return p.categorie_code===catCode&&p.sous_categorie_code===sousCode;}).reduce(function(m,p){return Math.max(m,p.ordre||0);},0);
+  try{
+    sbCheck(await db.from('master_produits').insert({code:code,nom:nom,categorie_code:catCode,sous_categorie_code:sousCode,ordre:maxOrdre+10}));
+  }catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
+  inp.value='';
+  loadStocksModule();
+}
+async function stkRenameProduit(code,nom){
+  nom=nom.trim();if(!nom)return;
+  try{sbCheck(await db.from('master_produits').update({nom:nom}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkMoveProduit(code,val){
+  var ordre=parseInt(val,10);if(isNaN(ordre))return;
+  try{sbCheck(await db.from('master_produits').update({ordre:ordre}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkUpdProduitPrix(code,val){
+  var prix=val===''?null:parseFloat(val);
+  try{sbCheck(await db.from('master_produits').update({prix:prix}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkUpdProduitUnite(code,unite){
+  try{sbCheck(await db.from('master_produits').update({prix_unite:unite}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkToggleActif(code,resto,checked){
+  var field='actif_'+resto;
+  var patch={};patch[field]=checked;
+  try{sbCheck(await db.from('master_produits').update(patch).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+}
+async function stkDeleteProduit(code){
+  if(!confirm('Supprimer ce produit du catalogue partagé ?'))return;
+  try{sbCheck(await db.from('master_produits').delete().eq('code',code));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
 }
 
 // ══ MODULE LABO — Transformation (lots) ══════════════════════════════════
