@@ -173,12 +173,25 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <select id="global-resto-select" onchange="onGlobalRestoChange()" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:600;"></select>
   <button onclick="doLogout()" title="Se déconnecter" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;white-space:nowrap">↪ Déconnexion</button>
 </div>
-<div class="module-nav" style="display:flex;background:#7A0F14;">
-  <div class="module-btn on" id="modbtn-rh" onclick="goModule('rh')" style="flex:1;text-align:center;padding:11px 6px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid #fff;">👥 RH</div>
-  <div class="module-btn" id="modbtn-stocks" onclick="goModule('stocks')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">📦 STOCKS</div>
-  <div class="module-btn" id="modbtn-recettes" onclick="goModule('recettes')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">🍕 RECETTES</div>
-  <div class="module-btn" id="modbtn-menu" onclick="goModule('menu')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">📱 MENU</div>
-  <div class="module-btn" id="modbtn-labo" onclick="goModule('labo')" style="flex:1;text-align:center;padding:11px 6px;color:rgba(255,255,255,.65);font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;">🔬 LABO</div>
+<div id="home-bubbles" style="display:flex;flex-wrap:wrap;gap:14px;padding:20px 14px;justify-content:center;">
+  <div class="home-bubble" onclick="goModule('rh')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
+    <div style="font-size:32px;">👥</div>RH
+  </div>
+  <div class="home-bubble" onclick="goModule('stocks')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
+    <div style="font-size:32px;">📦</div>STOCKS
+  </div>
+  <div class="home-bubble" onclick="goModule('recettes')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
+    <div style="font-size:32px;">🍕</div>RECETTES
+  </div>
+  <div class="home-bubble" onclick="goModule('menu')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
+    <div style="font-size:32px;">📱</div>MENU
+  </div>
+  <div class="home-bubble" onclick="goModule('labo')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
+    <div style="font-size:32px;">🔬</div>LABO
+  </div>
+</div>
+<div id="back-to-home-bar" style="display:none;background:#7A0F14;padding:10px 14px;">
+  <button onclick="goHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">← Revenir au menu</button>
 </div>
 <div class="tabs" id="tabs-rh">
   <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
@@ -186,7 +199,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
   <div class="tab" onclick="goTab('pm',this)">&#9881; Paramètres</div>
 </div>
-<div class="page" id="page-rh">
+<div class="page" id="page-rh" style="display:none;">
   <div id="rc" style="display:none">
     <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd);overflow-x:auto;-webkit-overflow-scrolling:touch">
       <div class="subtab on" id="rcsubtab-pt" onclick="rcSubTab('pt')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx);white-space:nowrap">Pointages</div>
@@ -1028,6 +1041,10 @@ function openM(id){
 function goModule(name){
   var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu',labo:'page-labo'};
   var tabsBar=document.getElementById('tabs-rh');
+  var home=document.getElementById('home-bubbles');
+  var backBar=document.getElementById('back-to-home-bar');
+  if(home)home.style.display='none';
+  if(backBar)backBar.style.display='block';
   Object.keys(pages).forEach(function(k){
     var e=document.getElementById(pages[k]);
     if(e)e.style.display=(k===name)?'block':'none';
@@ -1041,6 +1058,19 @@ function goModule(name){
   if(tabsBar)tabsBar.style.display=(name==='rh')?'flex':'none';
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
+}
+function goHome(){
+  var pages=['page-rh','page-stocks','page-recettes','page-menu','page-labo'];
+  pages.forEach(function(id){
+    var e=document.getElementById(id);
+    if(e)e.style.display='none';
+  });
+  var tabsBar=document.getElementById('tabs-rh');
+  if(tabsBar)tabsBar.style.display='none';
+  var backBar=document.getElementById('back-to-home-bar');
+  if(backBar)backBar.style.display='none';
+  var home=document.getElementById('home-bubbles');
+  if(home)home.style.display='flex';
 }
 
 function goTab(name,el){
