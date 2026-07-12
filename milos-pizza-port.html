@@ -783,6 +783,7 @@ const DAYS_FR=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'
 const DAY_ORDER=[1,2,3,4,5,6,0];
 let currentDay=new Date().getDay();
 let currentUser=null;
+var adminProdSupFilter='';
 let STATE={};
 let currentSup=null;
 
@@ -1585,7 +1586,7 @@ function renderLaboRecepList(){
   el.innerHTML=laboPendingReceptions.map(function(r){
     return '<div style="border:1px solid #eee;border-radius:10px;padding:10px;margin-bottom:8px;">'
       +'<div style="font-weight:700;font-size:13px;">'+(r.commande_numero?'Commande #'+r.commande_numero+' — ':'')+(r.commande_ligne.produit_nom||r.commande_ligne.produit_code)+'</div>'
-      +'<div style="font-size:12px;color:var(--mid);margin-bottom:8px;">'+Number(r.lot.poids_reel_g).toFixed(0)+' g</div>'
+      +'<div style="font-size:12px;color:var(--mid);margin-bottom:8px;">'+(Number(r.lot.poids_reel_g)/1000).toFixed(3)+' kg</div>'
       +'<div style="display:flex;gap:8px;">'
       +'<button onclick="accepterLotLabo(\''+r.envoi_ligne_id+'\')" style="flex:1;background:#27AE60;color:white;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:12px;cursor:pointer;">✓ Accepter</button>'
       +'<button onclick="rejeterLotLabo(\''+r.envoi_ligne_id+'\')" style="flex:1;background:#C0392B;color:white;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:12px;cursor:pointer;">✗ Rejeter</button>'
@@ -1761,6 +1762,20 @@ function renderAdminProduits(body){
   });
   body.appendChild(navBar);
 
+  // Filtre par fournisseur — pratique pour retrouver vite tous les produits Labo par exemple
+  const filterBar=document.createElement('div');
+  filterBar.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:10px;';
+  filterBar.innerHTML=`<label style="font-size:11px;font-weight:700;color:var(--mid);text-transform:uppercase;">Filtrer par fournisseur</label>
+    <select class="aselect" id="prod-sup-filter" style="flex:1;">
+      <option value="">— Tous les fournisseurs —</option>
+      ${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}"${id===adminProdSupFilter?' selected':''}>${s.name}</option>`).join('')}
+    </select>`;
+  body.appendChild(filterBar);
+  filterBar.querySelector('#prod-sup-filter').addEventListener('change',function(){
+    adminProdSupFilter=this.value;
+    renderAdminProduits(body);
+  });
+
   // Formulaire ajout
   const addCard=document.createElement('div');addCard.className='acard';
   addCard.innerHTML=`<div class="acard-title">➕ Ajouter un produit</div>
@@ -1796,7 +1811,8 @@ function renderAdminProduits(body){
 
   // Produits par catégorie et sous-catégorie
   DB.cats.forEach(cat=>{
-    const catProds=DB.products.filter(p=>p.cat===cat.id);
+    let catProds=DB.products.filter(p=>p.cat===cat.id);
+    if(adminProdSupFilter)catProds=catProds.filter(p=>p.sup===adminProdSupFilter);
     if(!catProds.length)return;
     const card=document.createElement('div');card.className='acard';
     card.id='admcat-'+cat.id;
