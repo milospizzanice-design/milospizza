@@ -403,6 +403,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         </select>
       </div>
 
+      <div class="card" style="border:1px solid #1ABC9C;">
+        <div style="font-weight:700;margin-bottom:6px;">☁️ Pousser vers les restaurants</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Envoie les catégories/produits actifs vers Port, Dabray et Labo. Ajoute les nouveautés et met à jour les noms — ne supprime jamais rien côté restaurant, et ne touche jamais aux fournisseurs/seuils déjà configurés. Les nouveaux produits arrivent sans fournisseur assigné (invisibles tant que non configurés dans "Réglages restaurant").</div>
+        <button class="btn bp" style="width:100%;" onclick="pushMasterCatalogueToRestaurants()">☁️ Pousser maintenant</button>
+      </div>
+
       <div class="card">
         <div style="font-weight:700;margin-bottom:10px;">➕ Nouvel onglet</div>
         <div style="display:flex;gap:8px;">
@@ -5333,6 +5339,79 @@ async function stkDeleteProduit(code){
   if(!confirm('Supprimer ce produit du catalogue partagé ?'))return;
   try{sbCheck(await db.from('master_produits').delete().eq('code',code));}catch(e){alert('Erreur : '+e.message);}
   loadStocksModule();
+}
+
+// -- Synchronisation vers les restaurants (fusion, jamais de suppression côté restaurant) --
+async function syncMasterToRestaurant(restaurantId){
+  var activeField='actif_'+restaurantId;
+  var cur=sbCheck(await db.from('stock_catalogue').select('*').eq('restaurant_id',restaurantId).maybeSingle());
+  var currentProducts=(cur.data&&Array.isArray(cur.data.products))?cur.data.products:[];
+  var currentCats=(cur.data&&Array.isArray(cur.data.cats))?cur.data.cats:[];
+  var currentSuppliers=(cur.data&&cur.data.suppliers)?cur.data.suppliers:{};
+  var currentOverrides=(cur.data&&cur.data.overrides)?cur.data.overrides:{};
+
+  var activeOngletCodes={};
+  stkOnglets.forEach(function(o){if(o[activeField]!==false)activeOngletCodes[o.code]=true;});
+  var activeCats=stkCategories.filter(function(c){return c[activeField]!==false&&activeOngletCodes[c.onglet_code];});
+  var activeCatCodes={};activeCats.forEach(function(c){activeCatCodes[c.code]=true;});
+  var activeSousCats=stkSousCategories.filter(function(s){return s[activeField]!==false&&activeCatCodes[s.categorie_code];});
+  var activeSousCatCodes={};activeSousCats.forEach(function(s){activeSousCatCodes[s.code]=true;});
+  var activeProduits=stkProduits.filter(function(p){
+    return p[activeField]!==false&&activeCatCodes[p.categorie_code]&&(!p.sous_categorie_code||activeSousCatCodes[p.sous_categorie_code]);
+  });
+
+  // Fusionner les catégories (mise à jour du label, jamais de suppression)
+  var catsById={};
+  currentCats.forEach(function(c){catsById[c.id]=c;});
+  activeCats.forEach(function(mc){
+    if(catsById[mc.code]){catsById[mc.code].label=mc.label;}
+    else{catsById[mc.code]={id:mc.code,label:mc.label,color:'#7A0F14',ordre:mc.ordre||0,subcats:[]};}
+  });
+  activeSousCats.forEach(function(msc){
+    var parentCat=catsById[msc.categorie_code];
+    if(!parentCat)return;
+    if(!Array.isArray(parentCat.subcats))parentCat.subcats=[];
+    var existingSub=parentCat.subcats.find(function(s){return s.id===msc.code;});
+    if(existingSub)existingSub.label=msc.label;
+    else parentCat.subcats.push({id:msc.code,label:msc.label});
+  });
+  var newCats=Object.values(catsById);
+
+  // Fusionner les produits (mise à jour nom/catégorie, jamais de suppression, jamais de fournisseur/seuils touchés)
+  var prodsById={};
+  currentProducts.forEach(function(p){prodsById[p.id]=p;});
+  activeProduits.forEach(function(mp){
+    if(prodsById[mp.code]){
+      prodsById[mp.code].name=mp.nom;
+      prodsById[mp.code].cat=mp.categorie_code;
+      prodsById[mp.code].sub=mp.sous_categorie_code||undefined;
+    }else{
+      prodsById[mp.code]={id:mp.code,cat:mp.categorie_code,sub:mp.sous_categorie_code||undefined,sup:'',name:mp.nom,unit:mp.prix_unite||'kg',type:'qty'};
+    }
+  });
+  var newProducts=Object.values(prodsById);
+
+  sbCheck(await db.from('stock_catalogue').upsert({
+    restaurant_id:restaurantId,
+    products:newProducts,
+    cats:newCats,
+    suppliers:currentSuppliers,
+    overrides:currentOverrides,
+    updated_by_nom:'catalogue-maitre',
+    updated_at:new Date().toISOString()
+  },{onConflict:'restaurant_id'}));
+  return {catsCount:newCats.length,prodsCount:newProducts.length,newProdsCount:activeProduits.length};
+}
+async function pushMasterCatalogueToRestaurants(){
+  if(!confirm('Pousser le catalogue maître vers Port, Dabray et Labo ?\nAjoute les nouveautés, ne supprime rien, ne touche pas aux fournisseurs/seuils déjà configurés.'))return;
+  try{
+    await syncMasterToRestaurant('port');
+    await syncMasterToRestaurant('dabray');
+    await syncMasterToRestaurant('labo');
+    alert('✅ Catalogue poussé vers Port, Dabray et Labo.\nLes nouveaux produits sont ajoutés SANS fournisseur — va dans "Réglages restaurant" pour les configurer, sinon ils resteront invisibles côté employés.');
+  }catch(e){
+    alert('Erreur lors de la synchronisation : '+e.message);
+  }
 }
 
 // ══ MODULE LABO — Transformation (lots) ══════════════════════════════════
