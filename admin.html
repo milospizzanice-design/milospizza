@@ -404,6 +404,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
 
       <div class="card" style="border:1px solid #1ABC9C;">
+        <div style="font-weight:700;margin-bottom:6px;">📥 Importer depuis l'existant</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Récupère les catégories/produits déjà présents sur Port, Dabray et Labo (fusionnés, sans doublons), et tente de retrouver le prix depuis l'ancienne base Coûts en faisant correspondre les noms — à vérifier après coup. Les cases de visibilité sont pré-cochées selon les restaurants où le produit existe déjà. Rejouable à tout moment, ne touche jamais aux prix/visibilités déjà réglés à la main.</div>
+        <button class="btn bp" style="width:100%;" onclick="importMasterCatalogueDepuisExistant()">📥 Importer maintenant</button>
+      </div>
+
+      <div class="card" style="border:1px solid #1ABC9C;">
         <div style="font-weight:700;margin-bottom:6px;">☁️ Pousser vers les restaurants</div>
         <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Envoie les catégories/produits actifs vers Port, Dabray et Labo. Ajoute les nouveautés et met à jour les noms — ne supprime jamais rien côté restaurant, et ne touche jamais aux fournisseurs/seuils déjà configurés. Les nouveaux produits arrivent sans fournisseur assigné (invisibles tant que non configurés dans "Réglages restaurant").</div>
         <button class="btn bp" style="width:100%;" onclick="pushMasterCatalogueToRestaurants()">☁️ Pousser maintenant</button>
@@ -5401,6 +5407,91 @@ async function syncMasterToRestaurant(restaurantId){
     updated_at:new Date().toISOString()
   },{onConflict:'restaurant_id'}));
   return {catsCount:newCats.length,prodsCount:newProducts.length,newProdsCount:activeProduits.length};
+}
+// -- Import depuis l'existant (Stock Port/Dabray/Labo + rapprochement prix Coûts) --
+function stkNormName(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+async function importMasterCatalogueDepuisExistant(){
+  var btn=event&&event.target;
+  if(btn)btn.disabled=true;
+  try{
+    // 1. Récupérer les catalogues opérationnels (structure fiable : nom + catégorie)
+    var rsc=sbCheck(await db.from('stock_catalogue').select('restaurant_id,cats,products').in('restaurant_id',['port','dabray','labo']));
+    var scRows=rsc.data||[];
+
+    // 2. Récupérer l'ancienne base Coûts, pour tenter un rapprochement de prix par nom (best-effort)
+    var rprix=sbCheck(await db.from('produits').select('nom,mode_prix,prix_unitaire,prix_kilo,prix_litre').in('restaurant_id',['port','dabray','labo']));
+    var prixRows=rprix.data||[];
+    var prixByName={};
+    prixRows.forEach(function(pr){
+      if(!pr.nom)return;
+      var key=stkNormName(pr.nom);
+      if(prixByName[key])return; // garder la première correspondance trouvée
+      var prix=null,unite=null;
+      if(pr.mode_prix==='kilo'&&pr.prix_kilo!=null){prix=pr.prix_kilo;unite='kg';}
+      else if(pr.mode_prix==='litre'&&pr.prix_litre!=null){prix=pr.prix_litre;unite='L';}
+      else if(pr.mode_prix==='unitaire'&&pr.prix_unitaire!=null){prix=pr.prix_unitaire;unite='pièce';}
+      if(prix!=null)prixByName[key]={prix:prix,unite:unite};
+    });
+
+    // 3. Fusionner catégories (une seule sous un onglet "Général" par défaut, pas de notion d'onglet côté Stock actuel)
+    var ongletCode='general';
+    var ongletExists=stkOnglets.some(function(o){return o.code===ongletCode;});
+    if(!ongletExists){
+      sbCheck(await db.from('master_onglets').insert({code:ongletCode,label:'Général',ordre:0}));
+    }
+    var catsByCode={},sousCatsByCode={};
+    var prodPresence={}; // code -> {port:bool, dabray:bool, labo:bool}
+    scRows.forEach(function(row){
+      (row.cats||[]).forEach(function(c){
+        if(!c||!c.id)return;
+        if(!catsByCode[c.id])catsByCode[c.id]={code:c.id,label:c.label||c.id,onglet_code:ongletCode};
+        (c.subcats||[]).forEach(function(sc){
+          if(!sc||!sc.id)return;
+          if(!sousCatsByCode[sc.id])sousCatsByCode[sc.id]={code:sc.id,label:sc.label||sc.id,categorie_code:c.id};
+        });
+      });
+      (row.products||[]).forEach(function(p){
+        if(!p||!p.name)return;
+        var code=slugify(p.name);
+        if(!code)return;
+        if(!prodPresence[code])prodPresence[code]={code:code,nom:p.name,categorie_code:p.cat||null,sous_categorie_code:p.sub||null,port:false,dabray:false,labo:false};
+        prodPresence[code][row.restaurant_id]=true;
+      });
+    });
+    var catRows=Object.values(catsByCode);
+    var sousCatRows=Object.values(sousCatsByCode);
+    if(catRows.length)sbCheck(await db.from('master_categories').upsert(catRows,{onConflict:'code'}));
+    if(sousCatRows.length)sbCheck(await db.from('master_sous_categories').upsert(sousCatRows,{onConflict:'code'}));
+
+    // 4. Produits : séparer nouveaux (payload complet, avec visibilité pré-cochée) et existants (juste nom/catégorie, prix si trouvé, jamais la visibilité déjà réglée à la main)
+    var existingCodes={};
+    stkProduits.forEach(function(p){existingCodes[p.code]=true;});
+    var allProds=Object.values(prodPresence);
+    var toInsert=[],toUpdate=[];
+    var prixTrouves=0;
+    allProds.forEach(function(p){
+      var prixInfo=prixByName[stkNormName(p.nom)];
+      if(existingCodes[p.code]){
+        var upd={code:p.code,nom:p.nom,categorie_code:p.categorie_code,sous_categorie_code:p.sous_categorie_code};
+        toUpdate.push(upd);
+      }else{
+        var ins={code:p.code,nom:p.nom,categorie_code:p.categorie_code,sous_categorie_code:p.sous_categorie_code,actif_port:p.port,actif_dabray:p.dabray,actif_labo:p.labo};
+        if(prixInfo){ins.prix=prixInfo.prix;ins.prix_unite=prixInfo.unite;prixTrouves++;}
+        toInsert.push(ins);
+      }
+    });
+    if(toInsert.length)sbCheck(await db.from('master_produits').upsert(toInsert,{onConflict:'code'}));
+    if(toUpdate.length)sbCheck(await db.from('master_produits').upsert(toUpdate,{onConflict:'code'}));
+
+    alert('✅ Import terminé : '+catRows.length+' catégorie(s), '+sousCatRows.length+' sous-catégorie(s), '+toInsert.length+' nouveau(x) produit(s) importé(s) ('+prixTrouves+' avec un prix retrouvé automatiquement — à vérifier), '+toUpdate.length+' déjà existant(s) mis à jour (nom/catégorie seulement, visibilité et prix laissés tels quels).');
+  }catch(e){
+    alert('Erreur lors de l\'import : '+e.message);
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+  loadStocksModule();
 }
 async function pushMasterCatalogueToRestaurants(){
   if(!confirm('Pousser le catalogue maître vers Port, Dabray et Labo ?\nAjoute les nouveautés, ne supprime rien, ne touche pas aux fournisseurs/seuils déjà configurés.'))return;
