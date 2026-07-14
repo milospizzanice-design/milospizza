@@ -5443,6 +5443,7 @@ async function importMasterCatalogueDepuisExistant(){
     }
     var catsByCode={},sousCatsByCode={};
     var prodPresence={}; // code -> {port:bool, dabray:bool, labo:bool}
+    // Passe 1 : collecter toutes les catégories/sous-catégories d'abord (across les 3 restaurants)
     scRows.forEach(function(row){
       (row.cats||[]).forEach(function(c){
         if(!c||!c.id)return;
@@ -5452,11 +5453,16 @@ async function importMasterCatalogueDepuisExistant(){
           if(!sousCatsByCode[sc.id])sousCatsByCode[sc.id]={code:sc.id,label:sc.label||sc.id,categorie_code:c.id};
         });
       });
+    });
+    // Passe 2 : collecter les produits, en ignorant les références cassées (catégorie/sous-catégorie qui n'existe pas vraiment)
+    scRows.forEach(function(row){
       (row.products||[]).forEach(function(p){
         if(!p||!p.name)return;
         var code=slugify(p.name);
         if(!code)return;
-        if(!prodPresence[code])prodPresence[code]={code:code,nom:p.name,categorie_code:p.cat||null,sous_categorie_code:p.sub||null,port:false,dabray:false,labo:false};
+        var catCode=(p.cat&&catsByCode[p.cat])?p.cat:null;
+        var subCode=(p.sub&&sousCatsByCode[p.sub]&&sousCatsByCode[p.sub].categorie_code===catCode)?p.sub:null;
+        if(!prodPresence[code])prodPresence[code]={code:code,nom:p.name,categorie_code:catCode,sous_categorie_code:subCode,port:false,dabray:false,labo:false};
         prodPresence[code][row.restaurant_id]=true;
       });
     });
