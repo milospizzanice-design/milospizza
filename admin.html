@@ -391,7 +391,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <!-- Sous-onglet Catalogue (nom / catégorie / prix / visibilité par restaurant) -->
     <div id="stk-pane-cat">
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Catalogue partagé entre Port, Dabray et Labo. Le nom, la catégorie et le prix sont communs — chaque restaurant garde ses propres seuils/fournisseur dans "Réglages restaurant". Décoche un restaurant pour lui masquer un produit sans le supprimer ailleurs.
+        Catalogue partagé entre Port, Dabray et Labo. Le nom, la catégorie et le prix sont communs — chaque restaurant garde ses propres seuils/fournisseur dans "Réglages restaurant". Décoche un restaurant pour lui masquer un produit sans le supprimer ailleurs — rien ne disparaît jamais de cet écran, juste grisé pour le restaurant sélectionné ci-dessous.
       </div>
       <div class="card" style="display:flex;align-items:center;gap:8px;">
         <label class="fl2" style="margin:0;">Filtrer par restaurant</label>
@@ -5151,35 +5151,36 @@ function renderStocksCatalogue(){
     el.innerHTML='<div class="card" style="color:var(--txm);">Aucun onglet — crée-en un ci-dessus (ex: "Food", "Boissons").</div>';
     return;
   }
-  el.innerHTML=stkOnglets.filter(function(ong){return stkVisible(ong,filter);}).map(function(ong){
-    var cats=stkCategories.filter(function(c){return c.onglet_code===ong.code&&stkVisible(c,filter);});
+  function dim(item){return stkVisible(item,filter)?'':'opacity:0.4;';}
+  el.innerHTML=stkOnglets.map(function(ong){
+    var cats=stkCategories.filter(function(c){return c.onglet_code===ong.code;});
     var catsHtml=cats.map(function(cat){
-      var sousCats=stkSousCategories.filter(function(s){return s.categorie_code===cat.code&&stkVisible(s,filter);});
-      var prodsDirects=stkProduits.filter(function(p){return p.categorie_code===cat.code&&!p.sous_categorie_code&&stkVisible(p,filter);});
+      var sousCats=stkSousCategories.filter(function(s){return s.categorie_code===cat.code;});
+      var prodsDirects=stkProduits.filter(function(p){return p.categorie_code===cat.code&&!p.sous_categorie_code;});
       var sousCatsHtml=sousCats.map(function(sc){
-        var prods=stkProduits.filter(function(p){return p.sous_categorie_code===sc.code&&stkVisible(p,filter);});
-        return '<div style="margin-left:14px;margin-top:6px;padding:8px;background:#fff;border-radius:8px;border:1px solid var(--bd);">'
+        var prods=stkProduits.filter(function(p){return p.sous_categorie_code===sc.code;});
+        return '<div style="margin-left:14px;margin-top:6px;padding:8px;background:#fff;border-radius:8px;border:1px solid var(--bd);'+dim(sc)+'">'
           +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">'
           +'<input type="number" class="fi" style="width:40px;padding:3px;font-size:11px;" value="'+(sc.ordre||0)+'" onchange="stkMoveSousCat(\''+sc.code+'\',this.value)">'
           +'<input type="text" class="fi" style="flex:1;padding:3px;font-size:12px;font-weight:600;" value="'+esc(sc.label)+'" onchange="stkRenameSousCat(\''+sc.code+'\',this.value)">'
           +stkVisiCheckboxesHtml(sc,sc.code,'souscat')
           +'<button class="btn bs" style="padding:3px 7px;" onclick="stkDeleteSousCat(\''+sc.code+'\')">🗑️</button>'
           +'</div>'
-          +prods.map(stkProduitRowHtml).join('')
+          +prods.map(function(p){return '<div style="'+dim(p)+'">'+stkProduitRowHtml(p)+'</div>';}).join('')
           +'<div style="display:flex;gap:6px;margin-top:4px;">'
           +'<input type="text" class="fi" style="flex:1;padding:4px;font-size:12px;" id="stk-newprod-sc-'+sc.code+'" placeholder="Nouveau produit...">'
           +'<button class="btn bp" style="padding:4px 10px;" onclick="stkCreateProduit(\''+cat.code+'\',\''+sc.code+'\')">+</button>'
           +'</div>'
           +'</div>';
       }).join('');
-      return '<div style="margin-left:10px;margin-top:8px;padding:10px;background:#FAF4EC;border-radius:10px;">'
+      return '<div style="margin-left:10px;margin-top:8px;padding:10px;background:#FAF4EC;border-radius:10px;'+dim(cat)+'">'
         +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">'
         +'<input type="number" class="fi" style="width:42px;padding:4px;" value="'+(cat.ordre||0)+'" onchange="stkMoveCategorie(\''+cat.code+'\',this.value)">'
         +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;" value="'+esc(cat.label)+'" onchange="stkRenameCategorie(\''+cat.code+'\',this.value)">'
         +stkVisiCheckboxesHtml(cat,cat.code,'categorie')
         +'<button class="btn bs" onclick="stkDeleteCategorie(\''+cat.code+'\')">🗑️</button>'
         +'</div>'
-        +prodsDirects.map(stkProduitRowHtml).join('')
+        +prodsDirects.map(function(p){return '<div style="'+dim(p)+'">'+stkProduitRowHtml(p)+'</div>';}).join('')
         +sousCatsHtml
         +'<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">'
         +'<input type="text" class="fi" style="flex:1;min-width:100px;padding:5px;font-size:12px;" id="stk-newprod-cat-'+cat.code+'" placeholder="Nouveau produit direct...">'
@@ -5189,7 +5190,7 @@ function renderStocksCatalogue(){
         +'</div>'
         +'</div>';
     }).join('');
-    return '<div class="card">'
+    return '<div class="card" style="'+dim(ong)+'">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">'
       +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+(ong.ordre||0)+'" onchange="stkMoveOnglet(\''+ong.code+'\',this.value)">'
       +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;font-size:14px;" value="'+esc(ong.label)+'" onchange="stkRenameOnglet(\''+ong.code+'\',this.value)">'
