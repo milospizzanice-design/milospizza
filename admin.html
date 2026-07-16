@@ -5080,7 +5080,7 @@ function sbCheck(result){
 }
 
 // ══ MODULE STOCKS — Catalogue partagé (Onglets > Catégories > Sous-catégories > Produits) ══
-var stkOnglets=[],stkCategories=[],stkSousCategories=[],stkProduits=[];
+var stkOnglets=[],stkCategories=[],stkSousCategories=[],stkProduits=[],stkConditionnements=[];
 var STK_UNITES=['kg','g','L','ml','pièce','colis','bac'];
 function stkSubTab(name){
   var a=document.getElementById('stk-pane-cat'),b=document.getElementById('stk-pane-reglages');
@@ -5100,6 +5100,8 @@ async function loadStocksModule(){
     stkSousCategories=rs.data||[];
     var rp=sbCheck(await db.from('master_produits').select('*').order('ordre',{ascending:true}).order('nom',{ascending:true}));
     stkProduits=rp.data||[];
+    var rcd=sbCheck(await db.from('master_conditionnements').select('*').order('ordre',{ascending:true}));
+    stkConditionnements=rcd.data||[];
   }catch(e){
     console.error('Erreur chargement catalogue Stocks',e);
   }
@@ -5138,16 +5140,43 @@ function stkProduitRowHtml(p){
     prixHtml='<input type="number" class="fi" style="width:70px;padding:4px;" step="0.01" placeholder="Prix" value="'+(p.prix!=null?p.prix:'')+'" onchange="stkUpdProduitPrix(\''+p.code+'\',this.value)">'
       +'<select class="fi" style="width:66px;padding:4px;" onchange="stkUpdProduitUnite(\''+p.code+'\',this.value)">'+uniteOpts+'</select>';
   }
-  return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;flex-wrap:wrap;">'
+  var condCount=stkConditionnements.filter(function(c){return c.produit_code===p.code;}).length;
+  return '<div style="padding:4px 0;">'
+    +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
     +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+(p.ordre||0)+'" onchange="stkMoveProduit(\''+p.code+'\',this.value)">'
     +'<input type="text" class="fi" style="flex:1;min-width:110px;padding:4px;" value="'+esc(p.nom)+'" onchange="stkRenameProduit(\''+p.code+'\',this.value)">'
     +prixHtml
     +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_port!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'port\',this.checked)">Port</label>'
     +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_dabray!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'dabray\',this.checked)">Dabray</label>'
     +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_labo!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'labo\',this.checked)">Labo</label>'
+    +'<button class="btn bs" style="padding:4px 8px;" onclick="stkToggleCondPanel(\''+p.code+'\')" title="Formats de conditionnement">📦'+(condCount?' '+condCount:'')+'</button>'
     +'<button class="btn bs" style="padding:4px 8px;" onclick="stkDuplicateProduit(\''+p.code+'\')" title="Dupliquer (lié au prix)">⎘</button>'
     +'<button class="btn bs" style="padding:4px 8px;" onclick="stkDeleteProduit(\''+p.code+'\')">🗑️</button>'
+    +'</div>'
+    +'<div id="stk-cond-panel-'+p.code+'" style="display:none;margin:6px 0 0 50px;padding:8px;background:#F0F0F0;border-radius:8px;">'
+    +stkCondPanelHtml(p)
+    +'</div>'
     +'</div>';
+}
+function stkCondPanelHtml(p){
+  var conds=stkConditionnements.filter(function(c){return c.produit_code===p.code;}).sort(function(a,b){return (a.ordre||0)-(b.ordre||0);});
+  var unite=p.prix_source_code?((stkProduits.find(function(x){return x.code===p.prix_source_code;})||{}).prix_unite||''):(p.prix_unite||'');
+  var rows=conds.map(function(c){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0;">'
+      +'<input type="text" class="fi" style="flex:1;padding:3px;font-size:12px;" value="'+esc(c.label)+'" onchange="stkRenameCond(\''+c.id+'\',this.value)">'
+      +'<span style="font-size:11px;color:var(--txm);">=</span>'
+      +'<input type="number" class="fi" style="width:60px;padding:3px;font-size:12px;" step="0.001" value="'+c.quantite_ref+'" onchange="stkUpdCondQte(\''+c.id+'\',this.value)">'
+      +'<span style="font-size:11px;color:var(--txm);">'+esc(unite||'unité')+'</span>'
+      +'<button class="btn bs" style="padding:2px 6px;font-size:10px;" onclick="stkDeleteCond(\''+c.id+'\')">🗑️</button>'
+      +'</div>';
+  }).join('');
+  return (rows||'<div style="font-size:11px;color:var(--txm);">Aucun format enregistré.</div>')
+    +'<button class="btn bp" style="margin-top:6px;padding:4px 10px;font-size:11px;" onclick="stkPromptCreateCond(\''+p.code+'\')">+ Format</button>';
+}
+function stkToggleCondPanel(code){
+  var el=document.getElementById('stk-cond-panel-'+code);
+  if(!el)return;
+  el.style.display=(el.style.display==='none')?'block':'none';
 }
 function renderStocksCatalogue(){
   var el=document.getElementById('stk-catalogue-list');
@@ -5436,6 +5465,40 @@ async function stkDeleteProduit(code){
   if(!confirm('Supprimer ce produit du catalogue partagé ?'))return;
   try{sbCheck(await db.from('master_produits').delete().eq('code',code));}catch(e){alert('Erreur : '+e.message);}
   loadStocksModule();
+}
+
+// -- Formats de conditionnement (ex: bouteille 70cl, carton de 6, fût 30L...) --
+async function stkPromptCreateCond(prodCode){
+  var label=prompt('Nom du format (ex: Bouteille 70cl, Carton de 6, Fût 30L) :');
+  if(label===null)return;
+  label=label.trim();
+  if(!label){alert('Indique un nom de format.');return;}
+  var qteStr=prompt('Ça représente combien d\'unités de référence (ex: 0.7 pour une bouteille de 70cl si le produit est en litres) ?');
+  if(qteStr===null)return;
+  var qte=parseFloat(qteStr.replace(',','.'));
+  if(!qte||qte<=0){alert('Indique une quantité valide.');return;}
+  var maxOrdre=stkConditionnements.filter(function(c){return c.produit_code===prodCode;}).reduce(function(m,c){return Math.max(m,c.ordre||0);},0);
+  try{sbCheck(await db.from('master_conditionnements').insert({produit_code:prodCode,label:label,quantite_ref:qte,ordre:maxOrdre+10}));}
+  catch(e){alert('Erreur : '+e.message);return;}
+  loadStocksModule();
+  // Rouvrir le panneau après le rechargement
+  setTimeout(function(){var el=document.getElementById('stk-cond-panel-'+prodCode);if(el)el.style.display='block';},50);
+}
+async function stkRenameCond(id,label){
+  label=label.trim();if(!label)return;
+  try{sbCheck(await db.from('master_conditionnements').update({label:label}).eq('id',id));}catch(e){alert('Erreur : '+e.message);}
+}
+async function stkUpdCondQte(id,val){
+  var qte=parseFloat((val||'').toString().replace(',','.'));
+  if(!qte||qte<=0){alert('Quantité invalide.');loadStocksModule();return;}
+  try{sbCheck(await db.from('master_conditionnements').update({quantite_ref:qte}).eq('id',id));}catch(e){alert('Erreur : '+e.message);}
+}
+async function stkDeleteCond(id){
+  if(!confirm('Supprimer ce format ?'))return;
+  var prodCode=(stkConditionnements.find(function(c){return c.id===id;})||{}).produit_code;
+  try{sbCheck(await db.from('master_conditionnements').delete().eq('id',id));}catch(e){alert('Erreur : '+e.message);}
+  loadStocksModule();
+  if(prodCode)setTimeout(function(){var el=document.getElementById('stk-cond-panel-'+prodCode);if(el)el.style.display='block';},50);
 }
 
 // -- Synchronisation vers les restaurants (fusion, jamais de suppression côté restaurant) --
