@@ -5127,14 +5127,25 @@ async function stkToggleContainerActif(kind,code,resto,checked){
 }
 function stkProduitRowHtml(p){
   var uniteOpts=STK_UNITES.map(function(u){return '<option value="'+u+'"'+(u===p.prix_unite?' selected':'')+'>'+u+'</option>';}).join('');
+  var source=p.prix_source_code?stkProduits.find(function(x){return x.code===p.prix_source_code;}):null;
+  var prixHtml;
+  if(source){
+    var effectivePrix=source.prix!=null?source.prix:'';
+    prixHtml='<input type="number" class="fi" style="width:70px;padding:4px;background:#eee;" step="0.01" value="'+effectivePrix+'" disabled title="Prix lié à '+esc(source.nom)+'">'
+      +'<span style="font-size:14px;" title="Prix lié à '+esc(source.nom)+'">🔗</span>'
+      +'<button class="btn bs" style="padding:2px 6px;font-size:10px;" onclick="stkUnlinkProduitPrix(\''+p.code+'\')">🔓</button>';
+  }else{
+    prixHtml='<input type="number" class="fi" style="width:70px;padding:4px;" step="0.01" placeholder="Prix" value="'+(p.prix!=null?p.prix:'')+'" onchange="stkUpdProduitPrix(\''+p.code+'\',this.value)">'
+      +'<select class="fi" style="width:66px;padding:4px;" onchange="stkUpdProduitUnite(\''+p.code+'\',this.value)">'+uniteOpts+'</select>';
+  }
   return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;flex-wrap:wrap;">'
     +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+(p.ordre||0)+'" onchange="stkMoveProduit(\''+p.code+'\',this.value)">'
     +'<input type="text" class="fi" style="flex:1;min-width:110px;padding:4px;" value="'+esc(p.nom)+'" onchange="stkRenameProduit(\''+p.code+'\',this.value)">'
-    +'<input type="number" class="fi" style="width:70px;padding:4px;" step="0.01" placeholder="Prix" value="'+(p.prix!=null?p.prix:'')+'" onchange="stkUpdProduitPrix(\''+p.code+'\',this.value)">'
-    +'<select class="fi" style="width:66px;padding:4px;" onchange="stkUpdProduitUnite(\''+p.code+'\',this.value)">'+uniteOpts+'</select>'
+    +prixHtml
     +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_port!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'port\',this.checked)">Port</label>'
     +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_dabray!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'dabray\',this.checked)">Dabray</label>'
     +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_labo!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'labo\',this.checked)">Labo</label>'
+    +'<button class="btn bs" style="padding:4px 8px;" onclick="stkDuplicateProduit(\''+p.code+'\')" title="Dupliquer (lié au prix)">⎘</button>'
     +'<button class="btn bs" style="padding:4px 8px;" onclick="stkDeleteProduit(\''+p.code+'\')">🗑️</button>'
     +'</div>';
 }
@@ -5323,16 +5334,70 @@ async function stkDeleteSousCat(code){
   loadStocksModule();
 }
 // -- Produits --
+function stkUniqueProdCode(nom){
+  var base=slugify(nom);
+  var code=base;
+  var n=2;
+  var existing={};
+  stkProduits.forEach(function(p){existing[p.code]=true;});
+  while(existing[code]){code=base+'-'+n;n++;}
+  return code;
+}
+function stkUniqueProdCodeFromMap(nom,presenceMap,dedupKey){
+  if(presenceMap[dedupKey])return presenceMap[dedupKey].code; // déjà vu pour cette combinaison nom+catégorie, on réutilise le même code
+  var base=slugify(nom);
+  var code=base;
+  var n=2;
+  var used={};
+  stkProduits.forEach(function(p){used[p.code]=true;});
+  Object.keys(presenceMap).forEach(function(k){used[presenceMap[k].code]=true;});
+  while(used[code]){code=base+'-'+n;n++;}
+  return code;
+}
 async function stkPromptCreateProduit(catCode,sousCode){
   var nom=prompt('Nom du nouveau produit :');
   if(nom===null)return;
   nom=nom.trim();
   if(!nom){alert('Indique un nom de produit.');return;}
-  var code=slugify(nom);
+  var normNom=stkNormName(nom);
+  var exactMatch=stkProduits.find(function(p){return stkNormName(p.nom)===normNom;});
+  var prixSourceCode=null;
+  if(exactMatch){
+    var catLabel=(stkCategories.find(function(c){return c.code===exactMatch.categorie_code;})||{}).label||'?';
+    var ok=confirm('Un produit nommé exactement "'+exactMatch.nom+'" existe déjà (catégorie '+catLabel+').\nPour éviter un doublon non lié, ce nouveau produit sera relié à son prix (le modifier sur l\'un mettra à jour l\'autre).\n\nContinuer ?');
+    if(!ok)return;
+    prixSourceCode=exactMatch.code;
+  }
+  var code=stkUniqueProdCode(nom);
   var maxOrdre=stkProduits.filter(function(p){return p.categorie_code===catCode&&p.sous_categorie_code===sousCode;}).reduce(function(m,p){return Math.max(m,p.ordre||0);},0);
   try{
-    sbCheck(await db.from('master_produits').insert({code:code,nom:nom,categorie_code:catCode,sous_categorie_code:sousCode,ordre:maxOrdre+10}));
-  }catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
+    sbCheck(await db.from('master_produits').insert({code:code,nom:nom,categorie_code:catCode,sous_categorie_code:sousCode,ordre:maxOrdre+10,prix_source_code:prixSourceCode}));
+  }catch(e){alert('Erreur : '+e.message);return;}
+  loadStocksModule();
+}
+async function stkDuplicateProduit(origCode){
+  var orig=stkProduits.find(function(p){return p.code===origCode;});
+  if(!orig)return;
+  var code=stkUniqueProdCode(orig.nom);
+  var maxOrdre=stkProduits.filter(function(p){return p.categorie_code===orig.categorie_code&&p.sous_categorie_code===orig.sous_categorie_code;}).reduce(function(m,p){return Math.max(m,p.ordre||0);},0);
+  // La copie est reliée au prix de l'original (source réelle = celle de l'original si lui-même est déjà lié, sinon l'original)
+  var sourceCode=orig.prix_source_code||orig.code;
+  try{
+    sbCheck(await db.from('master_produits').insert({
+      code:code,nom:orig.nom,categorie_code:orig.categorie_code,sous_categorie_code:orig.sous_categorie_code,
+      ordre:maxOrdre+10,prix_source_code:sourceCode
+    }));
+  }catch(e){alert('Erreur : '+e.message);return;}
+  loadStocksModule();
+  alert('✅ "'+orig.nom+'" dupliqué, relié en permanence à son prix. Utilise "📁 Déplacer" sur la copie pour l\'envoyer dans l\'autre catégorie (ex: à emporter).');
+}
+async function stkUnlinkProduitPrix(code){
+  var p=stkProduits.find(function(x){return x.code===code;});
+  var source=p&&p.prix_source_code?stkProduits.find(function(x){return x.code===p.prix_source_code;}):null;
+  var startPrix=source?source.prix:null;
+  var startUnite=source?source.prix_unite:null;
+  try{sbCheck(await db.from('master_produits').update({prix_source_code:null,prix:startPrix,prix_unite:startUnite}).eq('code',code));}
+  catch(e){alert('Erreur : '+e.message);}
   loadStocksModule();
 }
 async function stkMoveProduit2(prodCode,target){
@@ -5481,15 +5546,17 @@ async function importMasterCatalogueDepuisExistant(){
       });
     });
     // Passe 2 : collecter les produits, en ignorant les références cassées (catégorie/sous-catégorie qui n'existe pas vraiment)
+    // Dédoublonnage par nom + catégorie (pas juste le nom) : un même nom dans 2 catégories différentes
+    // (ex: Lambrusco sur place / à emporter) reste 2 produits distincts.
     scRows.forEach(function(row){
       (row.products||[]).forEach(function(p){
         if(!p||!p.name)return;
-        var code=slugify(p.name);
-        if(!code)return;
         var catCode=(p.cat&&catsByCode[p.cat])?p.cat:null;
         var subCode=(p.sub&&sousCatsByCode[p.sub]&&sousCatsByCode[p.sub].categorie_code===catCode)?p.sub:null;
-        if(!prodPresence[code])prodPresence[code]={code:code,nom:p.name,categorie_code:catCode,sous_categorie_code:subCode,port:false,dabray:false,labo:false};
-        prodPresence[code][row.restaurant_id]=true;
+        var dedupKey=slugify(p.name)+'|'+(catCode||'')+'|'+(subCode||'');
+        var code=stkUniqueProdCodeFromMap(p.name,prodPresence,dedupKey);
+        if(!prodPresence[dedupKey])prodPresence[dedupKey]={code:code,nom:p.name,categorie_code:catCode,sous_categorie_code:subCode,port:false,dabray:false,labo:false};
+        prodPresence[dedupKey][row.restaurant_id]=true;
       });
     });
     var catRows=Object.values(catsByCode);
