@@ -5602,7 +5602,8 @@ function renderCaisseList(){
   }
   list.innerHTML=pending.map(function(m){
     return '<div class="card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
-      +'<div style="font-size:13px;font-weight:600;flex:1;">'+esc(m.hiboutik_nom||'(sans nom)')+'</div>'
+      +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;">'+esc(m.hiboutik_nom||'(sans nom)')+'</div>'
+      +'<div style="font-size:11px;color:var(--txm);">#'+m.hiboutik_product_id+'</div></div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
         +'<button class="btn bp" style="padding:5px 9px;font-size:11px;" onclick="caisseOpenAssocier('+m.hiboutik_product_id+')">Associer</button>'
         +'<button class="btn bs" style="padding:5px 9px;font-size:11px;" onclick="caisseCreer('+m.hiboutik_product_id+')">Créer</button>'
