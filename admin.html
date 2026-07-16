@@ -5096,13 +5096,13 @@ function stkSubTab(name){
 }
 async function loadStocksModule(){
   try{
-    var ro=sbCheck(await db.from('master_onglets').select('*').order('ordre',{ascending:true}));
+    var ro=sbCheck(await db.from('master_onglets').select('*').order('ordre',{ascending:true}).order('label',{ascending:true}));
     stkOnglets=ro.data||[];
-    var rc=sbCheck(await db.from('master_categories').select('*').order('ordre',{ascending:true}));
+    var rc=sbCheck(await db.from('master_categories').select('*').order('ordre',{ascending:true}).order('label',{ascending:true}));
     stkCategories=rc.data||[];
-    var rs=sbCheck(await db.from('master_sous_categories').select('*').order('ordre',{ascending:true}));
+    var rs=sbCheck(await db.from('master_sous_categories').select('*').order('ordre',{ascending:true}).order('label',{ascending:true}));
     stkSousCategories=rs.data||[];
-    var rp=sbCheck(await db.from('master_produits').select('*').order('ordre',{ascending:true}));
+    var rp=sbCheck(await db.from('master_produits').select('*').order('ordre',{ascending:true}).order('nom',{ascending:true}));
     stkProduits=rp.data||[];
   }catch(e){
     console.error('Erreur chargement catalogue Stocks',e);
@@ -5475,6 +5475,11 @@ async function importMasterCatalogueDepuisExistant(){
     // 4. Produits : séparer nouveaux (payload complet, avec visibilité pré-cochée) et existants (juste nom/catégorie, prix si trouvé, jamais la visibilité déjà réglée à la main)
     var existingCodes={};
     stkProduits.forEach(function(p){existingCodes[p.code]=true;});
+    var groupMaxOrdre={}; // clé = "categorie|sous_categorie" -> position max déjà utilisée dans ce groupe
+    stkProduits.forEach(function(p){
+      var key=(p.categorie_code||'')+'|'+(p.sous_categorie_code||'');
+      groupMaxOrdre[key]=Math.max(groupMaxOrdre[key]||0,p.ordre||0);
+    });
     var allProds=Object.values(prodPresence);
     var toInsert=[],toUpdate=[];
     var prixTrouves=0;
@@ -5484,7 +5489,9 @@ async function importMasterCatalogueDepuisExistant(){
         var upd={code:p.code,nom:p.nom,categorie_code:p.categorie_code,sous_categorie_code:p.sous_categorie_code};
         toUpdate.push(upd);
       }else{
-        var ins={code:p.code,nom:p.nom,categorie_code:p.categorie_code,sous_categorie_code:p.sous_categorie_code,actif_port:p.port,actif_dabray:p.dabray,actif_labo:p.labo};
+        var key=(p.categorie_code||'')+'|'+(p.sous_categorie_code||'');
+        groupMaxOrdre[key]=(groupMaxOrdre[key]||0)+10;
+        var ins={code:p.code,nom:p.nom,categorie_code:p.categorie_code,sous_categorie_code:p.sous_categorie_code,actif_port:p.port,actif_dabray:p.dabray,actif_labo:p.labo,ordre:groupMaxOrdre[key]};
         if(prixInfo){ins.prix=prixInfo.prix;ins.prix_unite=prixInfo.unite;prixTrouves++;}
         toInsert.push(ins);
       }
