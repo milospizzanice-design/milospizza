@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: node scripts/hiboutik-test.js
+      - run: node scripts/hiboutik-products-test.js
         env:
           HIBOUTIK_ACCOUNT: ${{ secrets.HIBOUTIK_ACCOUNT }}
           HIBOUTIK_LOGIN: ${{ secrets.HIBOUTIK_LOGIN }}
