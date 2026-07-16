@@ -416,11 +416,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
 
       <div class="card">
-        <div style="font-weight:700;margin-bottom:10px;">➕ Nouvel onglet</div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" class="fi" id="stk-new-onglet-nom" placeholder="Ex: Food, Boissons...">
-          <button class="btn bp" onclick="createStkOnglet()">Ajouter</button>
-        </div>
+        <button class="btn bp" style="width:100%;" onclick="stkPromptCreateOnglet()">+ Nouvel onglet</button>
       </div>
 
       <div id="stk-catalogue-list"></div>
@@ -5148,10 +5144,34 @@ function renderStocksCatalogue(){
   var filterEl=document.getElementById('stk-cat-filter');
   var filter=filterEl?filterEl.value:'';
   if(!stkOnglets.length){
-    el.innerHTML='<div class="card" style="color:var(--txm);">Aucun onglet — crée-en un ci-dessus (ex: "Food", "Boissons").</div>';
+    el.innerHTML='<div class="card" style="color:var(--txm);">Aucun onglet — utilise le bouton "+ Onglet" ci-dessus.</div>';
     return;
   }
   function dim(item){return stkVisible(item,filter)?'':'opacity:0.4;';}
+  function ongletMoveSelect(cat){
+    return '<select class="aselect" style="font-size:10px;padding:2px;" onchange="if(this.value)stkMoveCategorieToOnglet(\''+cat.code+'\',this.value);this.selectedIndex=0;">'
+      +'<option value="">📁 Déplacer…</option>'
+      +stkOnglets.filter(function(o){return o.code!==cat.onglet_code;}).map(function(o){return '<option value="'+o.code+'">→ '+esc(o.label)+'</option>';}).join('')
+      +'</select>';
+  }
+  function catMoveSelect(sc){
+    return '<select class="aselect" style="font-size:10px;padding:2px;" onchange="if(this.value)stkMoveSousCatToCategorie(\''+sc.code+'\',this.value);this.selectedIndex=0;">'
+      +'<option value="">📁 Déplacer…</option>'
+      +stkCategories.filter(function(c){return c.code!==sc.categorie_code;}).map(function(c){return '<option value="'+c.code+'">→ '+esc(c.label)+'</option>';}).join('')
+      +'</select>';
+  }
+  function prodMoveSelect(p){
+    var opts='<option value="">📁 Déplacer…</option>';
+    stkCategories.forEach(function(c){
+      if(c.code!==p.categorie_code||p.sous_categorie_code){
+        opts+='<option value="'+c.code+'|">→ '+esc(c.label)+'</option>';
+      }
+      stkSousCategories.filter(function(s){return s.categorie_code===c.code;}).forEach(function(s){
+        if(s.code!==p.sous_categorie_code)opts+='<option value="'+c.code+'|'+s.code+'">→ '+esc(c.label)+' &gt; '+esc(s.label)+'</option>';
+      });
+    });
+    return '<select class="aselect" style="font-size:10px;padding:2px;" onchange="if(this.value)stkMoveProduit2(\''+p.code+'\',this.value);this.selectedIndex=0;">'+opts+'</select>';
+  }
   el.innerHTML=stkOnglets.map(function(ong){
     var cats=stkCategories.filter(function(c){return c.onglet_code===ong.code;});
     var catsHtml=cats.map(function(cat){
@@ -5164,13 +5184,11 @@ function renderStocksCatalogue(){
           +'<input type="number" class="fi" style="width:40px;padding:3px;font-size:11px;" value="'+(sc.ordre||0)+'" onchange="stkMoveSousCat(\''+sc.code+'\',this.value)">'
           +'<input type="text" class="fi" style="flex:1;padding:3px;font-size:12px;font-weight:600;" value="'+esc(sc.label)+'" onchange="stkRenameSousCat(\''+sc.code+'\',this.value)">'
           +stkVisiCheckboxesHtml(sc,sc.code,'souscat')
+          +catMoveSelect(sc)
           +'<button class="btn bs" style="padding:3px 7px;" onclick="stkDeleteSousCat(\''+sc.code+'\')">🗑️</button>'
           +'</div>'
-          +prods.map(function(p){return '<div style="'+dim(p)+'">'+stkProduitRowHtml(p)+'</div>';}).join('')
-          +'<div style="display:flex;gap:6px;margin-top:4px;">'
-          +'<input type="text" class="fi" style="flex:1;padding:4px;font-size:12px;" id="stk-newprod-sc-'+sc.code+'" placeholder="Nouveau produit...">'
-          +'<button class="btn bp" style="padding:4px 10px;" onclick="stkCreateProduit(\''+cat.code+'\',\''+sc.code+'\')">+</button>'
-          +'</div>'
+          +prods.map(function(p){return '<div style="'+dim(p)+'display:flex;align-items:center;gap:4px;">'+stkProduitRowHtml(p)+prodMoveSelect(p)+'</div>';}).join('')
+          +'<button class="btn bp" style="margin-top:4px;padding:4px 10px;font-size:11px;" onclick="stkPromptCreateProduit(\''+cat.code+'\',\''+sc.code+'\')">+ Produit</button>'
           +'</div>';
       }).join('');
       return '<div style="margin-left:10px;margin-top:8px;padding:10px;background:#FAF4EC;border-radius:10px;'+dim(cat)+'">'
@@ -5178,15 +5196,14 @@ function renderStocksCatalogue(){
         +'<input type="number" class="fi" style="width:42px;padding:4px;" value="'+(cat.ordre||0)+'" onchange="stkMoveCategorie(\''+cat.code+'\',this.value)">'
         +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;" value="'+esc(cat.label)+'" onchange="stkRenameCategorie(\''+cat.code+'\',this.value)">'
         +stkVisiCheckboxesHtml(cat,cat.code,'categorie')
+        +ongletMoveSelect(cat)
         +'<button class="btn bs" onclick="stkDeleteCategorie(\''+cat.code+'\')">🗑️</button>'
         +'</div>'
-        +prodsDirects.map(function(p){return '<div style="'+dim(p)+'">'+stkProduitRowHtml(p)+'</div>';}).join('')
+        +prodsDirects.map(function(p){return '<div style="'+dim(p)+'display:flex;align-items:center;gap:4px;">'+stkProduitRowHtml(p)+prodMoveSelect(p)+'</div>';}).join('')
         +sousCatsHtml
-        +'<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">'
-        +'<input type="text" class="fi" style="flex:1;min-width:100px;padding:5px;font-size:12px;" id="stk-newprod-cat-'+cat.code+'" placeholder="Nouveau produit direct...">'
-        +'<button class="btn bp" style="padding:5px 10px;" onclick="stkCreateProduit(\''+cat.code+'\',null)">+ Produit</button>'
-        +'<input type="text" class="fi" style="flex:1;min-width:100px;padding:5px;font-size:12px;" id="stk-newsc-'+cat.code+'" placeholder="Nouvelle sous-catégorie...">'
-        +'<button class="btn bs" style="padding:5px 10px;" onclick="stkCreateSousCat(\''+cat.code+'\')">+ Sous-cat</button>'
+        +'<div style="display:flex;gap:6px;margin-top:6px;">'
+        +'<button class="btn bp" style="padding:5px 10px;font-size:11px;" onclick="stkPromptCreateProduit(\''+cat.code+'\',null)">+ Produit</button>'
+        +'<button class="btn bs" style="padding:5px 10px;font-size:11px;" onclick="stkPromptCreateSousCat(\''+cat.code+'\')">+ Sous-catégorie</button>'
         +'</div>'
         +'</div>';
     }).join('');
@@ -5198,23 +5215,20 @@ function renderStocksCatalogue(){
       +'<button class="btn bs" onclick="stkDeleteOnglet(\''+ong.code+'\')">🗑️</button>'
       +'</div>'
       +catsHtml
-      +'<div style="margin-top:8px;display:flex;gap:6px;">'
-      +'<input type="text" class="fi" style="flex:1;padding:5px;font-size:12px;" id="stk-newcat-'+ong.code+'" placeholder="Nouvelle catégorie...">'
-      +'<button class="btn bp" style="padding:5px 10px;" onclick="stkCreateCategorie(\''+ong.code+'\')">+ Catégorie</button>'
-      +'</div>'
+      +'<button class="btn bp" style="margin-top:8px;padding:6px 12px;font-size:12px;" onclick="stkPromptCreateCategorie(\''+ong.code+'\')">+ Catégorie</button>'
       +'</div>';
   }).join('');
 }
 // -- Onglets --
-async function createStkOnglet(){
-  var inp=document.getElementById('stk-new-onglet-nom');
-  var label=inp.value.trim();
+async function stkPromptCreateOnglet(){
+  var label=prompt('Nom du nouvel onglet :');
+  if(label===null)return;
+  label=label.trim();
   if(!label){alert('Indique un nom d\'onglet.');return;}
   var code=slugify(label);
   var maxOrdre=stkOnglets.reduce(function(m,o){return Math.max(m,o.ordre||0);},0);
   try{sbCheck(await db.from('master_onglets').insert({code:code,label:label,ordre:maxOrdre+10}));}
   catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
-  inp.value='';
   loadStocksModule();
 }
 async function stkRenameOnglet(code,label){
@@ -5237,16 +5251,19 @@ async function stkDeleteOnglet(code){
   loadStocksModule();
 }
 // -- Catégories --
-async function stkCreateCategorie(ongletCode){
-  var inp=document.getElementById('stk-newcat-'+ongletCode);
-  if(!inp)return;
-  var label=inp.value.trim();
+async function stkPromptCreateCategorie(ongletCode){
+  var label=prompt('Nom de la nouvelle catégorie :');
+  if(label===null)return;
+  label=label.trim();
   if(!label){alert('Indique un nom de catégorie.');return;}
   var code=slugify(label);
   var maxOrdre=stkCategories.filter(function(c){return c.onglet_code===ongletCode;}).reduce(function(m,c){return Math.max(m,c.ordre||0);},0);
   try{sbCheck(await db.from('master_categories').insert({code:code,label:label,onglet_code:ongletCode,ordre:maxOrdre+10}));}
   catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
-  inp.value='';
+  loadStocksModule();
+}
+async function stkMoveCategorieToOnglet(catCode,newOngletCode){
+  try{sbCheck(await db.from('master_categories').update({onglet_code:newOngletCode}).eq('code',catCode));}catch(e){alert('Erreur : '+e.message);}
   loadStocksModule();
 }
 async function stkRenameCategorie(code,label){
@@ -5271,16 +5288,19 @@ async function stkDeleteCategorie(code){
   loadStocksModule();
 }
 // -- Sous-catégories --
-async function stkCreateSousCat(catCode){
-  var inp=document.getElementById('stk-newsc-'+catCode);
-  if(!inp)return;
-  var label=inp.value.trim();
+async function stkPromptCreateSousCat(catCode){
+  var label=prompt('Nom de la nouvelle sous-catégorie :');
+  if(label===null)return;
+  label=label.trim();
   if(!label){alert('Indique un nom de sous-catégorie.');return;}
   var code=slugify(label);
   var maxOrdre=stkSousCategories.filter(function(s){return s.categorie_code===catCode;}).reduce(function(m,s){return Math.max(m,s.ordre||0);},0);
   try{sbCheck(await db.from('master_sous_categories').insert({code:code,label:label,categorie_code:catCode,ordre:maxOrdre+10}));}
   catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
-  inp.value='';
+  loadStocksModule();
+}
+async function stkMoveSousCatToCategorie(scCode,newCatCode){
+  try{sbCheck(await db.from('master_sous_categories').update({categorie_code:newCatCode}).eq('code',scCode));}catch(e){alert('Erreur : '+e.message);}
   loadStocksModule();
 }
 async function stkRenameSousCat(code,label){
@@ -5303,18 +5323,23 @@ async function stkDeleteSousCat(code){
   loadStocksModule();
 }
 // -- Produits --
-async function stkCreateProduit(catCode,sousCode){
-  var inpId=sousCode?('stk-newprod-sc-'+sousCode):('stk-newprod-cat-'+catCode);
-  var inp=document.getElementById(inpId);
-  if(!inp)return;
-  var nom=inp.value.trim();
+async function stkPromptCreateProduit(catCode,sousCode){
+  var nom=prompt('Nom du nouveau produit :');
+  if(nom===null)return;
+  nom=nom.trim();
   if(!nom){alert('Indique un nom de produit.');return;}
   var code=slugify(nom);
   var maxOrdre=stkProduits.filter(function(p){return p.categorie_code===catCode&&p.sous_categorie_code===sousCode;}).reduce(function(m,p){return Math.max(m,p.ordre||0);},0);
   try{
     sbCheck(await db.from('master_produits').insert({code:code,nom:nom,categorie_code:catCode,sous_categorie_code:sousCode,ordre:maxOrdre+10}));
   }catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
-  inp.value='';
+  loadStocksModule();
+}
+async function stkMoveProduit2(prodCode,target){
+  var parts=target.split('|');
+  var catCode=parts[0]||null;
+  var scCode=parts[1]||null;
+  try{sbCheck(await db.from('master_produits').update({categorie_code:catCode,sous_categorie_code:scCode}).eq('code',prodCode));}catch(e){alert('Erreur : '+e.message);}
   loadStocksModule();
 }
 async function stkRenameProduit(code,nom){
