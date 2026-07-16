@@ -1,0 +1,17 @@
+name: Test Hiboutik API
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/hiboutik-test.js
+        env:
+          HIBOUTIK_ACCOUNT: ${{ secrets.HIBOUTIK_ACCOUNT }}
+          HIBOUTIK_LOGIN: ${{ secrets.HIBOUTIK_LOGIN }}
+          HIBOUTIK_API_KEY: ${{ secrets.HIBOUTIK_API_KEY }}
