@@ -189,6 +189,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="home-bubble" onclick="goModule('labo')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
     <div style="font-size:32px;">🔬</div>LABO
   </div>
+  <div class="home-bubble" onclick="goModule('caisse')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
+    <div style="font-size:32px;">🔗</div>CAISSE
+  </div>
 </div>
 <div id="back-to-home-bar" style="display:none;background:#7A0F14;padding:10px 14px;">
   <button onclick="goHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">← Revenir au menu</button>
@@ -789,6 +792,28 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<div id="page-caisse" style="display:none;">
+  <div class="page" style="padding-top:14px;">
+    <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+      Rapproche chaque produit vendu sur la caisse Hiboutik avec ton catalogue. Une fois traité, un produit n'apparaît plus jamais ici.
+    </div>
+    <div class="card" style="margin-bottom:10px;">
+      <div id="caisse-summary" style="font-size:13px;font-weight:700;"></div>
+    </div>
+    <div id="caisse-list"></div>
+  </div>
+</div>
+
+<!-- Modal association produit caisse -->
+<div class="mb" id="caissemodal">
+  <div class="md" style="max-width:420px;">
+    <div class="mdt" id="caissemodal-title">Associer un produit</div>
+    <div class="fr"><label class="fl2">Rechercher dans le catalogue</label><input type="text" class="fi" id="caissemodal-search" oninput="caisseFilterCandidates()" placeholder="Tape un nom..."></div>
+    <div id="caissemodal-candidates" style="max-height:260px;overflow:auto;margin:8px 0;"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('caissemodal')">Annuler</button></div>
+  </div>
+</div>
+
 
 <!-- Modal correction -->
 <div class="mb" id="mc">
@@ -1091,7 +1116,7 @@ function openM(id){
 }
 
 function goModule(name){
-  var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu',labo:'page-labo'};
+  var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu',labo:'page-labo',caisse:'page-caisse'};
   var tabsBar=document.getElementById('tabs-rh');
   var home=document.getElementById('home-bubbles');
   var backBar=document.getElementById('back-to-home-bar');
@@ -1111,9 +1136,10 @@ function goModule(name){
   if(name==='stocks')loadStocksModule();
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
+  if(name==='caisse')loadCaisseModule();
 }
 function goHome(){
-  var pages=['page-rh','page-stocks','page-recettes','page-menu','page-labo'];
+  var pages=['page-rh','page-stocks','page-recettes','page-menu','page-labo','page-caisse'];
   pages.forEach(function(id){
     var e=document.getElementById(id);
     if(e)e.style.display='none';
@@ -5545,6 +5571,94 @@ async function stkDeleteCond(id){
   try{sbCheck(await db.from('master_conditionnements').delete().eq('id',id));}catch(e){alert('Erreur : '+e.message);}
   loadStocksModule();
   if(prodCode)setTimeout(function(){var el=document.getElementById('stk-cond-panel-'+prodCode);if(el)el.style.display='block';},50);
+}
+
+// -- Module Caisse : rapprochement produits Hiboutik <-> produits_vendus --
+let caisseMapping=[];
+let caisseProduitsVendus=[];
+let caisseCurrentRow=null;
+
+async function loadCaisseModule(){
+  var list=document.getElementById('caisse-list');
+  var summary=document.getElementById('caisse-summary');
+  list.innerHTML='<div style="padding:16px;color:var(--txm);">Chargement…</div>';
+  var r=sbCheck(await db.from('hiboutik_mapping').select('*').order('hiboutik_nom'));
+  caisseMapping=(r&&r.data)||[];
+  var rp=sbCheck(await db.from('produits_vendus').select('code,nom,categorie').eq('restaurant_id','global').order('nom'));
+  caisseProduitsVendus=(rp&&rp.data)||[];
+  renderCaisseList();
+}
+
+function renderCaisseList(){
+  var list=document.getElementById('caisse-list');
+  var summary=document.getElementById('caisse-summary');
+  var pending=caisseMapping.filter(function(m){return !m.confirmed&&!m.ignore;});
+  var confirmed=caisseMapping.filter(function(m){return m.confirmed;});
+  var ignored=caisseMapping.filter(function(m){return m.ignore;});
+  summary.textContent=pending.length+' à traiter · '+confirmed.length+' associés · '+ignored.length+' ignorés';
+  if(!pending.length){
+    list.innerHTML='<div class="card" style="text-align:center;color:var(--txm);padding:20px;">Tout est traité ✅</div>';
+    return;
+  }
+  list.innerHTML=pending.map(function(m){
+    return '<div class="card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+      +'<div style="font-size:13px;font-weight:600;flex:1;">'+esc(m.hiboutik_nom||'(sans nom)')+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        +'<button class="btn bp" style="padding:5px 9px;font-size:11px;" onclick="caisseOpenAssocier('+m.hiboutik_product_id+')">Associer</button>'
+        +'<button class="btn bs" style="padding:5px 9px;font-size:11px;" onclick="caisseCreer('+m.hiboutik_product_id+')">Créer</button>'
+        +'<button class="btn bs" style="padding:5px 9px;font-size:11px;" onclick="caisseIgnorer('+m.hiboutik_product_id+')">Ignorer</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+
+function caisseOpenAssocier(hiboutikProductId){
+  caisseCurrentRow=hiboutikProductId;
+  var m=caisseMapping.find(function(x){return x.hiboutik_product_id===hiboutikProductId;});
+  document.getElementById('caissemodal-title').textContent='Associer — '+(m?m.hiboutik_nom:'');
+  document.getElementById('caissemodal-search').value='';
+  caisseRenderCandidates(caisseProduitsVendus);
+  document.getElementById('caissemodal').classList.add('op');
+}
+function caisseFilterCandidates(){
+  var q=(document.getElementById('caissemodal-search').value||'').toLowerCase();
+  var filtered=caisseProduitsVendus.filter(function(p){return (p.nom||'').toLowerCase().includes(q);});
+  caisseRenderCandidates(filtered);
+}
+function caisseRenderCandidates(items){
+  var box=document.getElementById('caissemodal-candidates');
+  if(!items.length){box.innerHTML='<div style="color:var(--txm);font-size:12px;padding:8px;">Aucun résultat.</div>';return;}
+  box.innerHTML=items.slice(0,80).map(function(p){
+    return '<div onclick="caisseConfirmAssocier(\''+p.code+'\')" style="padding:8px 6px;border-bottom:1px solid var(--bd);cursor:pointer;font-size:13px;">'
+      +esc(p.nom)+(p.categorie?' <span style="color:var(--txm);font-size:11px;">— '+esc(p.categorie)+'</span>':'')
+    +'</div>';
+  }).join('');
+}
+async function caisseConfirmAssocier(code){
+  var id=caisseCurrentRow;
+  if(!id)return;
+  try{sbCheck(await db.from('hiboutik_mapping').update({produit_vendu_code:code,confirmed:true,ignore:false}).eq('hiboutik_product_id',id));}
+  catch(e){alert('Erreur : '+e.message);return;}
+  closeM('caissemodal');
+  loadCaisseModule();
+}
+async function caisseCreer(hiboutikProductId){
+  var m=caisseMapping.find(function(x){return x.hiboutik_product_id===hiboutikProductId;});
+  var nom=prompt('Nom du nouveau produit :',m?m.hiboutik_nom:'');
+  if(nom===null)return;
+  nom=nom.trim();
+  if(!nom){alert('Indique un nom.');return;}
+  var code='pv_'+Date.now().toString(36);
+  try{
+    sbCheck(await db.from('produits_vendus').insert({restaurant_id:'global',code:code,nom:nom,actif:true}));
+    sbCheck(await db.from('hiboutik_mapping').update({produit_vendu_code:code,confirmed:true,ignore:false}).eq('hiboutik_product_id',hiboutikProductId));
+  }catch(e){alert('Erreur : '+e.message);return;}
+  loadCaisseModule();
+}
+async function caisseIgnorer(hiboutikProductId){
+  try{sbCheck(await db.from('hiboutik_mapping').update({ignore:true,confirmed:true}).eq('hiboutik_product_id',hiboutikProductId));}
+  catch(e){alert('Erreur : '+e.message);return;}
+  loadCaisseModule();
 }
 
 // -- Synchronisation vers les restaurants (fusion, jamais de suppression côté restaurant) --
