@@ -563,6 +563,17 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<!-- Modal création format de conditionnement (avec modèles réutilisables) -->
+<div class="mb" id="stkcondmodal">
+  <div class="md" style="max-width:420px;">
+    <div class="mdt" id="stkcondmodal-title">Nouveau format de conditionnement</div>
+    <div id="stkcondmodal-templates" style="margin-bottom:10px;"></div>
+    <div class="fr"><label class="fl2">Nom du format</label><input type="text" class="fi" id="stkcondmodal-label" placeholder="Ex: Bouteille 70cl"></div>
+    <div class="fr"><label class="fl2">Quantité (<span id="stkcondmodal-unite"></span>)</label><input type="number" class="fi" id="stkcondmodal-qte" step="0.001" placeholder="Ex: 0.7"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('stkcondmodal')">Annuler</button><button class="btn bp" onclick="stkConfirmCreateCond()">Créer</button></div>
+  </div>
+</div>
+
 <!-- Modal composition d'un ingrédient (ex: crème moutarde-miel = plusieurs produits stock) -->
 <div class="mb" id="mingcomp">
   <div class="md" style="max-width:420px;">
@@ -5171,7 +5182,7 @@ function stkCondPanelHtml(p){
       +'</div>';
   }).join('');
   return (rows||'<div style="font-size:11px;color:var(--txm);">Aucun format enregistré.</div>')
-    +'<button class="btn bp" style="margin-top:6px;padding:4px 10px;font-size:11px;" onclick="stkPromptCreateCond(\''+p.code+'\')">+ Format</button>';
+    +'<button class="btn bp" style="margin-top:6px;padding:4px 10px;font-size:11px;" onclick="stkOpenCondModal(\''+p.code+'\')">+ Format</button>';
 }
 function stkToggleCondPanel(code){
   var el=document.getElementById('stk-cond-panel-'+code);
@@ -5468,18 +5479,53 @@ async function stkDeleteProduit(code){
 }
 
 // -- Formats de conditionnement (ex: bouteille 70cl, carton de 6, fût 30L...) --
-async function stkPromptCreateCond(prodCode){
-  var label=prompt('Nom du format (ex: Bouteille 70cl, Carton de 6, Fût 30L) :');
-  if(label===null)return;
-  label=label.trim();
+var stkCondModalProdCode=null;
+function stkOpenCondModal(prodCode){
+  stkCondModalProdCode=prodCode;
+  var p=stkProduits.find(function(x){return x.code===prodCode;});
+  var unite=p?(p.prix_source_code?((stkProduits.find(function(x){return x.code===p.prix_source_code;})||{}).prix_unite||''):(p.prix_unite||'')):'';
+  document.getElementById('stkcondmodal-title').textContent='Nouveau format'+(p?' — '+p.nom:'');
+  document.getElementById('stkcondmodal-unite').textContent=unite||'unité';
+  document.getElementById('stkcondmodal-label').value='';
+  document.getElementById('stkcondmodal-qte').value='';
+  // Modèles déjà créés sur d'autres produits, dédupliqués par nom (insensible à la casse)
+  var seen={},templates=[];
+  stkConditionnements.forEach(function(c){
+    var key=(c.label||'').trim().toLowerCase();
+    if(!key||seen[key])return;
+    seen[key]=true;
+    templates.push(c);
+  });
+  templates.sort(function(a,b){return (a.label||'').localeCompare(b.label||'');});
+  var box=document.getElementById('stkcondmodal-templates');
+  if(templates.length){
+    box.innerHTML='<div style="font-size:11px;color:var(--txm);margin-bottom:6px;">Modèles déjà utilisés (clique pour pré-remplir, la quantité reste modifiable) :</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+      +templates.map(function(t){
+        return '<button type="button" class="btn bs sm" style="font-size:11px;" onclick="stkPickCondTemplate(\''+esc(t.label).replace(/'/g,"\\'")+'\','+t.quantite_ref+')">'+esc(t.label)+'</button>';
+      }).join('')
+      +'</div>';
+  }else{
+    box.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucun modèle existant, crée le premier format ci-dessous.</div>';
+  }
+  document.getElementById('stkcondmodal').classList.add('op');
+}
+function stkPickCondTemplate(label,qte){
+  document.getElementById('stkcondmodal-label').value=label;
+  document.getElementById('stkcondmodal-qte').value=qte;
+}
+async function stkConfirmCreateCond(){
+  var prodCode=stkCondModalProdCode;
+  if(!prodCode)return;
+  var label=(document.getElementById('stkcondmodal-label').value||'').trim();
   if(!label){alert('Indique un nom de format.');return;}
-  var qteStr=prompt('Ça représente combien d\'unités de référence (ex: 0.7 pour une bouteille de 70cl si le produit est en litres) ?');
-  if(qteStr===null)return;
-  var qte=parseFloat(qteStr.replace(',','.'));
+  var qteStr=(document.getElementById('stkcondmodal-qte').value||'').toString().replace(',','.');
+  var qte=parseFloat(qteStr);
   if(!qte||qte<=0){alert('Indique une quantité valide.');return;}
   var maxOrdre=stkConditionnements.filter(function(c){return c.produit_code===prodCode;}).reduce(function(m,c){return Math.max(m,c.ordre||0);},0);
   try{sbCheck(await db.from('master_conditionnements').insert({produit_code:prodCode,label:label,quantite_ref:qte,ordre:maxOrdre+10}));}
   catch(e){alert('Erreur : '+e.message);return;}
+  closeM('stkcondmodal');
   loadStocksModule();
   // Rouvrir le panneau après le rechargement
   setTimeout(function(){var el=document.getElementById('stk-cond-panel-'+prodCode);if(el)el.style.display='block';},50);
