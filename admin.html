@@ -5603,7 +5603,7 @@ function renderCaisseList(){
   list.innerHTML=pending.map(function(m){
     return '<div class="card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
       +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;">'+esc(m.hiboutik_nom||'(sans nom)')+'</div>'
-      +'<div style="font-size:11px;color:var(--txm);">#'+m.hiboutik_product_id+'</div></div>'
+      +'<div style="font-size:11px;color:var(--txm);">#'+m.hiboutik_product_id+(m.hiboutik_categorie?' · '+esc(m.hiboutik_categorie):'')+'</div></div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
         +'<button class="btn bp" style="padding:5px 9px;font-size:11px;" onclick="caisseOpenAssocier('+m.hiboutik_product_id+')">Associer</button>'
         +'<button class="btn bs" style="padding:5px 9px;font-size:11px;" onclick="caisseCreer('+m.hiboutik_product_id+')">Créer</button>'
@@ -5613,27 +5613,61 @@ function renderCaisseList(){
   }).join('');
 }
 
+function caisseNormalize(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+function caisseSimilarity(a,b){
+  var na=caisseNormalize(a),nb=caisseNormalize(b);
+  if(!na||!nb)return 0;
+  if(na===nb)return 100;
+  if(na.includes(nb)||nb.includes(na))return 80;
+  var ta=na.split(' ').filter(Boolean),tb=nb.split(' ').filter(Boolean);
+  var setA={};ta.forEach(function(t){setA[t]=true;});
+  var common=tb.filter(function(t){return setA[t];}).length;
+  var union=new Set(ta.concat(tb)).size;
+  return union?Math.round((common/union)*70):0;
+}
 function caisseOpenAssocier(hiboutikProductId){
   caisseCurrentRow=hiboutikProductId;
   var m=caisseMapping.find(function(x){return x.hiboutik_product_id===hiboutikProductId;});
   document.getElementById('caissemodal-title').textContent='Associer — '+(m?m.hiboutik_nom:'');
   document.getElementById('caissemodal-search').value='';
-  caisseRenderCandidates(caisseProduitsVendus);
+  var suggestions=caisseProduitsVendus
+    .map(function(p){return {p:p,score:caisseSimilarity(m?m.hiboutik_nom:'',p.nom)};})
+    .filter(function(x){return x.score>=25;})
+    .sort(function(a,b){return b.score-a.score;})
+    .slice(0,6)
+    .map(function(x){return x.p;});
+  caisseRenderCandidates(caisseProduitsVendus,suggestions);
   document.getElementById('caissemodal').classList.add('op');
 }
 function caisseFilterCandidates(){
-  var q=(document.getElementById('caissemodal-search').value||'').toLowerCase();
-  var filtered=caisseProduitsVendus.filter(function(p){return (p.nom||'').toLowerCase().includes(q);});
-  caisseRenderCandidates(filtered);
+  var q=caisseNormalize(document.getElementById('caissemodal-search').value||'');
+  var filtered=caisseProduitsVendus.filter(function(p){return caisseNormalize(p.nom).includes(q);});
+  caisseRenderCandidates(filtered,[]);
 }
-function caisseRenderCandidates(items){
+function caisseRenderCandidates(items,suggestions){
   var box=document.getElementById('caissemodal-candidates');
-  if(!items.length){box.innerHTML='<div style="color:var(--txm);font-size:12px;padding:8px;">Aucun résultat.</div>';return;}
-  box.innerHTML=items.slice(0,80).map(function(p){
-    return '<div onclick="caisseConfirmAssocier(\''+p.code+'\')" style="padding:8px 6px;border-bottom:1px solid var(--bd);cursor:pointer;font-size:13px;">'
-      +esc(p.nom)+(p.categorie?' <span style="color:var(--txm);font-size:11px;">— '+esc(p.categorie)+'</span>':'')
-    +'</div>';
-  }).join('');
+  var html='';
+  if(suggestions&&suggestions.length){
+    html+='<div style="font-size:11px;color:var(--txm);margin:2px 0 4px;">💡 Suggestions :</div>';
+    html+=suggestions.map(function(p){
+      return '<div onclick="caisseConfirmAssocier(\''+p.code+'\')" style="padding:8px 6px;border-bottom:1px solid var(--bd);cursor:pointer;font-size:13px;background:#FFF7E6;">'
+        +esc(p.nom)+(p.categorie?' <span style="color:var(--txm);font-size:11px;">— '+esc(p.categorie)+'</span>':'')
+      +'</div>';
+    }).join('');
+    html+='<div style="font-size:11px;color:var(--txm);margin:8px 0 4px;">Tout le catalogue :</div>';
+  }
+  if(!items.length){
+    html+='<div style="color:var(--txm);font-size:12px;padding:8px;">Aucun résultat.</div>';
+  }else{
+    html+=items.slice(0,80).map(function(p){
+      return '<div onclick="caisseConfirmAssocier(\''+p.code+'\')" style="padding:8px 6px;border-bottom:1px solid var(--bd);cursor:pointer;font-size:13px;">'
+        +esc(p.nom)+(p.categorie?' <span style="color:var(--txm);font-size:11px;">— '+esc(p.categorie)+'</span>':'')
+      +'</div>';
+    }).join('');
+  }
+  box.innerHTML=html;
 }
 async function caisseConfirmAssocier(code){
   var id=caisseCurrentRow;
