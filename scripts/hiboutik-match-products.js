@@ -1,4 +1,5 @@
-// Rapproche les produits Hiboutik du catalogue produits_vendus par nom. N'écrase jamais un mapping confirmed=true existant.
+// Rapproche les produits Hiboutik du catalogue produits_vendus par nom, et tient à jour la catégorie.
+// Ne modifie jamais un mapping déjà confirmé (produit_vendu_code/confirmed/ignore), mais rafraîchit toujours la catégorie/nom.
 const ACCOUNT = process.env.HIBOUTIK_ACCOUNT;
 const LOGIN = process.env.HIBOUTIK_LOGIN;
 const API_KEY = process.env.HIBOUTIK_API_KEY;
@@ -51,7 +52,7 @@ async function fetchProduitsVendus() {
 }
 
 async function fetchExistingMapping() {
-  const url = `${SURL}/rest/v1/hiboutik_mapping?select=hiboutik_product_id,confirmed`;
+  const url = `${SURL}/rest/v1/hiboutik_mapping?select=hiboutik_product_id,produit_vendu_code,confirmed,ignore`;
   const res = await fetch(url, { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } });
   if (!res.ok) throw new Error(`Supabase hiboutik_mapping: HTTP ${res.status}`);
   return res.json();
@@ -76,7 +77,9 @@ async function upsertMapping(rows) {
   const [hbProducts, hbCategories, pv, existing] = await Promise.all([
     fetchAllHiboutikProducts(), fetchAllHiboutikCategories(), fetchProduitsVendus(), fetchExistingMapping()
   ]);
-  const alreadyConfirmed = new Set(existing.filter(e => e.confirmed).map(e => e.hiboutik_product_id));
+  const existingById = {};
+  existing.forEach(e => { existingById[e.hiboutik_product_id] = e; });
+
   const categoryNameById = {};
   hbCategories.forEach(c => { categoryNameById[c.category_id] = c.category_name; });
 
@@ -89,20 +92,31 @@ async function upsertMapping(rows) {
 
   const rows = [];
   const nonMatches = [];
-  let matched = 0, skipped = 0;
+  let matched = 0, refreshed = 0;
 
   for (const hp of hbProducts) {
     if (hp.product_arch) continue;
-    if (alreadyConfirmed.has(hp.product_id)) { skipped++; continue; }
-
     const categorieNom = categoryNameById[hp.product_category] || null;
+    const existingRow = existingById[hp.product_id];
+
+    if (existingRow && (existingRow.confirmed || existingRow.ignore)) {
+      // Ne touche jamais au choix déjà fait — rafraîchit juste la catégorie/le nom
+      rows.push({
+        hiboutik_product_id: hp.product_id, hiboutik_nom: hp.product_model,
+        hiboutik_categorie_id: hp.product_category, hiboutik_categorie: categorieNom,
+        produit_vendu_code: existingRow.produit_vendu_code, confirmed: existingRow.confirmed, ignore: existingRow.ignore
+      });
+      refreshed++;
+      continue;
+    }
+
     const key = normalize(hp.product_model);
     const candidates = byName[key] || [];
     if (candidates.length === 1) {
-      rows.push({ hiboutik_product_id: hp.product_id, hiboutik_nom: hp.product_model, hiboutik_categorie_id: hp.product_category, hiboutik_categorie: categorieNom, produit_vendu_code: candidates[0], confirmed: true });
+      rows.push({ hiboutik_product_id: hp.product_id, hiboutik_nom: hp.product_model, hiboutik_categorie_id: hp.product_category, hiboutik_categorie: categorieNom, produit_vendu_code: candidates[0], confirmed: true, ignore: false });
       matched++;
     } else {
-      rows.push({ hiboutik_product_id: hp.product_id, hiboutik_nom: hp.product_model, hiboutik_categorie_id: hp.product_category, hiboutik_categorie: categorieNom, produit_vendu_code: null, confirmed: false });
+      rows.push({ hiboutik_product_id: hp.product_id, hiboutik_nom: hp.product_model, hiboutik_categorie_id: hp.product_category, hiboutik_categorie: categorieNom, produit_vendu_code: null, confirmed: false, ignore: false });
       nonMatches.push(hp.product_model + (candidates.length > 1 ? '  (ambigu)' : '') + (categorieNom ? '  ['+categorieNom+']' : ''));
     }
   }
@@ -110,8 +124,8 @@ async function upsertMapping(rows) {
   await upsertMapping(rows);
 
   console.log(`\n=== Résumé ===`);
-  console.log(`${matched} produits mappés automatiquement.`);
-  console.log(`${skipped} déjà confirmés manuellement (non touchés).`);
+  console.log(`${matched} nouveaux produits mappés automatiquement.`);
+  console.log(`${refreshed} déjà traités, catégorie rafraîchie.`);
   console.log(`${nonMatches.length} à vérifier manuellement :`);
   nonMatches.forEach(n => console.log(' - ' + n));
 })().catch(e => { console.error(e); process.exit(1); });
