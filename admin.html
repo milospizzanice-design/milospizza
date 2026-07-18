@@ -5100,7 +5100,8 @@ async function showDashboard(refresh){
 let rctProduitsVendus=[];   // produits_vendus (communs à tous les restaurants)
 let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,unite}]} — communes
 let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), communs à tous les restaurants
-let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT
+let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT — encore utilisé par l'écran Coûts
+let rctMasterStockProduits=[]; // catalogue stock partagé (master_produits) — utilisé pour les liens ingrédient/stock
 let rctIngredientStockLink={}; // {ingredient_code: stock_produit_code} — rattachement stock, propre au restaurant courant
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
 let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons — niveau au-dessus des catégories, commun
@@ -6457,11 +6458,12 @@ async function loadRecettesModule(){
     return;
   }
   try{
-    var [pv,rc,ing,pr,ic,link,dispo,catOrd,subOrd,ongOrd]=await Promise.all([
+    var [pv,rc,ing,pr,mpr,ic,link,dispo,catOrd,subOrd,ongOrd]=await Promise.all([
       db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('produits').select('*').eq('restaurant_id',resto).order('nom'),
+      db.from('master_produits').select('*').order('nom'),
       db.from('ingredient_composition').select('*').eq('restaurant_id',resto),
       db.from('ingredient_stock_link').select('*').eq('restaurant_id',resto),
       db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto),
@@ -6472,6 +6474,7 @@ async function loadRecettesModule(){
     rctProduitsVendus=pv.data||[];
     rctIngredients=ing.data||[];
     rctStockProduits=pr.data||[];
+    rctMasterStockProduits=mpr.data||[];
     rctIngredientStockLink={};
     (link.data||[]).forEach(function(r){rctIngredientStockLink[r.ingredient_code]=r.stock_produit_code;});
     rctProduitDispo={};
@@ -7106,15 +7109,16 @@ function openLinkModal(code){
   document.getElementById('mlink').classList.add('op');
 }
 async function saveIngredientLink(){
-  var resto=rctResto();
   var code=mlinkCurrentCode;
   var stockCode=document.getElementById('mlink-select').value||null;
   try{
-    sbCheck(await db.from('ingredient_stock_link').upsert([{restaurant_id:resto,ingredient_code:code,stock_produit_code:stockCode}],{onConflict:'restaurant_id,ingredient_code'}));
+    var restos=['port','dabray'];
+    for(var i=0;i<restos.length;i++){
+      sbCheck(await db.from('ingredient_stock_link').upsert([{restaurant_id:restos[i],ingredient_code:code,stock_produit_code:stockCode}],{onConflict:'restaurant_id,ingredient_code'}));
+    }
     rctIngredientStockLink[code]=stockCode;
     closeM('mlink');
     renderIngredientsList();
-    if(stockCode)await propagateIngredientLink(code,resto,stockCode);
   }catch(e){console.error('saveIngredientLink',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
@@ -7296,7 +7300,7 @@ async function updateProduitCout(code,field,value){
 // ── Composition d'un ingrédient (sous-recette depuis le stock) ──────────────
 let mingcompCurrentCode=null;
 function stockOptionsHtml(){
-  return rctStockProduits.map(function(p){return '<option value="'+p.code+'">'+esc(p.nom)+'</option>';}).join('');
+  return rctMasterStockProduits.map(function(p){return '<option value="'+p.code+'">'+esc(p.nom)+'</option>';}).join('');
 }
 function openIngredientCompoModal(code){
   mingcompCurrentCode=code;
@@ -7341,20 +7345,24 @@ function addCompoLine(){
   container.appendChild(div);
 }
 async function saveIngredientComposition(){
-  var resto=rctResto();
   var code=mingcompCurrentCode;
   var rows=document.querySelectorAll('#mingcomp-lines [data-idx]');
-  var lines=[];
+  var restos=['port','dabray'];
+  var linesByResto={};
+  restos.forEach(function(r){linesByResto[r]=[];});
   rows.forEach(function(row){
     var prod=row.querySelector('.compo-prod').value;
     var qty=parseFloat(row.querySelector('.compo-qty').value);
     var unit=row.querySelector('.compo-unit').value;
-    if(prod&&qty>0)lines.push({restaurant_id:resto,ingredient_code:code,stock_produit_code:prod,quantite:qty,unite:unit});
+    if(prod&&qty>0)restos.forEach(function(r){linesByResto[r].push({restaurant_id:r,ingredient_code:code,stock_produit_code:prod,quantite:qty,unite:unit});});
   });
   try{
-    sbCheck(await db.from('ingredient_composition').delete().eq('restaurant_id',resto).eq('ingredient_code',code));
-    if(lines.length)sbCheck(await db.from('ingredient_composition').insert(lines));
-    rctIngredientComposition[code]=lines;
+    for(var i=0;i<restos.length;i++){
+      var r=restos[i];
+      sbCheck(await db.from('ingredient_composition').delete().eq('restaurant_id',r).eq('ingredient_code',code));
+      if(linesByResto[r].length)sbCheck(await db.from('ingredient_composition').insert(linesByResto[r]));
+    }
+    rctIngredientComposition[code]=linesByResto[rctResto()];
     closeM('mingcomp');
     renderIngredientsList();
   }catch(e){console.error('saveIngredientComposition',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
