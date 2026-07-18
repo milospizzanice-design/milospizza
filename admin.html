@@ -6458,12 +6458,13 @@ async function loadRecettesModule(){
     return;
   }
   try{
-    var [pv,rc,ing,pr,mpr,ic,link,dispo,catOrd,subOrd,ongOrd]=await Promise.all([
+    var [pv,rc,ing,pr,mpr,mprc,ic,link,dispo,catOrd,subOrd,ongOrd]=await Promise.all([
       db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('produits').select('*').eq('restaurant_id',resto).order('nom'),
       db.from('master_produits').select('*').order('nom'),
+      db.from('master_produits_couts').select('*').eq('restaurant_id',resto),
       db.from('ingredient_composition').select('*').eq('restaurant_id',resto),
       db.from('ingredient_stock_link').select('*').eq('restaurant_id',resto),
       db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto),
@@ -6474,7 +6475,12 @@ async function loadRecettesModule(){
     rctProduitsVendus=pv.data||[];
     rctIngredients=ing.data||[];
     rctStockProduits=pr.data||[];
-    rctMasterStockProduits=mpr.data||[];
+    var coutByCode={};
+    (mprc.data||[]).forEach(function(c){coutByCode[c.produit_code]=c;});
+    rctMasterStockProduits=(mpr.data||[]).map(function(p){
+      var c=coutByCode[p.code];
+      return c?Object.assign({},p,{mode_prix:c.mode_prix,prix_unitaire:c.prix_unitaire,prix_kilo:c.prix_kilo,prix_litre:c.prix_litre,poids_net_g:c.poids_net_g}):p;
+    });
     rctIngredientStockLink={};
     (link.data||[]).forEach(function(r){rctIngredientStockLink[r.ingredient_code]=r.stock_produit_code;});
     rctProduitDispo={};
@@ -7294,6 +7300,15 @@ async function updateProduitCout(code,field,value){
     sbCheck(await db.from('produits').update(payload).eq('restaurant_id',resto).eq('code',code));
     var p=rctStockProduits.find(function(x){return x.code===code;});
     if(p)p[field]=payload[field];
+    // Répercute aussi vers le catalogue maître (nouvelle référence utilisée par le calcul de coût)
+    if(p){
+      var masterMatch=rctMasterStockProduits.find(function(mp){return caisseNormalize(mp.nom)===caisseNormalize(p.nom);});
+      if(masterMatch){
+        var mpayload=Object.assign({restaurant_id:resto,produit_code:masterMatch.code},payload);
+        sbCheck(await db.from('master_produits_couts').upsert([mpayload],{onConflict:'restaurant_id,produit_code'}));
+        masterMatch[field]=payload[field];
+      }
+    }
   }catch(e){console.error('updateProduitCout',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
@@ -7690,7 +7705,7 @@ function coutIngredient(ingredientCode,quantite,unite){
   if(compo&&compo.length){
     var totalPoids=0,totalCout=0,details=[];
     compo.forEach(function(l){
-      var sp=rctStockProduits.find(function(p){return p.code===l.stock_produit_code;});
+      var sp=rctMasterStockProduits.find(function(p){return p.code===l.stock_produit_code;});
       var spNom=sp?sp.nom:('produit inconnu ('+l.stock_produit_code+')');
       var r=coutQuantiteStock(sp,l.quantite,l.unite);
       // Poids en grammes de cette ligne, pour la clé de répartition du coût :
@@ -7711,7 +7726,7 @@ function coutIngredient(ingredientCode,quantite,unite){
   }
   var stockCode=rctIngredientStockLink[ingredientCode];
   if(!stockCode)return {cout:null,warning:'ingrédient non relié au stock'};
-  var sp=rctStockProduits.find(function(p){return p.code===stockCode;});
+  var sp=rctMasterStockProduits.find(function(p){return p.code===stockCode;});
   return coutQuantiteStock(sp,quantite,unite);
 }
 // Prix de revient complet d'un produit vendu (somme de sa recette).
