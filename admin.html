@@ -487,7 +487,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
           <input type="checkbox" id="rct-ing-show-unlinked" onchange="renderIngredientsList()"> Non reliés seulement
         </label>
       </div>
-      <button class="btn bs sm" onclick="openNewIngredientModal()" style="margin-bottom:10px;">+ Ajouter un ingrédient manuellement</button>
+      <button class="btn bs sm" onclick="openNewIngredientModal()" style="margin-bottom:6px;">+ Ajouter un ingrédient manuellement</button>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvelle section</button>
+        <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
+      </div>
+      <div id="rct-ing-nav" style="display:flex;gap:6px;overflow-x:auto;padding:6px 2px;margin-bottom:8px;position:sticky;top:0;background:var(--bg,#fff);z-index:10;-webkit-overflow-scrolling:touch;"></div>
       <div id="rct-ing-list-container"></div>
     </div>
 
@@ -5102,6 +5107,7 @@ let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,u
 let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), communs à tous les restaurants
 let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT — encore utilisé par l'écran Coûts
 let rctMasterStockProduits=[]; // catalogue stock partagé (master_produits) — utilisé pour les liens ingrédient/stock
+let rctSuppliers=[]; // fournisseurs du restaurant courant (depuis stock_catalogue.suppliers)
 let rctIngredientStockLink={}; // {ingredient_code: stock_produit_code} — rattachement stock, propre au restaurant courant
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
 let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons — niveau au-dessus des catégories, commun
@@ -6458,7 +6464,7 @@ async function loadRecettesModule(){
     return;
   }
   try{
-    var [pv,rc,ing,pr,mpr,mprc,ic,link,dispo,catOrd,subOrd,ongOrd]=await Promise.all([
+    var [pv,rc,ing,pr,mpr,mprc,ic,link,dispo,catOrd,subOrd,ongOrd,sc]=await Promise.all([
       db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
@@ -6470,16 +6476,19 @@ async function loadRecettesModule(){
       db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto),
       db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('sous_categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
-      db.from('onglets_ordre').select('*').eq('restaurant_id',RCT_GLOBAL)
+      db.from('onglets_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
+      db.from('stock_catalogue').select('suppliers').eq('restaurant_id',resto).maybeSingle()
     ]);
     rctProduitsVendus=pv.data||[];
     rctIngredients=ing.data||[];
     rctStockProduits=pr.data||[];
+    var suppliersBlob=(sc.data&&sc.data.suppliers)||{};
+    rctSuppliers=Object.keys(suppliersBlob).map(function(id){return {id:id,nom:(suppliersBlob[id]&&suppliersBlob[id].name)||id};}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
     var coutByCode={};
     (mprc.data||[]).forEach(function(c){coutByCode[c.produit_code]=c;});
     rctMasterStockProduits=(mpr.data||[]).map(function(p){
       var c=coutByCode[p.code];
-      return c?Object.assign({},p,{mode_prix:c.mode_prix,prix_unitaire:c.prix_unitaire,prix_kilo:c.prix_kilo,prix_litre:c.prix_litre,poids_net_g:c.poids_net_g}):p;
+      return c?Object.assign({},p,{mode_prix:c.mode_prix,prix_unitaire:c.prix_unitaire,prix_kilo:c.prix_kilo,prix_litre:c.prix_litre,poids_net_g:c.poids_net_g,fournisseur_id:c.fournisseur_id}):p;
     });
     rctIngredientStockLink={};
     (link.data||[]).forEach(function(r){rctIngredientStockLink[r.ingredient_code]=r.stock_produit_code;});
@@ -6973,6 +6982,7 @@ function renderIngredientsList(){
   var searchEl=document.getElementById('rct-ing-search');
   var unlinkedEl=document.getElementById('rct-ing-show-unlinked');
   var container=document.getElementById('rct-ing-list-container');
+  var navEl=document.getElementById('rct-ing-nav');
   if(!searchEl||!unlinkedEl||!container)return;
   var search=(searchEl.value||'').toLowerCase();
   var onlyUnlinked=unlinkedEl.checked;
@@ -6980,10 +6990,10 @@ function renderIngredientsList(){
     var compo=rctIngredientComposition[i.code]||[];
     var linkCode=rctIngredientStockLink[i.code];
     var stockProd=linkCode?rctMasterStockProduits.find(function(p){return p.code===linkCode;}):null;
-    if(compo.length)return {ok:true,label:'🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)'};
-    if(linkCode&&!stockProd)return {ok:false,label:'<span style="color:#C0392B;">🔴 Lien cassé — produit stock introuvable, à relier à nouveau</span>'};
-    if(stockProd)return {ok:true,label:'🔗 '+esc(stockProd.nom)};
-    return {ok:false,label:'<span style="color:#C0392B;">⚠️ Non relié</span>'};
+    if(compo.length)return {ok:true,label:'🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)',stockProd:null};
+    if(linkCode&&!stockProd)return {ok:false,label:'<span style="color:#C0392B;">🔴 Lien cassé — produit stock introuvable, à relier à nouveau</span>',stockProd:null};
+    if(stockProd)return {ok:true,label:'🔗 '+esc(stockProd.nom),stockProd:stockProd};
+    return {ok:false,label:'<span style="color:#C0392B;">⚠️ Non relié</span>',stockProd:null};
   }
   var list=rctIngredients.filter(function(i){
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
@@ -6992,26 +7002,53 @@ function renderIngredientsList(){
   });
   if(!list.length){
     container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.</div>';
+    if(navEl)navEl.innerHTML='';
     return;
   }
   var TYPES=[
-    {key:'matiere_premiere',label:'🌾 Matières premières',hint:'À transformer avant usage (aubergines, oignons, sel...)'},
-    {key:'marchandise',label:'📦 Marchandises',hint:'Utilisées telles quelles (mozzarella, chèvre, burrata...)'},
-    {key:'produit_transforme',label:'🧪 Produits transformés',hint:'Préparés via une recette (aubergines cuisinées, sauce tomate...)'},
-    {key:'',label:'❓ Non classé',hint:'Type à définir'}
+    {key:'matiere_premiere',label:'🌾 Matières premières'},
+    {key:'marchandise',label:'📦 Marchandises'},
+    {key:'produit_transforme',label:'🧪 Produits transformés'}
   ];
+  function moveSelectHtml(i){
+    var opts='<option value="">📁 Déplacer…</option>';
+    sortedOngletNames(groupByOnglet(rctIngredients,function(x){return x.categorie;},function(x){return x.sous_categorie;})).forEach(function(ong){
+      Object.keys(rctCategoriesOrdre).filter(function(cat){return (rctCategoriesOrdre[cat].onglet||'_sans_onglet')===ong;}).forEach(function(cat){
+        if(cat!==i.categorie||i.sous_categorie)opts+='<option value="'+esc(cat)+'|">→ '+esc(cat)+'</option>';
+        Object.keys((rctSousCategoriesOrdre[cat]||{})).forEach(function(sub){
+          if(!(cat===i.categorie&&sub===i.sous_categorie))opts+='<option value="'+esc(cat)+'|'+esc(sub)+'">→ '+esc(cat)+' ↳ '+esc(sub)+'</option>';
+        });
+      });
+    });
+    return '<select class="fi" style="font-size:10px;padding:2px;max-width:110px;" onchange="if(this.value)moveIngredientToCategory(\''+i.code+'\',this.value);this.selectedIndex=0;">'+opts+'</select>';
+  }
+  function priceInputsHtml(sp){
+    if(!sp)return '';
+    return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
+      +'<input type="number" class="fi" style="width:64px;font-size:10px;" step="0.01" placeholder="€/kg" value="'+(sp.prix_kilo!=null?sp.prix_kilo:'')+'" onchange="updateMasterProduitCout(\''+sp.code+'\',\'prix_kilo\',this.value)">'
+      +'<input type="number" class="fi" style="width:64px;font-size:10px;" step="0.01" placeholder="€/L" value="'+(sp.prix_litre!=null?sp.prix_litre:'')+'" onchange="updateMasterProduitCout(\''+sp.code+'\',\'prix_litre\',this.value)">'
+      +'<input type="number" class="fi" style="width:64px;font-size:10px;" step="0.01" placeholder="€/pièce" value="'+(sp.prix_unitaire!=null?sp.prix_unitaire:'')+'" onchange="updateMasterProduitCout(\''+sp.code+'\',\'prix_unitaire\',this.value)">'
+      +'<select class="fi" style="font-size:10px;max-width:110px;" onchange="updateMasterProduitCout(\''+sp.code+'\',\'fournisseur_id\',this.value)">'
+        +'<option value="">🚚 Fournisseur…</option>'
+        +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(sp.fournisseur_id===s.id?' selected':'')+'>'+esc(s.nom)+'</option>';}).join('')
+      +'</select>'
+      +'</div>';
+  }
   function renderIngredientCard(i){
     var statut=statutIngredient(i);
-    return '<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;flex-wrap:wrap;">'
+    return '<div class="card" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<div style="flex:1;min-width:160px;">'
       +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(i.nom)+'</div>'
       +'<div style="font-size:11px;color:var(--txm);">'+statut.label+'</div>'
       +'</div>'
-      +'<select class="fi" style="width:120px;font-size:11px;" title="Type d\'ingrédient" onchange="updateIngredientType(\''+i.code+'\',this.value)">'
-        +TYPES.filter(function(t){return t.key;}).map(function(t){return '<option value="'+t.key+'"'+(i.type_ingredient===t.key?' selected':'')+'>'+t.label.replace(/^\S+\s/,'')+'</option>';}).join('')
+      +'<select class="fi" style="width:110px;font-size:11px;" title="Type d\'ingrédient" onchange="updateIngredientType(\''+i.code+'\',this.value)">'
+        +'<option value="">❓ Type…</option>'
+        +TYPES.map(function(t){return '<option value="'+t.key+'"'+(i.type_ingredient===t.key?' selected':'')+'>'+t.label+'</option>';}).join('')
       +'</select>'
+      +moveSelectHtml(i)
       +'<input type="number" class="fi" style="width:56px;font-size:11px;" step="0.1" title="Quantité par défaut en recette" placeholder="Qté" value="'+(i.quantite_defaut!=null?i.quantite_defaut:'')+'" onchange="updateIngredientQuantiteDefaut(\''+i.code+'\',this.value)">'
-      +'<select class="fi" style="width:80px;font-size:11px;" title="Unité par défaut en recette" onchange="updateIngredientUniteDefaut(\''+i.code+'\',this.value)">'
+      +'<select class="fi" style="width:70px;font-size:11px;" title="Unité par défaut en recette" onchange="updateIngredientUniteDefaut(\''+i.code+'\',this.value)">'
         +'<option value="g"'+(( i.unite_defaut||'g')==='g'?' selected':'')+'>g</option>'
         +'<option value="ml"'+((i.unite_defaut)==='ml'?' selected':'')+'>ml</option>'
         +'<option value="piece"'+((i.unite_defaut)==='piece'?' selected':'')+'>pièce</option>'
@@ -7019,14 +7056,30 @@ function renderIngredientsList(){
       +'<button class="btn bs sm" onclick="openLinkModal(\''+i.code+'\')">Relier</button>'
       +'<button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')">Recette</button>'
       +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
+      +'</div>'
+      +(statut.stockProd?priceInputsHtml(statut.stockProd):'')
       +'</div>';
   }
+  var byOnglet=groupByOnglet(list,function(i){return i.categorie;},function(i){return i.sous_categorie;});
+  var ongNames=sortedOngletNames(byOnglet);
+  if(navEl){
+    navEl.innerHTML=ongNames.map(function(ong){
+      var label=ong==='_sans_onglet'?'Non classé':ong;
+      return '<button type="button" class="btn bs sm" style="white-space:nowrap;font-size:11px;flex-shrink:0;" onclick="document.getElementById(\'ing-anchor-'+encodeURIComponent(ong)+'\').scrollIntoView({behavior:\'smooth\',block:\'start\'});">'+esc(label)+'</button>';
+    }).join('');
+  }
   var html='';
-  TYPES.forEach(function(t){
-    var items=list.filter(function(i){return (i.type_ingredient||'')===t.key;});
-    if(!items.length)return;
-    html+='<div style="font-weight:700;font-size:13px;margin:14px 0 4px;color:var(--tx);">'+t.label+' <span style="font-weight:400;font-size:11px;color:var(--txm);">— '+t.hint+'</span></div>';
-    items.sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');}).forEach(function(i){html+=renderIngredientCard(i);});
+  ongNames.forEach(function(ong){
+    html+='<div id="ing-anchor-'+encodeURIComponent(ong)+'">'+ongletHeaderHtml(ong)+'</div>';
+    var catNames=sortedCatNames(byOnglet[ong]);
+    catNames.forEach(function(cat){
+      html+=catHeaderHtml(cat);
+      var subNames=sortedSubNames(cat,byOnglet[ong][cat]);
+      subNames.forEach(function(sub){
+        if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:8px 0 4px 8px;">↳ '+esc(sub)+'</div>';
+        byOnglet[ong][cat][sub].forEach(function(i){html+=renderIngredientCard(i);});
+      });
+    });
   });
   container.innerHTML=html;
 }
@@ -7051,6 +7104,28 @@ async function updateIngredientUniteDefaut(code,unite){
     var ing=rctIngredients.find(function(i){return i.code===code;});
     if(ing)ing.unite_defaut=unite;
   }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
+}
+async function updateMasterProduitCout(masterCode,field,value){
+  var resto=rctResto();
+  var payload={restaurant_id:resto,produit_code:masterCode};
+  if(field==='mode_prix'||field==='fournisseur_id')payload[field]=value||null;
+  else payload[field]=(value===''?null:parseFloat(value));
+  try{
+    sbCheck(await db.from('master_produits_couts').upsert([payload],{onConflict:'restaurant_id,produit_code'}));
+    var mp=rctMasterStockProduits.find(function(p){return p.code===masterCode;});
+    if(mp)mp[field]=payload[field];
+    renderIngredientsList();
+  }catch(e){console.error('updateMasterProduitCout',e);alert('Erreur : '+e.message);}
+}
+async function moveIngredientToCategory(code,value){
+  var parts=(value||'').split('|');
+  var cat=parts[0]||null,sub=parts[1]||null;
+  try{
+    sbCheck(await db.from('ingredients').update({categorie:cat,sous_categorie:sub}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var i=rctIngredients.find(function(x){return x.code===code;});
+    if(i){i.categorie=cat;i.sous_categorie=sub;}
+    renderIngredientsList();
+  }catch(e){console.error('moveIngredientToCategory',e);alert('Erreur : '+e.message);}
 }
 async function updateIngredientType(code,type){
   try{
