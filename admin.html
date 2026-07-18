@@ -6976,30 +6976,40 @@ function renderIngredientsList(){
   if(!searchEl||!unlinkedEl||!container)return;
   var search=(searchEl.value||'').toLowerCase();
   var onlyUnlinked=unlinkedEl.checked;
+  function statutIngredient(i){
+    var compo=rctIngredientComposition[i.code]||[];
+    var linkCode=rctIngredientStockLink[i.code];
+    var stockProd=linkCode?rctMasterStockProduits.find(function(p){return p.code===linkCode;}):null;
+    if(compo.length)return {ok:true,label:'🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)'};
+    if(linkCode&&!stockProd)return {ok:false,label:'<span style="color:#C0392B;">🔴 Lien cassé — produit stock introuvable, à relier à nouveau</span>'};
+    if(stockProd)return {ok:true,label:'🔗 '+esc(stockProd.nom)};
+    return {ok:false,label:'<span style="color:#C0392B;">⚠️ Non relié</span>'};
+  }
   var list=rctIngredients.filter(function(i){
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
-    if(onlyUnlinked&&rctIngredientStockLink[i.code])return false;
+    if(onlyUnlinked&&statutIngredient(i).ok)return false;
     return true;
   });
   if(!list.length){
     container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.</div>';
     return;
   }
-  // Même hiérarchie Onglet > Catégorie que Produits&recettes et Coûts (categories_ordre partagé).
-  // Les ingrédients n'ont pas de sous-catégorie propre (pas de champ sous_categorie sur la table ingredients).
-  var byOnglet=groupByOnglet(list,function(i){return i.categorie;},function(){return null;});
+  var TYPES=[
+    {key:'matiere_premiere',label:'🌾 Matières premières',hint:'À transformer avant usage (aubergines, oignons, sel...)'},
+    {key:'marchandise',label:'📦 Marchandises',hint:'Utilisées telles quelles (mozzarella, chèvre, burrata...)'},
+    {key:'produit_transforme',label:'🧪 Produits transformés',hint:'Préparés via une recette (aubergines cuisinées, sauce tomate...)'},
+    {key:'',label:'❓ Non classé',hint:'Type à définir'}
+  ];
   function renderIngredientCard(i){
-    var compo=rctIngredientComposition[i.code]||[];
-    var stockProd=rctMasterStockProduits.find(function(p){return p.code===rctIngredientStockLink[i.code];});
-    var linkLabel;
-    if(compo.length)linkLabel='🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)';
-    else if(stockProd)linkLabel='🔗 '+esc(stockProd.nom);
-    else linkLabel='<span style="color:#C0392B;">Non relié</span>';
-    return '<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;">'
-      +'<div style="flex:1;">'
+    var statut=statutIngredient(i);
+    return '<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;flex-wrap:wrap;">'
+      +'<div style="flex:1;min-width:160px;">'
       +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(i.nom)+'</div>'
-      +'<div style="font-size:11px;color:var(--txm);">'+linkLabel+'</div>'
+      +'<div style="font-size:11px;color:var(--txm);">'+statut.label+'</div>'
       +'</div>'
+      +'<select class="fi" style="width:120px;font-size:11px;" title="Type d\'ingrédient" onchange="updateIngredientType(\''+i.code+'\',this.value)">'
+        +TYPES.filter(function(t){return t.key;}).map(function(t){return '<option value="'+t.key+'"'+(i.type_ingredient===t.key?' selected':'')+'>'+t.label.replace(/^\S+\s/,'')+'</option>';}).join('')
+      +'</select>'
       +'<input type="number" class="fi" style="width:56px;font-size:11px;" step="0.1" title="Quantité par défaut en recette" placeholder="Qté" value="'+(i.quantite_defaut!=null?i.quantite_defaut:'')+'" onchange="updateIngredientQuantiteDefaut(\''+i.code+'\',this.value)">'
       +'<select class="fi" style="width:80px;font-size:11px;" title="Unité par défaut en recette" onchange="updateIngredientUniteDefaut(\''+i.code+'\',this.value)">'
         +'<option value="g"'+(( i.unite_defaut||'g')==='g'?' selected':'')+'>g</option>'
@@ -7012,13 +7022,11 @@ function renderIngredientsList(){
       +'</div>';
   }
   var html='';
-  sortedOngletNames(byOnglet).forEach(function(ong){
-    html+=ongletHeaderHtml(ong);
-    var catNames=sortedCatNames(byOnglet[ong]);
-    catNames.forEach(function(cat){
-      html+=catHeaderHtml(cat);
-      byOnglet[ong][cat][''].forEach(function(i){html+=renderIngredientCard(i);});
-    });
+  TYPES.forEach(function(t){
+    var items=list.filter(function(i){return (i.type_ingredient||'')===t.key;});
+    if(!items.length)return;
+    html+='<div style="font-weight:700;font-size:13px;margin:14px 0 4px;color:var(--tx);">'+t.label+' <span style="font-weight:400;font-size:11px;color:var(--txm);">— '+t.hint+'</span></div>';
+    items.sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');}).forEach(function(i){html+=renderIngredientCard(i);});
   });
   container.innerHTML=html;
 }
@@ -7043,6 +7051,14 @@ async function updateIngredientUniteDefaut(code,unite){
     var ing=rctIngredients.find(function(i){return i.code===code;});
     if(ing)ing.unite_defaut=unite;
   }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
+}
+async function updateIngredientType(code,type){
+  try{
+    sbCheck(await db.from('ingredients').update({type_ingredient:type||null}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var ing=rctIngredients.find(function(i){return i.code===code;});
+    if(ing)ing.type_ingredient=type||null;
+    renderIngredientsList();
+  }catch(e){console.error('updateIngredientType',e);alert('Erreur : '+e.message);}
 }
 async function updateIngredientQuantiteDefaut(code,value){
   var qty=value===''?null:parseFloat(value);
