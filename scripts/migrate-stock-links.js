@@ -27,7 +27,7 @@ async function sbPatch(table, matchQuery, body) {
     sb('produits?select=code,nom,restaurant_id'),
     sb('master_produits?select=code,nom'),
     sb('ingredient_stock_link?select=id,restaurant_id,ingredient_code,stock_produit_code'),
-    sb('ingredient_composition?select=id,restaurant_id,ingredient_code,stock_produit_code,quantite,unite')
+    sb('ingredient_composition?select=restaurant_id,ingredient_code,stock_produit_code,quantite,unite')
   ]);
 
   const oldNameByKey = {};
@@ -62,7 +62,9 @@ async function sbPatch(table, matchQuery, body) {
     if (ambiguous.has(key) || !masterCodeByName[key]) { compoSkipped.push(`composition ${row.ingredient_code} (${row.restaurant_id}) — "${oldName}" non trouvé/ambigu dans le catalogue maître`); continue; }
     const newCode = masterCodeByName[key];
     if (newCode !== row.stock_produit_code) {
-      await sbPatch('ingredient_composition', `id=eq.${row.id}`, { stock_produit_code: newCode });
+      // Pas de colonne id : on identifie la ligne par sa clé composée (restaurant_id + ingredient_code + ancien stock_produit_code)
+      const match = `restaurant_id=eq.${encodeURIComponent(row.restaurant_id)}&ingredient_code=eq.${encodeURIComponent(row.ingredient_code)}&stock_produit_code=eq.${encodeURIComponent(row.stock_produit_code)}`;
+      await sbPatch('ingredient_composition', match, { stock_produit_code: newCode });
       compoMigrated++;
     }
   }
