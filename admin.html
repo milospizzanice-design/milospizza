@@ -6984,7 +6984,7 @@ function renderIngredientsList(){
   var byOnglet=groupByOnglet(list,function(i){return i.categorie;},function(){return null;});
   function renderIngredientCard(i){
     var compo=rctIngredientComposition[i.code]||[];
-    var stockProd=rctStockProduits.find(function(p){return p.code===rctIngredientStockLink[i.code];});
+    var stockProd=rctMasterStockProduits.find(function(p){return p.code===rctIngredientStockLink[i.code];});
     var linkLabel;
     if(compo.length)linkLabel='🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)';
     else if(stockProd)linkLabel='🔗 '+esc(stockProd.nom);
@@ -7076,7 +7076,7 @@ function matchScore(a,b){
   return Math.round(100*common.length/Math.max(wa.length,wb.length))*0.7; // pondéré, reste sous les matches directs
 }
 function suggestStockMatches(ingredientNom){
-  return rctStockProduits
+  return rctMasterStockProduits
     .map(function(p){return {produit:p,score:matchScore(ingredientNom,p.nom)};})
     .filter(function(x){return x.score>=25;})
     .sort(function(a,b){return b.score-a.score;})
@@ -7086,8 +7086,8 @@ function suggestStockMatches(ingredientNom){
 function openLinkModal(code){
   mlinkCurrentCode=code;
   var i=rctIngredients.find(function(x){return x.code===code;});
-  document.getElementById('mlink-title').textContent='Relier "'+(i?i.nom:code)+'" au stock ('+rctResto()+')';
-  var opts='<option value="">-- Non relié --</option>'+rctStockProduits.map(function(p){
+  document.getElementById('mlink-title').textContent='Relier "'+(i?i.nom:code)+'" au stock (catalogue partagé)';
+  var opts='<option value="">-- Non relié --</option>'+rctMasterStockProduits.map(function(p){
     return '<option value="'+p.code+'">'+esc(p.nom)+'</option>';
   }).join('');
   var sel=document.getElementById('mlink-select');
