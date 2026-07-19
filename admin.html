@@ -6806,16 +6806,24 @@ function openRecetteModal(code){
   document.getElementById('mrct').classList.add('op');
 }
 function ingredientOptionsHtml(){
-  var groups={};
-  rctIngredients.filter(function(i){return i.actif!==false;}).forEach(function(i){
+  var groups={}; // cat -> { subcat -> [] } — uniquement les ingrédients "produit fini" (utilisables tels quels dans une recette de produit vendu)
+  rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini';}).forEach(function(i){
     var cat=i.categorie||'Autres';
-    groups[cat]=groups[cat]||[];
-    groups[cat].push(i);
+    var sub=i.sous_categorie||'';
+    groups[cat]=groups[cat]||{};
+    groups[cat][sub]=groups[cat][sub]||[];
+    groups[cat][sub].push(i);
   });
-  return Object.keys(groups).sort().map(function(cat){
-    var opts=groups[cat].map(function(i){return '<option value="'+i.code+'">'+esc(i.nom)+'</option>';}).join('');
-    return '<optgroup label="'+esc(cat)+'">'+opts+'</optgroup>';
-  }).join('');
+  var html='';
+  Object.keys(groups).sort().forEach(function(cat){
+    var subs=groups[cat];
+    Object.keys(subs).sort(function(a,b){if(a==='')return -1;if(b==='')return 1;return a.localeCompare(b);}).forEach(function(sub){
+      var label=sub?cat+' ↳ '+sub:cat;
+      var opts=subs[sub].slice().sort(function(a,b){return a.nom.localeCompare(b.nom);}).map(function(i){return '<option value="'+i.code+'">'+esc(i.nom)+'</option>';}).join('');
+      html+='<optgroup label="'+esc(label)+'">'+opts+'</optgroup>';
+    });
+  });
+  return html;
 }
 function renderRecetteLines(lines){
   var opts=ingredientOptionsHtml();
@@ -6879,7 +6887,7 @@ function renderMrctSearchResults(){
   var qn=normText(q);
   var currentCodes={};
   document.querySelectorAll('#mrct-lines .mrct-ing').forEach(function(sel){if(sel.value)currentCodes[sel.value]=true;});
-  var actifs=rctIngredients.filter(function(i){return i.actif!==false;});
+  var actifs=rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini';});
   var matches=actifs.filter(function(i){return normText(i.nom).indexOf(qn)>=0;}).slice(0,30);
   var fuzzyNote='';
   if(!matches.length){
@@ -7113,10 +7121,10 @@ function renderIngredientsList(){
     var compo=rctIngredientComposition[i.code]||[];
     var linkCode=rctIngredientStockLink[i.code];
     var stockProd=linkCode?rctMasterStockProduits.find(function(p){return p.code===linkCode;}):null;
-    if(compo.length)return {ok:true,label:'🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)',stockProd:null};
-    if(linkCode&&!stockProd)return {ok:false,label:'<span style="color:#C0392B;">🔴 Lien cassé — produit stock introuvable, à relier à nouveau</span>',stockProd:null};
-    if(stockProd)return {ok:true,label:'🔗 '+esc(stockProd.nom),stockProd:stockProd};
-    return {ok:false,label:'<span style="color:#C0392B;">⚠️ Non relié</span>',stockProd:null};
+    if(compo.length)return {ok:true,label:'🧪 Recette ('+compo.length+' produit'+(compo.length>1?'s':'')+' stock)',stockProd:null,isComposed:true};
+    if(linkCode&&!stockProd)return {ok:false,label:'<span style="color:#C0392B;">🔴 Lien cassé — produit stock introuvable, à relier à nouveau</span>',stockProd:null,isComposed:false};
+    if(stockProd)return {ok:true,label:'🔗 '+esc(stockProd.nom),stockProd:stockProd,isComposed:false};
+    return {ok:false,label:'<span style="color:#C0392B;">⚠️ Non relié</span>',stockProd:null,isComposed:false};
   }
   var list=rctIngredients.filter(function(i){
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
@@ -7140,18 +7148,25 @@ function renderIngredientsList(){
     });
     return '<select class="fi" style="font-size:10px;padding:2px;max-width:110px;" onchange="if(this.value)moveIngredientToCategory(\''+i.code+'\',this.value);this.selectedIndex=0;">'+opts+'</select>';
   }
-  function priceInputsHtml(sp){
-    if(!sp)return '';
-    var mode=sp.mode_prix||'unitaire';
+  function priceInputsHtml(sp,ingCode){
+    var mode=(sp&&sp.mode_prix)||'unitaire';
     var field=modePrixField(mode),label=modePrixLabel(mode);
+    var codeAttr=sp?sp.code:'';
     return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
-      +modeMesureSelectHtml('',mode,'onchange="updateMasterProduitCout(\''+sp.code+'\',\'mode_prix\',this.value)"')
-      +'<input type="number" class="fi" style="width:74px;font-size:10px;" step="0.01" placeholder="'+label+'" value="'+(sp[field]!=null?sp[field]:'')+'" onchange="updateMasterProduitCout(\''+sp.code+'\',\''+field+'\',this.value)">'
-      +'<select class="fi" style="font-size:10px;max-width:110px;" onchange="updateMasterProduitCout(\''+sp.code+'\',\'fournisseur_id\',this.value)">'
+      +modeMesureSelectHtml('',mode,'onchange="handlePriceFieldChange(\''+ingCode+'\',\''+codeAttr+'\',\'mode_prix\',this.value)"')
+      +'<input type="number" class="fi" style="width:74px;font-size:10px;" step="0.01" placeholder="'+label+'" value="'+(sp&&sp[field]!=null?sp[field]:'')+'" onchange="handlePriceFieldChange(\''+ingCode+'\',\''+codeAttr+'\',\''+field+'\',this.value)">'
+      +'<select class="fi" style="font-size:10px;max-width:110px;" onchange="handlePriceFieldChange(\''+ingCode+'\',\''+codeAttr+'\',\'fournisseur_id\',this.value)">'
         +'<option value="">🚚 Fournisseur…</option>'
-        +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(sp.fournisseur_id===s.id?' selected':'')+'>'+esc(s.nom)+'</option>';}).join('')
+        +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(sp&&sp.fournisseur_id===s.id?' selected':'')+'>'+esc(s.nom)+'</option>';}).join('')
       +'</select>'
       +'</div>';
+  }
+  function natureSelectHtml(i){
+    var nat=i.nature||'fini';
+    return '<select class="fi" style="width:100px;font-size:10px;" title="Brut = utilisé seulement dans d\'autres recettes/compositions, jamais proposé directement sur un produit vendu. Fini = prêt à ajouter dans la recette d\'un produit vendu." onchange="updateIngredientNature(\''+i.code+'\',this.value)">'
+      +'<option value="fini"'+(nat==='fini'?' selected':'')+'>✅ Fini</option>'
+      +'<option value="brut"'+(nat==='brut'?' selected':'')+'>🧱 Brut</option>'
+      +'</select>';
   }
   function renderIngredientCard(i){
     var statut=statutIngredient(i);
@@ -7161,6 +7176,7 @@ function renderIngredientsList(){
       +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(i.nom)+'</div>'
       +'<div style="font-size:11px;color:var(--txm);">'+statut.label+'</div>'
       +'</div>'
+      +natureSelectHtml(i)
       +moveSelectHtml(i)
       +'<input type="number" class="fi" style="width:56px;font-size:11px;" step="0.1" title="Quantité par défaut en recette" placeholder="Qté" value="'+(i.quantite_defaut!=null?i.quantite_defaut:'')+'" onchange="updateIngredientQuantiteDefaut(\''+i.code+'\',this.value)">'
       +'<select class="fi" style="width:70px;font-size:11px;" title="Unité par défaut en recette" onchange="updateIngredientUniteDefaut(\''+i.code+'\',this.value)">'
@@ -7174,7 +7190,7 @@ function renderIngredientsList(){
       +'<button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')">Recette</button>'
       +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
       +'</div>'
-      +(statut.stockProd?priceInputsHtml(statut.stockProd):'')
+      +(statut.isComposed?'<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>':priceInputsHtml(statut.stockProd,i.code))
       +'</div>';
   }
   var itemsByCat={};
@@ -7251,7 +7267,10 @@ function renderIngredientsList(){
     });
   });
   if(itemsByCat['']&&itemsByCat['']['']&&itemsByCat[''][''].length){
-    html+='<div style="font-weight:700;font-size:13px;margin:14px 0 4px;color:var(--tx);">❓ Sans catégorie</div>';
+    html+='<div style="display:flex;align-items:center;gap:6px;margin:14px 0 4px;">'
+      +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;flex:1;">❓ Sans catégorie</div>'
+      +'<button class="btn bs sm" onclick="openNewIngredientModal(\'\',\'\')" style="padding:3px 9px;font-size:12px;font-weight:900;">+</button>'
+      +'</div>';
     itemsByCat[''][''].forEach(function(i){html+=renderIngredientCard(i);});
   }
   container.innerHTML=html;
@@ -7278,6 +7297,47 @@ async function updateIngredientUniteDefaut(code,unite){
     var ing=rctIngredients.find(function(i){return i.code===code;});
     if(ing)ing.unite_defaut=unite;
   }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
+}
+async function updateIngredientNature(code,nature){
+  try{
+    sbCheck(await db.from('ingredients').update({nature:nature}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var ing=rctIngredients.find(function(i){return i.code===code;});
+    if(ing)ing.nature=nature;
+  }catch(e){console.error('updateIngredientNature',e);alert('Erreur : '+e.message);}
+}
+// Génère un code unique pour un nouveau produit du catalogue stock maître, à partir d'un nom.
+function uniqueMasterProduitCode(nom){
+  var base=slugify(nom)||'produit',code=base,n=2;
+  while(rctMasterStockProduits.some(function(p){return p.code===code;})){code=base+'-'+n;n++;}
+  return code;
+}
+// Si l'ingrédient n'a pas encore de produit stock relié, en crée un automatiquement (même nom)
+// et le relie sur Port + Dabray, pour que le champ prix/fournisseur ait toujours une cible.
+async function ensureAutoStockLink(ingredientCode){
+  var linkCode=rctIngredientStockLink[ingredientCode];
+  var existing=linkCode?rctMasterStockProduits.find(function(p){return p.code===linkCode;}):null;
+  if(existing)return existing.code;
+  var ing=rctIngredients.find(function(i){return i.code===ingredientCode;});
+  if(!ing)return null;
+  var code=uniqueMasterProduitCode(ing.nom);
+  sbCheck(await db.from('master_produits').insert({code:code,nom:ing.nom}));
+  var newProd={code:code,nom:ing.nom};
+  rctMasterStockProduits.push(newProd);
+  var restos=['port','dabray'];
+  for(var i=0;i<restos.length;i++){
+    sbCheck(await db.from('ingredient_stock_link').upsert([{restaurant_id:restos[i],ingredient_code:ingredientCode,stock_produit_code:code}],{onConflict:'restaurant_id,ingredient_code'}));
+  }
+  rctIngredientStockLink[ingredientCode]=code;
+  return code;
+}
+// Point d'entrée pour tout changement dans la bulle prix/fournisseur d'un ingrédient : crée le lien
+// stock à la volée si l'ingrédient n'en avait pas encore, puis délègue à updateMasterProduitCout.
+async function handlePriceFieldChange(ingredientCode,stockCode,field,value){
+  try{
+    if(!stockCode)stockCode=await ensureAutoStockLink(ingredientCode);
+    if(!stockCode)return;
+    await updateMasterProduitCout(stockCode,field,value);
+  }catch(e){console.error('handlePriceFieldChange',e);alert('Erreur : '+e.message);}
 }
 async function updateMasterProduitCout(masterCode,field,value){
   var resto=rctResto();
