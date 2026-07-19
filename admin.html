@@ -631,6 +631,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr"><label class="fl2">Position d'affichage</label><input type="number" class="fi" id="mcat-ordre" step="1" style="width:100px;"></div>
     <div class="fr"><label class="fl2">Unité de mesure par défaut</label><select class="fi" id="mcat-unite-defaut"></select></div>
     <button class="btn bp sm" onclick="saveCategoryMeta()" style="width:100%;margin-bottom:6px;">💾 Enregistrer</button>
+    <div id="mcat-convert-zone" style="margin-bottom:10px;"></div>
 
     <div style="font-size:11px;color:var(--txm);margin:14px 0 4px;font-weight:700;text-transform:uppercase;">Sous-catégories</div>
     <div id="mcat-subcats"></div>
@@ -7005,11 +7006,6 @@ function renderIngredientsList(){
     if(navEl)navEl.innerHTML='';
     return;
   }
-  var TYPES=[
-    {key:'matiere_premiere',label:'🌾 Matières premières'},
-    {key:'marchandise',label:'📦 Marchandises'},
-    {key:'produit_transforme',label:'🧪 Produits transformés'}
-  ];
   function moveSelectHtml(i){
     var opts='<option value="">📁 Déplacer…</option>';
     sortedOngletNames(groupByOnglet(rctIngredients,function(x){return x.categorie;},function(x){return x.sous_categorie;})).forEach(function(ong){
@@ -7024,10 +7020,11 @@ function renderIngredientsList(){
   }
   function priceInputsHtml(sp){
     if(!sp)return '';
+    var mode=sp.mode_prix||'unitaire';
+    var field=modePrixField(mode),label=modePrixLabel(mode);
     return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
-      +'<input type="number" class="fi" style="width:64px;font-size:10px;" step="0.01" placeholder="€/kg" value="'+(sp.prix_kilo!=null?sp.prix_kilo:'')+'" onchange="updateMasterProduitCout(\''+sp.code+'\',\'prix_kilo\',this.value)">'
-      +'<input type="number" class="fi" style="width:64px;font-size:10px;" step="0.01" placeholder="€/L" value="'+(sp.prix_litre!=null?sp.prix_litre:'')+'" onchange="updateMasterProduitCout(\''+sp.code+'\',\'prix_litre\',this.value)">'
-      +'<input type="number" class="fi" style="width:64px;font-size:10px;" step="0.01" placeholder="€/pièce" value="'+(sp.prix_unitaire!=null?sp.prix_unitaire:'')+'" onchange="updateMasterProduitCout(\''+sp.code+'\',\'prix_unitaire\',this.value)">'
+      +modeMesureSelectHtml('',mode,'onchange="updateMasterProduitCout(\''+sp.code+'\',\'mode_prix\',this.value)"')
+      +'<input type="number" class="fi" style="width:74px;font-size:10px;" step="0.01" placeholder="'+label+'" value="'+(sp[field]!=null?sp[field]:'')+'" onchange="updateMasterProduitCout(\''+sp.code+'\',\''+field+'\',this.value)">'
       +'<select class="fi" style="font-size:10px;max-width:110px;" onchange="updateMasterProduitCout(\''+sp.code+'\',\'fournisseur_id\',this.value)">'
         +'<option value="">🚚 Fournisseur…</option>'
         +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(sp.fournisseur_id===s.id?' selected':'')+'>'+esc(s.nom)+'</option>';}).join('')
@@ -7042,10 +7039,6 @@ function renderIngredientsList(){
       +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(i.nom)+'</div>'
       +'<div style="font-size:11px;color:var(--txm);">'+statut.label+'</div>'
       +'</div>'
-      +'<select class="fi" style="width:110px;font-size:11px;" title="Type d\'ingrédient" onchange="updateIngredientType(\''+i.code+'\',this.value)">'
-        +'<option value="">❓ Type…</option>'
-        +TYPES.map(function(t){return '<option value="'+t.key+'"'+(i.type_ingredient===t.key?' selected':'')+'>'+t.label+'</option>';}).join('')
-      +'</select>'
       +moveSelectHtml(i)
       +'<input type="number" class="fi" style="width:56px;font-size:11px;" step="0.1" title="Quantité par défaut en recette" placeholder="Qté" value="'+(i.quantite_defaut!=null?i.quantite_defaut:'')+'" onchange="updateIngredientQuantiteDefaut(\''+i.code+'\',this.value)">'
       +'<select class="fi" style="width:70px;font-size:11px;" title="Unité par défaut en recette" onchange="updateIngredientUniteDefaut(\''+i.code+'\',this.value)">'
@@ -7345,6 +7338,16 @@ function modeMesureSelectHtml(cssClass,currentMode,onchangeAttr){
     +MODE_MESURE_OPTIONS.map(function(o){return '<option value="'+o.v+'"'+(currentMode===o.v?' selected':'')+'>'+o.l+'</option>';}).join('')
     +'</select>';
 }
+function modePrixField(mode){
+  if(mode==='litre')return 'prix_litre';
+  if(mode==='kilo'||mode==='gramme')return 'prix_kilo';
+  return 'prix_unitaire'; // unitaire, 70cl
+}
+function modePrixLabel(mode){
+  if(mode==='litre')return '€/L';
+  if(mode==='kilo'||mode==='gramme')return '€/kg';
+  return '€/unité';
+}
 function renderCoutsList(){
   var searchEl=document.getElementById('rct-couts-search');
   var container=document.getElementById('rct-couts-container');
@@ -7366,17 +7369,16 @@ function renderCoutsList(){
         if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:6px 0 4px 8px;">↳ '+esc(sub)+'</div>';
         var rows=byOnglet[ong][cat][sub].map(function(p){
           var mode=p.mode_prix||(catInfo&&catInfo.unite_defaut_mesure)||'unitaire';
+          var field=modePrixField(mode),label=modePrixLabel(mode);
           return '<tr data-code="'+p.code+'">'
             +'<td style="padding:6px 8px;font-size:12px;font-weight:700;color:var(--tx);white-space:nowrap;">'+esc(p.nom)+'</td>'
             +'<td style="padding:6px 8px;"><input type="number" class="fi cout-poids" style="width:90px;" step="1" placeholder="g" value="'+(p.poids_net_g!=null?p.poids_net_g:'')+'" onchange="updateProduitCout(\''+p.code+'\',\'poids_net_g\',this.value)"></td>'
             +'<td style="padding:6px 8px;">'+modeMesureSelectHtml('cout-mode',mode,'onchange="updateProduitCout(\''+p.code+'\',\'mode_prix\',this.value)"')+'</td>'
-            +'<td style="padding:6px 8px;"><input type="number" class="fi cout-pu" style="width:90px;" step="0.01" placeholder="€/unité" value="'+(p.prix_unitaire!=null?p.prix_unitaire:'')+'" onchange="updateProduitCout(\''+p.code+'\',\'prix_unitaire\',this.value)"></td>'
-            +'<td style="padding:6px 8px;"><input type="number" class="fi cout-pk" style="width:90px;" step="0.01" placeholder="€/kg" value="'+(p.prix_kilo!=null?p.prix_kilo:'')+'" onchange="updateProduitCout(\''+p.code+'\',\'prix_kilo\',this.value)"></td>'
-            +'<td style="padding:6px 8px;"><input type="number" class="fi cout-pl" style="width:90px;" step="0.01" placeholder="€/L" value="'+(p.prix_litre!=null?p.prix_litre:'')+'" onchange="updateProduitCout(\''+p.code+'\',\'prix_litre\',this.value)"></td>'
+            +'<td style="padding:6px 8px;"><input type="number" class="fi cout-prix" style="width:90px;" step="0.01" placeholder="'+label+'" value="'+(p[field]!=null?p[field]:'')+'" onchange="updateProduitCout(\''+p.code+'\',\''+field+'\',this.value)"></td>'
             +'</tr>';
         }).join('');
-        html+='<table style="width:100%;border-collapse:collapse;min-width:640px;margin-left:'+(sub?'8px':'0')+';">'
-          +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:6px 8px;">Produit</th><th style="padding:6px 8px;">Poids net (g)</th><th style="padding:6px 8px;">Unité de mesure</th><th style="padding:6px 8px;">Prix / unité (€)</th><th style="padding:6px 8px;">Prix / kg (€)</th><th style="padding:6px 8px;">Prix / L (€)</th></tr></thead>'
+        html+='<table style="width:100%;border-collapse:collapse;min-width:480px;margin-left:'+(sub?'8px':'0')+';">'
+          +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:6px 8px;">Produit</th><th style="padding:6px 8px;">Poids net (g)</th><th style="padding:6px 8px;">Unité de mesure</th><th style="padding:6px 8px;">Prix</th></tr></thead>'
           +'<tbody>'+rows+'</tbody></table>';
       });
     });
@@ -7401,6 +7403,7 @@ async function updateProduitCout(code,field,value){
         masterMatch[field]=payload[field];
       }
     }
+    if(field==='mode_prix')renderCoutsList();
   }catch(e){console.error('updateProduitCout',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
@@ -7497,6 +7500,7 @@ function openCategoryEditModal(catName){
     return '<option value="'+o.v+'"'+((info&&info.unite_defaut_mesure)===o.v?' selected':'')+'>'+o.l+'</option>';
   }).join('');
   renderCategoryEditSubcats();
+  renderMcatConvertZone();
   renderMcatAssignDest();
   document.getElementById('mcat-assign-search-vendus').value='';
   document.getElementById('mcat-assign-results-vendus').innerHTML='';
@@ -7505,6 +7509,19 @@ function openCategoryEditModal(catName){
   document.getElementById('mcat-assign-search-ingredients').value='';
   document.getElementById('mcat-assign-results-ingredients').innerHTML='';
   document.getElementById('mcat').classList.add('op');
+}
+function renderMcatConvertZone(){
+  var cat=mcatCurrentCat;
+  var zone=document.getElementById('mcat-convert-zone');
+  if(!zone)return;
+  if(!cat){zone.innerHTML='';return;}
+  var hasSubcats=rctSousCategoriesOrdre[cat]&&Object.keys(rctSousCategoriesOrdre[cat]).length>0;
+  if(hasSubcats){
+    zone.innerHTML='<div style="font-size:11px;color:var(--txm);">Cette catégorie a des sous-catégories, elle ne peut pas devenir elle-même une sous-catégorie tant qu\'elles n\'ont pas été déplacées ou promues.</div>';
+    return;
+  }
+  var opts='<option value="">↳ Transformer en sous-catégorie de…</option>'+Object.keys(rctCategoriesOrdre).filter(function(c){return c!==cat;}).sort().map(function(c){return '<option value="'+esc(c)+'">→ '+esc(c)+'</option>';}).join('');
+  zone.innerHTML='<select class="fi" style="font-size:12px;" onchange="if(this.value)convertCategorieToSubcat(\''+esc(cat)+'\',this.value);">'+opts+'</select>';
 }
 function renderCategoryEditSubcats(){
   var cat=mcatCurrentCat;
@@ -7521,8 +7538,56 @@ function renderCategoryEditSubcats(){
       +'<button class="btn bs sm" onclick="saveSubcatRow(this)" style="padding:6px 8px;">💾</button>'
       +'<button class="btn bs sm" onclick="deleteSubcatRow(this)" style="padding:6px 8px;background:#FEE2E2;color:#991B1B;">✕</button>'
       +'<select class="fi" style="font-size:11px;max-width:140px;" onchange="if(this.value)moveSousCategorieToCategorie(\''+esc(cat)+'\',\''+esc(n)+'\',this.value);this.selectedIndex=0;">'+otherCatsOpts+'</select>'
+      +'<button class="btn bs sm" onclick="promoteSubcatToCategorie(\''+esc(cat)+'\',\''+esc(n)+'\')" style="padding:6px 8px;" title="En faire une catégorie indépendante">⬆️ Promouvoir</button>'
       +'</div>';
   }).join('');
+}
+async function promoteSubcatToCategorie(parentCat,subName){
+  if(rctCategoriesOrdre[subName]){alert('Une catégorie "'+subName+'" existe déjà.');return;}
+  if(!confirm('Transformer "'+subName+'" en catégorie indépendante (sortie de "'+parentCat+'") ?'))return;
+  try{
+    var onglet=(rctCategoriesOrdre[parentCat]&&rctCategoriesOrdre[parentCat].onglet)||null;
+    var ordre=(Object.keys(rctCategoriesOrdre).length+1)*10;
+    sbCheck(await db.from('categories_ordre').insert({restaurant_id:RCT_GLOBAL,nom:subName,ordre:ordre,onglet:onglet}));
+    sbCheck(await db.from('produits_vendus').update({categorie:subName,sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',parentCat).eq('sous_categorie',subName));
+    sbCheck(await db.from('ingredients').update({categorie:subName,sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',parentCat).eq('sous_categorie',subName));
+    sbCheck(await db.from('produits').update({cout_categorie:subName,cout_sous_categorie:null}).eq('restaurant_id',rctResto()).eq('cout_categorie',parentCat).eq('cout_sous_categorie',subName));
+    sbCheck(await db.from('sous_categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('categorie',parentCat).eq('nom',subName));
+    rctCategoriesOrdre[subName]={ordre:ordre,onglet:onglet,unite_defaut_mesure:null};
+    rctProduitsVendus.forEach(function(p){if(p.categorie===parentCat&&p.sous_categorie===subName){p.categorie=subName;p.sous_categorie=null;}});
+    rctIngredients.forEach(function(i){if(i.categorie===parentCat&&i.sous_categorie===subName){i.categorie=subName;i.sous_categorie=null;}});
+    rctStockProduits.forEach(function(p){if(p.cout_categorie===parentCat&&p.cout_sous_categorie===subName){p.cout_categorie=subName;p.cout_sous_categorie=null;}});
+    if(rctSousCategoriesOrdre[parentCat])delete rctSousCategoriesOrdre[parentCat][subName];
+    renderCategoryEditSubcats();
+    renderMcatConvertZone();
+    renderMcatAssignDest();
+    renderRecettesList();
+    renderCoutsList();
+    renderIngredientsList();
+  }catch(e){console.error('promoteSubcatToCategorie',e);alert('Erreur : '+e.message);}
+}
+async function convertCategorieToSubcat(catName,targetCat){
+  var hasSubcats=rctSousCategoriesOrdre[catName]&&Object.keys(rctSousCategoriesOrdre[catName]).length>0;
+  if(hasSubcats){alert('"'+catName+'" a encore des sous-catégories. Déplace-les ou promeus-les avant.');return;}
+  if(!confirm('Transformer "'+catName+'" en sous-catégorie de "'+targetCat+'" ?\nTous les articles qui y sont rangés suivront.'))return;
+  try{
+    var ordre=((rctSousCategoriesOrdre[targetCat]&&Object.keys(rctSousCategoriesOrdre[targetCat]).length)||0+1)*10;
+    sbCheck(await db.from('produits_vendus').update({categorie:targetCat,sous_categorie:catName}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',catName));
+    sbCheck(await db.from('ingredients').update({categorie:targetCat,sous_categorie:catName}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',catName));
+    sbCheck(await db.from('produits').update({cout_categorie:targetCat,cout_sous_categorie:catName}).eq('restaurant_id',rctResto()).eq('cout_categorie',catName));
+    sbCheck(await db.from('sous_categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,categorie:targetCat,nom:catName,ordre:ordre}],{onConflict:'restaurant_id,categorie,nom'}));
+    sbCheck(await db.from('categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('nom',catName));
+    rctProduitsVendus.forEach(function(p){if(p.categorie===catName){p.categorie=targetCat;p.sous_categorie=catName;}});
+    rctIngredients.forEach(function(i){if(i.categorie===catName){i.categorie=targetCat;i.sous_categorie=catName;}});
+    rctStockProduits.forEach(function(p){if(p.cout_categorie===catName){p.cout_categorie=targetCat;p.cout_sous_categorie=catName;}});
+    delete rctCategoriesOrdre[catName];
+    rctSousCategoriesOrdre[targetCat]=rctSousCategoriesOrdre[targetCat]||{};
+    rctSousCategoriesOrdre[targetCat][catName]=ordre;
+    closeM('mcat');
+    renderRecettesList();
+    renderCoutsList();
+    renderIngredientsList();
+  }catch(e){console.error('convertCategorieToSubcat',e);alert('Erreur : '+e.message);}
 }
 async function moveSousCategorieToCategorie(oldCat,subName,newCat){
   if(!confirm('Déplacer "'+subName+'" de "'+oldCat+'" vers "'+newCat+'" ?\nTous les articles qui y sont rangés suivront.'))return;
@@ -7540,6 +7605,7 @@ async function moveSousCategorieToCategorie(oldCat,subName,newCat){
     rctSousCategoriesOrdre[newCat]=rctSousCategoriesOrdre[newCat]||{};
     rctSousCategoriesOrdre[newCat][subName]=ordre;
     renderCategoryEditSubcats();
+    renderMcatConvertZone();
     renderMcatAssignDest();
     renderRecettesList();
     renderCoutsList();
@@ -7570,6 +7636,7 @@ async function saveCategoryMeta(){
     mcatCurrentCat=newName;
     document.getElementById('mcat-title').textContent='Catégorie : '+newName;
     renderCategoryEditSubcats();
+    renderMcatConvertZone();
     renderMcatAssignDest();
     renderRecettesList();
     renderCoutsList();
@@ -7598,6 +7665,7 @@ async function saveSubcatRow(btn){
     rctSousCategoriesOrdre[cat]=rctSousCategoriesOrdre[cat]||{};
     rctSousCategoriesOrdre[cat][newName]=ordre;
     renderCategoryEditSubcats();
+    renderMcatConvertZone();
     renderMcatAssignDest();
     renderRecettesList();
     renderCoutsList();
@@ -7619,6 +7687,7 @@ async function deleteSubcatRow(btn){
     rctStockProduits.forEach(function(p){if(p.cout_categorie===cat&&p.cout_sous_categorie===name)p.cout_sous_categorie=null;});
     if(rctSousCategoriesOrdre[cat])delete rctSousCategoriesOrdre[cat][name];
     renderCategoryEditSubcats();
+    renderMcatConvertZone();
     renderMcatAssignDest();
     renderRecettesList();
     renderCoutsList();
@@ -7638,6 +7707,7 @@ async function addSubcatToCategory(){
     rctSousCategoriesOrdre[cat][name]=nextOrdre;
     document.getElementById('mcat-new-sub').value='';
     renderCategoryEditSubcats();
+    renderMcatConvertZone();
     renderMcatAssignDest();
   }catch(e){console.error('addSubcatToCategory',e);alert('Erreur : '+e.message);}
 }
