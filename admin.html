@@ -7212,6 +7212,21 @@ function renderIngredientsList(){
       +'<option value="brut"'+(nat==='brut'?' selected':'')+'>🧱 Brut</option>'
       +'</select>';
   }
+  function miseEnPlaceHtml(i){
+    if((i.nature||'fini')!=='fini')return '';
+    var brutOptions=rctIngredients.filter(function(x){return x.nature==='brut'&&x.code!==i.code;}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
+    return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;font-size:10px;">'
+      +'<select class="fi" style="max-width:150px;font-size:10px;" title="De quel produit brut ce fini est préparé (pour la mise en place)" onchange="updateIngredientField(\''+i.code+'\',\'source_brut_code\',this.value)">'
+        +'<option value="">🔪 Fabriqué à partir de…</option>'
+        +brutOptions.map(function(b){return '<option value="'+b.code+'"'+(i.source_brut_code===b.code?' selected':'')+'>'+esc(b.nom)+'</option>';}).join('')
+      +'</select>'
+      +'<select class="fi" style="width:100px;font-size:10px;" title="Secteur qui prépare cet article" onchange="updateIngredientField(\''+i.code+'\',\'secteur\',this.value)">'
+        +'<option value="">Secteur…</option>'
+        +'<option value="cuisine"'+(i.secteur==='cuisine'?' selected':'')+'>🍕 Cuisine</option>'
+        +'<option value="salle"'+(i.secteur==='salle'?' selected':'')+'>🍷 Salle</option>'
+      +'</select>'
+      +'</div>';
+  }
   function renderIngredientCard(i){
     var statut=statutIngredient(i);
     return '<div class="card" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;">'
@@ -7234,6 +7249,7 @@ function renderIngredientsList(){
       +'<button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')">Recette</button>'
       +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
       +'</div>'
+      +miseEnPlaceHtml(i)
       +(statut.isComposed?'<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>':priceInputsHtml(statut.stockProd,i.code))
       +'</div>';
   }
@@ -7502,6 +7518,14 @@ async function unlinkProductPrice(masterCode){
     if(mp)mp.prix_source_code=null; // le prix copié reste affiché tel quel, librement modifiable maintenant
     renderIngredientsList();
   }catch(e){console.error('unlinkProductPrice',e);alert('Erreur : '+e.message);}
+}
+async function updateIngredientField(code,field,value){
+  try{
+    var payload={};payload[field]=value||null;
+    sbCheck(await db.from('ingredients').update(payload).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var ing=rctIngredients.find(function(i){return i.code===code;});
+    if(ing)ing[field]=value||null;
+  }catch(e){console.error('updateIngredientField',e);alert('Erreur : '+e.message);}
 }
 async function updateIngredientNature(code,nature){
   try{
