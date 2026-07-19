@@ -6583,7 +6583,8 @@ function ongletHeaderHtml(ong){
   return '<div style="display:flex;align-items:center;gap:6px;margin:22px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--bx);" data-ongletname="'+esc(ong==='_sans_onglet'?'':ong)+'">'
     +'<div style="font-size:14px;font-weight:900;color:var(--bx);flex:1;">'+esc(label)+'</div>'
     +'<button class="btn bs sm" onclick="openQuickAddMenu(\''+esc(ong==='_sans_onglet'?'':ong)+'\',null)" style="padding:3px 9px;font-size:12px;font-weight:900;">+</button>'
-    +(ong!=='_sans_onglet'?'<button class="btn bs sm" onclick="openOngletEditModalFromBtn(this)" style="padding:3px 8px;font-size:11px;">✏️</button>':'')
+    +(ong!=='_sans_onglet'?'<button class="btn bs sm" onclick="openOngletEditModalFromBtn(this)" style="padding:3px 8px;font-size:11px;">✏️</button>'
+      +'<button class="btn bs sm" onclick="deleteOnglet(\''+esc(ong)+'\')" style="padding:3px 8px;font-size:11px;background:#FEE2E2;color:#991B1B;">🗑</button>':'')
     +'</div>';
 }
 function catHeaderHtml(cat){
@@ -6591,7 +6592,50 @@ function catHeaderHtml(cat){
     +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;flex:1;">'+esc(cat)+'</div>'
     +'<button class="btn bs sm" onclick="openQuickAddMenu(null,\''+esc(cat)+'\')" style="padding:3px 9px;font-size:12px;font-weight:900;">+</button>'
     +'<button class="btn bs sm" onclick="openCategoryEditModalFromBtn(this)" style="padding:3px 8px;font-size:11px;">✏️</button>'
+    +'<button class="btn bs sm" onclick="deleteCategorie(\''+esc(cat)+'\')" style="padding:3px 8px;font-size:11px;background:#FEE2E2;color:#991B1B;">🗑</button>'
     +'</div>';
+}
+async function deleteOnglet(ong){
+  var catsInside=Object.keys(rctCategoriesOrdre).filter(function(c){return rctCategoriesOrdre[c].onglet===ong;});
+  var msg=catsInside.length
+    ? 'Supprimer la section "'+ong+'" ? Les '+catsInside.length+' catégorie(s) qu\'elle contient ('+catsInside.join(', ')+') ne seront pas supprimées, elles repasseront simplement en "Non classé".'
+    : 'Supprimer la section "'+ong+'" ?';
+  if(!confirm(msg))return;
+  try{
+    sbCheck(await db.from('categories_ordre').update({onglet:null}).eq('restaurant_id',RCT_GLOBAL).eq('onglet',ong));
+    sbCheck(await db.from('onglets_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('nom',ong));
+    catsInside.forEach(function(c){rctCategoriesOrdre[c].onglet=null;});
+    delete rctOngletsOrdre[ong];
+    renderRecettesList();
+    renderCoutsList();
+    renderIngredientsList();
+  }catch(e){console.error('deleteOnglet',e);alert('Erreur : '+e.message);}
+}
+async function deleteCategorie(cat){
+  var nbVendus=rctProduitsVendus.filter(function(p){return p.categorie===cat;}).length;
+  var nbIng=rctIngredients.filter(function(i){return i.categorie===cat;}).length;
+  var nbStock=rctStockProduits.filter(function(p){return p.cout_categorie===cat;}).length;
+  var nbSubs=Object.keys(rctSousCategoriesOrdre[cat]||{}).length;
+  var total=nbVendus+nbIng+nbStock;
+  var msg='Supprimer la catégorie "'+cat+'" ?';
+  if(total>0)msg+='\n'+total+' élément(s) actuellement dedans repasseront en "Sans catégorie".';
+  if(nbSubs>0)msg+='\nSes '+nbSubs+' sous-catégorie(s) seront supprimées aussi.';
+  if(!confirm(msg))return;
+  try{
+    sbCheck(await db.from('produits_vendus').update({categorie:null,sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat));
+    sbCheck(await db.from('ingredients').update({categorie:null,sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat));
+    sbCheck(await db.from('produits').update({cout_categorie:null,cout_sous_categorie:null}).eq('restaurant_id',rctResto()).eq('cout_categorie',cat));
+    sbCheck(await db.from('sous_categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat));
+    sbCheck(await db.from('categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('nom',cat));
+    rctProduitsVendus.forEach(function(p){if(p.categorie===cat){p.categorie=null;p.sous_categorie=null;}});
+    rctIngredients.forEach(function(i){if(i.categorie===cat){i.categorie=null;i.sous_categorie=null;}});
+    rctStockProduits.forEach(function(p){if(p.cout_categorie===cat){p.cout_categorie=null;p.cout_sous_categorie=null;}});
+    delete rctCategoriesOrdre[cat];
+    delete rctSousCategoriesOrdre[cat];
+    renderRecettesList();
+    renderCoutsList();
+    renderIngredientsList();
+  }catch(e){console.error('deleteCategorie',e);alert('Erreur : '+e.message);}
 }
 // ── Menu contextuel "+" : ajouter une catégorie, une sous-catégorie ou un produit, au bon endroit ──
 var qamOnglet=null,qamCat=null;
@@ -6626,6 +6670,22 @@ function qamAddSubcat(){
   name=name.trim();
   if(!name)return;
   quickAddSubcat(qamCat,name);
+}
+async function deleteSubcategorieDirect(cat,name){
+  if(!confirm('Supprimer la sous-catégorie "'+name+'" ? Les produits concernés repasseront directement dans "'+cat+'" sans sous-catégorie.'))return;
+  try{
+    sbCheck(await db.from('produits_vendus').update({sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat).eq('sous_categorie',name));
+    sbCheck(await db.from('ingredients').update({sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat).eq('sous_categorie',name));
+    sbCheck(await db.from('produits').update({cout_sous_categorie:null}).eq('restaurant_id',rctResto()).eq('cout_categorie',cat).eq('cout_sous_categorie',name));
+    sbCheck(await db.from('sous_categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat).eq('nom',name));
+    rctProduitsVendus.forEach(function(p){if(p.categorie===cat&&p.sous_categorie===name)p.sous_categorie=null;});
+    rctIngredients.forEach(function(i){if(i.categorie===cat&&i.sous_categorie===name)i.sous_categorie=null;});
+    rctStockProduits.forEach(function(p){if(p.cout_categorie===cat&&p.cout_sous_categorie===name)p.cout_sous_categorie=null;});
+    if(rctSousCategoriesOrdre[cat])delete rctSousCategoriesOrdre[cat][name];
+    renderRecettesList();
+    renderCoutsList();
+    renderIngredientsList();
+  }catch(e){console.error('deleteSubcategorieDirect',e);alert('Erreur : '+e.message);}
 }
 async function quickAddSubcat(cat,name){
   var existing=rctSousCategoriesOrdre[cat]||{};
@@ -6763,7 +6823,7 @@ function renderRecetteLines(lines){
     return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
       +'<select class="fi mrct-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
       +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1">'
-      +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="ml">ml</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
+      +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
       +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>'
       +'</div>';
   }).join('');
@@ -6790,7 +6850,7 @@ function addRecetteLineWithIngredient(ingredientCode){
   div.style.cssText='display:flex;gap:6px;align-items:center;';
   div.innerHTML='<select class="fi mrct-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
     +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1">'
-    +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="ml">ml</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
+    +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
     +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>';
   container.appendChild(div);
   if(ingredientCode){
@@ -7105,7 +7165,9 @@ function renderIngredientsList(){
       +'<input type="number" class="fi" style="width:56px;font-size:11px;" step="0.1" title="Quantité par défaut en recette" placeholder="Qté" value="'+(i.quantite_defaut!=null?i.quantite_defaut:'')+'" onchange="updateIngredientQuantiteDefaut(\''+i.code+'\',this.value)">'
       +'<select class="fi" style="width:70px;font-size:11px;" title="Unité par défaut en recette" onchange="updateIngredientUniteDefaut(\''+i.code+'\',this.value)">'
         +'<option value="g"'+(( i.unite_defaut||'g')==='g'?' selected':'')+'>g</option>'
+        +'<option value="kg"'+((i.unite_defaut)==='kg'?' selected':'')+'>kg</option>'
         +'<option value="ml"'+((i.unite_defaut)==='ml'?' selected':'')+'>ml</option>'
+        +'<option value="l"'+((i.unite_defaut)==='l'?' selected':'')+'>L</option>'
         +'<option value="piece"'+((i.unite_defaut)==='piece'?' selected':'')+'>pièce</option>'
       +'</select>'
       +'<button class="btn bs sm" onclick="openLinkModal(\''+i.code+'\')">Relier</button>'
@@ -7173,6 +7235,7 @@ function renderIngredientsList(){
         html+='<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px 8px;">'
           +'<div style="font-size:11px;font-weight:700;color:var(--txm);flex:1;">↳ '+esc(sub)+'</div>'
           +'<button class="btn bs sm" onclick="openCategoryEditModal(\''+esc(cat)+'\')" style="padding:2px 7px;font-size:10px;" title="Modifier cette sous-catégorie">✏️</button>'
+          +'<button class="btn bs sm" onclick="deleteSubcategorieDirect(\''+esc(cat)+'\',\''+esc(sub)+'\')" style="padding:2px 7px;font-size:10px;background:#FEE2E2;color:#991B1B;" title="Supprimer cette sous-catégorie">🗑</button>'
           +'</div>';
         if(items.length){
           items.forEach(function(i){html+=renderIngredientCard(i);});
@@ -7544,7 +7607,7 @@ function renderCompoLines(lines){
     return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
       +'<select class="fi compo-prod" style="flex:2;"><option value="">-- produit stock --</option>'+opts+'</select>'
       +'<input type="number" class="fi compo-qty" style="flex:1;" placeholder="Qté" step="0.1">'
-      +'<select class="fi compo-unit" style="flex:1;"><option value="g">g</option><option value="ml">ml</option><option value="piece">pièce</option></select>'
+      +'<select class="fi compo-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option></select>'
       +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>'
       +'</div>';
   }).join('');
@@ -7568,7 +7631,7 @@ function addCompoLine(){
   div.style.cssText='display:flex;gap:6px;align-items:center;';
   div.innerHTML='<select class="fi compo-prod" style="flex:2;"><option value="">-- produit stock --</option>'+opts+'</select>'
     +'<input type="number" class="fi compo-qty" style="flex:1;" placeholder="Qté" step="0.1">'
-    +'<select class="fi compo-unit" style="flex:1;"><option value="g">g</option><option value="ml">ml</option><option value="piece">pièce</option></select>'
+    +'<select class="fi compo-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option></select>'
     +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>';
   container.appendChild(div);
 }
@@ -7989,19 +8052,23 @@ function coutQuantiteStock(stockProduit,quantite,unite){
   if(mode==='kilo'||mode==='gramme'){
     if(stockProduit.prix_kilo==null)return {cout:null,warning:'prix/kg non renseigné'};
     if(unite==='g')return {cout:(quantite/1000)*stockProduit.prix_kilo,warning:null};
+    if(unite==='kg')return {cout:quantite*stockProduit.prix_kilo,warning:null};
     if(unite==='piece'&&poidsNet)return {cout:(quantite*poidsNet/1000)*stockProduit.prix_kilo,warning:null};
     return {cout:null,warning:'unité recette incompatible avec le mode "au kilo"'};
   }
   if(mode==='litre'){
     if(stockProduit.prix_litre==null)return {cout:null,warning:'prix/L non renseigné'};
     if(unite==='ml')return {cout:(quantite/1000)*stockProduit.prix_litre,warning:null};
+    if(unite==='l')return {cout:quantite*stockProduit.prix_litre,warning:null};
     return {cout:null,warning:'unité recette incompatible avec le mode "au litre"'};
   }
   // 'unitaire' ou '70cl' : prix par unité de stock (bouteille, boîte, pièce...)
   if(stockProduit.prix_unitaire==null)return {cout:null,warning:'prix/unité non renseigné'};
   if(unite==='piece')return {cout:quantite*stockProduit.prix_unitaire,warning:null};
   if(unite==='ml'&&mode==='70cl')return {cout:(quantite/700)*stockProduit.prix_unitaire,warning:null};
+  if(unite==='l'&&mode==='70cl')return {cout:(quantite*1000/700)*stockProduit.prix_unitaire,warning:null};
   if(unite==='g'&&poidsNet)return {cout:(quantite/poidsNet)*stockProduit.prix_unitaire,warning:null};
+  if(unite==='kg'&&poidsNet)return {cout:(quantite*1000/poidsNet)*stockProduit.prix_unitaire,warning:null};
   return {cout:null,warning:'unité recette incompatible (poids net manquant ?)'};
 }
 // Coût d'une quantité donnée d'un ingrédient de carte (direct, composé, ou non relié).
@@ -8024,7 +8091,9 @@ function coutIngredient(ingredientCode,quantite,unite){
       // g → tel quel ; ml → approximation 1ml≈1g (usage cuisine) ; pièce → nécessite le poids net du produit stock.
       var poidsLigne=null;
       if(l.unite==='g')poidsLigne=l.quantite;
+      else if(l.unite==='kg')poidsLigne=l.quantite*1000;
       else if(l.unite==='ml')poidsLigne=l.quantite;
+      else if(l.unite==='l')poidsLigne=l.quantite*1000;
       else if(l.unite==='piece'&&sp&&sp.poids_net_g)poidsLigne=l.quantite*sp.poids_net_g;
       if(r.warning){details.push(spNom+' : '+r.warning);return;}
       if(poidsLigne==null){details.push(spNom+' : poids net (g) manquant sur ce produit stock');return;}
