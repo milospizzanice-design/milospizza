@@ -491,6 +491,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvelle section</button>
         <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
+        <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
+        <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
       </div>
       <div id="rct-ing-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
       <div id="rct-ing-list-container"></div>
@@ -578,6 +580,27 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="mlink-suggestions" style="margin-bottom:8px;"></div>
     <div class="fr"><label class="fl2">Produit du stock correspondant</label><select class="fi" id="mlink-select"><option value="">-- Non relié --</option></select></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mlink')">Annuler</button><button class="btn bp" onclick="saveIngredientLink()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal gestion des fournisseurs (par restaurant) -->
+<div class="mb" id="msup">
+  <div class="md" style="max-width:460px;">
+    <div class="mdt">Fournisseurs — <span id="msup-resto"></span></div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Coche "= Labo" pour un fournisseur interne qui représente une commande passée en interne au Labo plutôt qu'à l'extérieur. Indique alors le vrai fournisseur externe que le Labo utilisera quand lui-même en a besoin.</div>
+    <div id="msup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+    <div class="fr" style="border-top:1px solid var(--bx);padding-top:10px;"><label class="fl2">Nouveau fournisseur</label><input type="text" class="fi" id="msup-new-name" placeholder="Ex: Metro, Pomona…"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('msup')">Fermer</button><button class="btn bp" onclick="createSupplier()">+ Ajouter</button></div>
+  </div>
+</div>
+
+<!-- Modal Besoins Labo : produits sourcés depuis le Labo sur Port et Dabray, groupés par vrai fournisseur -->
+<div class="mb" id="mbesoinslabo">
+  <div class="md" style="max-width:520px;">
+    <div class="mdt">📦 Besoins Labo</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Tous les produits que Port et/ou Dabray sourcent depuis le Labo (fournisseur = 🏭 Labo), groupés par vrai fournisseur externe pour préparer les commandes du Labo. Liste informative pour l'instant — pas encore de suivi de rupture automatique.</div>
+    <div id="mbesoinslabo-list"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('mbesoinslabo')">Fermer</button></div>
   </div>
 </div>
 
@@ -7297,6 +7320,135 @@ async function updateIngredientUniteDefaut(code,unite){
     var ing=rctIngredients.find(function(i){return i.code===code;});
     if(ing)ing.unite_defaut=unite;
   }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
+}
+// ── Gestion des fournisseurs (par restaurant, stockés dans stock_catalogue.suppliers) ──
+let msupSuppliersBlob={};
+async function openSuppliersModal(){
+  var resto=rctResto();
+  document.getElementById('msup-resto').textContent=resto==='port'?'Port':(resto==='dabray'?'Dabray':resto);
+  try{
+    var r=sbCheck(await db.from('stock_catalogue').select('suppliers').eq('restaurant_id',resto).maybeSingle());
+    msupSuppliersBlob=(r.data&&r.data.suppliers)||{};
+  }catch(e){console.error('openSuppliersModal',e);msupSuppliersBlob={};}
+  document.getElementById('msup-new-name').value='';
+  renderSuppliersList();
+  document.getElementById('msup').classList.add('op');
+}
+function renderSuppliersList(){
+  var box=document.getElementById('msup-list');
+  var ids=Object.keys(msupSuppliersBlob);
+  if(!ids.length){box.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucun fournisseur pour l\'instant.</div>';return;}
+  box.innerHTML=ids.sort(function(a,b){return (msupSuppliersBlob[a].name||'').localeCompare(msupSuppliersBlob[b].name||'');}).map(function(id){
+    var s=msupSuppliersBlob[id];
+    var isLabo=!!s.isLabo;
+    var otherIds=ids.filter(function(x){return x!==id;});
+    return '<div class="card" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;">'
+      +'<div style="display:flex;gap:6px;align-items:center;">'
+      +'<input type="text" class="fi" style="flex:1;" value="'+esc(s.name||'')+'" onchange="updateSupplierField(\''+id+'\',\'name\',this.value)">'
+      +'<button class="btn bs sm" onclick="deleteSupplier(\''+id+'\')" style="background:#FEE2E2;color:#991B1B;">🗑</button>'
+      +'</div>'
+      +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;">'
+      +'<input type="checkbox" '+(isLabo?'checked':'')+' onchange="updateSupplierField(\''+id+'\',\'isLabo\',this.checked)"> 🏭 = Labo (commande interne)'
+      +'</label>'
+      +(isLabo?'<div class="fr" style="margin:0;"><label class="fl2" style="font-size:10px;">Vrai fournisseur externe (utilisé par le Labo)</label>'
+        +'<select class="fi" onchange="updateSupplierField(\''+id+'\',\'realSupplierId\',this.value)">'
+          +'<option value="">-- à préciser --</option>'
+          +otherIds.map(function(oid){return '<option value="'+oid+'"'+(s.realSupplierId===oid?' selected':'')+'>'+esc(msupSuppliersBlob[oid].name||'')+'</option>';}).join('')
+        +'</select></div>':'')
+      +'</div>';
+  }).join('');
+}
+async function saveSuppliersBlob(){
+  sbCheck(await db.from('stock_catalogue').upsert([{restaurant_id:rctResto(),suppliers:msupSuppliersBlob}],{onConflict:'restaurant_id'}));
+}
+async function updateSupplierField(id,field,value){
+  if(!msupSuppliersBlob[id])return;
+  msupSuppliersBlob[id][field]=value;
+  if(field==='isLabo'&&!value)delete msupSuppliersBlob[id].realSupplierId;
+  try{
+    await saveSuppliersBlob();
+    if(field==='name'){
+      var sp=rctSuppliers.find(function(x){return x.id===id;});
+      if(sp)sp.nom=value;
+    }
+    renderSuppliersList();
+    if(field==='name')renderIngredientsList();
+  }catch(e){console.error('updateSupplierField',e);alert('Erreur : '+e.message);}
+}
+async function createSupplier(){
+  var name=(document.getElementById('msup-new-name').value||'').trim();
+  if(!name){alert('Indique un nom de fournisseur.');return;}
+  var id='sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  msupSuppliersBlob[id]={name:name};
+  try{
+    await saveSuppliersBlob();
+    rctSuppliers.push({id:id,nom:name});
+    rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
+    document.getElementById('msup-new-name').value='';
+    renderSuppliersList();
+    renderIngredientsList();
+  }catch(e){console.error('createSupplier',e);alert('Erreur : '+e.message);}
+}
+async function deleteSupplier(id){
+  var inUse=rctMasterStockProduits.some(function(p){return p.fournisseur_id===id;});
+  var msg=inUse?'Ce fournisseur est utilisé par au moins un produit ici — le champ fournisseur repassera à vide pour ces produits. Continuer ?':'Supprimer ce fournisseur ?';
+  if(!confirm(msg))return;
+  delete msupSuppliersBlob[id];
+  try{
+    await saveSuppliersBlob();
+    rctSuppliers=rctSuppliers.filter(function(s){return s.id!==id;});
+    rctMasterStockProduits.forEach(function(p){if(p.fournisseur_id===id)p.fournisseur_id=null;});
+    renderSuppliersList();
+    renderIngredientsList();
+  }catch(e){console.error('deleteSupplier',e);alert('Erreur : '+e.message);}
+}
+// ── Besoins Labo : produits sourcés depuis le Labo sur Port et/ou Dabray, groupés par vrai fournisseur ──
+async function openBesoinsLaboModal(){
+  var box=document.getElementById('mbesoinslabo-list');
+  box.innerHTML='<div style="font-size:11px;color:var(--txm);">Chargement…</div>';
+  document.getElementById('mbesoinslabo').classList.add('op');
+  try{
+    var restos=['port','dabray'];
+    var r=sbCheck(await db.from('stock_catalogue').select('restaurant_id,suppliers').in('restaurant_id',restos));
+    var suppliersByResto={};
+    (r.data||[]).forEach(function(row){suppliersByResto[row.restaurant_id]=row.suppliers||{};});
+    var rc=sbCheck(await db.from('master_produits_couts').select('restaurant_id,produit_code,fournisseur_id').in('restaurant_id',restos));
+    var rows=(rc.data||[]).filter(function(x){return x.fournisseur_id;});
+    var byProduit={}; // produit_code -> {nom, restos:[], realSupName}
+    rows.forEach(function(row){
+      var sups=suppliersByResto[row.restaurant_id]||{};
+      var sup=sups[row.fournisseur_id];
+      if(!sup||!sup.isLabo)return;
+      var mp=rctMasterStockProduits.find(function(p){return p.code===row.produit_code;});
+      var nom=mp?mp.nom:row.produit_code;
+      var realSup=sup.realSupplierId?(sups[sup.realSupplierId]&&sups[sup.realSupplierId].name):null;
+      if(!byProduit[row.produit_code])byProduit[row.produit_code]={nom:nom,restos:[],realSupName:realSup};
+      if(byProduit[row.produit_code].restos.indexOf(row.restaurant_id)<0)byProduit[row.produit_code].restos.push(row.restaurant_id);
+      if(!byProduit[row.produit_code].realSupName&&realSup)byProduit[row.produit_code].realSupName=realSup;
+    });
+    var byRealSup={};
+    Object.keys(byProduit).forEach(function(code){
+      var item=byProduit[code];
+      var groupKey=item.realSupName||'⚠️ Fournisseur réel non précisé';
+      byRealSup[groupKey]=byRealSup[groupKey]||[];
+      byRealSup[groupKey].push(item);
+    });
+    var groupNames=Object.keys(byRealSup).sort();
+    if(!groupNames.length){
+      box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucun produit marqué "fournisseur = 🏭 Labo" pour l\'instant sur Port ou Dabray. Va dans "🚚 Gérer les fournisseurs" pour créer un fournisseur Labo, puis assigne-le aux produits concernés depuis l\'écran Ingrédients.</div>';
+      return;
+    }
+    box.innerHTML=groupNames.map(function(g){
+      var items=byRealSup[g].slice().sort(function(a,b){return a.nom.localeCompare(b.nom);});
+      return '<div style="margin-bottom:12px;">'
+        +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;margin-bottom:4px;">'+esc(g)+'</div>'
+        +items.map(function(it){
+          var restoLabel=it.restos.map(function(r){return r==='port'?'Port':'Dabray';}).join(' + ');
+          return '<div class="card" style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;"><span>'+esc(it.nom)+'</span><span style="color:var(--txm);font-size:11px;">'+esc(restoLabel)+'</span></div>';
+        }).join('')
+        +'</div>';
+    }).join('');
+  }catch(e){console.error('openBesoinsLaboModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+e.message+'</div>';}
 }
 async function updateIngredientNature(code,nature){
   try{
