@@ -6522,7 +6522,13 @@ async function loadRecettesModule(){
     (mprc.data||[]).forEach(function(c){coutByCode[c.produit_code]=c;});
     rctMasterStockProduits=(mpr.data||[]).map(function(p){
       var c=coutByCode[p.code];
-      return c?Object.assign({},p,{mode_prix:c.mode_prix,prix_unitaire:c.prix_unitaire,prix_kilo:c.prix_kilo,prix_litre:c.prix_litre,poids_net_g:c.poids_net_g,fournisseur_id:c.fournisseur_id}):p;
+      return c?Object.assign({},p,{mode_prix:c.mode_prix,prix_unitaire:c.prix_unitaire,prix_kilo:c.prix_kilo,prix_litre:c.prix_litre,poids_net_g:c.poids_net_g,fournisseur_id:c.fournisseur_id,prix_source_code:c.prix_source_code||null}):p;
+    });
+    // Résout les prix "copiés" (un produit peut hériter du prix d'un autre au lieu du sien propre)
+    rctMasterStockProduits.forEach(function(p){
+      if(!p.prix_source_code)return;
+      var src=coutByCode[p.prix_source_code];
+      if(src){p.mode_prix=src.mode_prix;p.prix_unitaire=src.prix_unitaire;p.prix_kilo=src.prix_kilo;p.prix_litre=src.prix_litre;p.poids_net_g=src.poids_net_g;}
     });
     rctIngredientStockLink={};
     (link.data||[]).forEach(function(r){rctIngredientStockLink[r.ingredient_code]=r.stock_produit_code;});
@@ -7172,9 +7178,20 @@ function renderIngredientsList(){
     return '<select class="fi" style="font-size:10px;padding:2px;max-width:110px;" onchange="if(this.value)moveIngredientToCategory(\''+i.code+'\',this.value);this.selectedIndex=0;">'+opts+'</select>';
   }
   function priceInputsHtml(sp,ingCode){
+    if(sp&&sp.prix_source_code){
+      var src=rctMasterStockProduits.find(function(p){return p.code===sp.prix_source_code;});
+      var mode2=sp.mode_prix||'unitaire';
+      var field2=modePrixField(mode2),label2=modePrixLabel(mode2);
+      var val=sp[field2]!=null?sp[field2]+' '+label2:'prix non renseigné sur la source';
+      return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--txm);">'
+        +'<span>🔗 Même prix que <strong>'+esc(src?src.nom:sp.prix_source_code)+'</strong> ('+esc(val)+')</span>'
+        +'<button class="btn bs sm" onclick="unlinkProductPrice(\''+sp.code+'\')" style="padding:2px 8px;font-size:10px;">✕ Détacher</button>'
+        +'</div>';
+    }
     var mode=(sp&&sp.mode_prix)||'unitaire';
     var field=modePrixField(mode),label=modePrixLabel(mode);
     var codeAttr=sp?sp.code:'';
+    var otherProducts=sp?rctMasterStockProduits.filter(function(p){return p.code!==sp.code&&!p.prix_source_code;}).sort(function(a,b){return a.nom.localeCompare(b.nom);}):[];
     return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
       +modeMesureSelectHtml('',mode,'onchange="handlePriceFieldChange(\''+ingCode+'\',\''+codeAttr+'\',\'mode_prix\',this.value)"')
       +'<input type="number" class="fi" style="width:74px;font-size:10px;" step="0.01" placeholder="'+label+'" value="'+(sp&&sp[field]!=null?sp[field]:'')+'" onchange="handlePriceFieldChange(\''+ingCode+'\',\''+codeAttr+'\',\''+field+'\',this.value)">'
@@ -7182,6 +7199,10 @@ function renderIngredientsList(){
         +'<option value="">🚚 Fournisseur…</option>'
         +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(sp&&sp.fournisseur_id===s.id?' selected':'')+'>'+esc(s.nom)+'</option>';}).join('')
       +'</select>'
+      +(sp&&otherProducts.length?'<select class="fi" style="font-size:10px;max-width:130px;" onchange="if(this.value)linkProductPrice(\''+sp.code+'\',this.value);this.selectedIndex=0;">'
+        +'<option value="">🔗 Copier le prix de…</option>'
+        +otherProducts.map(function(p){return '<option value="'+p.code+'">'+esc(p.nom)+'</option>';}).join('')
+      +'</select>':'')
       +'</div>';
   }
   function natureSelectHtml(i){
@@ -7196,7 +7217,7 @@ function renderIngredientsList(){
     return '<div class="card" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<div style="flex:1;min-width:160px;">'
-      +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(i.nom)+'</div>'
+      +'<input type="text" class="fi" style="font-weight:700;font-size:13px;color:var(--tx);border:none;background:transparent;padding:0;width:100%;" value="'+esc(i.nom)+'" onchange="updateIngredientNom(\''+i.code+'\',this.value)" onfocus="this.style.background=\'var(--cr)\';this.style.border=\'1px solid var(--bx)\';this.style.padding=\'2px 4px\';" onblur="this.style.background=\'transparent\';this.style.border=\'none\';this.style.padding=\'0\';">'
       +'<div style="font-size:11px;color:var(--txm);">'+statut.label+'</div>'
       +'</div>'
       +natureSelectHtml(i)
@@ -7273,6 +7294,7 @@ function renderIngredientsList(){
         var items=itemsForCat[sub]||[];
         html+='<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px 8px;">'
           +'<div style="font-size:11px;font-weight:700;color:var(--txm);flex:1;">↳ '+esc(sub)+'</div>'
+          +'<button class="btn bs sm" onclick="openNewIngredientModal(\''+esc(cat)+'\',\''+esc(sub)+'\')" style="padding:2px 8px;font-size:11px;font-weight:900;" title="Ajouter un ingrédient ici">+</button>'
           +'<button class="btn bs sm" onclick="openCategoryEditModal(\''+esc(cat)+'\')" style="padding:2px 7px;font-size:10px;" title="Modifier cette sous-catégorie">✏️</button>'
           +'<button class="btn bs sm" onclick="deleteSubcategorieDirect(\''+esc(cat)+'\',\''+esc(sub)+'\')" style="padding:2px 7px;font-size:10px;background:#FEE2E2;color:#991B1B;" title="Supprimer cette sous-catégorie">🗑</button>'
           +'</div>';
@@ -7297,6 +7319,7 @@ function renderIngredientsList(){
     itemsByCat[''][''].forEach(function(i){html+=renderIngredientCard(i);});
   }
   container.innerHTML=html;
+  void container.offsetHeight; // force Safari iOS à terminer sa passe de mise en page avant le 1er tap sur un <select> fraîchement injecté (sinon le picker se referme tout seul au premier essai)
 }
 
 async function deleteIngredient(code){
@@ -7313,6 +7336,16 @@ function openNewIngredientModal(presetCat,presetSub){
   document.getElementById('nig-cat').value=presetCat||'';
   document.getElementById('nig-sub').value=presetSub||'';
   document.getElementById('mnig').classList.add('op');
+}
+async function updateIngredientNom(code,nom){
+  nom=(nom||'').trim();
+  if(!nom){alert('Le nom ne peut pas être vide.');renderIngredientsList();return;}
+  try{
+    sbCheck(await db.from('ingredients').update({nom:nom}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var ing=rctIngredients.find(function(i){return i.code===code;});
+    if(ing)ing.nom=nom;
+    renderIngredientsList();
+  }catch(e){console.error('updateIngredientNom',e);alert('Erreur : '+e.message);}
 }
 async function updateIngredientUniteDefaut(code,unite){
   try{
@@ -7449,6 +7482,26 @@ async function openBesoinsLaboModal(){
         +'</div>';
     }).join('');
   }catch(e){console.error('openBesoinsLaboModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+e.message+'</div>';}
+}
+async function linkProductPrice(masterCode,sourceCode){
+  try{
+    sbCheck(await db.from('master_produits_couts').upsert([{restaurant_id:rctResto(),produit_code:masterCode,prix_source_code:sourceCode}],{onConflict:'restaurant_id,produit_code'}));
+    var mp=rctMasterStockProduits.find(function(p){return p.code===masterCode;});
+    var src=rctMasterStockProduits.find(function(p){return p.code===sourceCode;});
+    if(mp){
+      mp.prix_source_code=sourceCode;
+      if(src){mp.mode_prix=src.mode_prix;mp.prix_unitaire=src.prix_unitaire;mp.prix_kilo=src.prix_kilo;mp.prix_litre=src.prix_litre;mp.poids_net_g=src.poids_net_g;}
+    }
+    renderIngredientsList();
+  }catch(e){console.error('linkProductPrice',e);alert('Erreur : '+e.message);}
+}
+async function unlinkProductPrice(masterCode){
+  try{
+    sbCheck(await db.from('master_produits_couts').upsert([{restaurant_id:rctResto(),produit_code:masterCode,prix_source_code:null}],{onConflict:'restaurant_id,produit_code'}));
+    var mp=rctMasterStockProduits.find(function(p){return p.code===masterCode;});
+    if(mp)mp.prix_source_code=null; // le prix copié reste affiché tel quel, librement modifiable maintenant
+    renderIngredientsList();
+  }catch(e){console.error('unlinkProductPrice',e);alert('Erreur : '+e.message);}
 }
 async function updateIngredientNature(code,nature){
   try{
