@@ -557,7 +557,17 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt">Nouvel ingrédient</div>
     <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="nig-nom" placeholder="Ex: Mozzarella"></div>
     <div class="fr"><label class="fl2">Catégorie</label><input type="text" class="fi" id="nig-cat" placeholder="Ex: Fromages"></div>
+    <input type="hidden" id="nig-sub">
     <div class="ma"><button class="btn bs" onclick="closeM('mnig')">Annuler</button><button class="btn bp" onclick="saveNewIngredient()">Créer</button></div>
+  </div>
+</div>
+
+<!-- Modal menu contextuel "+" -->
+<div class="mb" id="qam">
+  <div class="md" style="max-width:340px;">
+    <div class="mdt" id="qam-title">Ajouter</div>
+    <div id="qam-options"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('qam')">Annuler</button></div>
   </div>
 </div>
 
@@ -6571,15 +6581,67 @@ function sortedSubNames(cat,subObj){
 function ongletHeaderHtml(ong){
   var label=ong==='_sans_onglet'?'Non classé':ong;
   return '<div style="display:flex;align-items:center;gap:6px;margin:22px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--bx);" data-ongletname="'+esc(ong==='_sans_onglet'?'':ong)+'">'
-    +'<div style="font-size:14px;font-weight:900;color:var(--bx);">'+esc(label)+'</div>'
+    +'<div style="font-size:14px;font-weight:900;color:var(--bx);flex:1;">'+esc(label)+'</div>'
+    +'<button class="btn bs sm" onclick="openQuickAddMenu(\''+esc(ong==='_sans_onglet'?'':ong)+'\',null)" style="padding:3px 9px;font-size:12px;font-weight:900;">+</button>'
     +(ong!=='_sans_onglet'?'<button class="btn bs sm" onclick="openOngletEditModalFromBtn(this)" style="padding:3px 8px;font-size:11px;">✏️</button>':'')
     +'</div>';
 }
 function catHeaderHtml(cat){
   return '<div style="display:flex;align-items:center;gap:6px;margin:14px 0 4px;" data-catname="'+esc(cat)+'">'
     +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;flex:1;">'+esc(cat)+'</div>'
+    +'<button class="btn bs sm" onclick="openQuickAddMenu(null,\''+esc(cat)+'\')" style="padding:3px 9px;font-size:12px;font-weight:900;">+</button>'
     +'<button class="btn bs sm" onclick="openCategoryEditModalFromBtn(this)" style="padding:3px 8px;font-size:11px;">✏️</button>'
     +'</div>';
+}
+// ── Menu contextuel "+" : ajouter une catégorie, une sous-catégorie ou un produit, au bon endroit ──
+var qamOnglet=null,qamCat=null;
+function openQuickAddMenu(onglet,cat){
+  qamOnglet=onglet||null;
+  qamCat=cat||null;
+  var box=document.getElementById('qam-options');
+  var title=cat?('Ajouter dans "'+cat+'"'):(onglet?('Ajouter dans la section "'+onglet+'"'):'Ajouter');
+  document.getElementById('qam-title').textContent=title;
+  var opts=[];
+  if(cat){
+    opts.push({label:'📁 Sous-catégorie ici',fn:'qamAddSubcat()'});
+    opts.push({label:'🧾 Ingrédient ici',fn:'qamAddIngredient()'});
+  }else{
+    opts.push({label:'📂 Nouvelle catégorie ici',fn:'qamAddCategorie()'});
+    opts.push({label:'🧾 Nouvel ingrédient (sans catégorie)',fn:'qamAddIngredient()'});
+  }
+  opts.push({label:'🗂 Nouvelle section',fn:'qamAddOnglet()'});
+  box.innerHTML=opts.map(function(o){return '<button class="btn bs" style="width:100%;text-align:left;margin-bottom:6px;" onclick="'+o.fn+'">'+o.label+'</button>';}).join('');
+  document.getElementById('qam').classList.add('op');
+}
+function qamAddOnglet(){closeM('qam');openOngletEditModal(null);}
+function qamAddCategorie(){
+  closeM('qam');
+  openCategoryEditModal(null);
+  if(qamOnglet)setTimeout(function(){document.getElementById('mcat-onglet').value=qamOnglet;},50);
+}
+function qamAddSubcat(){
+  closeM('qam');
+  var name=prompt('Nom de la nouvelle sous-catégorie dans "'+qamCat+'" :');
+  if(!name)return;
+  name=name.trim();
+  if(!name)return;
+  quickAddSubcat(qamCat,name);
+}
+async function quickAddSubcat(cat,name){
+  var existing=rctSousCategoriesOrdre[cat]||{};
+  var nextOrdre=(Object.keys(existing).length+1)*10;
+  try{
+    sbCheck(await db.from('sous_categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,categorie:cat,nom:name,ordre:nextOrdre}],{onConflict:'restaurant_id,categorie,nom'}));
+    rctSousCategoriesOrdre[cat]=rctSousCategoriesOrdre[cat]||{};
+    rctSousCategoriesOrdre[cat][name]=nextOrdre;
+    renderRecettesList();
+    renderCoutsList();
+    renderIngredientsList();
+  }catch(e){console.error('quickAddSubcat',e);alert('Erreur : '+e.message);}
+}
+function qamAddIngredient(){
+  closeM('qam');
+  openNewIngredientModal(qamCat);
 }
 
 function renderRecettesList(){
@@ -7053,8 +7115,31 @@ function renderIngredientsList(){
       +(statut.stockProd?priceInputsHtml(statut.stockProd):'')
       +'</div>';
   }
-  var byOnglet=groupByOnglet(list,function(i){return i.categorie;},function(i){return i.sous_categorie;});
-  var ongNames=sortedOngletNames(byOnglet);
+  var itemsByCat={};
+  list.forEach(function(i){
+    var cat=i.categorie||'';
+    var sub=i.sous_categorie||'';
+    itemsByCat[cat]=itemsByCat[cat]||{};
+    itemsByCat[cat][sub]=itemsByCat[cat][sub]||[];
+    itemsByCat[cat][sub].push(i);
+  });
+  var allCatNames=Object.keys(rctCategoriesOrdre).slice();
+  Object.keys(itemsByCat).forEach(function(c){if(c&&allCatNames.indexOf(c)<0)allCatNames.push(c);});
+  var byOngCats={};
+  allCatNames.forEach(function(cat){
+    var ong=ongletDeCategorie(cat)||'_sans_onglet';
+    byOngCats[ong]=byOngCats[ong]||[];
+    byOngCats[ong].push(cat);
+  });
+  if(itemsByCat['']&&itemsByCat['']['']&&itemsByCat[''][''].length){
+    byOngCats['_sans_onglet']=byOngCats['_sans_onglet']||[];
+    if(byOngCats['_sans_onglet'].indexOf('')<0)byOngCats['_sans_onglet'].push('');
+  }
+  var ongNames=Object.keys(byOngCats).sort(function(a,b){
+    var oa=a!=='_sans_onglet'&&rctOngletsOrdre[a]!=null?rctOngletsOrdre[a]:9999;
+    var ob=b!=='_sans_onglet'&&rctOngletsOrdre[b]!=null?rctOngletsOrdre[b]:9999;
+    return oa!==ob?oa-ob:0;
+  });
   if(navEl){
     navEl.innerHTML='<span style="font-size:11px;font-weight:700;color:var(--tx);white-space:nowrap;flex-shrink:0;">Aller à :</span>'
       +ongNames.map(function(ong){
@@ -7065,16 +7150,47 @@ function renderIngredientsList(){
   var html='';
   ongNames.forEach(function(ong){
     html+='<div id="ing-anchor-'+encodeURIComponent(ong)+'" style="scroll-margin-top:52px;">'+ongletHeaderHtml(ong)+'</div>';
-    var catNames=sortedCatNames(byOnglet[ong]);
+    var catNames=byOngCats[ong].slice().sort(function(a,b){
+      if(a==='')return 1; if(b==='')return -1;
+      var oa=rctCategoriesOrdre[a]?rctCategoriesOrdre[a].ordre:9999;
+      var ob=rctCategoriesOrdre[b]?rctCategoriesOrdre[b].ordre:9999;
+      return oa!==ob?oa-ob:a.localeCompare(b);
+    });
     catNames.forEach(function(cat){
+      if(cat==='')return; // les ingrédients vraiment sans catégorie sont listés à part plus bas
       html+=catHeaderHtml(cat);
-      var subNames=sortedSubNames(cat,byOnglet[ong][cat]);
-      subNames.forEach(function(sub){
-        if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:8px 0 4px 8px;">↳ '+esc(sub)+'</div>';
-        byOnglet[ong][cat][sub].forEach(function(i){html+=renderIngredientCard(i);});
+      var itemsForCat=itemsByCat[cat]||{};
+      var knownSubs=Object.keys(rctSousCategoriesOrdre[cat]||{});
+      Object.keys(itemsForCat).forEach(function(s){if(s&&knownSubs.indexOf(s)<0)knownSubs.push(s);});
+      var hasDirectItems=itemsForCat['']&&itemsForCat[''].length;
+      if(hasDirectItems)itemsForCat[''].forEach(function(i){html+=renderIngredientCard(i);});
+      knownSubs.sort(function(a,b){
+        var subOrdMap=rctSousCategoriesOrdre[cat]||{};
+        var oa=subOrdMap[a]!=null?subOrdMap[a]:9999,ob=subOrdMap[b]!=null?subOrdMap[b]:9999;
+        return oa!==ob?oa-ob:a.localeCompare(b);
+      }).forEach(function(sub){
+        var items=itemsForCat[sub]||[];
+        html+='<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px 8px;">'
+          +'<div style="font-size:11px;font-weight:700;color:var(--txm);flex:1;">↳ '+esc(sub)+'</div>'
+          +'<button class="btn bs sm" onclick="openCategoryEditModal(\''+esc(cat)+'\')" style="padding:2px 7px;font-size:10px;" title="Modifier cette sous-catégorie">✏️</button>'
+          +'</div>';
+        if(items.length){
+          items.forEach(function(i){html+=renderIngredientCard(i);});
+        }else{
+          html+='<div class="card" style="margin-left:8px;padding:8px 12px;color:var(--txm);font-size:11px;display:flex;justify-content:space-between;align-items:center;">Aucun ingrédient ici pour l\'instant.'
+            +'<button class="btn bs sm" onclick="openNewIngredientModal(\''+esc(cat)+'\',\''+esc(sub)+'\')" style="font-size:11px;">+ Ajouter ici</button></div>';
+        }
       });
+      if(!hasDirectItems&&!knownSubs.length){
+        html+='<div class="card" style="padding:8px 12px;color:var(--txm);font-size:11px;display:flex;justify-content:space-between;align-items:center;">Catégorie vide pour l\'instant.'
+          +'<button class="btn bs sm" onclick="openNewIngredientModal(\''+esc(cat)+'\')" style="font-size:11px;">+ Ajouter ici</button></div>';
+      }
     });
   });
+  if(itemsByCat['']&&itemsByCat['']['']&&itemsByCat[''][''].length){
+    html+='<div style="font-weight:700;font-size:13px;margin:14px 0 4px;color:var(--tx);">❓ Sans catégorie</div>';
+    itemsByCat[''][''].forEach(function(i){html+=renderIngredientCard(i);});
+  }
   container.innerHTML=html;
 }
 
@@ -7087,9 +7203,10 @@ async function deleteIngredient(code){
   }catch(e){console.error('deleteIngredient',e);alert('Erreur lors de la suppression : '+e.message);}
 }
 
-function openNewIngredientModal(){
+function openNewIngredientModal(presetCat,presetSub){
   document.getElementById('nig-nom').value='';
-  document.getElementById('nig-cat').value='';
+  document.getElementById('nig-cat').value=presetCat||'';
+  document.getElementById('nig-sub').value=presetSub||'';
   document.getElementById('mnig').classList.add('op');
 }
 async function updateIngredientUniteDefaut(code,unite){
@@ -7140,10 +7257,11 @@ async function updateIngredientQuantiteDefaut(code,value){
 async function saveNewIngredient(){
   var nom=(document.getElementById('nig-nom').value||'').trim();
   var cat=(document.getElementById('nig-cat').value||'').trim()||'Autres';
+  var sub=(document.getElementById('nig-sub').value||'').trim()||null;
   if(!nom){alert('Indique un nom.');return;}
   var code=slugify(nom);
   try{
-    sbCheck(await db.from('ingredients').upsert([{restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:cat,actif:true}],{onConflict:'restaurant_id,code'}));
+    sbCheck(await db.from('ingredients').upsert([{restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:cat,sous_categorie:sub,actif:true}],{onConflict:'restaurant_id,code'}));
     closeM('mnig');
     await loadRecettesModule();
   }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création : '+e.message);}
