@@ -493,6 +493,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
         <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
+        <button class="btn bs sm" onclick="openOrphansModal()">🔍 Produits non catalogués</button>
       </div>
       <div id="rct-ing-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
       <div id="rct-ing-list-container"></div>
@@ -601,6 +602,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Tous les produits que Port et/ou Dabray sourcent depuis le Labo (fournisseur = 🏭 Labo), groupés par vrai fournisseur externe pour préparer les commandes du Labo. Liste informative pour l'instant — pas encore de suivi de rupture automatique.</div>
     <div id="mbesoinslabo-list"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mbesoinslabo')">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Modal produits stock existants mais absents du catalogue Ingrédients (catalogue unique = Ingrédients) -->
+<div class="mb" id="morphans">
+  <div class="md" style="max-width:520px;">
+    <div class="mdt">🔍 Produits stock non catalogués</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Ces produits existent dans le catalogue stock (souvent importés depuis Hiboutik) mais n'ont pas encore de fiche dans Ingrédients. Ajoute-les pour que tout soit visible et modifiable au même endroit.</div>
+    <div id="morphans-list"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('morphans')">Fermer</button></div>
   </div>
 </div>
 
@@ -7229,11 +7240,13 @@ function renderIngredientsList(){
   }
   function renderIngredientCard(i){
     var statut=statutIngredient(i);
+    var hasBrutSource=!!((i.nature||'fini')==='fini'&&i.source_brut_code);
+    var brutSourceIng=hasBrutSource?rctIngredients.find(function(x){return x.code===i.source_brut_code;}):null;
     return '<div class="card" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<div style="flex:1;min-width:160px;">'
       +'<input type="text" class="fi" style="font-weight:700;font-size:13px;color:var(--tx);border:1px solid transparent;background:transparent;padding:2px 4px;margin:-2px -4px;width:100%;" value="'+esc(i.nom)+'" onchange="updateIngredientNom(\''+i.code+'\',this.value)">'
-      +'<div style="font-size:11px;color:var(--txm);">'+statut.label+'</div>'
+      +'<div style="font-size:11px;color:var(--txm);">'+(hasBrutSource?'🔪 Préparé à partir de '+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code):statut.label)+'</div>'
       +'</div>'
       +natureSelectHtml(i)
       +moveSelectHtml(i)
@@ -7245,12 +7258,14 @@ function renderIngredientsList(){
         +'<option value="l"'+((i.unite_defaut)==='l'?' selected':'')+'>L</option>'
         +'<option value="piece"'+((i.unite_defaut)==='piece'?' selected':'')+'>pièce</option>'
       +'</select>'
-      +'<button class="btn bs sm" onclick="openLinkModal(\''+i.code+'\')">Relier</button>'
+      +(hasBrutSource?'':'<button class="btn bs sm" onclick="openLinkModal(\''+i.code+'\')">Relier</button>')
       +'<button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')">Recette</button>'
       +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
       +'</div>'
       +miseEnPlaceHtml(i)
-      +(statut.isComposed?'<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>':priceInputsHtml(statut.stockProd,i.code))
+      +(hasBrutSource?'<div style="font-size:10px;color:var(--txm);">🔪 Pas de fournisseur séparé — cet article est préparé sur place à partir de "'+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code)+'", pas acheté tel quel.</div>'
+        :statut.isComposed?'<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>'
+        :priceInputsHtml(statut.stockProd,i.code))
       +'</div>';
   }
   var itemsByCat={};
@@ -7370,7 +7385,63 @@ async function updateIngredientUniteDefaut(code,unite){
     if(ing)ing.unite_defaut=unite;
   }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
 }
-// ── Gestion des fournisseurs (par restaurant, stockés dans stock_catalogue.suppliers) ──
+// ── Produits stock orphelins : présents dans le catalogue stock (souvent Hiboutik) mais absents d'Ingrédients ──
+// Objectif : Ingrédients doit rester la source unique du catalogue matière première/marchandises.
+function computeOrphanStockProduits(){
+  var usedCodes={};
+  Object.keys(rctIngredientStockLink).forEach(function(ingCode){
+    var c=rctIngredientStockLink[ingCode];
+    if(c)usedCodes[c]=true;
+  });
+  Object.keys(rctIngredientComposition).forEach(function(ingCode){
+    (rctIngredientComposition[ingCode]||[]).forEach(function(l){if(l.stock_produit_code)usedCodes[l.stock_produit_code]=true;});
+  });
+  return rctMasterStockProduits.filter(function(p){return !usedCodes[p.code];}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
+}
+function openOrphansModal(){
+  renderOrphansList();
+  document.getElementById('morphans').classList.add('op');
+}
+function renderOrphansList(){
+  var box=document.getElementById('morphans-list');
+  var orphans=computeOrphanStockProduits();
+  if(!orphans.length){
+    box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Tout le catalogue stock est déjà représenté dans Ingrédients. 👍</div>';
+    return;
+  }
+  box.innerHTML='<button class="btn bp sm" onclick="addAllOrphansAsIngredients()" style="margin-bottom:8px;">+ Tout ajouter ('+orphans.length+')</button>'
+    +orphans.map(function(p){
+      return '<div class="card" style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px;">'
+        +'<span>'+esc(p.nom)+'</span>'
+        +'<button class="btn bs sm" onclick="addOrphanAsIngredient(\''+p.code+'\')">+ Ajouter comme ingrédient</button>'
+        +'</div>';
+    }).join('');
+}
+async function addOrphanAsIngredient(stockCode){
+  var p=rctMasterStockProduits.find(function(x){return x.code===stockCode;});
+  if(!p)return;
+  var code=p.code;
+  if(rctIngredients.some(function(i){return i.code===code;}))code=code+'-ing'; // évite une collision de code avec un ingrédient existant portant déjà ce code
+  try{
+    sbCheck(await db.from('ingredients').upsert([{restaurant_id:RCT_GLOBAL,code:code,nom:p.nom,actif:true,nature:'fini'}],{onConflict:'restaurant_id,code'}));
+    var restos=['port','dabray'];
+    for(var i=0;i<restos.length;i++){
+      sbCheck(await db.from('ingredient_stock_link').upsert([{restaurant_id:restos[i],ingredient_code:code,stock_produit_code:stockCode}],{onConflict:'restaurant_id,ingredient_code'}));
+    }
+    rctIngredients.push({restaurant_id:RCT_GLOBAL,code:code,nom:p.nom,actif:true,nature:'fini'});
+    rctIngredientStockLink[code]=stockCode;
+    renderOrphansList();
+    renderIngredientsList();
+  }catch(e){console.error('addOrphanAsIngredient',e);alert('Erreur : '+e.message);}
+}
+async function addAllOrphansAsIngredients(){
+  var orphans=computeOrphanStockProduits();
+  if(!orphans.length)return;
+  if(!confirm('Ajouter les '+orphans.length+' produits comme ingrédients (nature "Fini" par défaut, à ajuster ensuite) ?'))return;
+  for(var i=0;i<orphans.length;i++){
+    await addOrphanAsIngredient(orphans[i].code);
+  }
+}
 let msupSuppliersBlob={};
 async function openSuppliersModal(){
   var resto=rctResto();
@@ -7525,6 +7596,7 @@ async function updateIngredientField(code,field,value){
     sbCheck(await db.from('ingredients').update(payload).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
     var ing=rctIngredients.find(function(i){return i.code===code;});
     if(ing)ing[field]=value||null;
+    if(field==='source_brut_code')renderIngredientsList();
   }catch(e){console.error('updateIngredientField',e);alert('Erreur : '+e.message);}
 }
 async function updateIngredientNature(code,nature){
