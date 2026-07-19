@@ -7232,7 +7232,7 @@ function renderIngredientsList(){
     return '<div class="card" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<div style="flex:1;min-width:160px;">'
-      +'<input type="text" class="fi" style="font-weight:700;font-size:13px;color:var(--tx);border:none;background:transparent;padding:0;width:100%;" value="'+esc(i.nom)+'" onchange="updateIngredientNom(\''+i.code+'\',this.value)" onfocus="this.style.background=\'var(--cr)\';this.style.border=\'1px solid var(--bx)\';this.style.padding=\'2px 4px\';" onblur="this.style.background=\'transparent\';this.style.border=\'none\';this.style.padding=\'0\';">'
+      +'<input type="text" class="fi" style="font-weight:700;font-size:13px;color:var(--tx);border:1px solid transparent;background:transparent;padding:2px 4px;margin:-2px -4px;width:100%;" value="'+esc(i.nom)+'" onchange="updateIngredientNom(\''+i.code+'\',this.value)">'
       +'<div style="font-size:11px;color:var(--txm);">'+statut.label+'</div>'
       +'</div>'
       +natureSelectHtml(i)
