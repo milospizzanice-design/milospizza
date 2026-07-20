@@ -170,7 +170,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cl">Demande d'acompte</div>
         <div class="cs">Avance sur salaire</div>
       </div>
-      <div class="cbtn" onclick="menuStocks()">
+      <div class="cbtn" onclick="menuStocks()" id="cbtn-stocks">
         <div class="ci">&#128230;</div>
         <div class="cl">G&eacute;rer les stocks</div>
         <div class="cs">Compter, commander</div>
@@ -301,6 +301,28 @@ var RESTAURANT_ADDRESS='9 rue Bavastro, 06300 Nice';
 var SURL='https://kkfccfipmxnsiohjxfdy.supabase.co';
 var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZmNjZmlwbXhuc2lvaGp4ZmR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjgwNjcsImV4cCI6MjA5Njg0NDA2N30.cMp5VhkkzSN6i04fJD1B6zVuDfMOHo8GfD91_Q6Rk-U';
 var db=supabase.createClient(SURL,SKEY);
+window.rgFeatureFlags=null;
+// Vérifie quelles fonctionnalités sont activées globalement (réglées depuis admin.html > Réglages),
+// et grise le bouton correspondant s'il est désactivé. Défaut = activé si la table est vide/injoignable,
+// pour ne jamais bloquer par erreur si Supabase répond mal.
+async function applyFeatureFlags(){
+  try{
+    var r=await db.from('feature_flags').select('key,enabled');
+    var flags={};
+    (r.data||[]).forEach(function(f){flags[f.key]=f.enabled;});
+    window.rgFeatureFlags=flags;
+    var btn=document.getElementById('cbtn-stocks');
+    if(btn){
+      if(flags.stocks_enabled===false){
+        btn.style.opacity='0.4';
+        btn.style.pointerEvents='none';
+      }else{
+        btn.style.opacity='';
+        btn.style.pointerEvents='';
+      }
+    }
+  }catch(e){console.error('applyFeatureFlags',e);}
+}
 var pin='',emp=null,stream=null;
 var absPin='',absEmp=null;
 
@@ -563,6 +585,7 @@ async function onBadgeScanned(uid){
   }
   // Identifié -> menu
   document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+  applyFeatureFlags();
   ss('menu');
   resetInactivity();
 }
@@ -690,6 +713,7 @@ async function ccodeNext(){
       // Connexion directe après création
       emp=pinSelEmp;
       document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+  applyFeatureFlags();
       ss('menu');resetInactivity();
       loadPinEmployes(); // recharger pour la suite
     }catch(e){
@@ -751,6 +775,7 @@ async function confirmPin(){
   }
   emp=pinSelEmp;
   document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+  applyFeatureFlags();
   ss('menu');
   resetInactivity();
 }
@@ -829,6 +854,10 @@ function initAbsDates(){
   };
 }
 async function menuStocks(){
+  if(window.rgFeatureFlags&&window.rgFeatureFlags.stocks_enabled===false){
+    alert('La gestion des stocks n\'est pas encore activée pour le moment. Demande à un manager.');
+    return;
+  }
   // Ouvrir l'onglet TOUT DE SUITE, en synchrone avec le tap : Safari iOS bloque ou déconnecte
   // window.open() s'il est appelé après un await, même court. On redirige cet onglet une fois prêt.
   var newTab=null;
@@ -877,6 +906,7 @@ function backToMenu(){
   pin='';absPin='';planPin='';acoPin='';
   if(emp){
     document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+  applyFeatureFlags();
     ss('menu');
     resetInactivity();
   }else{

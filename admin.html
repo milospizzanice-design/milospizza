@@ -192,6 +192,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="home-bubble" onclick="goModule('caisse')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
     <div style="font-size:32px;">🔗</div>CAISSE
   </div>
+  <div class="home-bubble" onclick="goModule('reglages')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
+    <div style="font-size:32px;">⚙️</div>RÉGLAGES
+  </div>
 </div>
 <div id="back-to-home-bar" style="display:none;background:#7A0F14;padding:10px 14px;">
   <button onclick="goHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">← Revenir au menu</button>
@@ -833,6 +836,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<div id="page-reglages" style="display:none;">
+  <div class="page" style="padding-top:14px;">
+    <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+      Active ou désactive ce que les salariés voient dans l'app de pointage. Utile pour mettre en place le pointage dès maintenant sans exposer des fonctionnalités pas encore prêtes (ex: gestion des stocks).
+    </div>
+    <div id="reglages-list"></div>
+  </div>
+</div>
+
 <!-- Modal association produit caisse -->
 <div class="mb" id="caissemodal">
   <div class="md" style="max-width:420px;">
@@ -1159,7 +1171,7 @@ function openM(id){
 }
 
 function goModule(name){
-  var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu',labo:'page-labo',caisse:'page-caisse'};
+  var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu',labo:'page-labo',caisse:'page-caisse',reglages:'page-reglages'};
   var tabsBar=document.getElementById('tabs-rh');
   var home=document.getElementById('home-bubbles');
   var backBar=document.getElementById('back-to-home-bar');
@@ -1180,9 +1192,10 @@ function goModule(name){
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
   if(name==='caisse')loadCaisseModule();
+  if(name==='reglages')loadReglagesModule();
 }
 function goHome(){
-  var pages=['page-rh','page-stocks','page-recettes','page-menu','page-labo','page-caisse'];
+  var pages=['page-rh','page-stocks','page-recettes','page-menu','page-labo','page-caisse','page-reglages'];
   pages.forEach(function(id){
     var e=document.getElementById(id);
     if(e)e.style.display='none';
@@ -5621,6 +5634,46 @@ let caisseMapping=[];
 let caisseProduitsVendus=[];
 let caisseCurrentRow=null;
 
+// ── Réglages : fonctionnalités activables/désactivables pour les salariés (app pointage) ──
+// Ajouter une entrée ici suffit pour qu'elle apparaisse dans l'écran Réglages.
+var FEATURE_FLAGS_CATALOG=[
+  {key:'stocks_enabled',label:'📦 Gestion des stocks',desc:'Bouton "Gérer les stocks" dans l\'app de pointage des salariés.'}
+];
+var rctFeatureFlags={};
+async function loadReglagesModule(){
+  var box=document.getElementById('reglages-list');
+  box.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;">Chargement…</div>';
+  try{
+    var r=sbCheck(await db.from('feature_flags').select('key,enabled'));
+    rctFeatureFlags={};
+    (r.data||[]).forEach(function(f){rctFeatureFlags[f.key]=f.enabled;});
+  }catch(e){console.error('loadReglagesModule',e);}
+  renderReglagesList();
+}
+function renderReglagesList(){
+  var box=document.getElementById('reglages-list');
+  box.innerHTML=FEATURE_FLAGS_CATALOG.map(function(f){
+    var enabled=rctFeatureFlags[f.key]!==false; // activé par défaut tant que rien n'est explicitement désactivé
+    return '<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px;margin-bottom:8px;">'
+      +'<div style="flex:1;">'
+      +'<div style="font-weight:700;font-size:14px;color:var(--tx);">'+esc(f.label)+'</div>'
+      +'<div style="font-size:11px;color:var(--txm);margin-top:2px;">'+esc(f.desc)+'</div>'
+      +'</div>'
+      +'<label style="position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0;">'
+      +'<input type="checkbox" '+(enabled?'checked':'')+' onchange="toggleFeatureFlag(\''+f.key+'\',this.checked)" style="opacity:0;width:0;height:0;">'
+      +'<span style="position:absolute;inset:0;background:'+(enabled?'#16A34A':'#D1D5DB')+';border-radius:26px;transition:.2s;cursor:pointer;" onclick="this.previousElementSibling.checked=!this.previousElementSibling.checked;this.previousElementSibling.dispatchEvent(new Event(\'change\'));">'
+      +'<span style="position:absolute;top:3px;left:'+(enabled?'23px':'3px')+';width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.3);"></span>'
+      +'</label>'
+      +'</div>';
+  }).join('');
+}
+async function toggleFeatureFlag(key,enabled){
+  try{
+    sbCheck(await db.from('feature_flags').upsert([{key:key,enabled:enabled}],{onConflict:'key'}));
+    rctFeatureFlags[key]=enabled;
+    renderReglagesList();
+  }catch(e){console.error('toggleFeatureFlag',e);alert('Erreur : '+e.message);renderReglagesList();}
+}
 async function loadCaisseModule(){
   var list=document.getElementById('caisse-list');
   var summary=document.getElementById('caisse-summary');
