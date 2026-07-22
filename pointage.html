@@ -1007,6 +1007,10 @@ async function badge(){
   var rr=await db.from('restaurants').select('ip_whitelist').eq('id',RESTAURANT_ID).single();
   var wl=(rr.data&&rr.data.ip_whitelist)||[];
   var ipOk=wl.length===0||wl.indexOf(ip)>=0;
+  if(wl.length>0&&!ipOk){
+    document.getElementById('em').innerHTML='Vous devez \u00eatre connect\u00e9 au wifi du restaurant pour badger.<br>Merci de contacter un manager si le probl\u00e8me persiste.<br><span style="font-size:11px;opacity:.7">(IP d\u00e9tect\u00e9e non reconnue)</span>';
+    ss('error');setTimeout(backToMenu,5000);return;
+  }
   var ri=await db.from('time_entries').insert({employee_id:emp.id,restaurant_id:RESTAURANT_ID,type:type,timestamp:new Date().toISOString(),ip_address:ip,ip_ok:ipOk,photo_b64:null,manuel:false,motif:null});
   if(ri.error){document.getElementById('em').textContent=ri.error.message;ss('error');setTimeout(backToMenu,3000);return;}
   document.getElementById('cfname').textContent=emp.prenom+' '+emp.nom;
