@@ -295,6 +295,25 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   </div>
   <div class="rgpd">Photos conservées 90 jours &middot; Aucune reconnaissance faciale &middot; RGPD Art. 13</div>
 </div>
+
+<div id="reminder-badge-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:24px 20px;max-width:340px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div style="font-size:34px;margin-bottom:10px">&#9200;</div>
+    <div style="font-weight:700;font-size:17px;color:#B91E26;margin-bottom:8px">Rappel important</div>
+    <div style="font-size:14px;color:#444;line-height:1.5;margin-bottom:18px">Merci de badger uniquement au moment de <b>commencer votre service</b>, et non d&egrave;s votre arriv&eacute;e au restaurant.</div>
+    <button onclick="closeReminderBadge()" style="width:100%;background:#B91E26;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">J'ai compris</button>
+  </div>
+</div>
+
+<div id="plan-ack-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:24px 20px;max-width:340px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div style="font-size:34px;margin-bottom:10px">&#128197;</div>
+    <div style="font-weight:700;font-size:17px;color:#B91E26;margin-bottom:8px">Planning consult&eacute;</div>
+    <div style="font-size:14px;color:#444;line-height:1.5;margin-bottom:18px">Avez-vous pris connaissance de vos 4 semaines de planning &agrave; venir&nbsp;?</div>
+    <button onclick="planAckOui()" style="width:100%;background:#10B981;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px">&#10003; Oui, j'ai pris connaissance</button>
+    <button onclick="planAckPasEncore()" style="width:100%;background:#fff;color:#888;border:1px solid #ddd;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer">Pas encore</button>
+  </div>
+</div>
 <script>
 var RESTAURANT_ID='port';
 var RESTAURANT_ADDRESS='9 rue Bavastro, 06300 Nice';
@@ -401,6 +420,7 @@ async function planAfficherLu(){
   var monday=pMon(new Date());var semStr=pDs(monday);
   var r=await db.from('planning_lectures').select('*').eq('employee_id',planEmp.id).eq('semaine_debut',semStr).order('lu_at',{ascending:false}).limit(1);
   var derniere=r.data&&r.data[0];
+  planLuStatus=!!derniere;
   if(derniere){
     var dt=new Date(derniere.lu_at);
     var quand=dt.toLocaleDateString('fr-FR')+' \u00e0 '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
@@ -418,6 +438,26 @@ async function planAfficherLu(){
       '</div>';
   }
 }
+
+// ── POP-UP "prise de connaissance du planning" au scroll ────────────────────
+var planLuStatus=null;
+var planAtBottom=false;
+var planScrollListenerAttached=false;
+function attachPlanScrollListener(){
+  if(planScrollListenerAttached)return;
+  var el=document.getElementById('plan-content');
+  if(!el)return;
+  planScrollListenerAttached=true;
+  el.addEventListener('scroll',function(){
+    var nearBottom=(el.scrollTop+el.clientHeight)>=(el.scrollHeight-24);
+    if(nearBottom&&!planAtBottom&&planLuStatus===false)showPlanAckPopup();
+    planAtBottom=nearBottom;
+  });
+}
+function showPlanAckPopup(){var o=document.getElementById('plan-ack-overlay');if(o)o.style.display='flex';}
+function closePlanAckPopup(){var o=document.getElementById('plan-ack-overlay');if(o)o.style.display='none';}
+async function planAckOui(){await planAccepter();closePlanAckPopup();}
+function planAckPasEncore(){closePlanAckPopup();}
 async function planAccepter(){
   if(!planEmp)return;
   var monday=pMon(new Date());var semStr=pDs(monday);
@@ -511,6 +551,8 @@ async function loadSalariePlanning(){
     h+='</div>';
   }
   document.getElementById('plan-content').innerHTML=h;
+  planAtBottom=false;
+  attachPlanScrollListener();
   planAfficherLu();
 }
 
@@ -806,9 +848,12 @@ async function menuPointer(){
   document.getElementById('camcnt').textContent='';
   var lr=await db.from('time_entries').select('type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
   var lastB=lr.data&&lr.data[0];
+  var lastIsToday=lastB&&pDs(new Date(lastB.timestamp))===pDs(new Date());
+  var enService=lastB&&lastB.type==='entree'&&lastIsToday;
+  var isEntree=!enService;
   var statusEl=document.getElementById('camstatus');
   if(statusEl){
-    if(lastB&&lastB.type==='entree'){
+    if(enService){
       var h=new Date(lastB.timestamp).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
       statusEl.innerHTML='\u2705 Vous \u00eates en service depuis '+h+'<br><b>Vous allez badger votre SORTIE</b>';
       statusEl.style.background='#FEE2E2';statusEl.style.color='#991B1B';
@@ -819,7 +864,10 @@ async function menuPointer(){
   }
   var bb=document.getElementById('badge-btn');if(bb){bb.disabled=false;bb.textContent='Valider mon badgeage';}
   ss('camera');
+  if(isEntree)showReminderBadge();
 }
+function showReminderBadge(){var o=document.getElementById('reminder-badge-overlay');if(o)o.style.display='flex';}
+function closeReminderBadge(){var o=document.getElementById('reminder-badge-overlay');if(o)o.style.display='none';}
 function confirmBadge(){
   var btn=document.getElementById('badge-btn');
   if(btn){btn.disabled=true;btn.textContent='Enregistrement...';}
@@ -941,8 +989,9 @@ async function badge(){
   await loadDelaiBadge();
   var r=await db.from('time_entries').select('id,type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
   var last=r.data&&r.data[0];
-  // Contrôle du délai minimum entre 2 badgeages
-  if(last&&last.timestamp){
+  var lastIsToday=last&&pDs(new Date(last.timestamp))===pDs(new Date());
+  // Contrôle du délai minimum entre 2 badgeages (uniquement si le dernier badgeage date d'aujourd'hui)
+  if(last&&last.timestamp&&lastIsToday){
     var diffMin=(new Date()-new Date(last.timestamp))/60000;
     if(diffMin<DELAI_MIN_BADGE){
       var reste=Math.ceil(DELAI_MIN_BADGE-diffMin);
@@ -950,7 +999,9 @@ async function badge(){
       ss('error');setTimeout(backToMenu,5000);return;
     }
   }
-  var type=(!last||last.type==='sortie')?'entree':'sortie';
+  // Une entrée non suivie d'une sortie la veille (ou avant) ne compte plus : on repart à zéro chaque jour.
+  var oubliVeille=last&&last.type==='entree'&&!lastIsToday;
+  var type=(last&&lastIsToday&&last.type==='entree')?'sortie':'entree';
   var ip='';
   try{var ir=await fetch('https://api.ipify.org?format=json');ip=(await ir.json()).ip;}catch(e){}
   var rr=await db.from('restaurants').select('ip_whitelist').eq('id',RESTAURANT_ID).single();
@@ -959,7 +1010,9 @@ async function badge(){
   var ri=await db.from('time_entries').insert({employee_id:emp.id,restaurant_id:RESTAURANT_ID,type:type,timestamp:new Date().toISOString(),ip_address:ip,ip_ok:ipOk,photo_b64:null,manuel:false,motif:null});
   if(ri.error){document.getElementById('em').textContent=ri.error.message;ss('error');setTimeout(backToMenu,3000);return;}
   document.getElementById('cfname').textContent=emp.prenom+' '+emp.nom;
-  document.getElementById('cfdet').innerHTML=(type==='entree'?'&#9650; Entrée':'&#9660; Sortie')+' enregistrée — '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  var det=(type==='entree'?'&#9650; Entrée':'&#9660; Sortie')+' enregistrée — '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  if(oubliVeille)det+='<br><span style="font-size:12px;color:#B91E26">&#9888; Il semble que vous ayez oubli\u00e9 de badger votre sortie la derni\u00e8re fois. Merci de pr\u00e9venir un manager pour correction.</span>';
+  document.getElementById('cfdet').innerHTML=det;
   ss('ok');setTimeout(backToMenu,3000);
 }
 
