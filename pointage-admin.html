@@ -348,6 +348,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="pm-motifs"></div>
     </div>
     <div class="card">
+      <div class="sec-title">&#128274; Wifi autoris&#233; pour badger</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Si une adresse IP est enregistr&#233;e pour un &#233;tablissement, le badgeage ne sera possible que depuis le wifi de cet &#233;tablissement (sinon &#233;cran bloqu&#233; avec message &laquo;&nbsp;contactez un manager&nbsp;&raquo;). Laissez vide pour ne pas restreindre.</div>
+      <div id="pm-ipwl"></div>
+    </div>
+    <div class="card">
       <div class="sec-title">&#9888; Alerte d&#233;passement</div>
       <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Un pop-up appara&#238;t &#224; la connexion si un salari&#233; d&#233;passe ses heures de contrat de plus que ce seuil (par semaine).</div>
       <div class="fr"><label class="fl2">Seuil (heures)</label><input type="number" class="fi" id="pm-seuil" step="0.5" min="0" value="2" onchange="saveSeuilParam()"></div>
@@ -673,7 +678,7 @@ function goTab(name,el){
   if(name==='pl'){planUpdateLabel();loadPl();}
   if(name==='rc')rcSubTab(rcCurrentSub);
   if(name==='sa')renderSal();
-  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
+  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();loadIpWhitelist();}
 }
 
 // ── Sous-navigation de l'onglet Récap (Pointages/Présences/Récap/Demandes) ──
@@ -744,6 +749,7 @@ function phrs(str){
 }
 
 function calcW(entries){
+  entries=entries.filter(function(e){return !e.remplace;});
   var ins=entries.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
   var outs=entries.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
   var t=0;
@@ -753,7 +759,7 @@ function calcW(entries){
 
 function missingEx(entries){
   var ins={},outs={};
-  entries.forEach(function(e){if(e.type==='entree')ins[e.employee_id]=true;else outs[e.employee_id]=true;});
+  entries.filter(function(e){return !e.remplace;}).forEach(function(e){if(e.type==='entree')ins[e.employee_id]=true;else outs[e.employee_id]=true;});
   return Object.keys(ins).filter(function(id){return !outs[id];}).map(Number);
 }
 
@@ -968,7 +974,7 @@ async function loadPr(){
   var actifs=emps.filter(function(e){return empActifNow(e);});
   var h='';
   actifs.forEach(function(em){
-    var ee=entries.filter(function(e){return e.employee_id===em.id;});
+    var ee=entries.filter(function(e){return e.employee_id===em.id&&!e.remplace;});
     var ins=ee.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(b.timestamp)-new Date(a.timestamp);});
     var outs=ee.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(b.timestamp)-new Date(a.timestamp);});
     var li=ins[0],lo=outs[0];
@@ -1666,6 +1672,65 @@ var curPosteId=null;
 
 
 
+// ── VERROUILLAGE IP (wifi restaurant) ────────────────────────────────────────
+var RESTOS_IPWL=[{id:'port',nom:'Port — Bavastro'},{id:'dabray',nom:'Dabray'}];
+async function loadIpWhitelist(){
+  var div=document.getElementById('pm-ipwl');if(!div)return;
+  div.innerHTML='<div style="text-align:center;color:#aaa;padding:10px">Chargement...</div>';
+  var r=await db.from('restaurants').select('id,ip_whitelist');
+  var data=r.data||[];
+  var byId={};data.forEach(function(x){byId[x.id]=x.ip_whitelist||[];});
+  var h='';
+  RESTOS_IPWL.forEach(function(rs){
+    var ips=byId[rs.id]||[];
+    h+='<div style="padding:10px 0;border-bottom:1px solid var(--bd)">';
+    h+='<div style="font-weight:600;font-size:13px;margin-bottom:6px">'+rs.nom+'</div>';
+    h+='<div id="pm-ipwl-list-'+rs.id+'" style="margin-bottom:6px">';
+    if(!ips.length)h+='<div style="font-size:12px;color:#aaa">Aucune restriction — badgeage autoris\u00e9 depuis n\u0027importe quel r\u00e9seau</div>';
+    ips.forEach(function(ip){
+      h+='<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;font-variant-numeric:tabular-nums"><span style="flex:1">'+ip+'</span><button class="btn bs sm" onclick="ipWlRemove(\''+rs.id+'\',\''+ip+'\')" style="padding:2px 8px;font-size:11px">Retirer</button></div>';
+    });
+    h+='</div>';
+    h+='<div style="display:flex;gap:6px">';
+    h+='<input type="text" class="fi" id="pm-ipwl-new-'+rs.id+'" placeholder="Ex: 82.65.12.140" style="flex:1;font-size:12px">';
+    h+='<button class="btn bp sm" onclick="ipWlAdd(\''+rs.id+'\')">+ Ajouter</button>';
+    h+='</div>';
+    h+='<button class="btn bs sm" onclick="ipWlAddMine(\''+rs.id+'\')" style="margin-top:6px;width:100%">Ajouter mon adresse IP actuelle</button>';
+    h+='</div>';
+  });
+  div.innerHTML=h;
+}
+async function ipWlSave(restoId,ips){
+  var r=await db.from('restaurants').update({ip_whitelist:ips}).eq('id',restoId);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  loadIpWhitelist();
+}
+async function ipWlAdd(restoId){
+  var inp=document.getElementById('pm-ipwl-new-'+restoId);
+  var val=(inp&&inp.value||'').trim();
+  if(!val){alert('Merci de saisir une adresse IP.');return;}
+  var r=await db.from('restaurants').select('ip_whitelist').eq('id',restoId).single();
+  var ips=(r.data&&r.data.ip_whitelist)||[];
+  if(ips.indexOf(val)<0)ips.push(val);
+  ipWlSave(restoId,ips);
+}
+async function ipWlRemove(restoId,ip){
+  var r=await db.from('restaurants').select('ip_whitelist').eq('id',restoId).single();
+  var ips=(r.data&&r.data.ip_whitelist)||[];
+  ips=ips.filter(function(x){return x!==ip;});
+  ipWlSave(restoId,ips);
+}
+async function ipWlAddMine(restoId){
+  var ip='';
+  try{var ir=await fetch('https://api.ipify.org?format=json');ip=(await ir.json()).ip;}catch(e){}
+  if(!ip){alert('Impossible de d\u00e9tecter votre adresse IP. V\u00e9rifiez votre connexion.');return;}
+  if(!confirm('Ajouter l\u0027adresse IP '+ip+' (votre connexion actuelle) \u00e0 la liste autoris\u00e9e ?\n\n\u26A0 Faites cette action uniquement si vous \u00eates connect\u00e9 au wifi du restaurant en ce moment.'))return;
+  var r=await db.from('restaurants').select('ip_whitelist').eq('id',restoId).single();
+  var ips=(r.data&&r.data.ip_whitelist)||[];
+  if(ips.indexOf(ip)<0)ips.push(ip);
+  ipWlSave(restoId,ips);
+}
+
 // ── DÉLAI BADGEAGE (partagé avec la tablette via app_config) ─────────────────
 async function loadDelaiBadge(){
   var inp=document.getElementById('pm-delai-badge');if(!inp)return;
@@ -1972,6 +2037,7 @@ function openDrhExport(){
 // Calcule les shifts (créneaux travaillés) d'une journée à partir des pointages
 // Retourne [{in, out, mins}] - chaque paire entrée/sortie = 1 shift = 1 repas
 function drhDayShifts(entries){
+  entries=entries.filter(function(e){return !e.remplace;});
   var ins=entries.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
   var outs=entries.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
   var shifts=[];
@@ -3896,15 +3962,18 @@ function ficheLoadPt(){
         var icon=p.type==='entree'?'\u2197':'\u2199';
         var col=p.type==='entree'?'#065F46':'#991B1B';
         var bg=p.manuel?'background:rgba(254,243,199,.5);':'';
-        h+='<div style="font-size:11px;padding:4px 6px;border-bottom:1px solid #f0f0f0;'+bg+'border-radius:4px;display:flex;align-items:center;justify-content:space-between;gap:6px">';
+        var opac=p.remplace?'opacity:.55;':'';
+        h+='<div style="font-size:11px;padding:4px 6px;border-bottom:1px solid #f0f0f0;'+bg+opac+'border-radius:4px;display:flex;align-items:center;justify-content:space-between;gap:6px">';
         h+='<div style="flex:1;min-width:0">';
-        h+='<span style="color:'+col+';font-weight:600">'+icon+'</span> '+fmtF(p.timestamp);
+        h+='<span style="color:'+col+';font-weight:600">'+icon+'</span> <span style="'+(p.remplace?'text-decoration:line-through':'')+'">'+fmtF(p.timestamp)+'</span>';
+        if(p.remplace)h+=' <span style="background:#9CA3AF;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;margin-left:4px">REMPLAC\u00c9</span>';
         if(p.manuel){
           h+=' <span style="background:#92400E;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;margin-left:4px">MANUEL</span>';
           if(p.motif)h+='<div style="font-size:10px;color:var(--txm);margin-top:1px">Motif: '+p.motif+'</div>';
         }else{
           h+=' <span style="color:#aaa;font-size:9px">badg\u00e9</span>';
         }
+        if(p.corrige_de_id)h+='<div style="font-size:9px;color:var(--bx);margin-top:1px">\u21B3 Corrige le pointage initial #'+p.corrige_de_id+'</div>';
         h+='</div>';
         if(!p.remplace)h+='<button class="btn bs sm" onclick="ficheOpenCorEntry('+p.id+')" style="padding:3px 7px;font-size:11px;flex-shrink:0">&#9998;</button>';
         h+='</div>';
