@@ -229,14 +229,21 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
           <option value="dabray">Dabray</option>
         </select>
         <select class="fs" id="fe" onchange="loadPt()"><option value="all">Tous salari&#233;s</option></select>
-        <select class="fs" id="fd" onchange="loadPt()">
+        <select class="fs" id="fd" onchange="fdChg()">
           <option value="today">Aujourd'hui</option>
           <option value="yesterday">Hier</option>
           <option value="week" selected>Cette semaine</option>
           <option value="month">Ce mois</option>
+          <option value="custom">Jour pr&#233;cis...</option>
         </select>
+        <input type="date" class="fs" id="fd-custom" onchange="loadPt()" style="display:none">
         <button class="btn bs sm" onclick="expCSV()">&#8595; CSV</button>
         <button class="btn bp sm" onclick="openCor()">+ Correction</button>
+      </div>
+      <div id="ptb-daynav" style="display:none;align-items:center;justify-content:center;gap:14px;margin-bottom:10px">
+        <button class="btn bs sm" onclick="ptDayShift(-1)">&#8592; Jour pr&#233;c&#233;dent</button>
+        <span id="ptb-daylabel" style="font-size:12px;font-weight:700;color:var(--txm)"></span>
+        <button class="btn bs sm" onclick="ptDayShift(1)">Jour suivant &#8594;</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <table class="tbl">
@@ -361,6 +368,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bp sm" onclick="openAddMotif()">+ Ajouter</button>
       </div>
       <div id="pm-motifs"></div>
+    </div>
+    <div class="card">
+      <div class="sec-title">&#128274; Wifi autoris&#233; pour badger</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Si une adresse IP est enregistr&#233;e pour un &#233;tablissement, le badgeage ne sera possible que depuis le wifi de cet &#233;tablissement (sinon &#233;cran bloqu&#233;). Laissez vide pour ne pas restreindre.</div>
+      <div id="pm-ipwl"></div>
     </div>
     <div class="card">
       <div class="sec-title">&#9888; Alerte d&#233;passement</div>
@@ -1218,7 +1230,7 @@ function goTab(name,el){
   if(name==='pl'){planUpdateLabel();loadPl();}
   if(name==='rc')rcSubTab(rcCurrentSub);
   if(name==='sa')renderSal();
-  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
+  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();loadIpWhitelist();}
 }
 
 // ── Sous-navigation de l'onglet Récap (Pointages/Présences/Récap/Demandes) ──
@@ -1247,7 +1259,38 @@ function getDR(p){
   if(p==='today'){return{s:new Date(y,mo,d,0,0,0).toISOString(),e:new Date(y,mo,d,23,59,59).toISOString()};}
   if(p==='yesterday'){return{s:new Date(y,mo,d-1,0,0,0).toISOString(),e:new Date(y,mo,d-1,23,59,59).toISOString()};}
   if(p==='week'){var m=monOf(n);var su=new Date(m);su.setDate(m.getDate()+6);su.setHours(23,59,59);return{s:m.toISOString(),e:su.toISOString()};}
+  if(p==='custom'){
+    var cd=document.getElementById('fd-custom');
+    var dv=(cd&&cd.value)||new Date().toISOString().slice(0,10);
+    var dp=dv.split('-');
+    return{s:new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2]),0,0,0).toISOString(),e:new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2]),23,59,59).toISOString()};
+  }
   var s=new Date(y,mo,1);var e=new Date(y,mo+1,0,23,59,59);return{s:s.toISOString(),e:e.toISOString()};
+}
+
+function fdChg(){
+  var v=document.getElementById('fd').value;
+  var ci=document.getElementById('fd-custom');
+  var nav=document.getElementById('ptb-daynav');
+  if(v==='custom'){
+    if(!ci.value)ci.value=new Date().toISOString().slice(0,10);
+    ci.style.display='';
+    nav.style.display='flex';
+  }else{
+    ci.style.display='none';
+    nav.style.display='none';
+  }
+  loadPt();
+}
+
+function ptDayShift(delta){
+  var ci=document.getElementById('fd-custom');
+  var dv=ci.value||new Date().toISOString().slice(0,10);
+  var dp=dv.split('-');
+  var d=new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2]));
+  d.setDate(d.getDate()+delta);
+  ci.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  loadPt();
 }
 
 function phrs(str){
@@ -1258,6 +1301,7 @@ function phrs(str){
 }
 
 function calcW(entries){
+  entries=entries.filter(function(e){return !e.remplace;});
   var ins=entries.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
   var outs=entries.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
   var t=0;
@@ -1267,7 +1311,7 @@ function calcW(entries){
 
 function missingEx(entries){
   var ins={},outs={};
-  entries.forEach(function(e){if(e.type==='entree')ins[e.employee_id]=true;else outs[e.employee_id]=true;});
+  entries.filter(function(e){return !e.remplace;}).forEach(function(e){if(e.type==='entree')ins[e.employee_id]=true;else outs[e.employee_id]=true;});
   return Object.keys(ins).filter(function(id){return !outs[id];}).map(Number);
 }
 
@@ -1315,6 +1359,18 @@ async function loadPt(){
   renderPt();
   renderAlerts();
   updateStats();
+  checkOublisVeille();
+  if(period==='custom'){
+    var ci=document.getElementById('fd-custom');
+    var lbl=document.getElementById('ptb-daylabel');
+    if(ci&&lbl&&ci.value){
+      var jrs=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+      var dp=ci.value.split('-');
+      var d=new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2]));
+      var mns=['Janvier','F\u00e9vrier','Mars','Avril','Mai','Juin','Juillet','Ao\u00fbt','Septembre','Octobre','Novembre','D\u00e9cembre'];
+      lbl.textContent=jrs[d.getDay()]+' '+d.getDate()+' '+mns[d.getMonth()]+' '+d.getFullYear();
+    }
+  }
 }
 
 function renderPt(){
@@ -1363,10 +1419,32 @@ function renderAlerts(){
     var em=emp(id);
     c.innerHTML+='<div class="al"><div class="alt">⚠ Sortie non enregistrée</div>'+em.prenom+' '+em.nom+' — <button class="btn ba sm" onclick="openCorFor('+id+',&quot;sortie&quot;)">Corriger</button></div>';
   });
+  oublisVeilleData.forEach(function(e){
+    var em=emp(e.employee_id);
+    var jr=fmtD(e.timestamp);
+    c.innerHTML+='<div class="al"><div class="alt">⚠ Sortie oubliée (badgeage du '+jr+' jamais clôturé)</div>'+em.prenom+' '+em.nom+' — <button class="btn ba sm" onclick="openCorFor('+e.employee_id+',&quot;sortie&quot;)">Corriger</button></div>';
+  });
   sx.forEach(function(e){
     var em=emp(e.employee_id);
     c.innerHTML+='<div class="al red"><div class="alt">IP suspecte</div>'+em.prenom+' '+em.nom+' — '+e.ip_address+'</div>';
   });
+}
+
+var oublisVeilleData=[];
+async function checkOublisVeille(){
+  var since=new Date();since.setDate(since.getDate()-10);
+  var r=await db.from('time_entries').select('employee_id,type,timestamp').gte('timestamp',since.toISOString()).order('timestamp',{ascending:false});
+  var data=r.data||[];
+  var seen={};
+  var todayStr=new Date().toISOString().slice(0,10);
+  var stale=[];
+  data.forEach(function(e){
+    if(seen[e.employee_id])return;
+    seen[e.employee_id]=true;
+    if(e.type==='entree'&&!e.timestamp.startsWith(todayStr))stale.push(e);
+  });
+  oublisVeilleData=stale;
+  renderAlerts();
 }
 
 async function showPh(){}
@@ -1377,6 +1455,20 @@ function openCorFor(id,type){document.getElementById('cce').value=id;document.ge
 function openCorEntry(entryId){
   var entry=pts.find(function(p){return p.id===entryId;});
   if(!entry){alert('Pointage introuvable.');return;}
+  document.getElementById('cce').value=entry.employee_id;
+  document.getElementById('cct').value=entry.type;
+  document.getElementById('ccd').value=entry.timestamp.slice(0,16);
+  document.getElementById('ccm').value='';
+  document.getElementById('ccn').value='';
+  document.getElementById('cc-orig-id').value=entryId;
+  document.getElementById('mc-title').textContent='Corriger ce pointage';
+  openM('mc');
+}
+
+async function ficheOpenCorEntry(entryId){
+  var r=await db.from('time_entries').select('*').eq('id',entryId).single();
+  if(r.error||!r.data){alert('Pointage introuvable.');return;}
+  var entry=r.data;
   document.getElementById('cce').value=entry.employee_id;
   document.getElementById('cct').value=entry.type;
   document.getElementById('ccd').value=entry.timestamp.slice(0,16);
@@ -1411,6 +1503,7 @@ async function saveCor(){
   updateDemBadge();
   checkDepassements();
   db.from('demandes_acompte').select('*').then(function(r){acoAllData=r.data||[];updateAcoBadge();});
+  if(ficheCurEmp&&document.getElementById('modal-absfiche')&&document.getElementById('modal-absfiche').classList.contains('op'))ficheLoadPt();
 }
 
 function expCSV(){
@@ -2133,6 +2226,65 @@ var curPosteId=null;
 
 
 // ── DÉLAI BADGEAGE (partagé avec la tablette via app_config) ─────────────────
+// ── VERROUILLAGE IP (wifi restaurant) ────────────────────────────────────────
+var RESTOS_IPWL=[{id:'port',nom:'Port — Bavastro'},{id:'dabray',nom:'Dabray'}];
+async function loadIpWhitelist(){
+  var div=document.getElementById('pm-ipwl');if(!div)return;
+  div.innerHTML='<div style="text-align:center;color:#aaa;padding:10px">Chargement...</div>';
+  var r=await db.from('restaurants').select('id,ip_whitelist');
+  var data=r.data||[];
+  var byId={};data.forEach(function(x){byId[x.id]=x.ip_whitelist||[];});
+  var h='';
+  RESTOS_IPWL.forEach(function(rs){
+    var ips=byId[rs.id]||[];
+    h+='<div style="padding:10px 0;border-bottom:1px solid var(--bd)">';
+    h+='<div style="font-weight:600;font-size:13px;margin-bottom:6px">'+rs.nom+'</div>';
+    h+='<div id="pm-ipwl-list-'+rs.id+'" style="margin-bottom:6px">';
+    if(!ips.length)h+='<div style="font-size:12px;color:#aaa">Aucune restriction — badgeage autoris\u00e9 depuis n\u0027importe quel r\u00e9seau</div>';
+    ips.forEach(function(ip){
+      h+='<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;font-variant-numeric:tabular-nums"><span style="flex:1">'+ip+'</span><button class="btn bs sm" onclick="ipWlRemove(\''+rs.id+'\',\''+ip+'\')" style="padding:2px 8px;font-size:11px">Retirer</button></div>';
+    });
+    h+='</div>';
+    h+='<div style="display:flex;gap:6px">';
+    h+='<input type="text" class="fi" id="pm-ipwl-new-'+rs.id+'" placeholder="Ex: 82.65.12.140" style="flex:1;font-size:12px">';
+    h+='<button class="btn bp sm" onclick="ipWlAdd(\''+rs.id+'\')">+ Ajouter</button>';
+    h+='</div>';
+    h+='<button class="btn bs sm" onclick="ipWlAddMine(\''+rs.id+'\')" style="margin-top:6px;width:100%">Ajouter mon adresse IP actuelle</button>';
+    h+='</div>';
+  });
+  div.innerHTML=h;
+}
+async function ipWlSave(restoId,ips){
+  var r=await db.from('restaurants').update({ip_whitelist:ips}).eq('id',restoId);
+  if(r.error){alert('Erreur: '+r.error.message);return;}
+  loadIpWhitelist();
+}
+async function ipWlAdd(restoId){
+  var inp=document.getElementById('pm-ipwl-new-'+restoId);
+  var val=(inp&&inp.value||'').trim();
+  if(!val){alert('Merci de saisir une adresse IP.');return;}
+  var r=await db.from('restaurants').select('ip_whitelist').eq('id',restoId).single();
+  var ips=(r.data&&r.data.ip_whitelist)||[];
+  if(ips.indexOf(val)<0)ips.push(val);
+  ipWlSave(restoId,ips);
+}
+async function ipWlRemove(restoId,ip){
+  var r=await db.from('restaurants').select('ip_whitelist').eq('id',restoId).single();
+  var ips=(r.data&&r.data.ip_whitelist)||[];
+  ips=ips.filter(function(x){return x!==ip;});
+  ipWlSave(restoId,ips);
+}
+async function ipWlAddMine(restoId){
+  var ip='';
+  try{var ir=await fetch('https://api.ipify.org?format=json');ip=(await ir.json()).ip;}catch(e){}
+  if(!ip){alert('Impossible de d\u00e9tecter votre adresse IP. V\u00e9rifiez votre connexion.');return;}
+  if(!confirm('Ajouter l\u0027adresse IP '+ip+' (votre connexion actuelle) \u00e0 la liste autoris\u00e9e ?\n\n\u26A0 Faites cette action uniquement si vous \u00eates connect\u00e9 au wifi du restaurant en ce moment.'))return;
+  var r=await db.from('restaurants').select('ip_whitelist').eq('id',restoId).single();
+  var ips=(r.data&&r.data.ip_whitelist)||[];
+  if(ips.indexOf(ip)<0)ips.push(ip);
+  ipWlSave(restoId,ips);
+}
+
 async function loadDelaiBadge(){
   var inp=document.getElementById('pm-delai-badge');if(!inp)return;
   try{
@@ -2592,6 +2744,7 @@ function openDrhExport(){
 // Calcule les shifts (créneaux travaillés) d'une journée à partir des pointages
 // Retourne [{in, out, mins}] - chaque paire entrée/sortie = 1 shift = 1 repas
 function drhDayShifts(entries){
+  entries=entries.filter(function(e){return !e.remplace;});
   var ins=entries.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
   var outs=entries.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
   var shifts=[];
@@ -4551,14 +4704,20 @@ function ficheLoadPt(){
         var icon=p.type==='entree'?'\u2197':'\u2199';
         var col=p.type==='entree'?'#065F46':'#991B1B';
         var bg=p.manuel?'background:rgba(254,243,199,.5);':'';
-        h+='<div style="font-size:11px;padding:4px 6px;border-bottom:1px solid #f0f0f0;'+bg+'border-radius:4px">';
-        h+='<span style="color:'+col+';font-weight:600">'+icon+'</span> '+fmtF(p.timestamp);
+        var opac=p.remplace?'opacity:.55;':'';
+        h+='<div style="font-size:11px;padding:4px 6px;border-bottom:1px solid #f0f0f0;'+bg+opac+'border-radius:4px;display:flex;align-items:center;justify-content:space-between;gap:6px">';
+        h+='<div style="flex:1;min-width:0">';
+        h+='<span style="color:'+col+';font-weight:600">'+icon+'</span> <span style="'+(p.remplace?'text-decoration:line-through':'')+'">'+fmtF(p.timestamp)+'</span>';
+        if(p.remplace)h+=' <span style="background:#9CA3AF;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;margin-left:4px">REMPLAC\u00c9</span>';
         if(p.manuel){
           h+=' <span style="background:#92400E;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;margin-left:4px">MANUEL</span>';
           if(p.motif)h+='<div style="font-size:10px;color:var(--txm);margin-top:1px">Motif: '+p.motif+'</div>';
         }else{
           h+=' <span style="color:#aaa;font-size:9px">badg\u00e9</span>';
         }
+        if(p.corrige_de_id)h+='<div style="font-size:9px;color:var(--bx);margin-top:1px">\u21B3 Corrige le pointage initial #'+p.corrige_de_id+'</div>';
+        h+='</div>';
+        if(!p.remplace)h+='<button class="btn bs sm" onclick="ficheOpenCorEntry('+p.id+')" style="padding:3px 7px;font-size:11px;flex-shrink:0">&#9998;</button>';
         h+='</div>';
       });
     });
