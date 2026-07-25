@@ -7163,6 +7163,23 @@ async function confirmVentesImport(){
 }
 
 // ── Ingrédients de la carte ──────────────────────────────────────────────────
+function ingStatutIngredient(i){
+  var compo=rctIngredientComposition[i.code]||[];
+  var cout=rctIngredientCouts[i.code];
+  if(compo.length)return {ok:true,label:'🧪 Recette ('+compo.length+' ingrédient'+(compo.length>1?'s':'')+')',cout:null,isComposed:true};
+  if(cout&&(cout.prix_unitaire!=null||cout.prix_kilo!=null||cout.prix_gramme!=null||cout.prix_litre!=null||cout.prix_source_code))return {ok:true,label:'💰 Prix renseigné',cout:cout,isComposed:false};
+  return {ok:false,label:'<span style="color:#C0392B;">⚠️ Pas de prix</span>',cout:cout||null,isComposed:false};
+}
+// Met à jour juste le libellé de statut (💰/⚠️) d'une carte ingrédient sans reconstruire toute la liste,
+// pour ne pas faire perdre le focus au clavier (Android) quand on modifie un champ voisin.
+function refreshIngredientStatusLight(code){
+  var i=rctIngredients.find(function(x){return x.code===code;});
+  var statusEl=document.getElementById('ing-status-'+code);
+  if(!i||!statusEl)return;
+  var hasBrutSource=!!((i.nature||'fini')==='fini'&&i.source_brut_code);
+  if(hasBrutSource)return; // libellé différent, géré par le rendu complet
+  statusEl.innerHTML=ingStatutIngredient(i).label;
+}
 function renderIngredientsList(){
   var searchEl=document.getElementById('rct-ing-search');
   var unlinkedEl=document.getElementById('rct-ing-show-unlinked');
@@ -7171,13 +7188,7 @@ function renderIngredientsList(){
   if(!searchEl||!unlinkedEl||!container)return;
   var search=(searchEl.value||'').toLowerCase();
   var onlyUnlinked=unlinkedEl.checked;
-  function statutIngredient(i){
-    var compo=rctIngredientComposition[i.code]||[];
-    var cout=rctIngredientCouts[i.code];
-    if(compo.length)return {ok:true,label:'🧪 Recette ('+compo.length+' ingrédient'+(compo.length>1?'s':'')+')',cout:null,isComposed:true};
-    if(cout&&(cout.prix_unitaire!=null||cout.prix_kilo!=null||cout.prix_litre!=null||cout.prix_source_code))return {ok:true,label:'💰 Prix renseigné',cout:cout,isComposed:false};
-    return {ok:false,label:'<span style="color:#C0392B;">⚠️ Pas de prix</span>',cout:cout||null,isComposed:false};
-  }
+  function statutIngredient(i){return ingStatutIngredient(i);}
   var list=rctIngredients.filter(function(i){
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
     if(onlyUnlinked&&statutIngredient(i).ok)return false;
@@ -7190,8 +7201,26 @@ function renderIngredientsList(){
   }
   function moveSelectHtml(i){
     var opts='<option value="">📁 Déplacer…</option>';
-    sortedOngletNames(groupByOnglet(rctIngredients,function(x){return x.categorie;},function(x){return x.sous_categorie;})).forEach(function(ong){
-      Object.keys(rctCategoriesOrdre).filter(function(cat){return (rctCategoriesOrdre[cat].onglet||'_sans_onglet')===ong;}).forEach(function(cat){
+    // Important : on part de TOUTES les catégories existantes (rctCategoriesOrdre), pas seulement celles
+    // déjà utilisées par un ingrédient — sinon une catégorie fraîchement créée et encore vide (ex: une
+    // nouvelle catégorie rattachée à l'onglet "Hygiène") n'apparaît jamais dans la liste de déplacement.
+    var byOng={};
+    Object.keys(rctCategoriesOrdre).forEach(function(cat){
+      var ong=rctCategoriesOrdre[cat].onglet||'_sans_onglet';
+      byOng[ong]=byOng[ong]||[];
+      byOng[ong].push(cat);
+    });
+    var ongNames=Object.keys(byOng).sort(function(a,b){
+      var oa=a!=='_sans_onglet'&&rctOngletsOrdre[a]!=null?rctOngletsOrdre[a]:9999;
+      var ob=b!=='_sans_onglet'&&rctOngletsOrdre[b]!=null?rctOngletsOrdre[b]:9999;
+      return oa!==ob?oa-ob:0;
+    });
+    ongNames.forEach(function(ong){
+      byOng[ong].sort(function(a,b){
+        var oa=rctCategoriesOrdre[a]?rctCategoriesOrdre[a].ordre:9999;
+        var ob=rctCategoriesOrdre[b]?rctCategoriesOrdre[b].ordre:9999;
+        return oa!==ob?oa-ob:a.localeCompare(b);
+      }).forEach(function(cat){
         if(cat!==i.categorie||i.sous_categorie)opts+='<option value="'+esc(cat)+'|">→ '+esc(cat)+'</option>';
         Object.keys((rctSousCategoriesOrdre[cat]||{})).forEach(function(sub){
           if(!(cat===i.categorie&&sub===i.sous_categorie))opts+='<option value="'+esc(cat)+'|'+esc(sub)+'">→ '+esc(cat)+' ↳ '+esc(sub)+'</option>';
@@ -7217,7 +7246,7 @@ function renderIngredientsList(){
     var contUnites=['g','kg','ml','cl','l','piece'];
     return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
       +modeMesureSelectHtml('',mode,'onchange="handlePriceFieldChange(\''+ingCode+'\',\'mode_prix\',this.value)"')
-      +'<input type="number" class="fi" style="width:74px;font-size:10px;" step="0.0001" placeholder="'+label+'" value="'+(cout&&cout[field]!=null?cout[field]:'')+'" onchange="handlePriceFieldChange(\''+ingCode+'\',\''+field+'\',this.value)" title="Calculé automatiquement si tu renseignes un contenant ci-dessous, ou modifiable directement ici.">'
+      +'<input type="number" class="fi" style="width:74px;font-size:10px;" step="0.0001" placeholder="'+label+'" id="ing-price-'+ingCode+'" value="'+(cout&&cout[field]!=null?cout[field]:'')+'" onchange="handlePriceFieldChange(\''+ingCode+'\',\''+field+'\',this.value)" title="Calculé automatiquement si tu renseignes un contenant ci-dessous, ou modifiable directement ici.">'
       +'<select class="fi" style="font-size:10px;max-width:110px;" onchange="handlePriceFieldChange(\''+ingCode+'\',\'fournisseur_id\',this.value)">'
         +'<option value="">🚚 Fournisseur…</option>'
         +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(cout&&cout.fournisseur_id===s.id?' selected':'')+'>'+esc(s.nom)+'</option>';}).join('')
@@ -7271,7 +7300,7 @@ function renderIngredientsList(){
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<div style="flex:1;min-width:160px;">'
       +'<input type="text" class="fi" style="font-weight:700;font-size:13px;color:var(--tx);border:1px solid transparent;background:transparent;padding:2px 4px;margin:-2px -4px;width:100%;" value="'+esc(i.nom)+'" onchange="updateIngredientNom(\''+i.code+'\',this.value)">'
-      +'<div style="font-size:11px;color:var(--txm);">'+(hasBrutSource?'🔪 Préparé à partir de '+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code):statut.label)+'</div>'
+      +'<div style="font-size:11px;color:var(--txm);" id="ing-status-'+i.code+'">'+(hasBrutSource?'🔪 Préparé à partir de '+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code):statut.label)+'</div>'
       +'</div>'
       +natureSelectHtml(i)
       +moveSelectHtml(i)
@@ -7579,11 +7608,22 @@ async function handlePriceFieldChange(ingredientCode,field,value){
   var payload={restaurant_id:resto,ingredient_code:ingredientCode};
   if(field==='mode_prix'||field==='fournisseur_id')payload[field]=value||null;
   else payload[field]=(value===''?null:parseFloat(value));
+  // Si on change le mode de mesure et qu'un contenant (qté+prix) est déjà renseigné, on recalcule
+  // tout de suite le nouveau prix/kg, prix/g, prix/L ou prix/unité correspondant — pas besoin de
+  // ressaisir manuellement.
+  if(field==='mode_prix'){
+    var existing=rctIngredientCouts[ingredientCode]||{};
+    if(existing.contenant_qte&&existing.contenant_prix){
+      var champ=modePrixField(value);
+      var calc=computeUnitPriceFromContenant(value,existing.contenant_qte,existing.contenant_unite,existing.contenant_prix,existing.densite);
+      if(calc!=null)payload[champ]=Math.round(calc*100000)/100000;
+    }
+  }
   try{
     sbCheck(await db.from('ingredient_couts').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
-    rctIngredientCouts[ingredientCode]=rctIngredientCouts[ingredientCode]||{};
-    rctIngredientCouts[ingredientCode][field]=payload[field];
-    renderIngredientsList();
+    rctIngredientCouts[ingredientCode]=Object.assign({},rctIngredientCouts[ingredientCode]||{},payload);
+    if(field==='mode_prix')renderIngredientsList(); // change les champs affichés (unité/label) → rendu complet nécessaire
+    else refreshIngredientStatusLight(ingredientCode); // valeur seule → pas de reconstruction du DOM (garde le focus clavier sur mobile)
   }catch(e){console.error('handlePriceFieldChange',e);alert('Erreur : '+e.message);}
 }
 // ── Prix au contenant (ex: boîte de 800g à 13,94€) → recalcul auto du prix/kg, prix/L ou prix/unité ──
@@ -7607,9 +7647,13 @@ function convertQtyToFamily(qte,unite,famille,densite){
 }
 function computeUnitPriceFromContenant(mode,qte,unite,prix,densite){
   if(!qte||!prix)return null;
-  if(mode==='kilo'||mode==='gramme'){
+  if(mode==='kilo'){
     var g=convertQtyToFamily(qte,unite,'masse',densite);
     return g?prix/(g/1000):null; // €/kg
+  }
+  if(mode==='gramme'){
+    var g2=convertQtyToFamily(qte,unite,'masse',densite);
+    return g2?prix/g2:null; // €/g
   }
   if(mode==='litre'){
     var ml=convertQtyToFamily(qte,unite,'volume',densite);
@@ -7632,12 +7676,30 @@ async function saveContenantAndRecalc(ingCode){
   var payload={restaurant_id:rctResto(),ingredient_code:ingCode,contenant_qte:qte,contenant_unite:unite,contenant_prix:prix,densite:dens};
   var champ=modePrixField(mode);
   var calc=computeUnitPriceFromContenant(mode,qte,unite,prix,dens);
-  if(calc!=null)payload[champ]=Math.round(calc*10000)/10000;
+  if(calc!=null)payload[champ]=Math.round(calc*100000)/100000;
   try{
     sbCheck(await db.from('ingredient_couts').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
     rctIngredientCouts[ingCode]=Object.assign({},cout,payload);
-    renderIngredientsList();
-    if(calc==null&&qte&&prix&&unite)alert('Contenant enregistré, mais impossible de calculer le '+modePrixLabel(mode)+' : renseigne la densité (g/L) pour convertir '+unite+' vers l\'unité du mode de prix "'+mode+'".');
+    if(calc!=null){
+      var priceEl=document.getElementById('ing-price-'+ingCode);
+      if(priceEl)priceEl.value=Math.round(calc*100000)/100000;
+    }
+    refreshIngredientStatusLight(ingCode); // pas de reconstruction complète du DOM (garde le focus clavier sur mobile)
+    if(calc==null&&qte&&prix&&unite){
+      var msg;
+      if(unite==='piece'&&mode!=='unitaire'&&mode!=='70cl'){
+        msg='L\'unité du contenant est "pièce" mais le mode de prix est "'+mode+'". Choisis une unité de masse (g, kg) ou de volume (ml, cl, L) pour le contenant, ou passe le mode de prix en "Unitaire".';
+      }else if((mode==='kilo'||mode==='gramme')&&(unite==='ml'||unite==='cl'||unite==='l')){
+        msg='Le contenant est en '+unite+' mais le mode de prix est "'+mode+'" (une masse). Renseigne la densité (g/L) pour convertir, ou passe le mode de prix en "Au litre".';
+      }else if(mode==='litre'&&(unite==='g'||unite==='kg')){
+        msg='Le contenant est en '+unite+' mais le mode de prix est "Au litre" (un volume). Renseigne la densité (g/L) pour convertir, ou passe le mode de prix en "Au kilo"/"Au gramme".';
+      }else if((mode==='unitaire'||mode==='70cl')&&unite!=='piece'){
+        msg='Pour le mode "'+(mode==='70cl'?'Bouteille 70cl':'Unitaire')+'", l\'unité du contenant doit être "pièce" (nombre de boîtes/bouteilles achetées).';
+      }else{
+        msg='Impossible de calculer le '+modePrixLabel(mode)+' avec ces valeurs de contenant.';
+      }
+      alert('Contenant enregistré, mais : '+msg);
+    }
   }catch(e){console.error('saveContenantAndRecalc',e);alert('Erreur : '+e.message);}
 }
 async function moveIngredientToCategory(code,value){
@@ -7784,12 +7846,14 @@ function modeMesureSelectHtml(cssClass,currentMode,onchangeAttr){
 }
 function modePrixField(mode){
   if(mode==='litre')return 'prix_litre';
-  if(mode==='kilo'||mode==='gramme')return 'prix_kilo';
+  if(mode==='kilo')return 'prix_kilo';
+  if(mode==='gramme')return 'prix_gramme';
   return 'prix_unitaire'; // unitaire, 70cl
 }
 function modePrixLabel(mode){
   if(mode==='litre')return '€/L';
-  if(mode==='kilo'||mode==='gramme')return '€/kg';
+  if(mode==='kilo')return '€/kg';
+  if(mode==='gramme')return '€/g';
   return '€/unité';
 }
 function renderCoutsList(){
@@ -8314,13 +8378,21 @@ function coutQuantiteStock(stockProduit,quantite,unite){
   var mode=stockProduit.mode_prix||'unitaire';
   var poidsNet=stockProduit.poids_net_g;
   var densite=stockProduit.densite;
-  if(mode==='kilo'||mode==='gramme'){
+  if(mode==='kilo'){
     if(stockProduit.prix_kilo==null)return {cout:null,warning:'prix/kg non renseigné'};
     if(unite==='piece'&&poidsNet)return {cout:(quantite*poidsNet/1000)*stockProduit.prix_kilo,warning:null};
     var g=convertQtyToFamily(quantite,unite,'masse',densite);
     if(g!=null)return {cout:(g/1000)*stockProduit.prix_kilo,warning:null};
     if(unite==='ml'||unite==='l'||unite==='cl')return {cout:null,warning:'densité (g/L) manquante pour convertir '+unite+' en g'};
     return {cout:null,warning:'unité recette incompatible avec le mode "au kilo"'};
+  }
+  if(mode==='gramme'){
+    if(stockProduit.prix_gramme==null)return {cout:null,warning:'prix/g non renseigné'};
+    if(unite==='piece'&&poidsNet)return {cout:(quantite*poidsNet)*stockProduit.prix_gramme,warning:null};
+    var g2=convertQtyToFamily(quantite,unite,'masse',densite);
+    if(g2!=null)return {cout:g2*stockProduit.prix_gramme,warning:null};
+    if(unite==='ml'||unite==='l'||unite==='cl')return {cout:null,warning:'densité (g/L) manquante pour convertir '+unite+' en g'};
+    return {cout:null,warning:'unité recette incompatible avec le mode "au gramme"'};
   }
   if(mode==='litre'){
     if(stockProduit.prix_litre==null)return {cout:null,warning:'prix/L non renseigné'};
