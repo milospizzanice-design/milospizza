@@ -1119,7 +1119,7 @@ var db=supabase.createClient(SURL,SKEY);
 var BL_PROXY_URL='https://milos-github-proxy.milospizza-nice.workers.dev';
 // Doit être IDENTIQUE à la valeur du secret Cloudflare EXTRACT_INVOICE_SECRET (voir worker.js).
 // Remplace 'CHANGE-MOI' par la chaîne aléatoire que tu as choisie et enregistrée sur Cloudflare.
-var BL_ADMIN_SECRET='mlhd75538hggv092hhveli86l08vcxw';
+var BL_ADMIN_SECRET='CHANGE-MOI';
 var emps=[],pts=[],abs=[],curSal=null;
 var pwStart=monOf(new Date());
 
@@ -7812,24 +7812,33 @@ async function analyzeBlFile(){
       headers:{'Content-Type':'application/json','X-Admin-Secret':BL_ADMIN_SECRET},
       body:JSON.stringify({media_type:file.type||'image/jpeg',data:b64})
     });
-    if(!res.ok)throw new Error('HTTP '+res.status);
+    if(!res.ok){
+      var errBody=null;
+      try{errBody=await res.json();}catch(e){}
+      throw new Error((errBody&&errBody.error)?errBody.error:('HTTP '+res.status));
+    }
     var json=await res.json();
     var lines=json.lines||[];
     if(!lines.length){statusEl.textContent='⚠️ Aucune ligne détectée sur ce document. Réessaie avec une photo plus nette.';btn.disabled=false;return;}
     mblLines=lines.map(function(l,i){
+      var nomClean=stripLeadingPackNumber(l.nom||'');
       var best=null,bestScore=-1;
       rctIngredients.forEach(function(ing){
-        var sc=matchScore(l.nom||'',ing.nom);
+        var sc=matchScore(nomClean,ing.nom);
         if(sc>bestScore){bestScore=sc;best=ing;}
       });
+      // Catégorie suggérée : celle de l'ingrédient existant le plus proche (même s'il n'est pas assez
+      // proche pour être considéré comme "le même produit"), sinon la première catégorie disponible.
+      var suggestedCat=(bestScore>=20&&best)?best.categorie:(Object.keys(rctCategoriesOrdre)[0]||'Autres');
       return {
         id:'bl'+i,
-        nomExtrait:l.nom||'',
+        nomExtrait:nomClean,
         matchCode:bestScore>=45?(best?best.code:''):'',
         matchScore:bestScore<0?0:bestScore,
         qte:l.quantite!=null?l.quantite:'',
         unite:l.unite||'g',
         prixTotal:l.prix_total!=null?l.prix_total:(l.prix!=null?l.prix:''),
+        newCat:suggestedCat,
         selected:true
       };
     });
@@ -7841,15 +7850,23 @@ async function analyzeBlFile(){
     statusEl.textContent='❌ Erreur : '+e.message+'. Vérifie que la route /admin/extract-invoice est bien configurée sur le Worker.';
   }finally{btn.disabled=false;}
 }
+// Filet de sécurité côté client : si l'IA a quand même laissé le nombre de conditionnement en tête du nom
+// (ex: "100 Sacs poubelle..."), on le retire. On ne touche qu'à un nombre isolé en tout début de chaîne.
+function stripLeadingPackNumber(nom){
+  return (nom||'').replace(/^\d+([.,]\d+)?\s+(?=[A-Za-zÀ-ÿ])/,'').trim();
+}
 function blUniteOptionsHtml(current){
   return ['g','kg','ml','cl','l','piece'].map(function(u){return '<option value="'+u+'"'+(u===current?' selected':'')+'>'+(u==='piece'?'pièce':u)+'</option>';}).join('');
 }
 function renderBlLines(){
   var box=document.getElementById('mbl-lines');
   var ingOpts=rctIngredients.slice().sort(function(a,b){return a.nom.localeCompare(b.nom);});
+  var catOpts=Object.keys(rctCategoriesOrdre).sort(function(a,b){return (rctCategoriesOrdre[a].ordre||0)-(rctCategoriesOrdre[b].ordre||0);});
   box.innerHTML=mblLines.map(function(l){
     var ambiguous=!l.matchCode||l.matchScore<70;
+    var isNew=!l.matchCode;
     var selOpts='<option value="">➕ Créer un nouvel ingrédient</option>'+ingOpts.map(function(ing){return '<option value="'+ing.code+'"'+(ing.code===l.matchCode?' selected':'')+'>'+esc(ing.nom)+'</option>';}).join('');
+    var catSelOpts=catOpts.map(function(c){return '<option value="'+esc(c)+'"'+(c===l.newCat?' selected':'')+'>'+esc(c)+'</option>';}).join('');
     return '<div style="border:1px solid '+(ambiguous?'#E8B84B':'var(--bd)')+';background:'+(ambiguous?'#FFF9EC':'#fff')+';border-radius:8px;padding:8px 10px;margin-bottom:8px;">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
       +'<input type="checkbox" '+(l.selected?'checked':'')+' onchange="toggleBlLine(\''+l.id+'\',this.checked)">'
@@ -7857,13 +7874,17 @@ function renderBlLines(){
       +'</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
       +'<select class="fi" style="font-size:11px;flex:1;min-width:140px;" onchange="updateBlLineField(\''+l.id+'\',\'matchCode\',this.value)">'+selOpts+'</select>'
+      +(isNew?'<select class="fi" style="font-size:11px;flex:1;min-width:120px;" onchange="updateBlLineField(\''+l.id+'\',\'newCat\',this.value)">'+catSelOpts+'</select>':'')
+      +'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;">'
       +'<input type="number" class="fi" style="width:60px;font-size:11px;" step="0.001" placeholder="Qté" value="'+l.qte+'" onchange="updateBlLineField(\''+l.id+'\',\'qte\',this.value)">'
       +'<select class="fi" style="font-size:11px;width:56px;" onchange="updateBlLineField(\''+l.id+'\',\'unite\',this.value)">'+blUniteOptionsHtml(l.unite)+'</select>'
       +'<span style="font-size:11px;color:var(--txm);">pour</span>'
       +'<input type="number" class="fi" style="width:66px;font-size:11px;" step="0.01" placeholder="Prix" value="'+l.prixTotal+'" onchange="updateBlLineField(\''+l.id+'\',\'prixTotal\',this.value)">'
       +'<span style="font-size:11px;color:var(--txm);">€</span>'
       +'</div>'
-      +(ambiguous?'<div style="font-size:10px;color:#92400E;margin-top:4px;">Correspondance incertaine — vérifie ou choisis le bon ingrédient dans la liste.</div>':'')
+      +(isNew?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">➕ Nouvel ingrédient — catégorie suggérée ci-dessus, modifiable.</div>':'')
+      +(ambiguous&&!isNew?'<div style="font-size:10px;color:#92400E;margin-top:4px;">Correspondance incertaine — vérifie ou choisis le bon ingrédient dans la liste.</div>':'')
       +'</div>';
   }).join('');
 }
@@ -7889,12 +7910,13 @@ async function confirmBlImport(){
     try{
       var code=l.matchCode;
       if(!code){
-        // Créer le nouvel ingrédient
+        // Créer le nouvel ingrédient dans la catégorie choisie/suggérée (au lieu de "Autres" par défaut)
         var nom=(l.nomExtrait||'').trim();
         if(!nom){errors.push('Ligne sans nom ignorée');continue;}
+        var cat=l.newCat||Object.keys(rctCategoriesOrdre)[0]||'Autres';
         code=slugify(nom);
-        sbCheck(await db.from('ingredients').upsert([{restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:'Autres',actif:true}],{onConflict:'restaurant_id,code'}));
-        if(!rctIngredients.find(function(x){return x.code===code;}))rctIngredients.push({restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:'Autres',actif:true});
+        sbCheck(await db.from('ingredients').upsert([{restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:cat,actif:true}],{onConflict:'restaurant_id,code'}));
+        if(!rctIngredients.find(function(x){return x.code===code;}))rctIngredients.push({restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:cat,actif:true});
       }
       var ing=rctIngredients.find(function(x){return x.code===code;});
       var catDefaut=(ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
