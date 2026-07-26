@@ -491,6 +491,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         </label>
       </div>
       <button class="btn bs sm" onclick="openNewIngredientModal()" style="margin-bottom:6px;">+ Ajouter un ingrédient manuellement</button>
+      <button class="btn ba sm" onclick="openBlImportModal()" style="margin-bottom:6px;">📷 Importer un BL / catalogue fournisseur</button>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvelle section</button>
         <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
@@ -567,6 +568,24 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<div class="mb" id="mbl">
+  <div class="md" style="max-width:640px;">
+    <div class="mdt">📷 Importer un BL / catalogue fournisseur</div>
+    <div id="mbl-step-upload">
+      <div style="font-size:12px;color:var(--txm);margin-bottom:10px;">Prends en photo (ou importe le PDF) d'un bon de livraison ou d'un catalogue fournisseur. Les lignes (produit, quantité, prix) seront extraites automatiquement — <strong>rien n'est enregistré tant que tu n'as pas validé chaque ligne</strong>.</div>
+      <div class="fr"><label class="fl2">Fichier (photo ou PDF)</label>
+        <input type="file" class="fi" id="mbl-file" accept="image/*,application/pdf" style="padding:5px"></div>
+      <div id="mbl-upload-status" style="font-size:12px;color:var(--txm);margin:8px 0;"></div>
+      <div class="ma"><button class="btn bs" onclick="closeM('mbl')">Annuler</button><button class="btn bp" id="mbl-analyze-btn" onclick="analyzeBlFile()">Analyser</button></div>
+    </div>
+    <div id="mbl-step-preview" style="display:none;">
+      <div style="font-size:12px;color:var(--txm);margin-bottom:10px;">Vérifie chaque ligne avant de valider. <span style="color:#92400E;font-weight:700;">🟠 = correspondance incertaine</span>, à confirmer ou corriger manuellement. Décoche les lignes à ignorer.</div>
+      <div id="mbl-lines"></div>
+      <div class="ma"><button class="btn bs" onclick="closeM('mbl')">Annuler</button><button class="btn bp" onclick="confirmBlImport()">✓ Valider les lignes cochées</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal menu contextuel "+" -->
 <div class="mb" id="qam">
   <div class="md" style="max-width:340px;">
@@ -575,6 +594,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="ma"><button class="btn bs" onclick="closeM('qam')">Annuler</button></div>
   </div>
 </div>
+
 
 <!-- Modal gestion des fournisseurs (par restaurant) -->
 <div class="mb" id="msup">
@@ -1095,6 +1115,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 <script>
 var db=supabase.createClient(SURL,SKEY);
+// Même Worker Cloudflare que le site public (index.html/emporter.html), route à ajouter : /admin/extract-invoice
+var BL_PROXY_URL='https://milos-github-proxy.milospizza-nice.workers.dev';
+// Doit être IDENTIQUE à la valeur du secret Cloudflare EXTRACT_INVOICE_SECRET (voir worker.js).
+// Remplace 'CHANGE-MOI' par la chaîne aléatoire que tu as choisie et enregistrée sur Cloudflare.
+var BL_ADMIN_SECRET='CHANGE-MOI';
 var emps=[],pts=[],abs=[],curSal=null;
 var pwStart=monOf(new Date());
 
@@ -7229,10 +7254,11 @@ function renderIngredientsList(){
     });
     return '<select class="fi" style="font-size:10px;padding:2px;max-width:110px;" onchange="if(this.value)moveIngredientToCategory(\''+i.code+'\',this.value);this.selectedIndex=0;">'+opts+'</select>';
   }
-  function priceInputsHtml(cout,ingCode){
+  function priceInputsHtml(cout,ingCode,catName){
+    var catDefaut=(catName&&rctCategoriesOrdre[catName]&&rctCategoriesOrdre[catName].unite_defaut_mesure)||null;
     if(cout&&cout.prix_source_code){
       var src=rctIngredients.find(function(x){return x.code===cout.prix_source_code;});
-      var mode2=cout.mode_prix||'unitaire';
+      var mode2=cout.mode_prix||catDefaut||'unitaire';
       var field2=modePrixField(mode2),label2=modePrixLabel(mode2);
       var val=cout[field2]!=null?cout[field2]+' '+label2:'prix non renseigné sur la source';
       return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--txm);">'
@@ -7240,7 +7266,7 @@ function renderIngredientsList(){
         +'<button class="btn bs sm" onclick="unlinkProductPrice(\''+ingCode+'\')" style="padding:2px 8px;font-size:10px;">✕ Détacher</button>'
         +'</div>';
     }
-    var mode=(cout&&cout.mode_prix)||'unitaire';
+    var mode=(cout&&cout.mode_prix)||catDefaut||'unitaire';
     var field=modePrixField(mode),label=modePrixLabel(mode);
     var otherIngredients=rctIngredients.filter(function(p){return p.code!==ingCode&&!(rctIngredientCouts[p.code]&&rctIngredientCouts[p.code].prix_source_code);}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
     var contUnites=['g','kg','ml','cl','l','piece'];
@@ -7318,7 +7344,7 @@ function renderIngredientsList(){
       +miseEnPlaceHtml(i)
       +(hasBrutSource?'<div style="font-size:10px;color:var(--txm);">🔪 Pas de fournisseur séparé — cet article est préparé sur place à partir de "'+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code)+'", pas acheté tel quel.</div>'
         :statut.isComposed?'<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>'
-        :priceInputsHtml(statut.cout,i.code))
+        :priceInputsHtml(statut.cout,i.code,i.categorie))
       +'</div>';
   }
   var itemsByCat={};
@@ -7608,11 +7634,19 @@ async function handlePriceFieldChange(ingredientCode,field,value){
   var payload={restaurant_id:resto,ingredient_code:ingredientCode};
   if(field==='mode_prix'||field==='fournisseur_id')payload[field]=value||null;
   else payload[field]=(value===''?null:parseFloat(value));
+  var existing=rctIngredientCouts[ingredientCode]||{};
+  // Si aucun mode n'a jamais été explicitement enregistré pour cet ingrédient, on fige maintenant celui
+  // hérité de sa catégorie (c'est celui affiché à l'écran) — sinon le calcul du coût matière des pizzas
+  // retombera sur "Unitaire" par défaut alors que le prix est stocké sous un autre champ (kg, g, L…).
+  if(field!=='mode_prix'&&field!=='fournisseur_id'&&!existing.mode_prix){
+    var ing=rctIngredients.find(function(x){return x.code===ingredientCode;});
+    var catDefaut=(ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
+    payload.mode_prix=catDefaut||'unitaire';
+  }
   // Si on change le mode de mesure et qu'un contenant (qté+prix) est déjà renseigné, on recalcule
   // tout de suite le nouveau prix/kg, prix/g, prix/L ou prix/unité correspondant — pas besoin de
   // ressaisir manuellement.
   if(field==='mode_prix'){
-    var existing=rctIngredientCouts[ingredientCode]||{};
     if(existing.contenant_qte&&existing.contenant_prix){
       var champ=modePrixField(value);
       var calc=computeUnitPriceFromContenant(value,existing.contenant_qte,existing.contenant_unite,existing.contenant_prix,existing.densite);
@@ -7672,8 +7706,10 @@ async function saveContenantAndRecalc(ingCode){
   var prix=prixEl.value===''?null:parseFloat(prixEl.value);
   var dens=densEl.value===''?null:parseFloat(densEl.value);
   var cout=rctIngredientCouts[ingCode]||{};
-  var mode=cout.mode_prix||'unitaire';
-  var payload={restaurant_id:rctResto(),ingredient_code:ingCode,contenant_qte:qte,contenant_unite:unite,contenant_prix:prix,densite:dens};
+  var ing=rctIngredients.find(function(x){return x.code===ingCode;});
+  var catDefaut=(ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
+  var mode=cout.mode_prix||catDefaut||'unitaire';
+  var payload={restaurant_id:rctResto(),ingredient_code:ingCode,contenant_qte:qte,contenant_unite:unite,contenant_prix:prix,densite:dens,mode_prix:mode};
   var champ=modePrixField(mode);
   var calc=computeUnitPriceFromContenant(mode,qte,unite,prix,dens);
   if(calc!=null)payload[champ]=Math.round(calc*100000)/100000;
@@ -7739,6 +7775,143 @@ async function saveNewIngredient(){
     closeM('mnig');
     await loadRecettesModule();
   }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création : '+e.message);}
+}
+
+// ── Import BL / catalogue fournisseur : photo/PDF → extraction → écran de validation obligatoire ──
+// Rien n'est écrit en base tant que confirmBlImport() n'est pas déclenché par l'utilisateur.
+var mblLines=[]; // {id,nomExtrait,matchCode,matchScore,qte,unite,prixTotal,selected}
+function openBlImportModal(){
+  document.getElementById('mbl-file').value='';
+  document.getElementById('mbl-upload-status').textContent='';
+  document.getElementById('mbl-step-upload').style.display='block';
+  document.getElementById('mbl-step-preview').style.display='none';
+  mblLines=[];
+  document.getElementById('mbl').classList.add('op');
+}
+function fileToBase64(file){
+  return new Promise(function(resolve,reject){
+    var r=new FileReader();
+    r.onload=function(){resolve(r.result.split(',')[1]);};
+    r.onerror=function(){reject(new Error('Lecture du fichier impossible'));};
+    r.readAsDataURL(file);
+  });
+}
+async function analyzeBlFile(){
+  var fileEl=document.getElementById('mbl-file');
+  var file=fileEl.files&&fileEl.files[0];
+  var statusEl=document.getElementById('mbl-upload-status');
+  if(!file){alert('Choisis une photo ou un PDF du BL/catalogue.');return;}
+  var btn=document.getElementById('mbl-analyze-btn');
+  btn.disabled=true;
+  statusEl.textContent='⏳ Lecture du fichier…';
+  try{
+    var b64=await fileToBase64(file);
+    statusEl.textContent='⏳ Analyse en cours (extraction des lignes)… peut prendre 10-20 s.';
+    var res=await fetch(BL_PROXY_URL+'/admin/extract-invoice',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Admin-Secret':BL_ADMIN_SECRET},
+      body:JSON.stringify({media_type:file.type||'image/jpeg',data:b64})
+    });
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    var json=await res.json();
+    var lines=json.lines||[];
+    if(!lines.length){statusEl.textContent='⚠️ Aucune ligne détectée sur ce document. Réessaie avec une photo plus nette.';btn.disabled=false;return;}
+    mblLines=lines.map(function(l,i){
+      var best=null,bestScore=-1;
+      rctIngredients.forEach(function(ing){
+        var sc=matchScore(l.nom||'',ing.nom);
+        if(sc>bestScore){bestScore=sc;best=ing;}
+      });
+      return {
+        id:'bl'+i,
+        nomExtrait:l.nom||'',
+        matchCode:bestScore>=45?(best?best.code:''):'',
+        matchScore:bestScore<0?0:bestScore,
+        qte:l.quantite!=null?l.quantite:'',
+        unite:l.unite||'g',
+        prixTotal:l.prix_total!=null?l.prix_total:(l.prix!=null?l.prix:''),
+        selected:true
+      };
+    });
+    document.getElementById('mbl-step-upload').style.display='none';
+    document.getElementById('mbl-step-preview').style.display='block';
+    renderBlLines();
+  }catch(e){
+    console.error('analyzeBlFile',e);
+    statusEl.textContent='❌ Erreur : '+e.message+'. Vérifie que la route /admin/extract-invoice est bien configurée sur le Worker.';
+  }finally{btn.disabled=false;}
+}
+function blUniteOptionsHtml(current){
+  return ['g','kg','ml','cl','l','piece'].map(function(u){return '<option value="'+u+'"'+(u===current?' selected':'')+'>'+(u==='piece'?'pièce':u)+'</option>';}).join('');
+}
+function renderBlLines(){
+  var box=document.getElementById('mbl-lines');
+  var ingOpts=rctIngredients.slice().sort(function(a,b){return a.nom.localeCompare(b.nom);});
+  box.innerHTML=mblLines.map(function(l){
+    var ambiguous=!l.matchCode||l.matchScore<70;
+    var selOpts='<option value="">➕ Créer un nouvel ingrédient</option>'+ingOpts.map(function(ing){return '<option value="'+ing.code+'"'+(ing.code===l.matchCode?' selected':'')+'>'+esc(ing.nom)+'</option>';}).join('');
+    return '<div style="border:1px solid '+(ambiguous?'#E8B84B':'var(--bd)')+';background:'+(ambiguous?'#FFF9EC':'#fff')+';border-radius:8px;padding:8px 10px;margin-bottom:8px;">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+      +'<input type="checkbox" '+(l.selected?'checked':'')+' onchange="toggleBlLine(\''+l.id+'\',this.checked)">'
+      +'<strong style="font-size:12px;flex:1;">'+(ambiguous?'🟠 ':'')+esc(l.nomExtrait)+'</strong>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+      +'<select class="fi" style="font-size:11px;flex:1;min-width:140px;" onchange="updateBlLineField(\''+l.id+'\',\'matchCode\',this.value)">'+selOpts+'</select>'
+      +'<input type="number" class="fi" style="width:60px;font-size:11px;" step="0.001" placeholder="Qté" value="'+l.qte+'" onchange="updateBlLineField(\''+l.id+'\',\'qte\',this.value)">'
+      +'<select class="fi" style="font-size:11px;width:56px;" onchange="updateBlLineField(\''+l.id+'\',\'unite\',this.value)">'+blUniteOptionsHtml(l.unite)+'</select>'
+      +'<span style="font-size:11px;color:var(--txm);">pour</span>'
+      +'<input type="number" class="fi" style="width:66px;font-size:11px;" step="0.01" placeholder="Prix" value="'+l.prixTotal+'" onchange="updateBlLineField(\''+l.id+'\',\'prixTotal\',this.value)">'
+      +'<span style="font-size:11px;color:var(--txm);">€</span>'
+      +'</div>'
+      +(ambiguous?'<div style="font-size:10px;color:#92400E;margin-top:4px;">Correspondance incertaine — vérifie ou choisis le bon ingrédient dans la liste.</div>':'')
+      +'</div>';
+  }).join('');
+}
+function toggleBlLine(id,checked){
+  var l=mblLines.find(function(x){return x.id===id;});
+  if(l)l.selected=checked;
+}
+function updateBlLineField(id,field,value){
+  var l=mblLines.find(function(x){return x.id===id;});
+  if(!l)return;
+  if(field==='qte'||field==='prixTotal')l[field]=value===''?'':parseFloat(value);
+  else l[field]=value;
+  if(field==='matchCode')l.matchScore=100; // choix manuel = plus d'ambiguïté
+  renderBlLines();
+}
+async function confirmBlImport(){
+  var toImport=mblLines.filter(function(l){return l.selected;});
+  if(!toImport.length){alert('Coche au moins une ligne à importer.');return;}
+  var resto=rctResto();
+  var errors=[];
+  for(var i=0;i<toImport.length;i++){
+    var l=toImport[i];
+    try{
+      var code=l.matchCode;
+      if(!code){
+        // Créer le nouvel ingrédient
+        var nom=(l.nomExtrait||'').trim();
+        if(!nom){errors.push('Ligne sans nom ignorée');continue;}
+        code=slugify(nom);
+        sbCheck(await db.from('ingredients').upsert([{restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:'Autres',actif:true}],{onConflict:'restaurant_id,code'}));
+        if(!rctIngredients.find(function(x){return x.code===code;}))rctIngredients.push({restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:'Autres',actif:true});
+      }
+      var ing=rctIngredients.find(function(x){return x.code===code;});
+      var catDefaut=(ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
+      var existingCout=rctIngredientCouts[code]||{};
+      var mode=existingCout.mode_prix||catDefaut||(l.unite==='ml'||l.unite==='cl'||l.unite==='l'?'litre':(l.unite==='piece'?'unitaire':'kilo'));
+      var champ=modePrixField(mode);
+      var calc=computeUnitPriceFromContenant(mode,l.qte,l.unite,l.prixTotal,existingCout.densite);
+      var payload={restaurant_id:resto,ingredient_code:code,mode_prix:mode,contenant_qte:l.qte,contenant_unite:l.unite,contenant_prix:l.prixTotal};
+      if(calc!=null)payload[champ]=Math.round(calc*100000)/100000;
+      sbCheck(await db.from('ingredient_couts').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
+      rctIngredientCouts[code]=Object.assign({},existingCout,payload);
+      if(calc==null)errors.push((ing?ing.nom:code)+' : contenant enregistré mais prix non calculable (vérifie l\'unité/densité)');
+    }catch(e){console.error('confirmBlImport',e);errors.push((l.nomExtrait||'?')+' : '+e.message);}
+  }
+  closeM('mbl');
+  renderIngredientsList();
+  alert('✅ '+(toImport.length-errors.length)+'/'+toImport.length+' ligne(s) importée(s).'+(errors.length?'\n\n⚠️ '+errors.join('\n'):''));
 }
 
 // ── Suggestions de rattachement (similarité de nom, jamais automatique) ─────
@@ -8373,9 +8546,9 @@ async function saveOngletMeta(){
 // ── Calcul du prix de revient (coût matière) ─────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════
 // Coût d'une quantité donnée d'un produit stock (nombreux modes de mesure).
-function coutQuantiteStock(stockProduit,quantite,unite){
+function coutQuantiteStock(stockProduit,quantite,unite,modeFallback){
   if(!stockProduit)return {cout:null,warning:'produit stock introuvable'};
-  var mode=stockProduit.mode_prix||'unitaire';
+  var mode=stockProduit.mode_prix||modeFallback||'unitaire';
   var poidsNet=stockProduit.poids_net_g;
   var densite=stockProduit.densite;
   if(mode==='kilo'){
@@ -8410,6 +8583,15 @@ function coutQuantiteStock(stockProduit,quantite,unite){
   if(unite==='kg'&&poidsNet)return {cout:(quantite*1000/poidsNet)*stockProduit.prix_unitaire,warning:null};
   return {cout:null,warning:'unité recette incompatible (poids net manquant ?)'};
 }
+// Mode de mesure "effectif" d'un ingrédient : celui explicitement enregistré, sinon celui hérité de
+// sa catégorie (même logique que l'affichage) — évite que le calcul de coût retombe sur "Unitaire" par
+// défaut pour un ingrédient dont le prix a été saisi avant que le mode ne soit explicitement figé.
+function resolveIngredientMode(ingredientCode){
+  var cout=rctIngredientCouts[ingredientCode];
+  if(cout&&cout.mode_prix)return cout.mode_prix;
+  var ing=rctIngredients.find(function(x){return x.code===ingredientCode;});
+  return (ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
+}
 // Coût d'une quantité donnée d'un ingrédient de carte (direct, composé, ou non relié).
 function coutIngredient(ingredientCode,quantite,unite){
   if(unite==='dose'){
@@ -8426,7 +8608,7 @@ function coutIngredient(ingredientCode,quantite,unite){
       var subIng=rctIngredients.find(function(p){return p.code===l.sub_ingredient_code;});
       var subNom=subIng?subIng.nom:('ingrédient inconnu ('+l.sub_ingredient_code+')');
       var cout=rctIngredientCouts[l.sub_ingredient_code];
-      var r=coutQuantiteStock(cout,l.quantite,l.unite);
+      var r=coutQuantiteStock(cout,l.quantite,l.unite,resolveIngredientMode(l.sub_ingredient_code));
       // Poids en grammes de cette ligne, pour la clé de répartition du coût :
       // g/kg → tel quel ; ml/l → converti via la densité du sous-ingrédient (1000=eau par défaut) ; pièce → poids net requis.
       var poidsLigne=null;
@@ -8446,7 +8628,7 @@ function coutIngredient(ingredientCode,quantite,unite){
   }
   var cout=rctIngredientCouts[ingredientCode];
   if(!cout)return {cout:null,warning:'aucun prix renseigné pour cet ingrédient'};
-  return coutQuantiteStock(cout,quantite,unite);
+  return coutQuantiteStock(cout,quantite,unite,resolveIngredientMode(ingredientCode));
 }
 // Prix de revient complet d'un produit vendu (somme de sa recette).
 function coutRecette(produitVenduCode){
