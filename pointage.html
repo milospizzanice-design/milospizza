@@ -170,6 +170,12 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cl">Demande d'acompte</div>
         <div class="cs">Avance sur salaire</div>
       </div>
+      <div class="cbtn" onclick="menuSuivi()" style="position:relative">
+        <div class="ci">&#128203;</div>
+        <div class="cl">Suivi de mes demandes</div>
+        <div class="cs">Congés, absences, acomptes</div>
+        <div id="suivi-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
+      </div>
       <div class="cbtn" onclick="menuStocks()" id="cbtn-stocks">
         <div class="ci">&#128230;</div>
         <div class="cl">G&eacute;rer les stocks</div>
@@ -291,6 +297,12 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <button onclick="backToMenu()" style="width:100%;margin-top:18px;background:#fff;color:#B91E26;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer">Retour au menu</button>
     </div>
 
+    <div class="screen" id="s-suivi">
+      <div class="pl" style="margin-bottom:10px">Suivi de mes demandes</div>
+      <div id="suivi-content" style="width:100%;max-height:65vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <button class="canc" onclick="backToMenu()" style="margin-top:14px">Retour</button>
+    </div>
+
 
   </div>
   <div class="rgpd">Photos conservées 90 jours &middot; Aucune reconnaissance faciale &middot; RGPD Art. 13</div>
@@ -312,6 +324,15 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div style="font-size:14px;color:#444;line-height:1.5;margin-bottom:18px">Avez-vous pris connaissance de vos 4 semaines de planning &agrave; venir&nbsp;?</div>
     <button onclick="planAckOui()" style="width:100%;background:#10B981;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px">&#10003; Oui, j'ai pris connaissance</button>
     <button onclick="planAckPasEncore()" style="width:100%;background:#fff;color:#888;border:1px solid #ddd;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer">Pas encore</button>
+  </div>
+</div>
+
+<div id="dem-notif-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:24px 20px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:80vh;overflow-y:auto">
+    <div style="font-size:34px;margin-bottom:6px">&#128276;</div>
+    <div style="font-weight:700;font-size:17px;color:#B91E26;margin-bottom:10px">Nouveaut&#233;s sur vos demandes</div>
+    <div id="dem-notif-list" style="text-align:left;margin-bottom:16px"></div>
+    <button onclick="closeDemNotif()" style="width:100%;background:#B91E26;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">OK, compris</button>
   </div>
 </div>
 <script>
@@ -355,10 +376,92 @@ tick();setInterval(tick,1000);
 function ss(name){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('s-'+name);if(el)el.classList.add('on');
+  if(name==='menu'&&emp)checkDemandesNouveautes();
 }
 
 
-// ── DEMANDE D'ACOMPTE (tablette) ────────────────────────────────────────────
+// ── SUIVI DES DEMANDES (salarié) ─────────────────────────────────────────────
+var ABS_TYPE_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+var ST_L={att:{l:'En attente',bg:'#FEF3C7',c:'#92400E'},ok:{l:'Accept\u00e9e',bg:'#D1FAE5',c:'#065F46'},ko:{l:'Refus\u00e9e',bg:'#FEE2E2',c:'#991B1B'}};
+function demSeenKey(){return 'rg_dem_vues_'+emp.id;}
+function demSeenList(){try{return JSON.parse(localStorage.getItem(demSeenKey())||'[]');}catch(e){return [];}}
+function demMarkSeen(ids){
+  var seen=demSeenList();
+  ids.forEach(function(id){if(seen.indexOf(id)<0)seen.push(id);});
+  localStorage.setItem(demSeenKey(),JSON.stringify(seen));
+}
+async function menuSuivi(){
+  ss('suivi');
+  var c=document.getElementById('suivi-content');
+  c.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px">Chargement...</div>';
+  var ar=await db.from('demandes_absence').select('*').eq('employee_id',emp.id).order('created_at',{ascending:false});
+  var cr=await db.from('demandes_acompte').select('*').eq('employee_id',emp.id).order('created_at',{ascending:false});
+  var items=[];
+  (ar.data||[]).forEach(function(d){items.push({kind:'abs',d:d,date:d.created_at});});
+  (cr.data||[]).forEach(function(d){items.push({kind:'aco',d:d,date:d.created_at});});
+  items.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  if(!items.length){c.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px">Aucune demande pour le moment.</div>';return;}
+  var h='';
+  items.forEach(function(it){
+    var d=it.d;var st=ST_L[d.statut||'att']||ST_L.att;
+    h+='<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
+    if(it.kind==='abs'){
+      h+='<div><div style="font-weight:700;font-size:14px">'+(ABS_TYPE_L[d.type]||d.type)+'</div>';
+      h+='<div style="font-size:12px;color:#888;margin-top:2px">Du '+d.date_debut+' au '+d.date_fin+'</div></div>';
+    }else{
+      h+='<div><div style="font-weight:700;font-size:14px">Acompte '+d.montant+' \u20ac</div>';
+      h+='<div style="font-size:12px;color:#888;margin-top:2px">Souhait\u00e9 le '+d.date_souhaitee+'</div></div>';
+    }
+    h+='<span style="background:'+st.bg+';color:'+st.c+';padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap">'+st.l+'</span>';
+    h+='</div>';
+    if(d.note_admin)h+='<div style="font-size:12px;color:#555;margin-top:8px;background:#f5f5f5;padding:7px 9px;border-radius:8px"><b>R\u00e9ponse:</b> '+d.note_admin+'</div>';
+    h+='</div>';
+  });
+  c.innerHTML=h;
+  // Marquer comme vu toutes les demandes déjà traitées
+  var treatedIds=items.filter(function(it){return (it.d.statut||'att')!=='att';}).map(function(it){return it.kind+it.d.id;});
+  demMarkSeen(treatedIds);
+  updateSuiviBadge();
+}
+async function checkDemandesNouveautes(){
+  if(!emp)return;
+  var ar=await db.from('demandes_absence').select('id,statut,type,date_debut,note_admin').eq('employee_id',emp.id).neq('statut','att');
+  var cr=await db.from('demandes_acompte').select('id,statut,montant,note_admin').eq('employee_id',emp.id).neq('statut','att');
+  var seen=demSeenList();
+  var news=[];
+  (ar.data||[]).forEach(function(d){if(seen.indexOf('abs'+d.id)<0)news.push({kind:'abs',d:d});});
+  (cr.data||[]).forEach(function(d){if(seen.indexOf('aco'+d.id)<0)news.push({kind:'aco',d:d});});
+  var badge=document.getElementById('suivi-badge');
+  if(badge){
+    if(news.length){badge.style.display='flex';badge.textContent=news.length;}
+    else badge.style.display='none';
+  }
+  if(!news.length)return;
+  var list=document.getElementById('dem-notif-list');
+  var h='';
+  news.forEach(function(it){
+    var d=it.d;var st=ST_L[d.statut]||ST_L.att;
+    var label=it.kind==='abs'?(ABS_TYPE_L[d.type]||d.type):('Acompte '+d.montant+' \u20ac');
+    h+='<div style="padding:8px 0;border-bottom:1px solid #eee">';
+    h+='<div style="font-size:13px"><b>'+label+'</b> \u2014 <span style="color:'+st.c+';font-weight:700">'+st.l+'</span></div>';
+    if(d.note_admin)h+='<div style="font-size:12px;color:#666;margin-top:2px">'+d.note_admin+'</div>';
+    h+='</div>';
+  });
+  list.innerHTML=h;
+  demNotifPending=news.map(function(it){return it.kind+it.d.id;});
+  document.getElementById('dem-notif-overlay').style.display='flex';
+}
+var demNotifPending=[];
+function closeDemNotif(){
+  if(demNotifPending.length){demMarkSeen(demNotifPending);demNotifPending=[];}
+  var badge=document.getElementById('suivi-badge');if(badge)badge.style.display='none';
+  document.getElementById('dem-notif-overlay').style.display='none';
+}
+function updateSuiviBadge(){
+  var badge=document.getElementById('suivi-badge');
+  if(badge)badge.style.display='none';
+}
 var acoPin='',acoEmp=null;
 function showAcoBtn(){
   acoPin='';acoEmp=null;
@@ -1002,6 +1105,33 @@ async function badge(){
   // Une entrée non suivie d'une sortie la veille (ou avant) ne compte plus : on repart à zéro chaque jour.
   var oubliVeille=last&&last.type==='entree'&&!lastIsToday;
   var type=(last&&lastIsToday&&last.type==='entree')?'sortie':'entree';
+  // Interdiction de badger avant l'heure de prise de poste (avec tolérance), configurable par l'admin
+  if(type==='entree'){
+    try{
+      var acr=await db.from('app_config').select('key,value').in('key',['badge_avant_actif','badge_avant_valeur','badge_avant_unite']);
+      var acByKey={};(acr.data||[]).forEach(function(x){acByKey[x.key]=x.value;});
+      if(acByKey.badge_avant_actif==='1'){
+        var tolVal=parseInt(acByKey.badge_avant_valeur||'0')||0;
+        var tolUnite=acByKey.badge_avant_unite||'min';
+        var tolMin=tolUnite==='h'?tolVal*60:tolVal;
+        var todayStr=pDs(new Date());
+        var crToday=await db.from('planning_creneaux').select('heure_debut').eq('employee_id',emp.id).eq('date',todayStr).order('heure_debut');
+        var creneaux=crToday.data||[];
+        if(creneaux.length){
+          var hd=creneaux[0].heure_debut; // format "HH:MM"
+          var hp=hd.split(':');
+          var shiftStart=new Date();shiftStart.setHours(parseInt(hp[0]),parseInt(hp[1])||0,0,0);
+          var cutoff=new Date(shiftStart.getTime()-tolMin*60000);
+          var now=new Date();
+          if(now<cutoff){
+            var cutoffStr=cutoff.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+            document.getElementById('em').innerHTML='Votre prise de poste est \u00e0 '+hd+'.<br>Vous pourrez badger \u00e0 partir de '+cutoffStr+'.';
+            ss('error');setTimeout(backToMenu,5000);return;
+          }
+        }
+      }
+    }catch(e){}
+  }
   var ip='';
   try{var ir=await fetch('https://api.ipify.org?format=json');ip=(await ir.json()).ip;}catch(e){}
   var rr=await db.from('restaurants').select('ip_whitelist').eq('id',RESTAURANT_ID).single();
