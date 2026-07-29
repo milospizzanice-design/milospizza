@@ -5070,7 +5070,31 @@ async function loadDem(){
 function loadAudit(){}
 
 
-async function traitDem(id,statut){await db.from('demandes_absence').update({statut:statut}).eq('id',id);await loadDem();  updateDemBadge();
+// Synchronise une demande d'absence acceptée/modifiée vers la table absences_planning
+// (celle qui alimente le planning, le récap DRH, et le planning vu par le salarié).
+async function syncDemAbsencePlanning(oldD,newD){
+  if(oldD&&oldD.statut==='ok'&&oldD.date_debut&&oldD.date_fin){
+    var d1=new Date(oldD.date_debut+'T00:00:00'),d2=new Date(oldD.date_fin+'T00:00:00');
+    for(var d=new Date(d1);d<=d2;d.setDate(d.getDate()+1)){
+      var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      await db.from('absences_planning').delete().eq('employee_id',oldD.employee_id).eq('date',ds).eq('code',oldD.type);
+    }
+  }
+  if(newD&&newD.statut==='ok'&&newD.date_debut&&newD.date_fin){
+    var e1=new Date(newD.date_debut+'T00:00:00'),e2=new Date(newD.date_fin+'T00:00:00');
+    for(var e=new Date(e1);e<=e2;e.setDate(e.getDate()+1)){
+      var es=e.getFullYear()+'-'+String(e.getMonth()+1).padStart(2,'0')+'-'+String(e.getDate()).padStart(2,'0');
+      await db.from('absences_planning').upsert({employee_id:newD.employee_id,date:es,code:newD.type},{onConflict:'employee_id,date'});
+    }
+  }
+}
+
+async function traitDem(id,statut){
+  var cur=await db.from('demandes_absence').select('*').eq('id',id).single();
+  var oldD=cur.data;
+  await db.from('demandes_absence').update({statut:statut}).eq('id',id);
+  if(oldD)await syncDemAbsencePlanning(oldD,{employee_id:oldD.employee_id,statut:statut,date_debut:oldD.date_debut,date_fin:oldD.date_fin,type:oldD.type});
+  await loadDem();  updateDemBadge();
 }
 
 
@@ -5114,6 +5138,7 @@ async function demModalSave(statut){
   };
   var r=await db.from('demandes_absence').update(upd).eq('id',demModalData.id);
   if(r.error){alert('Erreur: '+r.error.message);return;}
+  await syncDemAbsencePlanning(demModalData,{employee_id:demModalData.employee_id,statut:statut,date_debut:upd.date_debut,date_fin:upd.date_fin,type:upd.type});
   closeM('modal-dem');demModalData=null;
   await loadDem();updateDemBadge();
   if(document.getElementById('modal-absfiche').classList.contains('op')&&document.getElementById('fiche-pane-dem').style.display!=='none')ficheLoadDem();
