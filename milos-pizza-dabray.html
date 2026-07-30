@@ -1085,7 +1085,7 @@ function buildRow(p){
 
   const row=document.createElement('div');
   row.className='prow';row.id='row-'+sid;row.dataset.id=p.id;row.dataset.sup=p.sup;
-  row.innerHTML=`<div class="sup-dot" style="background:${color}"></div><div class="pinfo"><div class="pname">${p.name}</div><div class="pmeta"><span class="sup-tag" style="background:${color}">${(sup?.name||p.sup).split('\u2192')[0].trim().split(' ')[0]}</span>${p.unit&&p.unit!=='—'?' · '+p.unit:''}${meta?' · '+meta:''}</div></div><div class="pwrap">${ctrl}</div>`;
+  row.innerHTML=`<div class="sup-dot" style="background:${color}"></div><div class="pinfo"><div class="pname">${p.name}${p.prix?` <span style="font-weight:400;color:var(--mid);font-size:11px">— ${parseFloat(p.prix).toFixed(2)}\u00a0€/${p.prixUnite==='l'?'L':p.prixUnite==='unite'?'unit\u00e9':'kg'}</span>`:''}</div><div class="pmeta"><span class="sup-tag" style="background:${color}">${(sup?.name||p.sup).split('\u2192')[0].trim().split(' ')[0]}</span>${p.unit&&p.unit!=='—'?' · '+p.unit:''}${meta?' · '+meta:''}</div></div><div class="pwrap">${ctrl}</div>`;
   return row;
 }
 
@@ -1781,6 +1781,12 @@ function renderAdminProduits(body){
     <div class="arow"><div class="arow-info">Sous-catégorie</div><select class="aselect" id="np-sub"><option value="">— aucune —</option></select></div>
     <div class="arow"><div class="arow-info">Fournisseur</div><select class="aselect" id="np-sup">${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}">${s.name}</option>`).join('')}</select></div>
     <div class="arow"><div class="arow-info">Unité</div><input class="ainput ainput-w120" id="np-unit" placeholder="bouteille, bac..."></div>
+    <div class="arow"><div class="arow-info">Prix</div><input class="ainput ainput-w52" id="np-prix" type="number" step="0.01" min="0" placeholder="0.00">
+      <select class="aselect" id="np-prixunite" style="width:80px">
+        <option value="kg">€/kg</option>
+        <option value="l">€/L</option>
+        <option value="unite">€/unit\u00e9</option>
+      </select></div>
     <div class="arow"><div class="arow-info">Type de contrôle</div>
       <select class="aselect" id="np-type" onchange="toggleNewProdFields()">
         <option value="qty" selected>🔢 Quantité exacte</option>
@@ -1842,6 +1848,14 @@ function renderAdminProduits(body){
         row.innerHTML=`
           <div style="flex:1;min-width:130px;">
             <input class="ainput ainput-full" style="margin-bottom:4px;" value="${p.name}" onchange="updProd('${p.id}','name',this.value)">
+            <div style="display:flex;gap:4px;margin-bottom:4px;">
+              <input class="ainput ainput-w52" type="number" step="0.01" min="0" value="${p.prix||''}" placeholder="Prix" onchange="updProd('${p.id}','prix',this.value)">
+              <select class="aselect" style="font-size:10px;flex:1" onchange="updProd('${p.id}','prixUnite',this.value)">
+                <option value="kg"${(!p.prixUnite||p.prixUnite==='kg')?' selected':''}>€/kg</option>
+                <option value="l"${p.prixUnite==='l'?' selected':''}>€/L</option>
+                <option value="unite"${p.prixUnite==='unite'?' selected':''}>€/unit\u00e9</option>
+              </select>
+            </div>
             <div style="display:flex;flex-direction:column;gap:3px;">
               <select class="aselect" style="font-size:10px;" onchange="updProdSup('${p.id}',this.value)">${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}"${id===p.sup?' selected':''}>${s.name}</option>`).join('')}</select>
               ${(DB.suppliers[p.sup]&&DB.suppliers[p.sup].isLabo)?`<select class="aselect" style="font-size:10px;background:#E8FBF6;" onchange="updProdLaboLink('${p.id}',this.value)"><option value="">— relier au produit Labo —</option>${laboProduitsCache.map(lp=>`<option value="${lp.code}"${lp.code===p.laboProduitCode?' selected':''}>${lp.nom}</option>`).join('')}</select>`:''}
@@ -2085,12 +2099,16 @@ function addProduct(){
   const sub=document.getElementById('np-sub').value;
   const sup=document.getElementById('np-sup').value;
   const unit=document.getElementById('np-unit').value.trim()||'—';
+  const prix=parseFloat(document.getElementById('np-prix').value)||0;
+  const prixUnite=document.getElementById('np-prixunite').value;
   const type=document.getElementById('np-type').value;
   const s=parseSeuil(document.getElementById('np-s').value||'1');
   const c=parseFloat(document.getElementById('np-c').value)||1;
   const colis=parseInt(document.getElementById('np-colis').value)||1;
   const id='p-'+uid();
   const prod={id,cat,sub,sup,name,unit,type};
+  if(prix)prod.prix=prix;
+  prod.prixUnite=prixUnite;
   if(type==='qty'||type==='threshold'){prod.sDefault=s;prod.cDefault=c;prod.colisQty=colis;}
   DB.products.push(prod);
   // Sauvegarder les règles par jour si définies
