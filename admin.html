@@ -7193,6 +7193,18 @@ function fmtPrixCourt(v){
   var s=(Math.round(v*1000)/1000).toString().replace('.',',');
   return s;
 }
+// Prix de la quantité/unité par défaut d'un ingrédient (celle utilisée en recette), affiché sous ces champs.
+function ingDosePriceLabel(i){
+  if(i.quantite_defaut==null||!i.unite_defaut)return '';
+  var r=coutIngredient(i.code,i.quantite_defaut,i.unite_defaut);
+  if(r.cout==null)return '';
+  return '= '+fmtPrixCourt(r.cout)+' €';
+}
+function refreshIngredientDosePriceLight(code){
+  var i=rctIngredients.find(function(x){return x.code===code;});
+  var el=document.getElementById('ing-dose-price-'+code);
+  if(i&&el)el.textContent=ingDosePriceLabel(i);
+}
 function ingStatutIngredient(i){
   var compo=rctIngredientComposition[i.code]||[];
   var cout=rctIngredientCouts[i.code];
@@ -7220,6 +7232,7 @@ function refreshIngredientStatusLight(code){
   var hasBrutSource=!!((i.nature||'fini')==='fini'&&i.source_brut_code);
   if(hasBrutSource)return; // libellé différent, géré par le rendu complet
   statusEl.innerHTML=ingStatutIngredient(i).label;
+  refreshIngredientDosePriceLight(code);
 }
 function renderIngredientsList(){
   var searchEl=document.getElementById('rct-ing-search');
@@ -7354,6 +7367,7 @@ function renderIngredientsList(){
         +'<option value="l"'+((i.unite_defaut)==='l'?' selected':'')+'>L</option>'
         +'<option value="piece"'+((i.unite_defaut)==='piece'?' selected':'')+'>pièce</option>'
       +'</select>'
+      +'<span id="ing-dose-price-'+i.code+'" style="font-size:10px;color:var(--txm);white-space:nowrap;">'+esc(ingDosePriceLabel(i))+'</span>'
       +'<button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')">Recette</button>'
       +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
       +'</div>'
@@ -7478,6 +7492,7 @@ async function updateIngredientUniteDefaut(code,unite){
     sbCheck(await db.from('ingredients').update({unite_defaut:unite}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
     var ing=rctIngredients.find(function(i){return i.code===code;});
     if(ing)ing.unite_defaut=unite;
+    refreshIngredientDosePriceLight(code);
   }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
 }
 // ── Gestion des fournisseurs (par restaurant, stockés dans stock_catalogue.suppliers) ──
@@ -7778,6 +7793,7 @@ async function updateIngredientQuantiteDefaut(code,value){
     sbCheck(await db.from('ingredients').update({quantite_defaut:qty}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
     var ing=rctIngredients.find(function(i){return i.code===code;});
     if(ing)ing.quantite_defaut=qty;
+    refreshIngredientDosePriceLight(code);
   }catch(e){console.error('updateIngredientQuantiteDefaut',e);alert('Erreur : '+e.message);}
 }
 async function saveNewIngredient(){
