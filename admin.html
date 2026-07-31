@@ -497,9 +497,20 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
         <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
+        <button class="btn bp sm" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
       </div>
       <div id="rct-ing-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
       <div id="rct-ing-list-container"></div>
+    </div>
+    <!-- Panneau fixe (reste visible même en faisant défiler) : arborescence Section > Catégorie > Sous-catégorie,
+         cliquable pour sauter directement à l'endroit correspondant dans la liste. -->
+    <div id="ing-tree-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:29;" onclick="toggleIngTreePanel()"></div>
+    <div id="ing-tree-panel" style="display:none;position:fixed;top:0;left:0;bottom:0;width:min(78vw,280px);background:var(--cr);z-index:30;box-shadow:2px 0 12px rgba(0,0,0,0.25);overflow-y:auto;padding:14px 10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:800;color:var(--tx);">🗂 Arborescence</div>
+        <button class="btn bs sm" onclick="toggleIngTreePanel()" style="padding:2px 9px;">✕</button>
+      </div>
+      <div id="ing-tree-content" style="font-size:12px;"></div>
     </div>
 
     <!-- Sous-onglet: coûts des produits stock -->
@@ -7386,6 +7397,7 @@ function renderIngredientsList(){
         +'<option value="">Secteur…</option>'
         +'<option value="cuisine"'+(i.secteur==='cuisine'?' selected':'')+'>🍕 Cuisine</option>'
         +'<option value="salle"'+(i.secteur==='salle'?' selected':'')+'>🍷 Salle</option>'
+        +'<option value="labo"'+(i.secteur==='labo'?' selected':'')+'>🧪 Labo</option>'
       +'</select>'
       +'</div>';
   }
@@ -7452,8 +7464,12 @@ function renderIngredientsList(){
     }).join('');
   }
   var html='';
+  var treeHtml='';
   ongNames.forEach(function(ong){
     html+='<div id="ing-anchor-'+encodeURIComponent(ong)+'" style="scroll-margin-top:52px;">'+ongletHeaderHtml(ong)+'</div>';
+    var label=ong==='_sans_onglet'?'Non classé':ong;
+    treeHtml+='<div style="margin-bottom:8px;">'
+      +'<div style="font-weight:800;color:var(--bx);text-transform:uppercase;font-size:11px;cursor:pointer;padding:4px 2px;" onclick="jumpIngTree(\'ing-anchor-'+encodeURIComponent(ong)+'\')">'+esc(label)+'</div>';
     var catNames=byOngCats[ong].slice().sort(function(a,b){
       if(a==='')return 1; if(b==='')return -1;
       var oa=rctCategoriesOrdre[a]?rctCategoriesOrdre[a].ordre:9999;
@@ -7462,7 +7478,8 @@ function renderIngredientsList(){
     });
     catNames.forEach(function(cat){
       if(cat==='')return; // les ingrédients vraiment sans catégorie sont listés à part plus bas
-      html+=catHeaderHtml(cat);
+      html+='<div id="ing-cat-anchor-'+encodeURIComponent(cat)+'" style="scroll-margin-top:52px;">'+catHeaderHtml(cat)+'</div>';
+      treeHtml+='<div style="padding:3px 0 3px 10px;cursor:pointer;color:var(--tx);" onclick="jumpIngTree(\'ing-cat-anchor-'+encodeURIComponent(cat)+'\')">'+esc(cat)+'</div>';
       var itemsForCat=itemsByCat[cat]||{};
       var knownSubs=Object.keys(rctSousCategoriesOrdre[cat]||{});
       Object.keys(itemsForCat).forEach(function(s){if(s&&knownSubs.indexOf(s)<0)knownSubs.push(s);});
@@ -7474,7 +7491,9 @@ function renderIngredientsList(){
         return oa!==ob?oa-ob:a.localeCompare(b);
       }).forEach(function(sub){
         var items=itemsForCat[sub]||[];
-        html+='<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px 8px;">'
+        var subAnchorId='ing-sub-anchor-'+encodeURIComponent(cat)+'|'+encodeURIComponent(sub);
+        treeHtml+='<div style="padding:2px 0 2px 22px;cursor:pointer;color:var(--txm);font-size:11px;" onclick="jumpIngTree(\''+subAnchorId+'\')">↳ '+esc(sub)+'</div>';
+        html+='<div id="'+subAnchorId+'" style="scroll-margin-top:52px;display:flex;align-items:center;gap:6px;margin:8px 0 4px 8px;">'
           +'<div style="font-size:11px;font-weight:700;color:var(--txm);flex:1;">↳ '+esc(sub)+'</div>'
           +'<button class="btn bs sm" onclick="openNewIngredientModal(\''+esc(cat)+'\',\''+esc(sub)+'\')" style="padding:2px 8px;font-size:11px;font-weight:900;" title="Ajouter un ingrédient ici">+</button>'
           +'<button class="btn bs sm" onclick="openCategoryEditModal(\''+esc(cat)+'\')" style="padding:2px 7px;font-size:10px;" title="Modifier cette sous-catégorie">✏️</button>'
@@ -7492,6 +7511,7 @@ function renderIngredientsList(){
           +'<button class="btn bs sm" onclick="openNewIngredientModal(\''+esc(cat)+'\')" style="font-size:11px;">+ Ajouter ici</button></div>';
       }
     });
+    treeHtml+='</div>';
   });
   if(itemsByCat['']&&itemsByCat['']['']&&itemsByCat[''][''].length){
     html+='<div style="display:flex;align-items:center;gap:6px;margin:14px 0 4px;">'
@@ -7502,6 +7522,20 @@ function renderIngredientsList(){
   }
   container.innerHTML=html;
   void container.offsetHeight; // force Safari iOS à terminer sa passe de mise en page avant le 1er tap sur un <select> fraîchement injecté (sinon le picker se referme tout seul au premier essai)
+  var treeEl=document.getElementById('ing-tree-content');
+  if(treeEl)treeEl.innerHTML=treeHtml||'<div style="color:var(--txm);">Aucune catégorie pour l\'instant.</div>';
+}
+function toggleIngTreePanel(){
+  var panel=document.getElementById('ing-tree-panel'),overlay=document.getElementById('ing-tree-overlay');
+  if(!panel)return;
+  var show=panel.style.display==='none';
+  panel.style.display=show?'block':'none';
+  overlay.style.display=show?'block':'none';
+}
+function jumpIngTree(anchorId){
+  var el=document.getElementById(anchorId);
+  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  toggleIngTreePanel();
 }
 
 async function deleteIngredient(code){
