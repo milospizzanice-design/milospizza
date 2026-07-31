@@ -7269,6 +7269,12 @@ function ingStatutIngredient(i){
     var srcVal=srcCout?srcCout[modePrixField(srcMode)]:null;
     return {ok:true,label:'🔗 '+(srcVal!=null?fmtPrixCourt(srcVal)+' '+modePrixLabel(srcMode):'même prix que '+esc(srcIng?srcIng.nom:cout.prix_source_code)),cout:cout,isComposed:false};
   }
+  if(i.source_brut_code&&i.taux_perte>0&&i.taux_perte<100){
+    var rKg=coutIngredient(i.code,1,'kg');
+    if(rKg.cout!=null)return {ok:true,label:'📉 '+fmtPrixCourt(rKg.cout)+' €/kg (dérivé, perte '+i.taux_perte+'%)',cout:cout||null,isComposed:false};
+    var rPiece=coutIngredient(i.code,1,'piece');
+    if(rPiece.cout!=null)return {ok:true,label:'📉 '+fmtPrixCourt(rPiece.cout)+' €/pièce (dérivé, perte '+i.taux_perte+'%)',cout:cout||null,isComposed:false};
+  }
   if(cout&&(cout.prix_unitaire!=null||cout.prix_kilo!=null||cout.prix_gramme!=null||cout.prix_litre!=null)){
     var mode=cout.mode_prix||resolveIngredientMode(i.code);
     var val=cout[modePrixField(mode)];
@@ -7388,6 +7394,7 @@ function renderIngredientsList(){
   function miseEnPlaceHtml(i){
     if((i.nature||'fini')!=='fini')return '';
     var brutOptions=rctIngredients.filter(function(x){return x.nature==='brut'&&x.code!==i.code;}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
+    var pct=(i.bloc_poids&&i.dechet_poids!=null&&i.bloc_poids>0)?Math.round((i.dechet_poids/i.bloc_poids)*1000)/10:null;
     return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;font-size:10px;">'
       +'<select class="fi" style="max-width:150px;font-size:10px;" title="De quel produit brut ce fini est préparé (pour la mise en place)" onchange="updateIngredientField(\''+i.code+'\',\'source_brut_code\',this.value)">'
         +'<option value="">🔪 Fabriqué à partir de…</option>'
@@ -7399,7 +7406,18 @@ function renderIngredientsList(){
         +'<option value="salle"'+(i.secteur==='salle'?' selected':'')+'>🍷 Salle</option>'
         +'<option value="labo"'+(i.secteur==='labo'?' selected':'')+'>🧪 Labo</option>'
       +'</select>'
-      +'</div>';
+      +'</div>'
+      +(i.source_brut_code?(
+        '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;font-size:10px;margin-top:4px;">'
+        +'<span style="color:var(--txm);">📉 Perte : poids testé</span>'
+        +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="1" placeholder="g" id="perte-bloc-'+i.code+'" value="'+(i.bloc_poids!=null?i.bloc_poids:'')+'" onchange="updatePerteFields(\''+i.code+'\')">'
+        +'<span style="color:var(--txm);">g, perdu</span>'
+        +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="1" placeholder="g" id="perte-dechet-'+i.code+'" value="'+(i.dechet_poids!=null?i.dechet_poids:'')+'" onchange="updatePerteFields(\''+i.code+'\')">'
+        +'<span style="color:var(--txm);">g</span>'
+        +'<span id="perte-pct-'+i.code+'" style="font-weight:700;color:'+(pct?'#B45309':'var(--txm)')+';">'+(pct!=null?'= '+pct+'% de perte':'')+'</span>'
+        +'</div>'
+        +(pct!=null?'<div style="font-size:9px;color:var(--txm);margin-top:2px;">Le coût de cet ingrédient est calculé automatiquement à partir du prix de "'+esc((rctIngredients.find(function(x){return x.code===i.source_brut_code;})||{}).nom||i.source_brut_code)+'", ajusté de cette perte.</div>':'')
+      ):'');
   }
   function renderIngredientCard(i){
     var statut=statutIngredient(i);
@@ -7717,6 +7735,23 @@ async function unlinkProductPrice(ingredientCode){
     if(rctIngredientCouts[ingredientCode])rctIngredientCouts[ingredientCode].prix_source_code=null; // le prix copié reste affiché tel quel, librement modifiable maintenant
     renderIngredientsList();
   }catch(e){console.error('unlinkProductPrice',e);alert('Erreur : '+e.message);}
+}
+// Calcule et sauvegarde le % de perte à partir des poids testé/perdu saisis (ex: bloc de jambon 5000g,
+// déchet de tranchage 350g -> 7%), utilisé automatiquement dans le calcul du coût matière de ce fini.
+async function updatePerteFields(code){
+  var blocEl=document.getElementById('perte-bloc-'+code),dechetEl=document.getElementById('perte-dechet-'+code);
+  if(!blocEl)return;
+  var bloc=blocEl.value===''?null:parseFloat(blocEl.value);
+  var dechet=dechetEl.value===''?null:parseFloat(dechetEl.value);
+  var pct=(bloc&&dechet!=null&&bloc>0)?Math.round((dechet/bloc)*100000)/1000:null;
+  try{
+    sbCheck(await db.from('ingredients').update({bloc_poids:bloc,dechet_poids:dechet,taux_perte:pct}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
+    var ing=rctIngredients.find(function(i){return i.code===code;});
+    if(ing){ing.bloc_poids=bloc;ing.dechet_poids=dechet;ing.taux_perte=pct;}
+    var pctEl=document.getElementById('perte-pct-'+code);
+    if(pctEl)pctEl.textContent=pct!=null?'= '+pct+'% de perte':'';
+    refreshIngredientStatusLight(code); // le coût dépend de la perte, on rafraîchit son affichage
+  }catch(e){console.error('updatePerteFields',e);alert('Erreur : '+e.message);}
 }
 async function updateIngredientField(code,field,value){
   try{
@@ -8730,6 +8765,16 @@ function coutIngredient(ingredientCode,quantite,unite){
       return {cout:null,warning:'dose non définie sur cet ingrédient (quantité/unité par défaut manquante)'};
     }
     return coutIngredient(ingredientCode,quantite*ingDose.quantite_defaut,ingDose.unite_defaut);
+  }
+  // Si ce fini est "fabriqué à partir de" un brut avec un % de perte renseigné (bloc/déchet de découpe,
+  // réduction à la cuisson...), on dérive automatiquement son coût depuis le prix du brut, ajusté de la
+  // perte, plutôt que d'exiger un prix saisi séparément — et ça reste à jour si le prix du brut change.
+  var ingSelf=rctIngredients.find(function(x){return x.code===ingredientCode;});
+  if(ingSelf&&ingSelf.source_brut_code&&ingSelf.taux_perte>0&&ingSelf.taux_perte<100){
+    var facteurPerte=1/(1-ingSelf.taux_perte/100);
+    var rBrut=coutIngredient(ingSelf.source_brut_code,quantite*facteurPerte,unite);
+    if(rBrut.cout!=null)return {cout:rBrut.cout,warning:rBrut.warning?('perte '+ingSelf.taux_perte+'% appliquée — '+rBrut.warning):null};
+    // sinon (brut sans prix calculable) : on retombe sur le prix direct de ce fini ci-dessous, s'il existe
   }
   var compo=rctIngredientComposition[ingredientCode];
   if(compo&&compo.length){
