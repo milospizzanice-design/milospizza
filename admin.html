@@ -541,6 +541,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bp" onclick="previewVentesImport()" style="width:100%;">Analyser le fichier</button>
       </div>
       <div id="rct-imp-preview"></div>
+      <div class="card" style="margin-top:14px;">
+        <div class="mdt" style="font-size:14px;margin-bottom:6px;">📊 Consommation théorique d'ingrédients</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Calculée à partir des ventes déjà importées pour la période ci-dessus (mêmes dates) × les recettes renseignées. C'est ce qui devrait avoir été consommé si tout a été préparé selon la recette exacte.</div>
+        <button class="btn bs" onclick="calculerConsommationTheorique()" style="width:100%;">Calculer pour cette période</button>
+      </div>
+      <div id="rct-conso-result"></div>
     </div>
   </div>
 </div>
@@ -7162,6 +7168,40 @@ function renderVentesPreview(){
   document.getElementById('rct-imp-preview').innerHTML=html;
 }
 
+async function calculerConsommationTheorique(){
+  var debut=document.getElementById('rct-imp-debut').value;
+  var fin=document.getElementById('rct-imp-fin').value;
+  var resultEl=document.getElementById('rct-conso-result');
+  if(!debut||!fin){alert('Indique la période (début et fin) ci-dessus.');return;}
+  resultEl.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">⏳ Calcul en cours…</div>';
+  try{
+    var resto=rctResto();
+    var r=sbCheck(await db.from('ventes').select('*').eq('restaurant_id',resto).gte('periode_debut',debut).lte('periode_fin',fin));
+    var ventesRows=r.data||[];
+    if(!ventesRows.length){resultEl.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">Aucune vente importée sur cette période. Importe d\'abord un fichier caisse ci-dessus.</div>';return;}
+    var res=computeConsommationTheorique(ventesRows);
+    if(!res.rows.length){resultEl.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">Aucun ingrédient calculable — vérifie que les produits vendus ont bien une recette renseignée.</div>';return;}
+    var rowsHtml=res.rows.map(function(row){
+      return '<tr><td style="padding:4px 6px;font-size:12px;">'+esc(row.nom)+'</td><td style="padding:4px 6px;font-size:12px;text-align:right;font-weight:700;">'+row.quantite+' '+esc(row.unite)+'</td></tr>';
+    }).join('');
+    var ignoresHtml='';
+    if(res.produitsSansRecette.length){
+      var uniqueIgnores=res.produitsSansRecette.filter(function(c,i,a){return a.indexOf(c)===i;});
+      var noms=uniqueIgnores.map(function(code){var p=rctProduitsVendus.find(function(x){return x.code===code;});return p?p.nom:code;});
+      ignoresHtml='<div style="font-size:11px;color:#92400E;margin-top:10px;">⚠️ Sans recette renseignée (ignorés dans le calcul) : '+esc(noms.join(', '))+'</div>';
+    }
+    resultEl.innerHTML='<div class="card" style="margin-top:10px;">'
+      +'<div style="font-size:12px;color:var(--txm);margin-bottom:8px;">Consommation théorique du '+debut+' au '+fin+' :</div>'
+      +'<div style="max-height:360px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">'
+      +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:4px 6px;">Ingrédient</th><th style="padding:4px 6px;text-align:right;">Quantité théorique</th></tr></thead>'
+      +'<tbody>'+rowsHtml+'</tbody></table></div>'
+      +ignoresHtml
+      +'</div>';
+  }catch(e){
+    console.error('calculerConsommationTheorique',e);
+    resultEl.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur : '+esc(e.message)+'</div>';
+  }
+}
 async function confirmVentesImport(){
   if(!rctPendingImport)return;
   var resto=rctResto();
@@ -7194,7 +7234,9 @@ function fmtPrixCourt(v){
   return s;
 }
 // Prix de la quantité/unité par défaut d'un ingrédient (celle utilisée en recette), affiché sous ces champs.
+// Non pertinent pour les ingrédients "brut" (jamais utilisés directement dans une recette de produit vendu).
 function ingDosePriceLabel(i){
+  if((i.nature||'fini')==='brut')return '';
   if(i.quantite_defaut==null||!i.unite_defaut)return '';
   var r=coutIngredient(i.code,i.quantite_defaut,i.unite_defaut);
   if(r.cout==null)return '';
@@ -8683,6 +8725,71 @@ function coutIngredient(ingredientCode,quantite,unite){
   var cout=rctIngredientCouts[ingredientCode];
   if(!cout)return {cout:null,warning:'aucun prix renseigné pour cet ingrédient'};
   return coutQuantiteStock(cout,quantite,unite,resolveIngredientMode(ingredientCode));
+}
+// ── Consommation théorique d'ingrédients (ventes × recettes) ─────────────────
+// Même logique de traversée que coutIngredient (composition, densité, poids net) mais on accumule
+// des QUANTITÉS d'ingrédients de base plutôt qu'un coût — pour savoir concrètement ce qui a dû être
+// consommé/préparé, pas seulement combien ça a coûté.
+function accumulerConsommation(acc,ingredientCode,quantite,unite){
+  if(quantite==null||!isFinite(quantite)||quantite<=0)return;
+  if(unite==='dose'){
+    var ingD=rctIngredients.find(function(i){return i.code===ingredientCode;});
+    if(!ingD||ingD.quantite_defaut==null||!ingD.unite_defaut)return;
+    accumulerConsommation(acc,ingredientCode,quantite*ingD.quantite_defaut,ingD.unite_defaut);
+    return;
+  }
+  var compo=rctIngredientComposition[ingredientCode];
+  if(compo&&compo.length){
+    if(unite!=='g')return; // même limite que le calcul de coût : ingrédient composé -> grammes uniquement
+    var totalPoids=0;
+    var poidsLignes=compo.map(function(l){
+      var subCout=rctIngredientCouts[l.sub_ingredient_code];
+      var p=null;
+      if(l.unite==='g')p=l.quantite;
+      else if(l.unite==='kg')p=l.quantite*1000;
+      else if(l.unite==='ml'||l.unite==='l')p=convertQtyToFamily(l.quantite,l.unite,'masse',(subCout&&subCout.densite)||1000);
+      else if(l.unite==='piece'&&subCout&&subCout.poids_net_g)p=l.quantite*subCout.poids_net_g;
+      if(p!=null)totalPoids+=p;
+      return {l:l,p:p};
+    });
+    if(!totalPoids)return;
+    var fraction=quantite/totalPoids;
+    poidsLignes.forEach(function(pl){
+      if(pl.p==null)return;
+      accumulerConsommation(acc,pl.l.sub_ingredient_code,pl.l.quantite*fraction,pl.l.unite);
+    });
+    return;
+  }
+  // Ingrédient de base (feuille) : on accumule, en normalisant kg->g et l->ml pour pouvoir regrouper.
+  var uNorm=unite,qNorm=quantite;
+  if(unite==='kg'){uNorm='g';qNorm=quantite*1000;}
+  else if(unite==='l'){uNorm='ml';qNorm=quantite*1000;}
+  if(!acc[ingredientCode])acc[ingredientCode]={};
+  acc[ingredientCode][uNorm]=(acc[ingredientCode][uNorm]||0)+qNorm;
+}
+// Calcule la consommation théorique de tous les ingrédients de base pour une liste de ventes
+// [{produit_vendu_code, quantite}, ...]. Retourne une liste triée par nom d'ingrédient.
+function computeConsommationTheorique(ventesRows){
+  var acc={},produitsIgnores=[];
+  (ventesRows||[]).forEach(function(v){
+    var lignes=rctRecettes[v.produit_vendu_code]||[];
+    if(!lignes.length){produitsIgnores.push(v.produit_vendu_code);return;}
+    lignes.forEach(function(l){
+      accumulerConsommation(acc,l.ingredient_code,(l.quantite||0)*(v.quantite||0),l.unite);
+    });
+  });
+  var rows=[];
+  Object.keys(acc).forEach(function(code){
+    var ing=rctIngredients.find(function(x){return x.code===code;});
+    Object.keys(acc[code]).forEach(function(u){
+      var q=acc[code][u],disp=q,dispU=u;
+      if(u==='g'&&q>=1000){disp=q/1000;dispU='kg';}
+      if(u==='ml'&&q>=1000){disp=q/1000;dispU='L';}
+      rows.push({code:code,nom:ing?ing.nom:code,quantite:Math.round(disp*100)/100,unite:dispU});
+    });
+  });
+  rows.sort(function(a,b){return a.nom.localeCompare(b.nom);});
+  return {rows:rows,produitsSansRecette:produitsIgnores};
 }
 // Prix de revient complet d'un produit vendu (somme de sa recette).
 function coutRecette(produitVenduCode){
