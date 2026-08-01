@@ -144,6 +144,14 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;height:100%}
 .resto-tag{display:inline-block;font-size:8px;font-weight:700;padding:1px 5px;border-radius:10px;margin-left:3px}
 .resto-tag.port{background:#DBEAFE;color:#1E40AF}
 .resto-tag.dabray{background:#D1FAE5;color:#065F46}
+/* Arborescence Ingrédients : drawer mobile par défaut, vraie colonne fixe sur grand écran */
+#ing-tree-toggle-btn{position:fixed;top:10px;left:10px;z-index:31;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
+@media (min-width:1024px){
+  #ing-tree-toggle-btn{display:none;}
+  #ing-tree-overlay{display:none !important;}
+  #ing-tree-panel{display:block !important;position:fixed;top:0;left:0;bottom:0;width:260px;box-shadow:none;border-right:1px solid var(--bd);}
+  #rct-pane-ingredients{margin-left:270px;}
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 </head>
@@ -497,7 +505,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
         <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
-        <button class="btn bp sm" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
+        <button class="btn bp sm" id="ing-tree-toggle-btn" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
       </div>
       <div id="rct-ing-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
       <div id="rct-ing-list-container"></div>
@@ -5184,6 +5192,7 @@ async function showDashboard(refresh){
 let rctProduitsVendus=[];   // produits_vendus (communs à tous les restaurants)
 let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,unite}]} — communes
 let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), communs à tous les restaurants
+let rctIngExpanded={};      // {ingredient_code: true} — état déplié/replié de chaque carte, conservé entre les rendus
 let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT — encore utilisé par l'écran Coûts (legacy)
 let rctIngredientCouts={}; // {ingredient_code: {mode_prix,prix_unitaire,prix_kilo,prix_litre,poids_net_g,fournisseur_id,prix_source_code}} — prix/fournisseur directement par ingrédient, propre au restaurant courant. Remplace l'ancien système de rattachement à un catalogue stock séparé.
 let rctSuppliers=[]; // fournisseurs du restaurant courant (depuis stock_catalogue.suppliers)
@@ -7394,7 +7403,9 @@ function renderIngredientsList(){
   function miseEnPlaceHtml(i){
     if((i.nature||'fini')!=='fini')return '';
     var brutOptions=rctIngredients.filter(function(x){return x.nature==='brut'&&x.code!==i.code;}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
+    var isComposedIng=!!(rctIngredientComposition[i.code]&&rctIngredientComposition[i.code].length);
     var pct=(i.bloc_poids&&i.dechet_poids!=null&&i.bloc_poids>0)?Math.round((i.dechet_poids/i.bloc_poids)*1000)/10:null;
+    var srcNom=i.source_brut_code?((rctIngredients.find(function(x){return x.code===i.source_brut_code;})||{}).nom||i.source_brut_code):null;
     return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;font-size:10px;">'
       +'<select class="fi" style="max-width:150px;font-size:10px;" title="De quel produit brut ce fini est préparé (pour la mise en place)" onchange="updateIngredientField(\''+i.code+'\',\'source_brut_code\',this.value)">'
         +'<option value="">🔪 Fabriqué à partir de…</option>'
@@ -7407,27 +7418,37 @@ function renderIngredientsList(){
         +'<option value="labo"'+(i.secteur==='labo'?' selected':'')+'>🧪 Labo</option>'
       +'</select>'
       +'</div>'
-      +(i.source_brut_code?(
+      +((i.source_brut_code||isComposedIng)?(
         '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;font-size:10px;margin-top:4px;">'
-        +'<span style="color:var(--txm);">📉 Perte : poids testé</span>'
+        +'<span style="color:var(--txm);">📉 Perte : poids testé'+(isComposedIng&&!i.source_brut_code?' (avant cuisson)':'')+'</span>'
         +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="1" placeholder="g" id="perte-bloc-'+i.code+'" value="'+(i.bloc_poids!=null?i.bloc_poids:'')+'" onchange="updatePerteFields(\''+i.code+'\')">'
-        +'<span style="color:var(--txm);">g, perdu</span>'
-        +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="1" placeholder="g" id="perte-dechet-'+i.code+'" value="'+(i.dechet_poids!=null?i.dechet_poids:'')+'" onchange="updatePerteFields(\''+i.code+'\')">'
+        +'<span style="color:var(--txm);">g, '+(isComposedIng&&!i.source_brut_code?'obtenu après':'perdu')+'</span>'
+        +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="1" placeholder="g" id="perte-dechet-'+i.code+'" value="'+((isComposedIng&&!i.source_brut_code&&i.bloc_poids!=null&&i.dechet_poids!=null)?(i.bloc_poids-i.dechet_poids):(i.dechet_poids!=null?i.dechet_poids:''))+'" onchange="updatePerteFields(\''+i.code+'\','+(isComposedIng&&!i.source_brut_code?'true':'false')+')">'
         +'<span style="color:var(--txm);">g</span>'
         +'<span id="perte-pct-'+i.code+'" style="font-weight:700;color:'+(pct?'#B45309':'var(--txm)')+';">'+(pct!=null?'= '+pct+'% de perte':'')+'</span>'
         +'</div>'
-        +(pct!=null?'<div style="font-size:9px;color:var(--txm);margin-top:2px;">Le coût de cet ingrédient est calculé automatiquement à partir du prix de "'+esc((rctIngredients.find(function(x){return x.code===i.source_brut_code;})||{}).nom||i.source_brut_code)+'", ajusté de cette perte.</div>':'')
+        +(pct!=null?'<div style="font-size:9px;color:var(--txm);margin-top:2px;">Le coût de cet ingrédient est calculé automatiquement '+(srcNom?'à partir du prix de "'+esc(srcNom)+'"':'à partir du coût de sa recette')+', ajusté de cette perte.</div>':'')
       ):'');
   }
   function renderIngredientCard(i){
     var statut=statutIngredient(i);
     var hasBrutSource=!!((i.nature||'fini')==='fini'&&i.source_brut_code);
     var brutSourceIng=hasBrutSource?rctIngredients.find(function(x){return x.code===i.source_brut_code;}):null;
-    return '<div class="card" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;">'
+    var expanded=!!rctIngExpanded[i.code];
+    var statusHtml=hasBrutSource?'🔪 Préparé à partir de '+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code):statut.label;
+    return '<div class="card" style="padding:0;overflow:hidden;">'
+      +'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;" onclick="toggleIngCard(\''+i.code+'\')">'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-weight:700;font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(i.nom)+'</div>'
+      +'<div style="font-size:11px;color:var(--txm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ing-status-'+i.code+'">'+statusHtml+'</div>'
+      +'</div>'
+      +'<span id="ing-arrow-'+i.code+'" style="font-size:11px;color:var(--txm);flex-shrink:0;">'+(expanded?'▲':'▼')+'</span>'
+      +'</div>'
+      +'<div id="ing-details-'+i.code+'" style="display:'+(expanded?'flex':'none')+';flex-direction:column;gap:6px;padding:0 14px 10px;">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<div style="flex:1;min-width:160px;">'
-      +'<input type="text" class="fi" style="font-weight:700;font-size:13px;color:var(--tx);border:1px solid transparent;background:transparent;padding:2px 4px;margin:-2px -4px;width:100%;" value="'+esc(i.nom)+'" onchange="updateIngredientNom(\''+i.code+'\',this.value)">'
-      +'<div style="font-size:11px;color:var(--txm);" id="ing-status-'+i.code+'">'+(hasBrutSource?'🔪 Préparé à partir de '+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code):statut.label)+'</div>'
+      +'<label class="fl2" style="font-size:9px;">Nom</label>'
+      +'<input type="text" class="fi" style="font-weight:700;font-size:13px;color:var(--tx);width:100%;" value="'+esc(i.nom)+'" onchange="updateIngredientNom(\''+i.code+'\',this.value)">'
       +'</div>'
       +natureSelectHtml(i)
       +moveSelectHtml(i)
@@ -7447,7 +7468,15 @@ function renderIngredientsList(){
       +(hasBrutSource?'<div style="font-size:10px;color:var(--txm);">🔪 Pas de fournisseur séparé — cet article est préparé sur place à partir de "'+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code)+'", pas acheté tel quel.</div>'
         :statut.isComposed?'<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>'
         :priceInputsHtml(statut.cout,i.code,i.categorie))
+      +'</div>'
       +'</div>';
+  }
+  function toggleIngCard(code){
+    rctIngExpanded[code]=!rctIngExpanded[code];
+    var det=document.getElementById('ing-details-'+code);
+    var arrow=document.getElementById('ing-arrow-'+code);
+    if(det)det.style.display=rctIngExpanded[code]?'flex':'none';
+    if(arrow)arrow.textContent=rctIngExpanded[code]?'▲':'▼';
   }
   var itemsByCat={};
   list.forEach(function(i){
@@ -7736,13 +7765,16 @@ async function unlinkProductPrice(ingredientCode){
     renderIngredientsList();
   }catch(e){console.error('unlinkProductPrice',e);alert('Erreur : '+e.message);}
 }
-// Calcule et sauvegarde le % de perte à partir des poids testé/perdu saisis (ex: bloc de jambon 5000g,
-// déchet de tranchage 350g -> 7%), utilisé automatiquement dans le calcul du coût matière de ce fini.
-async function updatePerteFields(code){
+// Calcule et sauvegarde le % de perte à partir des poids saisis. Deux cas :
+// - ingrédient lié à un brut (découpe) : "poids testé" (bloc) + "poids perdu" (déchet) saisis directement.
+// - ingrédient composé (cuisson) : "poids testé" (avant cuisson) + "poids obtenu après" -> la perte réelle
+//   est déduite par soustraction (isObtenuMode=true), pour rester dans le vocabulaire naturel du test cuisson.
+async function updatePerteFields(code,isObtenuMode){
   var blocEl=document.getElementById('perte-bloc-'+code),dechetEl=document.getElementById('perte-dechet-'+code);
   if(!blocEl)return;
   var bloc=blocEl.value===''?null:parseFloat(blocEl.value);
-  var dechet=dechetEl.value===''?null:parseFloat(dechetEl.value);
+  var secondVal=dechetEl.value===''?null:parseFloat(dechetEl.value);
+  var dechet=(isObtenuMode&&bloc!=null&&secondVal!=null)?(bloc-secondVal):secondVal;
   var pct=(bloc&&dechet!=null&&bloc>0)?Math.round((dechet/bloc)*100000)/1000:null;
   try{
     sbCheck(await db.from('ingredients').update({bloc_poids:bloc,dechet_poids:dechet,taux_perte:pct}).eq('restaurant_id',RCT_GLOBAL).eq('code',code));
@@ -8799,6 +8831,10 @@ function coutIngredient(ingredientCode,quantite,unite){
     if(!totalPoids)return {cout:null,warning:'composition vide ou incalculable'};
     if(unite!=='g')return {cout:null,warning:'ingrédient composé : utilise des grammes dans la recette'};
     var coutParGramme=totalCout/totalPoids;
+    // Perte à la cuisson/préparation (ex: aubergines qui réduisent en cuisant) : la quantité obtenue
+    // après préparation est plus faible que la somme des ingrédients de départ, donc le coût par gramme
+    // du produit fini réellement utilisable est plus élevé d'autant.
+    if(ingSelf&&ingSelf.taux_perte>0&&ingSelf.taux_perte<100)coutParGramme=coutParGramme/(1-ingSelf.taux_perte/100);
     return {cout:quantite*coutParGramme,warning:details.length?('composition incomplète — '+details.join(' ; ')):null};
   }
   var cout=rctIngredientCouts[ingredientCode];
@@ -8817,9 +8853,18 @@ function accumulerConsommation(acc,ingredientCode,quantite,unite){
     accumulerConsommation(acc,ingredientCode,quantite*ingD.quantite_defaut,ingD.unite_defaut);
     return;
   }
+  // Comme pour le coût : un fini "fabriqué à partir de" un brut consomme en réalité le brut (ajusté de la
+  // perte), pas lui-même — pour que le rapport de consommation pointe vers ce qu'il faut vraiment commander.
+  var ingSelfC=rctIngredients.find(function(x){return x.code===ingredientCode;});
+  if(ingSelfC&&ingSelfC.source_brut_code){
+    var facteurPerteC=(ingSelfC.taux_perte>0&&ingSelfC.taux_perte<100)?1/(1-ingSelfC.taux_perte/100):1;
+    accumulerConsommation(acc,ingSelfC.source_brut_code,quantite*facteurPerteC,unite);
+    return;
+  }
   var compo=rctIngredientComposition[ingredientCode];
   if(compo&&compo.length){
     if(unite!=='g')return; // même limite que le calcul de coût : ingrédient composé -> grammes uniquement
+    var quantiteAjustee=(ingSelfC&&ingSelfC.taux_perte>0&&ingSelfC.taux_perte<100)?quantite/(1-ingSelfC.taux_perte/100):quantite;
     var totalPoids=0;
     var poidsLignes=compo.map(function(l){
       var subCout=rctIngredientCouts[l.sub_ingredient_code];
@@ -8832,7 +8877,7 @@ function accumulerConsommation(acc,ingredientCode,quantite,unite){
       return {l:l,p:p};
     });
     if(!totalPoids)return;
-    var fraction=quantite/totalPoids;
+    var fraction=quantiteAjustee/totalPoids;
     poidsLignes.forEach(function(pl){
       if(pl.p==null)return;
       accumulerConsommation(acc,pl.l.sub_ingredient_code,pl.l.quantite*fraction,pl.l.unite);
