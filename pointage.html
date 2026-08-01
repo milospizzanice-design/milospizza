@@ -384,11 +384,29 @@ function ss(name){
 var ABS_TYPE_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
 var ST_L={att:{l:'En attente',bg:'#FEF3C7',c:'#92400E'},ok:{l:'Accept\u00e9e',bg:'#D1FAE5',c:'#065F46'},ko:{l:'Refus\u00e9e',bg:'#FEE2E2',c:'#991B1B'}};
 function demSeenKey(){return 'rg_dem_vues_'+emp.id;}
-function demSeenList(){try{return JSON.parse(localStorage.getItem(demSeenKey())||'[]');}catch(e){return [];}}
-function demMarkSeen(ids){
-  var seen=demSeenList();
-  ids.forEach(function(id){if(seen.indexOf(id)<0)seen.push(id);});
+// Liste des demandes déjà vues par ce salarié : enregistrée côté serveur (table employee_dem_vues)
+// plutôt que dans le localStorage de l'appareil — sinon la notification réapparaît sur un autre appareil
+// (téléphone perso vs tablette du resto) ou après un nettoyage des données de navigation.
+// Le localStorage reste un filet de secours si le serveur est injoignable.
+async function demSeenList(){
+  if(emp){
+    try{
+      var r=await db.from('employee_dem_vues').select('vues').eq('employee_id',emp.id).maybeSingle();
+      if(r.data&&r.data.vues)return r.data.vues;
+    }catch(e){console.error('demSeenList',e);}
+  }
+  try{return JSON.parse(localStorage.getItem(demSeenKey())||'[]');}catch(e){return [];}
+}
+async function demMarkSeen(ids){
+  if(!ids||!ids.length)return;
+  var seen=await demSeenList();
+  var changed=false;
+  ids.forEach(function(id){if(seen.indexOf(id)<0){seen.push(id);changed=true;}});
+  if(!changed)return;
   localStorage.setItem(demSeenKey(),JSON.stringify(seen));
+  if(emp){
+    try{await db.from('employee_dem_vues').upsert([{employee_id:emp.id,vues:seen}],{onConflict:'employee_id'});}catch(e){console.error('demMarkSeen',e);}
+  }
 }
 async function menuSuivi(){
   ss('suivi');
@@ -421,14 +439,14 @@ async function menuSuivi(){
   c.innerHTML=h;
   // Marquer comme vu toutes les demandes déjà traitées
   var treatedIds=items.filter(function(it){return (it.d.statut||'att')!=='att';}).map(function(it){return it.kind+it.d.id;});
-  demMarkSeen(treatedIds);
+  await demMarkSeen(treatedIds);
   updateSuiviBadge();
 }
 async function checkDemandesNouveautes(){
   if(!emp)return;
   var ar=await db.from('demandes_absence').select('id,statut,type,date_debut,note_admin').eq('employee_id',emp.id).neq('statut','att');
   var cr=await db.from('demandes_acompte').select('id,statut,montant,note_admin').eq('employee_id',emp.id).neq('statut','att');
-  var seen=demSeenList();
+  var seen=await demSeenList();
   var news=[];
   (ar.data||[]).forEach(function(d){if(seen.indexOf('abs'+d.id)<0)news.push({kind:'abs',d:d});});
   (cr.data||[]).forEach(function(d){if(seen.indexOf('aco'+d.id)<0)news.push({kind:'aco',d:d});});

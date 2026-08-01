@@ -7328,6 +7328,13 @@ function ingStatutIngredient(i){
 }
 // Met à jour juste le libellé de statut (💰/⚠️) d'une carte ingrédient sans reconstruire toute la liste,
 // pour ne pas faire perdre le focus au clavier (Android) quand on modifie un champ voisin.
+function toggleIngCard(code){
+  rctIngExpanded[code]=!rctIngExpanded[code];
+  var det=document.getElementById('ing-details-'+code);
+  var arrow=document.getElementById('ing-arrow-'+code);
+  if(det)det.style.display=rctIngExpanded[code]?'flex':'none';
+  if(arrow)arrow.textContent=rctIngExpanded[code]?'▲':'▼';
+}
 function refreshIngredientStatusLight(code){
   var i=rctIngredients.find(function(x){return x.code===code;});
   var statusEl=document.getElementById('ing-status-'+code);
@@ -7505,13 +7512,6 @@ function renderIngredientsList(){
         :priceInputsHtml(statut.cout,i.code,i.categorie))
       +'</div>'
       +'</div>';
-  }
-  function toggleIngCard(code){
-    rctIngExpanded[code]=!rctIngExpanded[code];
-    var det=document.getElementById('ing-details-'+code);
-    var arrow=document.getElementById('ing-arrow-'+code);
-    if(det)det.style.display=rctIngExpanded[code]?'flex':'none';
-    if(arrow)arrow.textContent=rctIngExpanded[code]?'▲':'▼';
   }
   var itemsByCat={};
   list.forEach(function(i){
@@ -8976,22 +8976,39 @@ function detailRecette(produitVenduCode){
       var equiv=l.quantite*ing.quantite_defaut;
       qteAffichee='dose'+(l.quantite!==1?' ×'+l.quantite:'')+' = '+(equiv%1===0?equiv:equiv.toFixed(1))+' '+ing.unite_defaut;
     }
-    return {nom:nom,qteAffichee:qteAffichee,cout:r.cout,warning:r.warning};
+    return {code:l.ingredient_code,nom:nom,qteAffichee:qteAffichee,cout:r.cout,warning:r.warning};
   });
   var total=0,hasCout=false;
   rows.forEach(function(r){if(r.cout!=null){total+=r.cout;hasCout=true;}});
   return {rows:rows,total:hasCout?total:null};
+}
+// Depuis le détail d'un prix de revient : sauter directement sur l'ingrédient en erreur, dans l'onglet
+// Ingrédients, déjà filtré et déplié, plutôt que d'avoir à le rechercher manuellement.
+function jumpToIngredientFix(ingCode){
+  closeM('mprixdetail');
+  goRecettesSub('ingredients');
+  var searchEl=document.getElementById('rct-ing-search');
+  var ing=rctIngredients.find(function(x){return x.code===ingCode;});
+  if(searchEl)searchEl.value=ing?ing.nom:ingCode;
+  rctIngExpanded[ingCode]=true;
+  renderIngredientsList();
+  setTimeout(function(){
+    var det=document.getElementById('ing-details-'+ingCode);
+    if(det&&det.parentElement)det.parentElement.scrollIntoView({behavior:'smooth',block:'center'});
+  },80);
 }
 function openPrixRevientDetailModal(code){
   var p=rctProduitsVendus.find(function(x){return x.code===code;});
   document.getElementById('mprixdetail-title').textContent='Détail — '+(p?p.nom:code);
   var d=detailRecette(code);
   var linesHtml=d.rows.length?d.rows.map(function(r){
+    var pbl=(r.warning||r.cout==null);
     return '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd);">'
       +'<div style="flex:1;">'
         +'<div style="font-size:13px;color:var(--tx);">'+esc(r.nom)+'</div>'
         +'<div style="font-size:11px;color:var(--txm);">'+esc(r.qteAffichee)+'</div>'
         +(r.warning?'<div style="font-size:10px;color:#C0392B;">⚠️ '+esc(r.warning)+'</div>':'')
+        +(pbl?'<button class="btn bs sm" onclick="jumpToIngredientFix(\''+r.code+'\')" style="margin-top:4px;padding:3px 9px;font-size:10px;">🔧 Corriger cet ingrédient</button>':'')
       +'</div>'
       +'<div style="font-size:13px;font-weight:700;color:var(--tx);white-space:nowrap;">'+(r.cout!=null?r.cout.toFixed(3)+' €':'—')+'</div>'
       +'</div>';
