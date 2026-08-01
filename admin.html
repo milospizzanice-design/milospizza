@@ -5079,8 +5079,36 @@ async function refusePinReset(){
 }
 
 var dashSinceMemo=null;
+// La date de "dernière visite" du tableau de bord des nouveautés est enregistrée côté serveur (table
+// admin_last_visit, par utilisateur connecté) plutôt que dans le localStorage du navigateur : sinon le
+// popup réapparaît sur chaque nouvel appareil/navigateur, et à chaque nettoyage des données de navigation.
+// Le localStorage reste utilisé en filet de secours (hors-ligne, ou session non détectée).
+async function getDashUserId(){
+  try{
+    var s=await db.auth.getSession();
+    return (s.data&&s.data.session&&s.data.session.user)?s.data.session.user.id:null;
+  }catch(e){return null;}
+}
+async function getLastVisit(){
+  var uid=await getDashUserId();
+  if(uid){
+    try{
+      var r=await db.from('admin_last_visit').select('last_visit').eq('user_id',uid).maybeSingle();
+      if(r.data&&r.data.last_visit)return new Date(r.data.last_visit);
+    }catch(e){console.error('getLastVisit',e);}
+  }
+  var local=localStorage.getItem('rg_last_visit');
+  return local?new Date(local):null;
+}
+async function saveLastVisit(date){
+  localStorage.setItem('rg_last_visit',date.toISOString());
+  var uid=await getDashUserId();
+  if(uid){
+    try{await db.from('admin_last_visit').upsert([{user_id:uid,last_visit:date.toISOString()}],{onConflict:'user_id'});}catch(e){console.error('saveLastVisit',e);}
+  }
+}
 async function showDashboard(refresh){
-  var lastVisit=localStorage.getItem('rg_last_visit');
+  var lastVisit=(refresh&&dashSinceMemo)?null:await getLastVisit();
   var now=new Date();
   // En rafraîchissement, garder la même date de référence (ne pas faire disparaître les autres demandes)
   var since;
@@ -5178,13 +5206,17 @@ async function showDashboard(refresh){
     h+='<div style="font-size:11px;padding:0 0 3px 26px;color:var(--txm)">'+pointages.length+' badgeages'+(nbManuel?' dont '+nbManuel+' ajout\u00e9s manuellement':'')+'</div>';
   }
 
+  var hasNews=!!h; // avant d'ajouter le message de repli, pour savoir s'il faut ouvrir le popup automatiquement
   if(!h)h='<div style="text-align:center;color:#aaa;padding:24px">Aucune nouveaut\u00e9 depuis votre derni\u00e8re visite</div>';
   document.getElementById('dash-content').innerHTML=h;
 
-  // Enregistrer la visite actuelle (sauf en rafraîchissement)
-  if(!refresh){localStorage.setItem('rg_last_visit',now.toISOString());}
-
-  openM('modal-dash');
+  // Enregistrer la visite actuelle (sauf en rafraîchissement d'une modale déjà ouverte)
+  if(!refresh){
+    await saveLastVisit(now);
+    if(hasNews)openM('modal-dash'); // n'ouvre le popup QUE s'il y a vraiment quelque chose de nouveau
+  }else{
+    openM('modal-dash'); // rafraîchissement d'une modale déjà ouverte par l'utilisateur : on la met à jour normalement
+  }
 }
 
 
