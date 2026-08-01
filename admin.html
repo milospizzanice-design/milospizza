@@ -2479,6 +2479,11 @@ function onGlobalRestoChange(){
     if(warn)warn.style.display='block';
   }
   applyGlobalRestoDefault(id);
+  // Le module Recettes (prix des ingrédients, recettes, prix de revient) est propre à chaque restaurant
+  // mais n'était rechargé qu'à l'ouverture initiale — recharger explicitement s'il est affiché, sinon
+  // les prix/coûts affichés restent ceux de l'ancien restaurant sélectionné (silencieusement obsolètes).
+  var pageRecettes=document.getElementById('page-recettes');
+  if(pageRecettes&&pageRecettes.style.display!=='none')loadRecettesModule();
 }
 // Pré-sélectionne le restaurant du sélecteur global dans les modules RH (Planning, Salariés,
 // Récap, Absences, Export PDF). Chaque module garde son propre contrôle local et peut être
