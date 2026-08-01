@@ -145,12 +145,12 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;height:100%}
 .resto-tag.port{background:#DBEAFE;color:#1E40AF}
 .resto-tag.dabray{background:#D1FAE5;color:#065F46}
 /* Arborescence Ingrédients : drawer mobile par défaut, vraie colonne fixe sur grand écran */
-#ing-tree-toggle-btn{position:fixed;top:10px;left:10px;z-index:31;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
+#ing-tree-toggle-btn{position:fixed;top:62px;left:10px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
 @media (min-width:1024px){
-  #ing-tree-toggle-btn{display:none;}
-  #ing-tree-overlay{display:none !important;}
-  #ing-tree-panel{display:block !important;position:fixed;top:0;left:0;bottom:0;width:260px;box-shadow:none;border-right:1px solid var(--bd);}
-  #rct-pane-ingredients{margin-left:270px;}
+  body.ing-tree-active #ing-tree-toggle-btn{display:none;}
+  body.ing-tree-active #ing-tree-overlay{display:none !important;}
+  body.ing-tree-active #ing-tree-panel{display:block !important;position:fixed;top:0;left:0;bottom:0;width:260px;box-shadow:none;border-right:1px solid var(--bd);}
+  body.ing-tree-active #page-recettes .page{margin-left:270px;}
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
@@ -512,8 +512,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <!-- Panneau fixe (reste visible même en faisant défiler) : arborescence Section > Catégorie > Sous-catégorie,
          cliquable pour sauter directement à l'endroit correspondant dans la liste. -->
-    <div id="ing-tree-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:29;" onclick="toggleIngTreePanel()"></div>
-    <div id="ing-tree-panel" style="display:none;position:fixed;top:0;left:0;bottom:0;width:min(78vw,280px);background:var(--cr);z-index:30;box-shadow:2px 0 12px rgba(0,0,0,0.25);overflow-y:auto;padding:14px 10px;">
+    <div id="ing-tree-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:110;" onclick="toggleIngTreePanel()"></div>
+    <div id="ing-tree-panel" style="display:none;position:fixed;top:0;left:0;bottom:0;width:min(78vw,280px);background:var(--cr);z-index:111;box-shadow:2px 0 12px rgba(0,0,0,0.25);overflow-y:auto;padding:14px 10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div style="font-size:13px;font-weight:800;color:var(--tx);">🗂 Arborescence</div>
         <button class="btn bs sm" onclick="toggleIngTreePanel()" style="padding:2px 9px;">✕</button>
@@ -1238,6 +1238,7 @@ function goModule(name){
     }
   });
   if(tabsBar)tabsBar.style.display=(name==='rh')?'flex':'none';
+  if(name!=='recettes')document.body.classList.remove('ing-tree-active');
   if(name==='stocks')loadStocksModule();
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
@@ -1250,6 +1251,7 @@ function goHome(){
     var e=document.getElementById(id);
     if(e)e.style.display='none';
   });
+  document.body.classList.remove('ing-tree-active');
   var tabsBar=document.getElementById('tabs-rh');
   if(tabsBar)tabsBar.style.display='none';
   var backBar=document.getElementById('back-to-home-bar');
@@ -6564,6 +6566,7 @@ function goRecettesSub(name){
   document.getElementById('rct-pane-prix').style.display=(name==='prix')?'block':'none';
   document.getElementById('rct-pane-inv').style.display=(name==='inv')?'block':'none';
   document.getElementById('rct-pane-import').style.display=(name==='import')?'block':'none';
+  document.body.classList.toggle('ing-tree-active',name==='ingredients'); // pilote le décalage de la colonne fixe (desktop) — voir #ing-tree-panel
   if(name==='prix')renderPrixRevientList();
   if(name==='inv')loadInventairesList();
   ['list','ingredients','couts','prix','inv','import'].forEach(function(k){
