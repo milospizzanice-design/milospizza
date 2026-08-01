@@ -504,6 +504,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvelle section</button>
         <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
         <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
+        <button class="btn bs sm" onclick="copyPricesDabrayToPort()" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;" title="Écrase tous les prix de Port avec ceux de Dabray">⚠️ Copier prix Dabray → Port</button>
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
         <button class="btn bp sm" id="ing-tree-toggle-btn" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
       </div>
@@ -7655,6 +7656,42 @@ async function updateIngredientUniteDefaut(code,unite){
 }
 // ── Gestion des fournisseurs (par restaurant, stockés dans stock_catalogue.suppliers) ──
 let msupSuppliersBlob={};
+// Copie en masse tous les prix d'ingrédients de Dabray vers Port, en écrasant ce qui existe déjà côté Port.
+// Le fournisseur n'est PAS copié (chaque restaurant a son propre catalogue de fournisseurs, un fournisseur_id
+// de Dabray n'a aucun sens côté Port) — à revérifier manuellement après coup si besoin.
+async function copyPricesDabrayToPort(){
+  if(!confirm('Copier TOUS les prix d\'ingrédients de Dabray vers Port ?\n\nCeci va ÉCRASER tous les prix déjà renseignés côté Port par ceux de Dabray. Action irréversible.\n\n(Les fournisseurs ne sont pas copiés : ils sont propres à chaque restaurant.)'))return;
+  if(!confirm('Dernière confirmation : les prix actuels de Port seront définitivement remplacés. Continuer ?'))return;
+  try{
+    var r=sbCheck(await db.from('ingredient_couts').select('*').eq('restaurant_id','dabray'));
+    var rows=r.data||[];
+    if(!rows.length){alert('Aucun prix trouvé côté Dabray.');return;}
+    var payload=rows.map(function(row){
+      return {
+        restaurant_id:'port',
+        ingredient_code:row.ingredient_code,
+        mode_prix:row.mode_prix,
+        prix_unitaire:row.prix_unitaire,
+        prix_kilo:row.prix_kilo,
+        prix_gramme:row.prix_gramme,
+        prix_litre:row.prix_litre,
+        poids_net_g:row.poids_net_g,
+        prix_source_code:row.prix_source_code,
+        contenant_qte:row.contenant_qte,
+        contenant_unite:row.contenant_unite,
+        contenant_prix:row.contenant_prix,
+        densite:row.densite,
+        fournisseur_id:null
+      };
+    });
+    var chunkSize=200;
+    for(var i=0;i<payload.length;i+=chunkSize){
+      sbCheck(await db.from('ingredient_couts').upsert(payload.slice(i,i+chunkSize),{onConflict:'restaurant_id,ingredient_code'}));
+    }
+    alert('✅ '+payload.length+' prix copiés de Dabray vers Port.\n\nPense à revérifier les fournisseurs côté Port (non copiés, propres à chaque restaurant).');
+    if(rctResto()==='port')await loadRecettesModule();
+  }catch(e){console.error('copyPricesDabrayToPort',e);alert('Erreur : '+e.message);}
+}
 async function openSuppliersModal(){
   var resto=rctResto();
   document.getElementById('msup-resto').textContent=resto==='port'?'Port':(resto==='dabray'?'Dabray':resto);
@@ -8779,7 +8816,7 @@ async function saveOngletMeta(){
 // ══════════════════════════════════════════════════════════════════════════
 // Coût d'une quantité donnée d'un produit stock (nombreux modes de mesure).
 function coutQuantiteStock(stockProduit,quantite,unite,modeFallback){
-  if(!stockProduit)return {cout:null,warning:'produit stock introuvable'};
+  if(!stockProduit)return {cout:null,warning:'aucun prix renseigné pour cet ingrédient'};
   var mode=stockProduit.mode_prix||modeFallback||'unitaire';
   var poidsNet=stockProduit.poids_net_g;
   var densite=stockProduit.densite;
