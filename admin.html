@@ -7403,15 +7403,16 @@ function renderIngredientsList(){
     var catDefaut=(catName&&rctCategoriesOrdre[catName]&&rctCategoriesOrdre[catName].unite_defaut_mesure)||null;
     if(cout&&cout.prix_source_code){
       var src=rctIngredients.find(function(x){return x.code===cout.prix_source_code;});
-      var mode2=cout.mode_prix||catDefaut||'unitaire';
+      var srcCout2=rctIngredientCouts[cout.prix_source_code];
+      var mode2=inferModeFromCout(srcCout2)||resolveIngredientMode(cout.prix_source_code)||'unitaire';
       var field2=modePrixField(mode2),label2=modePrixLabel(mode2);
-      var val=cout[field2]!=null?cout[field2]+' '+label2:'prix non renseigné sur la source';
+      var val=srcCout2&&srcCout2[field2]!=null?srcCout2[field2]+' '+label2:'prix non renseigné sur la source';
       return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--txm);">'
         +'<span>🔗 Même prix que <strong>'+esc(src?src.nom:cout.prix_source_code)+'</strong> ('+esc(val)+')</span>'
         +'<button class="btn bs sm" onclick="unlinkProductPrice(\''+ingCode+'\')" style="padding:2px 8px;font-size:10px;">✕ Détacher</button>'
         +'</div>';
     }
-    var mode=(cout&&cout.mode_prix)||catDefaut||'unitaire';
+    var mode=inferModeFromCout(cout)||catDefaut||'unitaire';
     var field=modePrixField(mode),label=modePrixLabel(mode);
     var otherIngredients=rctIngredients.filter(function(p){return p.code!==ingCode&&!(rctIngredientCouts[p.code]&&rctIngredientCouts[p.code].prix_source_code);}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
     var contUnites=['g','kg','ml','cl','l','piece'];
@@ -7959,7 +7960,7 @@ async function saveContenantAndRecalc(ingCode){
   var cout=rctIngredientCouts[ingCode]||{};
   var ing=rctIngredients.find(function(x){return x.code===ingCode;});
   var catDefaut=(ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
-  var mode=cout.mode_prix||catDefaut||'unitaire';
+  var mode=inferModeFromCout(cout)||catDefaut||'unitaire';
   var payload={restaurant_id:rctResto(),ingredient_code:ingCode,contenant_qte:qte,contenant_unite:unite,contenant_prix:prix,densite:dens,mode_prix:mode};
   var champ=modePrixField(mode);
   var calc=computeUnitPriceFromContenant(mode,qte,unite,prix,dens);
@@ -8173,7 +8174,7 @@ async function confirmBlImport(){
       var ing=rctIngredients.find(function(x){return x.code===code;});
       var catDefaut=(ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
       var existingCout=rctIngredientCouts[code]||{};
-      var mode=existingCout.mode_prix||catDefaut||(l.unite==='ml'||l.unite==='cl'||l.unite==='l'?'litre':(l.unite==='piece'?'unitaire':'kilo'));
+      var mode=inferModeFromCout(existingCout)||catDefaut||(l.unite==='ml'||l.unite==='cl'||l.unite==='l'?'litre':(l.unite==='piece'?'unitaire':'kilo'));
       var champ=modePrixField(mode);
       var calc=computeUnitPriceFromContenant(mode,l.qte,l.unite,l.prixTotal,existingCout.densite);
       var payload={restaurant_id:resto,ingredient_code:code,mode_prix:mode,contenant_qte:l.qte,contenant_unite:l.unite,contenant_prix:l.prixTotal};
@@ -8822,7 +8823,7 @@ async function saveOngletMeta(){
 // Coût d'une quantité donnée d'un produit stock (nombreux modes de mesure).
 function coutQuantiteStock(stockProduit,quantite,unite,modeFallback){
   if(!stockProduit)return {cout:null,warning:'aucun prix renseigné pour cet ingrédient'};
-  var mode=stockProduit.mode_prix||modeFallback||'unitaire';
+  var mode=inferModeFromCout(stockProduit)||modeFallback||'unitaire';
   var poidsNet=stockProduit.poids_net_g;
   var densite=stockProduit.densite;
   if(mode==='kilo'){
@@ -8860,9 +8861,24 @@ function coutQuantiteStock(stockProduit,quantite,unite,modeFallback){
 // Mode de mesure "effectif" d'un ingrédient : celui explicitement enregistré, sinon celui hérité de
 // sa catégorie (même logique que l'affichage) — évite que le calcul de coût retombe sur "Unitaire" par
 // défaut pour un ingrédient dont le prix a été saisi avant que le mode ne soit explicitement figé.
+// Déduit le mode de prix (kilo/gramme/litre/unitaire) d'un ingrédient de façon fiable : si mode_prix a
+// été explicitement enregistré, on l'utilise ; SINON on regarde directement quel champ de prix contient
+// réellement une valeur (le prix ne ment jamais, contrairement à mode_prix qui a pu ne jamais être
+// persisté correctement sur d'anciens ingrédients tarifés avant que ce mécanisme n'existe). C'est LA
+// fonction à utiliser partout pour déterminer le mode — plus aucun repli sur catégorie/'unitaire' en premier.
+function inferModeFromCout(cout){
+  if(!cout)return null;
+  if(cout.mode_prix)return cout.mode_prix;
+  if(cout.prix_kilo!=null)return 'kilo';
+  if(cout.prix_gramme!=null)return 'gramme';
+  if(cout.prix_litre!=null)return 'litre';
+  if(cout.prix_unitaire!=null)return 'unitaire';
+  return null;
+}
 function resolveIngredientMode(ingredientCode){
   var cout=rctIngredientCouts[ingredientCode];
-  if(cout&&cout.mode_prix)return cout.mode_prix;
+  var inferred=inferModeFromCout(cout);
+  if(inferred)return inferred;
   var ing=rctIngredients.find(function(x){return x.code===ingredientCode;});
   return (ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
 }
@@ -8875,6 +8891,12 @@ function coutIngredient(ingredientCode,quantite,unite){
     }
     return coutIngredient(ingredientCode,quantite*ingDose.quantite_defaut,ingDose.unite_defaut);
   }
+  // Si le prix de cet ingrédient est "lié" à un autre (🔗 Copier le prix de), le calcul doit suivre ce
+  // lien pour trouver le vrai prix — sinon on regarde un enregistrement qui ne contient QUE la référence
+  // au lien (aucun prix_kilo/gramme/litre/unitaire dessus), et le coût échoue silencieusement alors que
+  // l'écran affiche pourtant un prix (lui sait déjà suivre ce lien pour l'affichage).
+  var coutSelf=rctIngredientCouts[ingredientCode];
+  if(coutSelf&&coutSelf.prix_source_code)return coutIngredient(coutSelf.prix_source_code,quantite,unite);
   // Si ce fini est "fabriqué à partir de" un brut avec un % de perte renseigné (bloc/déchet de découpe,
   // réduction à la cuisson...), on dérive automatiquement son coût depuis le prix du brut, ajusté de la
   // perte, plutôt que d'exiger un prix saisi séparément — et ça reste à jour si le prix du brut change.
