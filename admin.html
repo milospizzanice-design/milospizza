@@ -534,7 +534,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <!-- Sous-onglet: prix de revient calculé -->
     <div id="rct-pane-prix" style="display:none;">
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Calculé automatiquement à partir des recettes et des prix du stock. Un produit avec un ingrédient non relié ou sans prix affiche un ⚠️ — le total est alors incomplet.
+        Calculé automatiquement à partir des recettes et des prix du stock. Un produit avec un ingrédient non relié ou sans prix affiche un ⚠️ — le total est alors incomplet.<br>
+        🍽️ = prix de vente sur place · 🥡 = à emporter (si différent) · % = ratio coût matière / prix de vente, lu depuis la carte publique (correspondance par nom).
       </div>
       <input type="text" class="fi" id="rct-prix-search" placeholder="Rechercher un produit…" oninput="renderPrixRevientList()" style="width:100%;margin-bottom:10px;">
       <div id="rct-prix-container"></div>
@@ -6605,7 +6606,7 @@ function goRecettesSub(name){
   document.getElementById('rct-pane-inv').style.display=(name==='inv')?'block':'none';
   document.getElementById('rct-pane-import').style.display=(name==='import')?'block':'none';
   document.body.classList.toggle('ing-tree-active',name==='ingredients'); // pilote le décalage de la colonne fixe (desktop) — voir #ing-tree-panel
-  if(name==='prix')renderPrixRevientList();
+  if(name==='prix'){loadMenuPricesFromSite().then(renderPrixRevientList);renderPrixRevientList();}
   if(name==='inv')loadInventairesList();
   ['list','ingredients','couts','prix','inv','import'].forEach(function(k){
     var b=document.getElementById('rctbtn-'+k);
@@ -9114,6 +9115,44 @@ function openPrixRevientDetailModal(code){
   document.getElementById('mprixdetail').classList.add('op');
 }
 
+// ── Prix de vente (carte publique) pour calculer le ratio coût/prix de vente dans "Prix de revient" ──
+// Lit le même fichier menudata.json que le site public (index.html/emporter.html), via le même Worker.
+var rctMenuPrices=null; // liste [{nom,price,priceEmporter}], mise en cache le temps de la session
+var rctMenuPricesLoading=null;
+async function loadMenuPricesFromSite(){
+  if(rctMenuPrices)return rctMenuPrices; // déjà en cache
+  if(rctMenuPricesLoading)return rctMenuPricesLoading; // chargement déjà en cours
+  rctMenuPricesLoading=(async function(){
+    try{
+      var res=await fetch(BL_PROXY_URL+'?file=menudata.json');
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      var data=await res.json();
+      var items=(data&&data.items)||[];
+      rctMenuPrices=items.map(function(it){
+        return {nom:(it.name&&(it.name.fr||it.name))||'',price:it.price||null,priceEmporter:it.priceEmporter||null,priceVariants:it.priceVariants||null};
+      });
+    }catch(e){console.error('loadMenuPricesFromSite',e);rctMenuPrices=[];}
+    rctMenuPricesLoading=null;
+    return rctMenuPrices;
+  })();
+  return rctMenuPricesLoading;
+}
+function parsePrixVente(str){
+  if(!str)return null;
+  var n=parseFloat(String(str).replace(',','.').replace(/[^\d.]/g,''));
+  return isFinite(n)?n:null;
+}
+// Trouve le prix de vente correspondant à un produit de la carte admin, par correspondance de nom
+// (les deux systèmes — admin.html/Supabase et le site public/menudata.json — ne partagent pas d'identifiant commun).
+function findMenuPriceFor(nomProduit){
+  if(!rctMenuPrices||!rctMenuPrices.length)return null;
+  var best=null,bestScore=-1;
+  rctMenuPrices.forEach(function(it){
+    var sc=matchScore(nomProduit,it.nom);
+    if(sc>bestScore){bestScore=sc;best=it;}
+  });
+  return (best&&bestScore>=60)?best:null;
+}
 function renderPrixRevientList(){
   var searchEl=document.getElementById('rct-prix-search');
   var container=document.getElementById('rct-prix-container');
@@ -9137,10 +9176,23 @@ function renderPrixRevientList(){
           var r=coutRecette(p.code);
           var coutStr=r.total!=null?r.total.toFixed(2)+' €':'—';
           var hasWarn=r.warnings&&r.warnings.length;
+          var menu=findMenuPriceFor(p.nom);
+          var venteHtml='';
+          if(r.total!=null&&menu){
+            var pvSurPlace=parsePrixVente(menu.price);
+            var pvEmporter=parsePrixVente(menu.priceEmporter)||pvSurPlace;
+            var parts=[];
+            if(pvSurPlace)parts.push('🍽️ '+pvSurPlace.toFixed(2)+'€ · '+Math.round((r.total/pvSurPlace)*100)+'%');
+            if(pvEmporter&&pvEmporter!==pvSurPlace)parts.push('🥡 '+pvEmporter.toFixed(2)+'€ · '+Math.round((r.total/pvEmporter)*100)+'%');
+            if(parts.length)venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">'+parts.join(' &nbsp;|&nbsp; ')+'</div>';
+          }else if(r.total!=null&&!menu){
+            venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">Prix de vente non trouvé sur la carte (nom différent ?)</div>';
+          }
           html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';cursor:pointer;" onclick="openPrixRevientDetailModal(\''+p.code+'\')">'
             +'<div style="flex:1;">'
             +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(p.nom)+'</div>'
             +(hasWarn?'<div style="font-size:10px;color:#C0392B;line-height:1.4;">⚠️ '+esc(r.warnings.join(' · '))+'</div>':'')
+            +venteHtml
             +'</div>'
             +'<div style="font-weight:800;font-size:14px;color:var(--bx);">'+coutStr+'</div>'
             +'</div>';
