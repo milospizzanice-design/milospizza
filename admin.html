@@ -7515,7 +7515,12 @@ function renderIngredientsList(){
       +'</div>'
       +miseEnPlaceHtml(i)
       +(hasBrutSource?'<div style="font-size:10px;color:var(--txm);">🔪 Pas de fournisseur séparé — cet article est préparé sur place à partir de "'+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code)+'", pas acheté tel quel.</div>'
-        :statut.isComposed?'<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>'
+        :statut.isComposed?('<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>'
+          +'<div style="display:flex;gap:4px;align-items:center;font-size:10px;margin-top:4px;">'
+          +'<span style="color:var(--txm);">Si utilisé en ml/L dans une pizza — densité :</span>'
+          +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="1" placeholder="1000" title="Grammes pour 1 litre (1000 = eau). Nécessaire pour convertir en grammes si cet ingrédient composé est utilisé en ml/L dans une recette." value="'+(rctIngredientCouts[i.code]&&rctIngredientCouts[i.code].densite!=null?rctIngredientCouts[i.code].densite:'')+'" onchange="updateComposedDensite(\''+i.code+'\',this.value)">'
+          +'<span style="color:var(--txm);">g/L</span>'
+          +'</div>')
         :priceInputsHtml(statut.cout,i.code,i.categorie))
       +'</div>'
       +'</div>';
@@ -7847,6 +7852,16 @@ async function unlinkProductPrice(ingredientCode){
 // - ingrédient lié à un brut (découpe) : "poids testé" (bloc) + "poids perdu" (déchet) saisis directement.
 // - ingrédient composé (cuisson) : "poids testé" (avant cuisson) + "poids obtenu après" -> la perte réelle
 //   est déduite par soustraction (isObtenuMode=true), pour rester dans le vocabulaire naturel du test cuisson.
+// Densité d'un ingrédient composé (ex: crème de poivrons), utilisée uniquement pour convertir en grammes
+// s'il est utilisé en ml/L dans une recette parente (le calcul de coût lui-même reste en grammes en interne).
+async function updateComposedDensite(code,value){
+  var dens=value===''?null:parseFloat(value);
+  try{
+    sbCheck(await db.from('ingredient_couts').upsert([{restaurant_id:rctResto(),ingredient_code:code,densite:dens}],{onConflict:'restaurant_id,ingredient_code'}));
+    rctIngredientCouts[code]=Object.assign({},rctIngredientCouts[code]||{},{densite:dens});
+    refreshIngredientStatusLight(code);
+  }catch(e){console.error('updateComposedDensite',e);alert('Erreur : '+e.message);}
+}
 async function updatePerteFields(code,isObtenuMode){
   var blocEl=document.getElementById('perte-bloc-'+code),dechetEl=document.getElementById('perte-dechet-'+code);
   if(!blocEl)return;
@@ -8914,7 +8929,9 @@ function coutIngredient(ingredientCode,quantite,unite){
       var subIng=rctIngredients.find(function(p){return p.code===l.sub_ingredient_code;});
       var subNom=subIng?subIng.nom:('ingrédient inconnu ('+l.sub_ingredient_code+')');
       var cout=rctIngredientCouts[l.sub_ingredient_code];
-      var r=coutQuantiteStock(cout,l.quantite,l.unite,resolveIngredientMode(l.sub_ingredient_code));
+      // Appel récursif (et non coutQuantiteStock directement) : gère aussi le cas où ce sous-ingrédient a
+      // lui-même un prix lié (🔗), une perte brut->fini, ou est lui-même composé d'une autre recette.
+      var r=coutIngredient(l.sub_ingredient_code,l.quantite,l.unite);
       // Poids en grammes de cette ligne, pour la clé de répartition du coût :
       // g/kg → tel quel ; ml/l → converti via la densité du sous-ingrédient (1000=eau par défaut) ; pièce → poids net requis.
       var poidsLigne=null;
@@ -8928,13 +8945,22 @@ function coutIngredient(ingredientCode,quantite,unite){
       totalCout+=r.cout;
     });
     if(!totalPoids)return {cout:null,warning:'composition vide ou incalculable'};
-    if(unite!=='g')return {cout:null,warning:'ingrédient composé : utilise des grammes dans la recette'};
+    // Convertir la quantité demandée par la recette PARENTE (pizza, ou autre composition) en grammes,
+    // pour pouvoir l'appliquer au coût-par-gramme de cette composition — accepte g/kg mais aussi ml/l/pièce
+    // (via la densité ou le poids net propres à CET ingrédient composé, ex: une crème utilisée en ml).
+    var coutSelfForDensite=rctIngredientCouts[ingredientCode];
+    var quantiteEnG=null;
+    if(unite==='g')quantiteEnG=quantite;
+    else if(unite==='kg')quantiteEnG=quantite*1000;
+    else if(unite==='ml'||unite==='l')quantiteEnG=convertQtyToFamily(quantite,unite,'masse',(coutSelfForDensite&&coutSelfForDensite.densite)||1000);
+    else if(unite==='piece'&&coutSelfForDensite&&coutSelfForDensite.poids_net_g)quantiteEnG=quantite*coutSelfForDensite.poids_net_g;
+    if(quantiteEnG==null)return {cout:null,warning:'unité "'+unite+'" non convertible pour cet ingrédient composé (renseigne sa densité ou son poids net dans sa fiche)'};
     var coutParGramme=totalCout/totalPoids;
     // Perte à la cuisson/préparation (ex: aubergines qui réduisent en cuisant) : la quantité obtenue
     // après préparation est plus faible que la somme des ingrédients de départ, donc le coût par gramme
     // du produit fini réellement utilisable est plus élevé d'autant.
     if(ingSelf&&ingSelf.taux_perte>0&&ingSelf.taux_perte<100)coutParGramme=coutParGramme/(1-ingSelf.taux_perte/100);
-    return {cout:quantite*coutParGramme,warning:details.length?('composition incomplète — '+details.join(' ; ')):null};
+    return {cout:quantiteEnG*coutParGramme,warning:details.length?('composition incomplète — '+details.join(' ; ')):null};
   }
   var cout=rctIngredientCouts[ingredientCode];
   if(!cout)return {cout:null,warning:'aucun prix renseigné pour cet ingrédient'};
@@ -8962,8 +8988,14 @@ function accumulerConsommation(acc,ingredientCode,quantite,unite){
   }
   var compo=rctIngredientComposition[ingredientCode];
   if(compo&&compo.length){
-    if(unite!=='g')return; // même limite que le calcul de coût : ingrédient composé -> grammes uniquement
-    var quantiteAjustee=(ingSelfC&&ingSelfC.taux_perte>0&&ingSelfC.taux_perte<100)?quantite/(1-ingSelfC.taux_perte/100):quantite;
+    var coutSelfC=rctIngredientCouts[ingredientCode];
+    var quantiteEnGC=null;
+    if(unite==='g')quantiteEnGC=quantite;
+    else if(unite==='kg')quantiteEnGC=quantite*1000;
+    else if(unite==='ml'||unite==='l')quantiteEnGC=convertQtyToFamily(quantite,unite,'masse',(coutSelfC&&coutSelfC.densite)||1000);
+    else if(unite==='piece'&&coutSelfC&&coutSelfC.poids_net_g)quantiteEnGC=quantite*coutSelfC.poids_net_g;
+    if(quantiteEnGC==null)return;
+    var quantiteAjustee=(ingSelfC&&ingSelfC.taux_perte>0&&ingSelfC.taux_perte<100)?quantiteEnGC/(1-ingSelfC.taux_perte/100):quantiteEnGC;
     var totalPoids=0;
     var poidsLignes=compo.map(function(l){
       var subCout=rctIngredientCouts[l.sub_ingredient_code];
