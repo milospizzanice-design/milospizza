@@ -5753,6 +5753,8 @@ async function stkDeleteCond(id){
 let caisseMapping=[];
 let caisseProduitsVendus=[];
 let caisseCurrentRow=null;
+let caisseMenuCatsActive=[]; // catégories actives du menu public (menudata.json), mises en cache à l'ouverture de "Créer"
+let caisseMenuItemsAll=[];   // items du menu public, pour dériver les sous-catégories existantes par catégorie
 
 // ── Réglages : fonctionnalités activables/désactivables pour les salariés (app pointage) ──
 // Ajouter une entrée ici suffit pour qu'elle apparaisse dans l'écran Réglages.
@@ -5800,7 +5802,7 @@ async function loadCaisseModule(){
   list.innerHTML='<div style="padding:16px;color:var(--txm);">Chargement…</div>';
   var r=sbCheck(await db.from('hiboutik_mapping').select('*').order('hiboutik_nom'));
   caisseMapping=(r&&r.data)||[];
-  var rp=sbCheck(await db.from('produits_vendus').select('code,nom,categorie').eq('restaurant_id','global').order('nom'));
+  var rp=sbCheck(await db.from('produits_vendus').select('code,nom,categorie,sous_categorie').eq('restaurant_id','global').order('nom'));
   caisseProduitsVendus=(rp&&rp.data)||[];
   // Les ingrédients et la hiérarchie Onglet>Catégorie>Sous-catégorie ne sont normalement chargés
   // qu'en visitant l'onglet Recettes ; on s'assure ici qu'ils sont disponibles même si Caisse est ouvert en premier.
@@ -5822,6 +5824,20 @@ async function loadCaisseModule(){
     (subOrd.data||[]).forEach(function(r){
       rctSousCategoriesOrdre[r.categorie]=rctSousCategoriesOrdre[r.categorie]||{};
       rctSousCategoriesOrdre[r.categorie][r.nom]=r.ordre;
+    });
+  }
+  // Idem pour les produits vendus (avec recette) — nécessaires pour détecter une recette déjà
+  // existante et la reprendre automatiquement à la création d'un nouveau produit.
+  if(!rctProduitsVendus||!rctProduitsVendus.length){
+    var [pvR,rcR]=await Promise.all([
+      db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
+      db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL)
+    ]);
+    rctProduitsVendus=pvR.data||[];
+    rctRecettes={};
+    (rcR.data||[]).forEach(function(r){
+      rctRecettes[r.produit_vendu_code]=rctRecettes[r.produit_vendu_code]||[];
+      rctRecettes[r.produit_vendu_code].push(r);
     });
   }
   renderCaisseList();
@@ -5918,42 +5934,73 @@ async function caisseConfirmAssocier(code){
 async function caisseOpenCreer(hiboutikProductId){
   caisseCurrentRow=hiboutikProductId;
   var m=caisseMapping.find(function(x){return x.hiboutik_product_id===hiboutikProductId;});
-  document.getElementById('caissecreatemodal-title').textContent='Créer — '+(m?m.hiboutik_nom:'');
-  document.getElementById('caissecreatemodal-nom').value=m?m.hiboutik_nom:'';
+  var nomHib=m?m.hiboutik_nom:'';
+  document.getElementById('caissecreatemodal-title').textContent='Créer — '+nomHib+' (recherche sur le menu…)';
+  document.getElementById('caissecreatemodal-nom').value=nomHib;
   document.getElementById('caissecreatemodal-search').value='';
   document.getElementById('caissecreatemodal-search-results').innerHTML='';
-  // Catégorie : reprend exactement l'organisation Onglet > Catégorie > Sous-catégorie du menu
-  // (mêmes tables categories_ordre/onglets_ordre/sous_categories_ordre que Produits & recettes).
-  var catsByOnglet={};
-  Object.keys(rctCategoriesOrdre).forEach(function(cat){
-    var ong=rctCategoriesOrdre[cat].onglet||'_sans_onglet';
-    catsByOnglet[ong]=catsByOnglet[ong]||[];
-    catsByOnglet[ong].push(cat);
+  document.getElementById('caissecreatemodal').classList.add('op');
+
+  // Va chercher le vrai menu public (menudata.json, celui du QR code) pour proposer les mêmes
+  // catégories/sous-catégories que la carte, et détecter si ce produit y existe déjà par ressemblance de nom.
+  var menu=await loadMenuPricesFromSite();
+  var menuCats=(menu&&menu.json&&menu.json.cats)||[];
+  var menuItems=(menu&&menu.json&&menu.json.items)||[];
+  var catsActives=menuCats.filter(function(c){return !c.archived;});
+  caisseMenuCatsActive=catsActives;
+  caisseMenuItemsAll=menuItems;
+
+  // Meilleure correspondance côté menu public (pour préremplir catégorie/sous-catégorie)
+  var bestMenuItem=null,bestMenuScore=-1;
+  menuItems.filter(function(it){return !it.archived;}).forEach(function(it){
+    var nom=(it.name&&(it.name.fr||it.name))||'';
+    var sc=matchScore(nomHib,nom);
+    if(sc>bestMenuScore){bestMenuScore=sc;bestMenuItem=it;}
   });
-  var ongletNames=Object.keys(catsByOnglet).filter(function(o){return o!=='_sans_onglet';})
-    .sort(function(a,b){return (rctOngletsOrdre[a]||9999)-(rctOngletsOrdre[b]||9999);});
-  if(catsByOnglet['_sans_onglet'])ongletNames.push('_sans_onglet');
+  var matchedCat=null,matchedSub=null;
+  if(bestMenuItem&&bestMenuScore>=60){
+    var catObj=catsActives.find(function(c){return c.id===bestMenuItem.cat;});
+    matchedCat=catObj?(catObj.name.fr||catObj.name):null;
+    matchedSub=bestMenuItem.subcat||null;
+  }
+
+  // Sélecteur Catégorie : les vraies catégories du menu public, dans leur ordre d'affichage.
   var catSel=document.getElementById('caissecreatemodal-cat');
-  var catHtml='<option value="">-- aucune --</option>';
-  ongletNames.forEach(function(ong){
-    var cats=catsByOnglet[ong].slice().sort(function(a,b){return (rctCategoriesOrdre[a].ordre||9999)-(rctCategoriesOrdre[b].ordre||9999);});
-    catHtml+='<optgroup label="'+esc(ong==='_sans_onglet'?'Non classé':ong)+'">'
-      +cats.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('')
-      +'</optgroup>';
-  });
-  catHtml+='<option value="__new__">+ Nouvelle catégorie…</option>';
+  var catHtml='<option value="">-- aucune --</option>'
+    +catsActives.map(function(c){return '<option value="'+esc(c.name.fr||c.name)+'" data-catid="'+esc(c.id)+'">'+esc(c.name.fr||c.name)+'</option>';}).join('')
+    +'<option value="__new__">+ Nouvelle catégorie…</option>';
   catSel.innerHTML=catHtml;
-  catSel.value='';
+  catSel.value=matchedCat||'';
   document.getElementById('caissecreatemodal-cat-new').style.display='none';
   document.getElementById('caissecreatemodal-cat-new').value='';
   caisseRefreshSubOptions();
-  // Pré-remplit une ligne avec le meilleur ingrédient trouvé par ressemblance de nom (si assez proche), sinon ligne vide.
-  var best=rctIngredients
-    .map(function(p){return {p:p,score:matchScore(m?m.hiboutik_nom:'',p.nom)};})
-    .filter(function(x){return x.score>=25;})
-    .sort(function(a,b){return b.score-a.score;})[0];
-  caisseRenderRecetteLines(best?[{ingredient_code:best.p.code,quantite:1,unite:best.p.unite_defaut||'piece'}]:[]);
-  document.getElementById('caissecreatemodal').classList.add('op');
+  if(matchedSub){
+    var subSel=document.getElementById('caissecreatemodal-sub');
+    if([].slice.call(subSel.options).some(function(o){return o.value===matchedSub;}))subSel.value=matchedSub;
+  }
+
+  // Recette : si un produit déjà vendu (même sous un autre nom) a une recette proche par ressemblance de
+  // nom, on la propose telle quelle en point de départ — sinon on retombe sur un seul ingrédient suggéré.
+  var bestRecetteProduit=null,bestRecetteScore=-1;
+  rctProduitsVendus.forEach(function(p){
+    if(!rctRecettes[p.code]||!rctRecettes[p.code].length)return;
+    var sc=matchScore(nomHib,p.nom);
+    if(sc>bestRecetteScore){bestRecetteScore=sc;bestRecetteProduit=p;}
+  });
+  var titre='Créer — '+nomHib;
+  var lines=[];
+  if(bestRecetteProduit&&bestRecetteScore>=60){
+    lines=rctRecettes[bestRecetteProduit.code].map(function(l){return {ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};});
+    titre+=' (recette reprise de « '+bestRecetteProduit.nom+' », à ajuster si besoin)';
+  }else{
+    var bestIng=rctIngredients
+      .map(function(p){return {p:p,score:matchScore(nomHib,p.nom)};})
+      .filter(function(x){return x.score>=25;})
+      .sort(function(a,b){return b.score-a.score;})[0];
+    if(bestIng)lines=[{ingredient_code:bestIng.p.code,quantite:1,unite:bestIng.p.unite_defaut||'piece'}];
+  }
+  document.getElementById('caissecreatemodal-title').textContent=titre;
+  caisseRenderRecetteLines(lines);
 }
 function caisseOnCatChange(){
   var sel=document.getElementById('caissecreatemodal-cat');
@@ -5967,7 +6014,16 @@ function caisseRefreshSubOptions(){
   var subSel=document.getElementById('caissecreatemodal-sub');
   var subNewInp=document.getElementById('caissecreatemodal-sub-new');
   var cat=catSel.value;
-  var subs=(cat&&cat!=='__new__'&&rctSousCategoriesOrdre[cat])?Object.keys(rctSousCategoriesOrdre[cat]).sort(function(a,b){return (rctSousCategoriesOrdre[cat][a]||9999)-(rctSousCategoriesOrdre[cat][b]||9999);}):[];
+  var subsSeen={};
+  if(cat&&cat!=='__new__'){
+    var catObj=caisseMenuCatsActive.find(function(c){return (c.name.fr||c.name)===cat;});
+    if(catObj){
+      caisseMenuItemsAll.forEach(function(it){if(!it.archived&&it.cat===catObj.id&&it.subcat)subsSeen[it.subcat]=true;});
+    }
+    // Repli : sous-catégories déjà utilisées côté produits vendus (utile si la catégorie n'existe pas encore sur le menu public)
+    caisseProduitsVendus.forEach(function(p){if(p.categorie===cat&&p.sous_categorie)subsSeen[p.sous_categorie]=true;});
+  }
+  var subs=Object.keys(subsSeen).sort(function(a,b){return a.localeCompare(b);});
   subSel.innerHTML='<option value="">-- aucune --</option>'
     +subs.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')
     +'<option value="__new__">+ Nouvelle sous-catégorie…</option>';
