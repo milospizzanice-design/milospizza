@@ -18,7 +18,7 @@
 <meta name="theme-color" content="#9B1C1C">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Milo's Pizza — Carte</title>
+<title>Milo's Pizza — À emporter</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
@@ -1199,7 +1199,10 @@ function setLang(lang) {
 
 function renderMenu() {
   const l = currentLang;
-  const activeCats = cats.filter(c=>!c.archived);
+  // Menu à emporter : uniquement les produits disponibles à emporter (dispoEmporter !== false), et
+  // seulement les catégories qui contiennent au moins un tel produit.
+  const emporterItemIds = new Set(items.filter(it=>!it.archived && it.dispoEmporter!==false).map(it=>it.id));
+  const activeCats = cats.filter(c=>!c.archived && items.some(it=>it.cat===c.id && emporterItemIds.has(it.id)));
   
   // Nav
   const socialLabel = {fr:'Nous suivre',en:'Follow us',it:'Seguici',de:'Folgen Sie uns',zh:'关注我们',ru:'Следите за нами',es:'Nous suivre'};
@@ -1213,7 +1216,7 @@ function renderMenu() {
 
   // Sections
   document.getElementById('main').innerHTML = activeCats.map((c,i)=>{
-    const catItems = items.filter(it=>it.cat===c.id && !it.archived);
+    const catItems = items.filter(it=>it.cat===c.id && !it.archived && emporterItemIds.has(it.id));
     const subcats = [...new Set(catItems.map(it=>it.subcat).filter(Boolean))];
     const topItems = catItems.filter(it=>!it.subcat);
     
@@ -1286,7 +1289,7 @@ function renderItem(it, l) {
   const hasPhoto = it.photo && it.photo.trim();
   const priceHTML = (it.priceVariants && it.priceVariants.length)
     ? it.priceVariants.map(v=>`<div>${v.label||''} ${v.price||''}</div>`).join('')
-    : it.price;
+    : (it.priceEmporter || it.price);
   return `<div class="item" onclick="openModal('${it.id}')">
     <div class="item-info">
       <div class="item-name">${it.name[l]||it.name.fr}${hasPhoto?'<span class="photo-badge"></span>':''}</div>
@@ -1327,7 +1330,7 @@ function openModal(id) {
   document.getElementById('modalDesc').textContent = it.desc[l]||it.desc.fr;
   document.getElementById('modalPrice').innerHTML = (it.priceVariants && it.priceVariants.length)
     ? it.priceVariants.map(v=>`<div>${v.label||''} ${v.price||''}</div>`).join('')
-    : it.price;
+    : (it.priceEmporter || it.price);
   const als = getItemAllergens(it);
   const allergenEl = document.getElementById('modalAllergens');
   if (allergenEl) {
