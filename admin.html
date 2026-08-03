@@ -535,7 +535,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="rct-pane-prix" style="display:none;">
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
         Calculé automatiquement à partir des recettes et des prix du stock. Un produit avec un ingrédient non relié ou sans prix affiche un ⚠️ — le total est alors incomplet.<br>
-        🍽️ = prix de vente sur place · 🥡 = à emporter (si différent) · % = ratio coût matière / prix de vente, lu depuis la carte publique (correspondance par nom).
+        🍽️ = prix de vente sur place · 🥡 = à emporter · coef = prix de vente HT (÷1,1) ÷ coût matière, lu depuis la carte publique (correspondance par nom).
       </div>
       <input type="text" class="fi" id="rct-prix-search" placeholder="Rechercher un produit…" oninput="renderPrixRevientList()" style="width:100%;margin-bottom:10px;">
       <div id="rct-prix-container"></div>
@@ -9187,10 +9187,11 @@ function renderPrixRevientList(){
           var venteHtml='';
           if(r.total!=null&&menu){
             var pvSurPlace=parsePrixVente(menu.price);
-            var pvEmporter=parsePrixVente(menu.priceEmporter)||pvSurPlace;
+            var pvEmporterRaw=parsePrixVente(menu.priceEmporter);
             var parts=[];
-            if(pvSurPlace)parts.push('🍽️ '+pvSurPlace.toFixed(2)+'€ · '+Math.round((r.total/pvSurPlace)*100)+'%');
-            if(pvEmporter&&pvEmporter!==pvSurPlace)parts.push('🥡 '+pvEmporter.toFixed(2)+'€ · '+Math.round((r.total/pvEmporter)*100)+'%');
+            if(pvSurPlace)parts.push('🍽️ '+pvSurPlace.toFixed(2)+'€ · coef '+((pvSurPlace/1.1)/r.total).toFixed(2));
+            if(pvEmporterRaw)parts.push('🥡 '+pvEmporterRaw.toFixed(2)+'€ · coef '+((pvEmporterRaw/1.1)/r.total).toFixed(2));
+            else parts.push('🥡 <span style="color:#B45309;">non renseigné sur la carte</span>');
             if(parts.length)venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">'+parts.join(' &nbsp;|&nbsp; ')+'</div>';
           }else if(r.total!=null&&!menu){
             venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">Prix de vente non trouvé sur la carte (nom différent ?)</div>';
