@@ -9126,7 +9126,14 @@ async function loadMenuPricesFromSite(){
     try{
       var res=await fetch(BL_PROXY_URL+'?file=menudata.json');
       if(!res.ok)throw new Error('HTTP '+res.status);
-      var data=await res.json();
+      var wrapper=await res.json(); // réponse de l'API GitHub : {content:"<base64>", ...}, pas le JSON brut
+      if(!wrapper||!wrapper.content)throw new Error('réponse inattendue du proxy (pas de champ content)');
+      var b64=wrapper.content.replace(/\n/g,'');
+      var binStr=atob(b64);
+      var bytes=new Uint8Array(binStr.length);
+      for(var bi=0;bi<binStr.length;bi++)bytes[bi]=binStr.charCodeAt(bi);
+      var jsonStr=new TextDecoder('utf-8').decode(bytes);
+      var data=JSON.parse(jsonStr);
       var items=(data&&data.items)||[];
       rctMenuPrices=items.map(function(it){
         return {nom:(it.name&&(it.name.fr||it.name))||'',price:it.price||null,priceEmporter:it.priceEmporter||null,priceVariants:it.priceVariants||null};
