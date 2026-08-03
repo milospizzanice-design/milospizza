@@ -916,6 +916,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="md" style="max-width:460px;">
     <div class="mdt" id="caissecreatemodal-title">Créer un produit</div>
     <div class="fr"><label class="fl2">Nom du produit</label><input type="text" class="fi" id="caissecreatemodal-nom"></div>
+    <div class="fr"><label class="fl2">Catégorie</label>
+      <select class="fi" id="caissecreatemodal-cat" onchange="caisseToggleNewCatInput()"></select>
+      <input type="text" class="fi" id="caissecreatemodal-cat-new" placeholder="Nom de la nouvelle catégorie" style="display:none;margin-top:6px;">
+    </div>
     <div style="font-size:11px;color:var(--txm);margin:6px 0;">Construis la recette (ingrédients + quantités) — elle sera enregistrée en même temps que le produit.</div>
     <div id="caissecreatemodal-lines"></div>
     <button class="btn bs sm" onclick="caisseAddRecetteLine()" style="width:100%;margin-top:6px;">+ Ajouter un ingrédient (ligne vide)</button>
@@ -5794,6 +5798,12 @@ async function loadCaisseModule(){
   caisseMapping=(r&&r.data)||[];
   var rp=sbCheck(await db.from('produits_vendus').select('code,nom,categorie').eq('restaurant_id','global').order('nom'));
   caisseProduitsVendus=(rp&&rp.data)||[];
+  // Les ingrédients ne sont normalement chargés qu'en visitant l'onglet Recettes (rctIngredients) ;
+  // on s'assure ici qu'ils sont disponibles même si Caisse est ouvert en premier.
+  if(!rctIngredients||!rctIngredients.length){
+    var ri=sbCheck(await db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'));
+    rctIngredients=(ri&&ri.data)||[];
+  }
   renderCaisseList();
 }
 
@@ -5892,6 +5902,17 @@ async function caisseOpenCreer(hiboutikProductId){
   document.getElementById('caissecreatemodal-nom').value=m?m.hiboutik_nom:'';
   document.getElementById('caissecreatemodal-search').value='';
   document.getElementById('caissecreatemodal-search-results').innerHTML='';
+  // Catégorie : reprend les catégories déjà utilisées dans les produits vendus existants.
+  var cats={};
+  caisseProduitsVendus.forEach(function(p){if(p.categorie)cats[p.categorie]=true;});
+  var catList=Object.keys(cats).sort(function(a,b){return a.localeCompare(b);});
+  var catSel=document.getElementById('caissecreatemodal-cat');
+  catSel.innerHTML='<option value="">-- aucune --</option>'
+    +catList.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('')
+    +'<option value="__new__">+ Nouvelle catégorie…</option>';
+  catSel.value='';
+  document.getElementById('caissecreatemodal-cat-new').style.display='none';
+  document.getElementById('caissecreatemodal-cat-new').value='';
   // Pré-remplit une ligne avec le meilleur ingrédient trouvé par ressemblance de nom (si assez proche), sinon ligne vide.
   var best=rctIngredients
     .map(function(p){return {p:p,score:matchScore(m?m.hiboutik_nom:'',p.nom)};})
@@ -5899,6 +5920,12 @@ async function caisseOpenCreer(hiboutikProductId){
     .sort(function(a,b){return b.score-a.score;})[0];
   caisseRenderRecetteLines(best?[{ingredient_code:best.p.code,quantite:1,unite:best.p.unite_defaut||'piece'}]:[]);
   document.getElementById('caissecreatemodal').classList.add('op');
+}
+function caisseToggleNewCatInput(){
+  var sel=document.getElementById('caissecreatemodal-cat');
+  var inp=document.getElementById('caissecreatemodal-cat-new');
+  inp.style.display=sel.value==='__new__'?'block':'none';
+  if(sel.value==='__new__')inp.focus();
 }
 function caisseRenderRecetteLines(lines){
   var opts=ingredientOptionsHtml();
@@ -6000,9 +6027,12 @@ async function caisseFinalizeCreate(sansRecette){
     });
     if(!lines.length){alert('Ajoute au moins un ingrédient avec une quantité, ou utilise "Produit complexe" pour créer sans recette.');return;}
   }
+  var catSelVal=document.getElementById('caissecreatemodal-cat').value;
+  var catNewVal=(document.getElementById('caissecreatemodal-cat-new').value||'').trim();
+  var categorie=catSelVal==='__new__'?(catNewVal||null):(catSelVal||null);
   var code='pv_'+Date.now().toString(36);
   try{
-    sbCheck(await db.from('produits_vendus').insert({restaurant_id:'global',code:code,nom:nom,actif:true}));
+    sbCheck(await db.from('produits_vendus').insert({restaurant_id:'global',code:code,nom:nom,categorie:categorie,actif:true}));
     if(lines.length){
       sbCheck(await db.from('recettes').insert(lines.map(function(l){return {restaurant_id:'global',produit_vendu_code:code,ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};})));
     }
