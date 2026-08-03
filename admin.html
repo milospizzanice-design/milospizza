@@ -917,8 +917,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt" id="caissecreatemodal-title">Créer un produit</div>
     <div class="fr"><label class="fl2">Nom du produit</label><input type="text" class="fi" id="caissecreatemodal-nom"></div>
     <div class="fr"><label class="fl2">Catégorie</label>
-      <select class="fi" id="caissecreatemodal-cat" onchange="caisseToggleNewCatInput()"></select>
+      <select class="fi" id="caissecreatemodal-cat" onchange="caisseOnCatChange()"></select>
       <input type="text" class="fi" id="caissecreatemodal-cat-new" placeholder="Nom de la nouvelle catégorie" style="display:none;margin-top:6px;">
+    </div>
+    <div class="fr"><label class="fl2">Sous-catégorie <span style="font-weight:400;color:var(--txm);">(optionnel)</span></label>
+      <select class="fi" id="caissecreatemodal-sub" onchange="caisseOnSubChange()"></select>
+      <input type="text" class="fi" id="caissecreatemodal-sub-new" placeholder="Nom de la nouvelle sous-catégorie" style="display:none;margin-top:6px;">
     </div>
     <div style="font-size:11px;color:var(--txm);margin:6px 0;">Construis la recette (ingrédients + quantités) — elle sera enregistrée en même temps que le produit.</div>
     <div id="caissecreatemodal-lines"></div>
@@ -5798,11 +5802,27 @@ async function loadCaisseModule(){
   caisseMapping=(r&&r.data)||[];
   var rp=sbCheck(await db.from('produits_vendus').select('code,nom,categorie').eq('restaurant_id','global').order('nom'));
   caisseProduitsVendus=(rp&&rp.data)||[];
-  // Les ingrédients ne sont normalement chargés qu'en visitant l'onglet Recettes (rctIngredients) ;
-  // on s'assure ici qu'ils sont disponibles même si Caisse est ouvert en premier.
+  // Les ingrédients et la hiérarchie Onglet>Catégorie>Sous-catégorie ne sont normalement chargés
+  // qu'en visitant l'onglet Recettes ; on s'assure ici qu'ils sont disponibles même si Caisse est ouvert en premier.
   if(!rctIngredients||!rctIngredients.length){
     var ri=sbCheck(await db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'));
     rctIngredients=(ri&&ri.data)||[];
+  }
+  if(!Object.keys(rctCategoriesOrdre).length){
+    var [ongOrd,catOrd,subOrd]=await Promise.all([
+      db.from('onglets_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
+      db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
+      db.from('sous_categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL)
+    ]);
+    rctOngletsOrdre={};
+    (ongOrd.data||[]).forEach(function(r){rctOngletsOrdre[r.nom]=r.ordre;});
+    rctCategoriesOrdre={};
+    (catOrd.data||[]).forEach(function(r){rctCategoriesOrdre[r.nom]={ordre:r.ordre,onglet:r.onglet||null,unite_defaut_mesure:r.unite_defaut_mesure||null};});
+    rctSousCategoriesOrdre={};
+    (subOrd.data||[]).forEach(function(r){
+      rctSousCategoriesOrdre[r.categorie]=rctSousCategoriesOrdre[r.categorie]||{};
+      rctSousCategoriesOrdre[r.categorie][r.nom]=r.ordre;
+    });
   }
   renderCaisseList();
 }
@@ -5902,17 +5922,31 @@ async function caisseOpenCreer(hiboutikProductId){
   document.getElementById('caissecreatemodal-nom').value=m?m.hiboutik_nom:'';
   document.getElementById('caissecreatemodal-search').value='';
   document.getElementById('caissecreatemodal-search-results').innerHTML='';
-  // Catégorie : reprend les catégories déjà utilisées dans les produits vendus existants.
-  var cats={};
-  caisseProduitsVendus.forEach(function(p){if(p.categorie)cats[p.categorie]=true;});
-  var catList=Object.keys(cats).sort(function(a,b){return a.localeCompare(b);});
+  // Catégorie : reprend exactement l'organisation Onglet > Catégorie > Sous-catégorie du menu
+  // (mêmes tables categories_ordre/onglets_ordre/sous_categories_ordre que Produits & recettes).
+  var catsByOnglet={};
+  Object.keys(rctCategoriesOrdre).forEach(function(cat){
+    var ong=rctCategoriesOrdre[cat].onglet||'_sans_onglet';
+    catsByOnglet[ong]=catsByOnglet[ong]||[];
+    catsByOnglet[ong].push(cat);
+  });
+  var ongletNames=Object.keys(catsByOnglet).filter(function(o){return o!=='_sans_onglet';})
+    .sort(function(a,b){return (rctOngletsOrdre[a]||9999)-(rctOngletsOrdre[b]||9999);});
+  if(catsByOnglet['_sans_onglet'])ongletNames.push('_sans_onglet');
   var catSel=document.getElementById('caissecreatemodal-cat');
-  catSel.innerHTML='<option value="">-- aucune --</option>'
-    +catList.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('')
-    +'<option value="__new__">+ Nouvelle catégorie…</option>';
+  var catHtml='<option value="">-- aucune --</option>';
+  ongletNames.forEach(function(ong){
+    var cats=catsByOnglet[ong].slice().sort(function(a,b){return (rctCategoriesOrdre[a].ordre||9999)-(rctCategoriesOrdre[b].ordre||9999);});
+    catHtml+='<optgroup label="'+esc(ong==='_sans_onglet'?'Non classé':ong)+'">'
+      +cats.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('')
+      +'</optgroup>';
+  });
+  catHtml+='<option value="__new__">+ Nouvelle catégorie…</option>';
+  catSel.innerHTML=catHtml;
   catSel.value='';
   document.getElementById('caissecreatemodal-cat-new').style.display='none';
   document.getElementById('caissecreatemodal-cat-new').value='';
+  caisseRefreshSubOptions();
   // Pré-remplit une ligne avec le meilleur ingrédient trouvé par ressemblance de nom (si assez proche), sinon ligne vide.
   var best=rctIngredients
     .map(function(p){return {p:p,score:matchScore(m?m.hiboutik_nom:'',p.nom)};})
@@ -5921,9 +5955,29 @@ async function caisseOpenCreer(hiboutikProductId){
   caisseRenderRecetteLines(best?[{ingredient_code:best.p.code,quantite:1,unite:best.p.unite_defaut||'piece'}]:[]);
   document.getElementById('caissecreatemodal').classList.add('op');
 }
-function caisseToggleNewCatInput(){
+function caisseOnCatChange(){
   var sel=document.getElementById('caissecreatemodal-cat');
   var inp=document.getElementById('caissecreatemodal-cat-new');
+  inp.style.display=sel.value==='__new__'?'block':'none';
+  if(sel.value==='__new__')inp.focus();
+  caisseRefreshSubOptions();
+}
+function caisseRefreshSubOptions(){
+  var catSel=document.getElementById('caissecreatemodal-cat');
+  var subSel=document.getElementById('caissecreatemodal-sub');
+  var subNewInp=document.getElementById('caissecreatemodal-sub-new');
+  var cat=catSel.value;
+  var subs=(cat&&cat!=='__new__'&&rctSousCategoriesOrdre[cat])?Object.keys(rctSousCategoriesOrdre[cat]).sort(function(a,b){return (rctSousCategoriesOrdre[cat][a]||9999)-(rctSousCategoriesOrdre[cat][b]||9999);}):[];
+  subSel.innerHTML='<option value="">-- aucune --</option>'
+    +subs.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')
+    +'<option value="__new__">+ Nouvelle sous-catégorie…</option>';
+  subSel.value='';
+  subNewInp.style.display='none';
+  subNewInp.value='';
+}
+function caisseOnSubChange(){
+  var sel=document.getElementById('caissecreatemodal-sub');
+  var inp=document.getElementById('caissecreatemodal-sub-new');
   inp.style.display=sel.value==='__new__'?'block':'none';
   if(sel.value==='__new__')inp.focus();
 }
@@ -6030,9 +6084,12 @@ async function caisseFinalizeCreate(sansRecette){
   var catSelVal=document.getElementById('caissecreatemodal-cat').value;
   var catNewVal=(document.getElementById('caissecreatemodal-cat-new').value||'').trim();
   var categorie=catSelVal==='__new__'?(catNewVal||null):(catSelVal||null);
+  var subSelVal=document.getElementById('caissecreatemodal-sub').value;
+  var subNewVal=(document.getElementById('caissecreatemodal-sub-new').value||'').trim();
+  var sousCategorie=subSelVal==='__new__'?(subNewVal||null):(subSelVal||null);
   var code='pv_'+Date.now().toString(36);
   try{
-    sbCheck(await db.from('produits_vendus').insert({restaurant_id:'global',code:code,nom:nom,categorie:categorie,actif:true}));
+    sbCheck(await db.from('produits_vendus').insert({restaurant_id:'global',code:code,nom:nom,categorie:categorie,sous_categorie:sousCategorie,actif:true}));
     if(lines.length){
       sbCheck(await db.from('recettes').insert(lines.map(function(l){return {restaurant_id:'global',produit_vendu_code:code,ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};})));
     }
