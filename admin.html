@@ -9115,47 +9115,78 @@ function openPrixRevientDetailModal(code){
   document.getElementById('mprixdetail').classList.add('op');
 }
 
-// ── Prix de vente (carte publique) pour calculer le ratio coût/prix de vente dans "Prix de revient" ──
-// Lit le même fichier menudata.json que le site public (index.html/emporter.html), via le même Worker.
-var rctMenuPrices=null; // liste [{nom,price,priceEmporter}], mise en cache le temps de la session
+// ── Prix de vente (carte publique) : lecture ET édition depuis "Prix de revient" ──
+// Lit/écrit le même fichier menudata.json que le site public (index.html/emporter.html), via le même Worker.
+var rctMenuData=null; // {items:[...références réelles des objets plat...], sha:"..."}
 var rctMenuPricesLoading=null;
+async function fetchMenuDataRaw(){
+  var res=await fetch(BL_PROXY_URL+'?file=menudata.json');
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  var wrapper=await res.json(); // réponse de l'API GitHub : {content:"<base64>", sha:"...", ...}, pas le JSON brut
+  if(!wrapper||!wrapper.content)throw new Error('réponse inattendue du proxy (pas de champ content)');
+  var b64=wrapper.content.replace(/\n/g,'');
+  var binStr=atob(b64);
+  var bytes=new Uint8Array(binStr.length);
+  for(var bi=0;bi<binStr.length;bi++)bytes[bi]=binStr.charCodeAt(bi);
+  var jsonStr=new TextDecoder('utf-8').decode(bytes);
+  return {json:JSON.parse(jsonStr),sha:wrapper.sha};
+}
 async function loadMenuPricesFromSite(){
-  if(rctMenuPrices)return rctMenuPrices; // déjà en cache
+  if(rctMenuData)return rctMenuData; // déjà en cache
   if(rctMenuPricesLoading)return rctMenuPricesLoading; // chargement déjà en cours
   rctMenuPricesLoading=(async function(){
     try{
-      var res=await fetch(BL_PROXY_URL+'?file=menudata.json');
-      if(!res.ok)throw new Error('HTTP '+res.status);
-      var wrapper=await res.json(); // réponse de l'API GitHub : {content:"<base64>", ...}, pas le JSON brut
-      if(!wrapper||!wrapper.content)throw new Error('réponse inattendue du proxy (pas de champ content)');
-      var b64=wrapper.content.replace(/\n/g,'');
-      var binStr=atob(b64);
-      var bytes=new Uint8Array(binStr.length);
-      for(var bi=0;bi<binStr.length;bi++)bytes[bi]=binStr.charCodeAt(bi);
-      var jsonStr=new TextDecoder('utf-8').decode(bytes);
-      var data=JSON.parse(jsonStr);
-      var items=(data&&data.items)||[];
-      rctMenuPrices=items.map(function(it){
-        return {nom:(it.name&&(it.name.fr||it.name))||'',price:it.price||null,priceEmporter:it.priceEmporter||null,priceVariants:it.priceVariants||null};
-      });
-    }catch(e){console.error('loadMenuPricesFromSite',e);rctMenuPrices=[];}
+      var r=await fetchMenuDataRaw();
+      r.json.items=r.json.items||[];
+      rctMenuData=r;
+    }catch(e){console.error('loadMenuPricesFromSite',e);rctMenuData={json:{items:[]},sha:null};}
     rctMenuPricesLoading=null;
-    return rctMenuPrices;
+    return rctMenuData;
   })();
   return rctMenuPricesLoading;
 }
+// Écrit le fichier menudata.json avec les modifications faites en mémoire. Re-télécharge un sha frais
+// juste avant (plutôt que de réutiliser celui du chargement initial) pour limiter le risque de conflit
+// si la carte a été modifiée entre-temps depuis index.html.
+var rctMenuDirtyNames={}; // noms des produits modifiés localement depuis "Prix de revient", à resynchroniser à l'enregistrement
+async function saveMenuData(){
+  var fresh=await fetchMenuDataRaw();
+  var dirtyNames=Object.keys(rctMenuDirtyNames);
+  (rctMenuData.json.items||[]).forEach(function(localIt){
+    var nom=(localIt.name&&(localIt.name.fr||localIt.name))||'';
+    if(dirtyNames.indexOf(nom)<0)return; // on ne touche qu'aux produits réellement modifiés ici
+    var freshIt=(fresh.json.items||[]).find(function(x){return ((x.name&&(x.name.fr||x.name))||'')===nom;});
+    if(freshIt){
+      freshIt.price=localIt.price;
+      freshIt.priceEmporter=localIt.priceEmporter;
+      freshIt.tva=localIt.tva;
+    }
+  });
+  var contentStr=JSON.stringify(fresh.json,null,2);
+  var contentB64=btoa(unescape(encodeURIComponent(contentStr)));
+  var res=await fetch(BL_PROXY_URL+'?file=menudata.json',{
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({message:'Mise à jour prix/TVA depuis admin.html',content:contentB64,sha:fresh.sha})
+  });
+  if(!res.ok){var t=await res.text();throw new Error('HTTP '+res.status+' '+t.slice(0,200));}
+  rctMenuData=fresh; // resynchronise le cache local (et son nouveau sha) avec ce qui vient d'être écrit
+  rctMenuDirtyNames={};
+}
 function parsePrixVente(str){
-  if(!str)return null;
-  var n=parseFloat(String(str).replace(',','.').replace(/[^\d.]/g,''));
+  if(str==null||str==='')return null;
+  var n=parseFloat(String(str).replace(',','.').replace(/[^\d.-]/g,''));
   return isFinite(n)?n:null;
 }
-// Trouve le prix de vente correspondant à un produit de la carte admin, par correspondance de nom
-// (les deux systèmes — admin.html/Supabase et le site public/menudata.json — ne partagent pas d'identifiant commun).
+// Trouve l'item de menu (référence réelle, éditable) correspondant à un produit de la carte admin, par
+// correspondance de nom (les deux systèmes ne partagent pas d'identifiant commun).
 function findMenuPriceFor(nomProduit){
-  if(!rctMenuPrices||!rctMenuPrices.length)return null;
+  var items=(rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[];
+  if(!items.length)return null;
   var best=null,bestScore=-1;
-  rctMenuPrices.forEach(function(it){
-    var sc=matchScore(nomProduit,it.nom);
+  items.forEach(function(it){
+    var nom=(it.name&&(it.name.fr||it.name))||'';
+    var sc=matchScore(nomProduit,nom);
     if(sc>bestScore){bestScore=sc;best=it;}
   });
   return (best&&bestScore>=60)?best:null;
@@ -9176,7 +9207,15 @@ function renderPrixRevientList(){
   sortedOngletNames(byOnglet).forEach(function(ong){
     html+=ongletHeaderHtml(ong);
     sortedCatNames(byOnglet[ong]).forEach(function(cat){
-      html+='<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;margin:14px 0 4px;">'+esc(cat)+'</div>';
+      var allCodesInCat=[];
+      Object.keys(byOnglet[ong][cat]).forEach(function(sub){byOnglet[ong][cat][sub].forEach(function(p){allCodesInCat.push(p.code);});});
+      html+='<div style="display:flex;align-items:center;gap:6px;margin:14px 0 4px;">'
+        +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;flex:1;">'+esc(cat)+'</div>'
+        +'<span style="font-size:9px;color:var(--txm);">TVA catégorie</span>'
+        +'<select class="fi" style="font-size:10px;padding:2px;width:auto;" onchange="if(this.value)applyTvaToCategory(\''+allCodesInCat.join(',')+'\',this.value);this.selectedIndex=0;">'
+        +'<option value="">Régler…</option><option value="5.5">5,5%</option><option value="10">10%</option><option value="20">20%</option>'
+        +'</select>'
+        +'</div>';
       sortedSubNames(cat,byOnglet[ong][cat]).forEach(function(sub){
         if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:8px 0 4px 8px;">↳ '+esc(sub)+'</div>';
         byOnglet[ong][cat][sub].forEach(function(p){
@@ -9188,15 +9227,27 @@ function renderPrixRevientList(){
           if(r.total!=null&&menu){
             var pvSurPlace=parsePrixVente(menu.price);
             var pvEmporterRaw=parsePrixVente(menu.priceEmporter);
-            var parts=[];
-            if(pvSurPlace)parts.push('🍽️ '+pvSurPlace.toFixed(2)+'€ · coef '+((pvSurPlace/1.1)/r.total).toFixed(2));
-            if(pvEmporterRaw)parts.push('🥡 '+pvEmporterRaw.toFixed(2)+'€ · coef '+((pvEmporterRaw/1.1)/r.total).toFixed(2));
-            else parts.push('🥡 <span style="color:#B45309;">non renseigné sur la carte</span>');
-            if(parts.length)venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">'+parts.join(' &nbsp;|&nbsp; ')+'</div>';
+            var tva=menu.tva!=null?menu.tva:10;
+            var coefSurPlace=pvSurPlace?((pvSurPlace/(1+tva/100))/r.total).toFixed(2):null;
+            var coefEmporter=pvEmporterRaw?((pvEmporterRaw/(1+tva/100))/r.total).toFixed(2):null;
+            venteHtml='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px;" onclick="event.stopPropagation()">'
+              +'<span style="font-size:10px;">🍽️</span>'
+              +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvSurPlace!=null?pvSurPlace:'')+'" placeholder="prix" onchange="updateMenuPrice(\''+p.code+'\',\'price\',this.value)">'
+              +'<span style="font-size:9px;color:var(--txm);">€'+(coefSurPlace?' · coef '+coefSurPlace:'')+'</span>'
+              +'<span style="font-size:10px;">🥡</span>'
+              +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvEmporterRaw!=null?pvEmporterRaw:'')+'" placeholder="idem" onchange="updateMenuPrice(\''+p.code+'\',\'priceEmporter\',this.value)">'
+              +'<span style="font-size:9px;color:var(--txm);">€'+(coefEmporter?' · coef '+coefEmporter:'')+'</span>'
+              +'<span style="font-size:9px;color:var(--txm);">TVA</span>'
+              +'<select class="fi" style="font-size:10px;width:auto;padding:1px 3px;" onchange="updateMenuPrice(\''+p.code+'\',\'tva\',this.value)">'
+                +'<option value="5.5"'+(tva===5.5?' selected':'')+'>5,5%</option>'
+                +'<option value="10"'+(tva===10?' selected':'')+'>10%</option>'
+                +'<option value="20"'+(tva===20?' selected':'')+'>20%</option>'
+              +'</select>'
+              +'</div>';
           }else if(r.total!=null&&!menu){
             venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">Prix de vente non trouvé sur la carte (nom différent ?)</div>';
           }
-          html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';cursor:pointer;" onclick="openPrixRevientDetailModal(\''+p.code+'\')">'
+          html+='<div class="card" style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';cursor:pointer;" onclick="openPrixRevientDetailModal(\''+p.code+'\')">'
             +'<div style="flex:1;">'
             +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(p.nom)+'</div>'
             +(hasWarn?'<div style="font-size:10px;color:#C0392B;line-height:1.4;">⚠️ '+esc(r.warnings.join(' · '))+'</div>':'')
@@ -9209,6 +9260,39 @@ function renderPrixRevientList(){
     });
   });
   container.innerHTML=html;
+}
+// Met à jour le prix (sur place/emporter) ou la TVA d'un produit directement depuis "Prix de revient",
+// et l'enregistre sur la carte publique (menudata.json).
+async function updateMenuPrice(prodCode,field,value){
+  var p=rctProduitsVendus.find(function(x){return x.code===prodCode;});
+  if(!p)return;
+  var item=findMenuPriceFor(p.nom);
+  if(!item){alert('Produit introuvable sur la carte publique — impossible d\'enregistrer.');return;}
+  if(field==='tva')item.tva=value===''?null:parseFloat(value);
+  else item[field]=value===''?'':(String(value).replace('€','').trim()+'€');
+  rctMenuDirtyNames[(item.name&&(item.name.fr||item.name))||'']=true;
+  try{
+    await saveMenuData();
+    renderPrixRevientList();
+  }catch(e){console.error('updateMenuPrice',e);alert('Erreur lors de l\'enregistrement sur la carte : '+e.message);}
+}
+// Applique un taux de TVA à tous les produits d'une catégorie en une fois.
+async function applyTvaToCategory(codesCsv,tva){
+  await loadMenuPricesFromSite();
+  var codes=codesCsv.split(',');
+  var changed=0;
+  codes.forEach(function(code){
+    var p=rctProduitsVendus.find(function(x){return x.code===code;});
+    if(!p)return;
+    var item=findMenuPriceFor(p.nom);
+    if(item){item.tva=parseFloat(tva);changed++;rctMenuDirtyNames[(item.name&&(item.name.fr||item.name))||'']=true;}
+  });
+  if(!changed){alert('Aucun produit de cette catégorie trouvé sur la carte publique.');return;}
+  try{
+    await saveMenuData();
+    alert('✅ TVA à '+tva+'% appliquée à '+changed+' produit(s) de cette catégorie.');
+    renderPrixRevientList();
+  }catch(e){console.error('applyTvaToCategory',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
 // ══════════════════════════════════════════════════════════════════════════
