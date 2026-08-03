@@ -911,16 +911,22 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
-<!-- Modal création produit caisse, avec lien stock -->
+<!-- Modal création produit caisse, avec recette complète intégrée -->
 <div class="mb" id="caissecreatemodal">
-  <div class="md" style="max-width:420px;">
+  <div class="md" style="max-width:460px;">
     <div class="mdt" id="caissecreatemodal-title">Créer un produit</div>
     <div class="fr"><label class="fl2">Nom du produit</label><input type="text" class="fi" id="caissecreatemodal-nom"></div>
-    <div id="caissecreatemodal-resto-note" style="font-size:11px;color:var(--txm);margin:6px 0;"></div>
-    <div id="caissecreatemodal-stock" style="max-height:220px;overflow:auto;margin:8px 0;"></div>
-    <div class="ma" style="flex-wrap:wrap;">
+    <div style="font-size:11px;color:var(--txm);margin:6px 0;">Construis la recette (ingrédients + quantités) — elle sera enregistrée en même temps que le produit.</div>
+    <div id="caissecreatemodal-lines"></div>
+    <button class="btn bs sm" onclick="caisseAddRecetteLine()" style="width:100%;margin-top:6px;">+ Ajouter un ingrédient (ligne vide)</button>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bd);">
+      <input type="text" class="fi" id="caissecreatemodal-search" placeholder="🔍 Rechercher des ingrédients à ajouter…" oninput="caisseRenderSearchResults()" style="width:100%;margin-bottom:8px;">
+      <div id="caissecreatemodal-search-results" style="max-height:200px;overflow-y:auto;"></div>
+    </div>
+    <div class="ma" style="flex-wrap:wrap;margin-top:14px;">
       <button class="btn bs" onclick="closeM('caissecreatemodal')">Annuler</button>
-      <button class="btn bs" onclick="caisseFinalizeCreate(null)">Produit complexe (pas de lien, je fais la recette dans Recettes)</button>
+      <button class="btn bs" onclick="caisseFinalizeCreate(true)">Produit complexe (sans recette, je la fais plus tard dans Recettes)</button>
+      <button class="btn bp" onclick="caisseFinalizeCreate(false)">Créer + enregistrer la recette</button>
     </div>
   </div>
 </div>
@@ -5884,55 +5890,122 @@ async function caisseOpenCreer(hiboutikProductId){
   var m=caisseMapping.find(function(x){return x.hiboutik_product_id===hiboutikProductId;});
   document.getElementById('caissecreatemodal-title').textContent='Créer — '+(m?m.hiboutik_nom:'');
   document.getElementById('caissecreatemodal-nom').value=m?m.hiboutik_nom:'';
-  var note=document.getElementById('caissecreatemodal-resto-note');
-  note.textContent='Réutilise un ingrédient existant si possible, sinon un nouveau sera créé dans Ingrédients.';
-  caisseRenderStockSuggestions(m?m.hiboutik_nom:'');
+  document.getElementById('caissecreatemodal-search').value='';
+  document.getElementById('caissecreatemodal-search-results').innerHTML='';
+  // Pré-remplit une ligne avec le meilleur ingrédient trouvé par ressemblance de nom (si assez proche), sinon ligne vide.
+  var best=rctIngredients
+    .map(function(p){return {p:p,score:matchScore(m?m.hiboutik_nom:'',p.nom)};})
+    .filter(function(x){return x.score>=25;})
+    .sort(function(a,b){return b.score-a.score;})[0];
+  caisseRenderRecetteLines(best?[{ingredient_code:best.p.code,quantite:1,unite:best.p.unite_defaut||'piece'}]:[]);
   document.getElementById('caissecreatemodal').classList.add('op');
 }
-function caisseRenderStockSuggestions(nom){
-  var box=document.getElementById('caissecreatemodal-stock');
-  var suggestions=rctIngredients
-    .map(function(p){return {p:p,score:matchScore(nom,p.nom)};})
-    .filter(function(x){return x.score>=25;})
-    .sort(function(a,b){return b.score-a.score;})
-    .slice(0,6);
-  var html='';
-  if(suggestions.length){
-    html+='<div style="font-size:11px;color:var(--txm);margin-bottom:6px;">💡 Ingrédients existants suggérés (tape pour réutiliser) :</div>';
-    html+=suggestions.map(function(x){
-      return '<div onclick="caisseFinalizeCreate(\''+x.p.code+'\')" style="padding:8px 6px;border-bottom:1px solid var(--bd);cursor:pointer;font-size:13px;background:#FFF7E6;">'+esc(x.p.nom)+'</div>';
-    }).join('');
+function caisseRenderRecetteLines(lines){
+  var opts=ingredientOptionsHtml();
+  var html=lines.map(function(l,idx){
+    return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
+      +'<select class="fi ccm-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
+      +'<input type="number" class="fi ccm-qty" style="flex:1;" placeholder="Qté" step="0.1">'
+      +'<select class="fi ccm-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
+      +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>'
+      +'</div>';
+  }).join('');
+  document.getElementById('caissecreatemodal-lines').innerHTML=html;
+  var rows=document.querySelectorAll('#caissecreatemodal-lines [data-idx]');
+  rows.forEach(function(row,idx){
+    var l=lines[idx];
+    if(!l)return;
+    row.querySelector('.ccm-ing').value=l.ingredient_code||'';
+    row.querySelector('.ccm-qty').value=l.quantite!=null?l.quantite:'';
+    row.querySelector('.ccm-unit').value=l.unite||'g';
+  });
+}
+function caisseAddRecetteLine(){
+  caisseAddRecetteLineWithIngredient('');
+}
+function caisseAddRecetteLineWithIngredient(ingredientCode){
+  var container=document.getElementById('caissecreatemodal-lines');
+  var idx=container.querySelectorAll('[data-idx]').length;
+  var opts=ingredientOptionsHtml();
+  var div=document.createElement('div');
+  div.className='fr';
+  div.setAttribute('data-idx',idx);
+  div.style.cssText='display:flex;gap:6px;align-items:center;';
+  div.innerHTML='<select class="fi ccm-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
+    +'<input type="number" class="fi ccm-qty" style="flex:1;" placeholder="Qté" step="0.1">'
+    +'<select class="fi ccm-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
+    +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>';
+  container.appendChild(div);
+  if(ingredientCode){
+    var ingSel=div.querySelector('.ccm-ing');
+    ingSel.value=ingredientCode;
+    applyDefaultUnitToRow(ingSel);
   }
-  html+='<div style="font-size:11px;color:var(--txm);margin:8px 0 4px;">Ou cherche dans tous les ingrédients :</div>'
-    +'<input type="text" class="fi" oninput="caisseFilterStockSearch(this.value)" placeholder="Tape un nom..." style="margin-bottom:6px;">'
-    +'<div id="caissecreatemodal-stock-results"></div>'
-    +'<button class="btn bs sm" onclick="caisseFinalizeCreate()" style="margin-top:8px;">+ Créer un nouvel ingrédient (aucun de la liste ne convient)</button>';
-  box.innerHTML=html;
 }
-function caisseFilterStockSearch(q){
-  var nq=caisseNormalize(q);
-  var box=document.getElementById('caissecreatemodal-stock-results');
-  var filtered=rctIngredients.filter(function(p){return caisseNormalize(p.nom).includes(nq);});
-  if(!nq){box.innerHTML='';return;}
-  box.innerHTML=filtered.slice(0,50).map(function(p){
-    return '<div onclick="caisseFinalizeCreate(\''+p.code+'\')" style="padding:8px 6px;border-bottom:1px solid var(--bd);cursor:pointer;font-size:13px;">'+esc(p.nom)+'</div>';
-  }).join('')||'<div style="color:var(--txm);font-size:12px;padding:6px;">Aucun résultat.</div>';
+function caisseRenderSearchResults(){
+  var searchEl=document.getElementById('caissecreatemodal-search');
+  var resultsEl=document.getElementById('caissecreatemodal-search-results');
+  if(!searchEl||!resultsEl)return;
+  var q=(searchEl.value||'').trim();
+  if(!q){resultsEl.innerHTML='';return;}
+  var qn=normText(q);
+  var currentCodes={};
+  document.querySelectorAll('#caissecreatemodal-lines .ccm-ing').forEach(function(sel){if(sel.value)currentCodes[sel.value]=true;});
+  var actifs=rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini';});
+  var matches=actifs.filter(function(i){return normText(i.nom).indexOf(qn)>=0;}).slice(0,30);
+  var fuzzyNote='';
+  if(!matches.length){
+    var scored=actifs.map(function(i){
+      var words=normText(i.nom).split(' ');
+      var best=Math.min.apply(null,words.map(function(w){return levenshtein(qn,w);}).concat([levenshtein(qn,normText(i.nom))]));
+      return {i:i,dist:best};
+    }).filter(function(x){return x.dist<=Math.max(1,Math.ceil(qn.length/3));})
+      .sort(function(a,b){return a.dist-b.dist;});
+    matches=scored.slice(0,10).map(function(x){return x.i;});
+    if(matches.length)fuzzyNote='<div style="font-size:10px;color:var(--txm);padding:4px;">Aucune correspondance exacte — suggestions proches :</div>';
+  }
+  if(!matches.length){resultsEl.innerHTML='<div style="font-size:11px;color:var(--txm);padding:6px;">Aucun résultat.</div>';return;}
+  resultsEl.innerHTML=fuzzyNote+matches.map(function(i){
+    var checked=currentCodes[i.code]?' checked':'';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12px;cursor:pointer;">'
+      +'<input type="checkbox" class="ccm-search-check" value="'+i.code+'" onchange="caisseToggleIngredientInRecette(this)"'+checked+'> '+esc(i.nom)
+      +' <span style="color:var(--txm);font-size:10px;">('+esc(i.categorie||'Autres')+')</span>'
+      +'</label>';
+  }).join('');
 }
-async function caisseFinalizeCreate(existingIngredientCode){
+function caisseToggleIngredientInRecette(checkbox){
+  var code=checkbox.value;
+  if(checkbox.checked){
+    var already=false;
+    document.querySelectorAll('#caissecreatemodal-lines .ccm-ing').forEach(function(sel){if(sel.value===code)already=true;});
+    if(!already)caisseAddRecetteLineWithIngredient(code);
+  }else{
+    document.querySelectorAll('#caissecreatemodal-lines [data-idx]').forEach(function(row){
+      if(row.querySelector('.ccm-ing').value===code)row.remove();
+    });
+  }
+}
+async function caisseFinalizeCreate(sansRecette){
   var hiboutikProductId=caisseCurrentRow;
   if(!hiboutikProductId)return;
   var nom=(document.getElementById('caissecreatemodal-nom').value||'').trim();
   if(!nom){alert('Indique un nom.');return;}
+  var lines=[];
+  if(!sansRecette){
+    document.querySelectorAll('#caissecreatemodal-lines [data-idx]').forEach(function(row){
+      var ing=row.querySelector('.ccm-ing').value;
+      var qty=parseFloat(row.querySelector('.ccm-qty').value);
+      var unit=row.querySelector('.ccm-unit').value;
+      if(ing&&qty>0)lines.push({ingredient_code:ing,quantite:qty,unite:unit});
+    });
+    if(!lines.length){alert('Ajoute au moins un ingrédient avec une quantité, ou utilise "Produit complexe" pour créer sans recette.');return;}
+  }
   var code='pv_'+Date.now().toString(36);
   try{
     sbCheck(await db.from('produits_vendus').insert({restaurant_id:'global',code:code,nom:nom,actif:true}));
-    var ingCode=existingIngredientCode;
-    if(!ingCode){
-      ingCode=slugify(nom)||('ing_'+Date.now().toString(36));
-      sbCheck(await db.from('ingredients').upsert([{restaurant_id:'global',code:ingCode,nom:nom,actif:true,nature:'fini'}],{onConflict:'restaurant_id,code'}));
-      rctIngredients.push({restaurant_id:'global',code:ingCode,nom:nom,actif:true,nature:'fini'});
+    if(lines.length){
+      sbCheck(await db.from('recettes').insert(lines.map(function(l){return {restaurant_id:'global',produit_vendu_code:code,ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};})));
     }
-    sbCheck(await db.from('recettes').insert({restaurant_id:'global',produit_vendu_code:code,ingredient_code:ingCode,quantite:1,unite:'piece'}));
     sbCheck(await db.from('hiboutik_mapping').update({produit_vendu_code:code,confirmed:true,ignore:false}).eq('hiboutik_product_id',hiboutikProductId));
   }catch(e){alert('Erreur : '+e.message);return;}
   closeM('caissecreatemodal');
