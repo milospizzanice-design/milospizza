@@ -552,8 +552,17 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
     <!-- Sous-onglet: import CSV caisse -->
     <div id="rct-pane-import" style="display:none;">
+      <div class="card" style="background:#ECFDF5;margin-bottom:10px;">
+        <div class="mdt" style="font-size:14px;margin-bottom:6px;">🔄 Synchroniser Hiboutik</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Récupère automatiquement les ventes depuis la caisse Hiboutik pour la période choisie (sur place/à emporter distingués). Les nouveaux produits jamais vus sont à rattacher une fois dans l'onglet Caisse avant d'apparaître dans les calculs.</div>
+        <div class="fr"><label class="fl2">N° de magasin Hiboutik (store_id)</label><input type="number" class="fi" id="rct-hib-store" placeholder="Ex: 1"></div>
+        <div class="fr"><label class="fl2">Début de période</label><input type="date" class="fi" id="rct-hib-debut"></div>
+        <div class="fr"><label class="fl2">Fin de période</label><input type="date" class="fi" id="rct-hib-fin"></div>
+        <button class="btn bp" onclick="syncHiboutikVentes()" id="rct-hib-btn" style="width:100%;">Synchroniser cette période</button>
+        <div id="rct-hib-status" style="font-size:11px;color:var(--txm);margin-top:8px;"></div>
+      </div>
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Exporte depuis la caisse la liste des articles vendus sur une période, puis importe le fichier ici. Le fichier n'a pas de date : indique la période correspondant à l'export choisi.
+        Ou, sans passer par Hiboutik : exporte depuis la caisse la liste des articles vendus sur une période, puis importe le fichier ici. Le fichier n'a pas de date : indique la période correspondant à l'export choisi.
       </div>
       <div class="card">
         <div class="fr"><label class="fl2">Début de période</label><input type="date" class="fi" id="rct-imp-debut"></div>
@@ -1147,6 +1156,11 @@ var BL_PROXY_URL='https://milos-github-proxy.milospizza-nice.workers.dev';
 // Doit être IDENTIQUE à la valeur du secret Cloudflare EXTRACT_INVOICE_SECRET (voir worker.js).
 // Remplace 'CHANGE-MOI' par la chaîne aléatoire que tu as choisie et enregistrée sur Cloudflare.
 var BL_ADMIN_SECRET='mlhd75538hggv092hhveli86l08vcxw';
+// Worker de synchronisation des ventes Hiboutik (fichier séparé hiboutik-sync-worker.js) —
+// remplace par l'URL réelle une fois ce Worker déployé, et par la même valeur que le secret
+// SYNC_SECRET configuré dessus.
+var HIB_SYNC_URL='https://hiboutik-sync.milospizza-nice.workers.dev';
+var HIB_SYNC_SECRET='hib_9k2mQx7vLpR4tZnW8cJyF3dHbA6sVeXo';
 var emps=[],pts=[],abs=[],curSal=null;
 var pwStart=monOf(new Date());
 
@@ -7180,7 +7194,21 @@ function parseVentesCsv(text){
     byCode[code].quantite+=qty;
     byCode[code].ca_ttc+=ttc;
   }
-  return Object.keys(byCode).map(function(k){return byCode[k];}).sort(function(a,b){return b.quantite-a.quantite;});
+  var list=Object.keys(byCode).map(function(k){return byCode[k];});
+  // Rapprochement flou avec les produits déjà existants dans la carte admin : le nom exporté par la caisse
+  // ne correspond pas toujours exactement (accents, majuscules, abréviations...) à celui de la fiche produit,
+  // ce qui créait silencieusement des doublons sans recette et faussait tout le calcul de consommation.
+  list.forEach(function(r){
+    var best=null,bestScore=-1;
+    rctProduitsVendus.forEach(function(p){
+      var sc=matchScore(r.nom,p.nom);
+      if(sc>bestScore){bestScore=sc;best=p;}
+    });
+    r.matchedCode=(best&&bestScore>=70)?best.code:null;
+    r.matchScore=bestScore<0?0:bestScore;
+    r.matchedNom=best?best.nom:null;
+  });
+  return list.sort(function(a,b){return b.quantite-a.quantite;});
 }
 
 function previewVentesImport(){
@@ -7203,28 +7231,39 @@ function previewVentesImport(){
   reader.readAsText(file,'UTF-8');
 }
 
+function ventesImportProdOptions(selectedCode){
+  var opts='<option value=""'+(!selectedCode?' selected':'')+'>➕ Nouveau produit</option>';
+  rctProduitsVendus.slice().sort(function(a,b){return a.nom.localeCompare(b.nom);}).forEach(function(p){
+    opts+='<option value="'+p.code+'"'+(p.code===selectedCode?' selected':'')+'>'+esc(p.nom)+'</option>';
+  });
+  return opts;
+}
 function renderVentesPreview(){
   if(!rctPendingImport){document.getElementById('rct-imp-preview').innerHTML='';return;}
-  var existingCodes={};
-  rctProduitsVendus.forEach(function(p){existingCodes[p.code]=true;});
-  var totalQty=0,totalTTC=0,newCount=0;
-  var rowsHtml=rctPendingImport.rows.map(function(r){
+  var totalQty=0,totalTTC=0,newCount=0,ambiguousCount=0;
+  var rowsHtml=rctPendingImport.rows.map(function(r,i){
     totalQty+=r.quantite;totalTTC+=r.ca_ttc;
-    var isNew=!existingCodes[r.code];
+    var isNew=!r.matchedCode;
+    var ambiguous=!isNew&&r.matchScore<90;
     if(isNew)newCount++;
-    return '<tr>'
-      +'<td style="padding:4px 6px;font-size:12px;">'+esc(r.nom)+(isNew?' <span style="color:#2980B9;font-size:10px;">(nouveau)</span>':'')+'</td>'
-      +'<td style="padding:4px 6px;font-size:12px;color:var(--txm);">'+esc(r.categorie)+'</td>'
-      +'<td style="padding:4px 6px;font-size:12px;text-align:right;">'+r.quantite+'</td>'
-      +'<td style="padding:4px 6px;font-size:12px;text-align:right;">'+r.ca_ttc.toFixed(2)+' €</td>'
+    if(ambiguous)ambiguousCount++;
+    return '<tr'+(ambiguous?' style="background:#FFF9EC;"':'')+'>'
+      +'<td style="padding:4px 6px;font-size:12px;">'+esc(r.nom)+'<div style="font-size:10px;color:var(--txm);">'+esc(r.categorie)+'</div></td>'
+      +'<td style="padding:4px 6px;font-size:11px;text-align:right;">'+r.quantite+'</td>'
+      +'<td style="padding:4px 6px;font-size:11px;text-align:right;">'+r.ca_ttc.toFixed(2)+' €</td>'
+      +'<td style="padding:4px 6px;"><select class="fi" style="font-size:11px;min-width:150px;" onchange="rctPendingImport.rows['+i+'].matchedCode=this.value||null;renderVentesPreview();">'
+        +ventesImportProdOptions(r.matchedCode)
+      +'</select>'
+      +(ambiguous?'<div style="font-size:9px;color:#92400E;">🟠 correspondance incertaine, vérifie</div>':'')
+      +'</td>'
       +'</tr>';
   }).join('');
   var html='<div class="card">'
-    +'<div style="font-size:12px;color:var(--txm);margin-bottom:8px;">Période du '+rctPendingImport.debut+' au '+rctPendingImport.fin+' — '+rctPendingImport.rows.length+' produits, '+totalQty+' unités vendues, '+totalTTC.toFixed(2)+' € TTC'+(newCount?' — '+newCount+' nouveau(x) produit(s) seront créés':'')+'.</div>'
-    +'<div style="max-height:320px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">'
-    +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:4px 6px;">Produit</th><th style="padding:4px 6px;">Catégorie</th><th style="padding:4px 6px;text-align:right;">Qté</th><th style="padding:4px 6px;text-align:right;">CA TTC</th></tr></thead>'
+    +'<div style="font-size:12px;color:var(--txm);margin-bottom:8px;">Période du '+rctPendingImport.debut+' au '+rctPendingImport.fin+' — '+rctPendingImport.rows.length+' produits, '+totalQty+' unités vendues, '+totalTTC.toFixed(2)+' € TTC'+(newCount?' — '+newCount+' nouveau(x) produit(s) seront créés':'')+(ambiguousCount?' — 🟠 '+ambiguousCount+' correspondance(s) incertaine(s) à vérifier ci-dessous':'')+'.</div>'
+    +'<div style="max-height:360px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">'
+    +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:4px 6px;">Produit caisse</th><th style="padding:4px 6px;text-align:right;">Qté</th><th style="padding:4px 6px;text-align:right;">CA TTC</th><th style="padding:4px 6px;">Correspond à</th></tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table></div>'
-    +'<div style="font-size:11px;color:var(--txm);margin:10px 0;">⚠️ Si un import existe déjà pour cette période exacte, il sera remplacé par celui-ci.</div>'
+    +'<div style="font-size:11px;color:var(--txm);margin:10px 0;">⚠️ Si un import existe déjà pour cette période exacte, il sera remplacé par celui-ci. Vérifie surtout les lignes 🟠 : une mauvaise correspondance fausse le calcul de consommation théorique.</div>'
     +'<button class="btn bp" onclick="confirmVentesImport()" style="width:100%;">Confirmer l\'import</button>'
     +'</div>';
   document.getElementById('rct-imp-preview').innerHTML=html;
@@ -7264,6 +7303,33 @@ async function calculerConsommationTheorique(){
     resultEl.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur : '+esc(e.message)+'</div>';
   }
 }
+async function syncHiboutikVentes(){
+  var storeId=document.getElementById('rct-hib-store').value;
+  var debut=document.getElementById('rct-hib-debut').value;
+  var fin=document.getElementById('rct-hib-fin').value;
+  var statusEl=document.getElementById('rct-hib-status');
+  var btn=document.getElementById('rct-hib-btn');
+  if(!storeId||!debut||!fin){alert('Renseigne le n° de magasin et la période.');return;}
+  var resto=rctResto();
+  if(resto!=='port'&&resto!=='dabray'){alert('Sélectionne Port ou Dabray en haut de page avant de synchroniser.');return;}
+  btn.disabled=true;
+  statusEl.textContent='⏳ Synchronisation en cours… ça peut prendre 1-2 minutes selon le nombre de ventes.';
+  try{
+    var res=await fetch(HIB_SYNC_URL+'/sync-hiboutik-sales',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Sync-Secret':HIB_SYNC_SECRET},
+      body:JSON.stringify({store_id:parseInt(storeId,10),restaurant_id:resto,date_debut:debut,date_fin:fin})
+    });
+    var data=await res.json();
+    if(!res.ok||data.error)throw new Error(data.error||('HTTP '+res.status));
+    statusEl.innerHTML='✅ '+data.ventes_traitees+' ventes traitées sur '+data.jours_analyses+' jour(s) — '+data.lignes_ventes_ecrites+' ligne(s) de vente enregistrée(s).'
+      +(data.nouveaux_produits_a_rattacher?'<br>⚠️ '+data.nouveaux_produits_a_rattacher+' nouveau(x) produit(s) Hiboutik jamais vus — va dans l\'onglet <strong>Caisse</strong> pour les rattacher à une fiche recette, puis relance cette synchro pour qu\'ils soient pris en compte.':'')
+      +(data.produits_non_rattaches_ignores?'<br>ℹ️ '+data.produits_non_rattaches_ignores+' produit(s) vendu(s) ignoré(s) car pas encore rattachés dans Caisse.':'');
+  }catch(e){
+    console.error('syncHiboutikVentes',e);
+    statusEl.innerHTML='<span style="color:#C0392B;">❌ Erreur : '+esc(e.message)+'</span>';
+  }finally{btn.disabled=false;}
+}
 async function confirmVentesImport(){
   if(!rctPendingImport)return;
   var resto=rctResto();
@@ -7271,12 +7337,14 @@ async function confirmVentesImport(){
   try{
     var existingCodes={};
     rctProduitsVendus.forEach(function(p){existingCodes[p.code]=true;});
-    var toCreate=rows.filter(function(r){return !existingCodes[r.code];})
+    // On ne crée un nouveau produit que pour les lignes où aucune correspondance n'a été choisie —
+    // toutes les autres se rattachent au code du produit existant sélectionné/validé dans l'aperçu.
+    var toCreate=rows.filter(function(r){return !r.matchedCode&&!existingCodes[r.code];})
       .map(function(r){return {restaurant_id:RCT_GLOBAL,code:r.code,nom:r.nom,categorie:r.categorie,actif:true};});
     if(toCreate.length)sbCheck(await db.from('produits_vendus').upsert(toCreate,{onConflict:'restaurant_id,code'}));
 
     sbCheck(await db.from('ventes').delete().eq('restaurant_id',resto).eq('periode_debut',debut).eq('periode_fin',fin));
-    var ventesRows=rows.map(function(r){return {restaurant_id:resto,produit_vendu_code:r.code,periode_debut:debut,periode_fin:fin,quantite:r.quantite,ca_ttc:r.ca_ttc,source:'caisse'};});
+    var ventesRows=rows.map(function(r){return {restaurant_id:resto,produit_vendu_code:r.matchedCode||r.code,periode_debut:debut,periode_fin:fin,quantite:r.quantite,ca_ttc:r.ca_ttc,source:'caisse'};});
     sbCheck(await db.from('ventes').insert(ventesRows));
 
     rctPendingImport=null;
