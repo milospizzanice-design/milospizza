@@ -473,10 +473,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         </label>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn bp sm" onclick="syncProduitsFromMenu()">🔄 Synchroniser avec le menu</button>
         <button class="btn bs sm" onclick="openNewProduitVenduModal()">+ Produit vendu manuellement</button>
         <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvel onglet</button>
         <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
       </div>
+      <div id="rct-sync-report"></div>
       <div id="rct-list-container"></div>
     </div>
 
@@ -6914,6 +6916,48 @@ async function loadRecettesModule(){
 
 // ── Helpers partagés de hiérarchie Onglet > Catégorie > Sous-catégorie ──────
 // Utilisés à la fois par Produits & recettes et par Coûts, pour garantir la même organisation.
+// Synchronise Produits & recettes sur le menu public réel : crée une fiche vide (sans recette,
+// à compléter) pour tout produit du menu qui n'a pas encore de fiche correspondante, et signale
+// les fiches existantes qui ne correspondent plus à rien sur le menu (à vérifier/archiver).
+async function syncProduitsFromMenu(){
+  var reportEl=document.getElementById('rct-sync-report');
+  if(reportEl)reportEl.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">Synchronisation en cours…</div>';
+  await loadMenuPricesFromSite();
+  var menuItems=((rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[]).filter(function(it){return !it.archived;});
+  var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
+  var toCreate=[];
+  menuItems.forEach(function(it){
+    var nom=(it.name&&(it.name.fr||it.name))||'';
+    if(!nom.trim())return;
+    var match=rctProduitsVendus.some(function(p){return matchScore(nom,p.nom)>=60;});
+    if(!match)toCreate.push(it);
+  });
+  var created=[];
+  for(var i=0;i<toCreate.length;i++){
+    var it=toCreate[i];
+    var nom=(it.name&&(it.name.fr||it.name))||'';
+    var catObj=cats.find(function(c){return c.id===it.cat;});
+    var code='pv_'+Date.now().toString(36)+'_'+i;
+    try{
+      sbCheck(await db.from('produits_vendus').insert({restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:catObj?(catObj.name.fr||catObj.name):null,sous_categorie:it.subcat||null,actif:true}));
+      var newP={restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:catObj?(catObj.name.fr||catObj.name):null,sous_categorie:it.subcat||null,actif:true};
+      rctProduitsVendus.push(newP);
+      created.push(nom);
+    }catch(e){console.error('syncProduitsFromMenu',nom,e);}
+  }
+  // Fiches existantes (actives) qui n'ont plus de correspondance sur le menu public en ligne.
+  var orphelins=rctProduitsVendus.filter(function(p){
+    if(p.actif===false)return false;
+    return !menuItems.some(function(it){var nom=(it.name&&(it.name.fr||it.name))||'';return matchScore(nom,p.nom)>=60;});
+  }).map(function(p){return p.nom;});
+  renderRecettesList();
+  var html='<div class="card" style="font-size:12px;">';
+  html+=created.length?('✅ '+created.length+' produit(s) créé(s) depuis le menu : '+esc(created.join(', '))+'<br><br>'):'✅ Rien à créer, tout est déjà présent.<br><br>';
+  html+=orphelins.length?('⚠️ '+orphelins.length+' produit(s) dans Recettes introuvable(s) sur le menu public (nom différent, ou retiré de la carte) — à vérifier :<br>'+esc(orphelins.join(', ')))
+    :'✅ Aucune fiche orpheline.';
+  html+='</div>';
+  if(reportEl)reportEl.innerHTML=html;
+}
 function ongletDeCategorie(cat){
   return (rctCategoriesOrdre[cat]&&rctCategoriesOrdre[cat].onglet)||null;
 }
