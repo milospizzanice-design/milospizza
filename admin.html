@@ -9537,23 +9537,22 @@ function renderPrixRevientList(){
     return true;
   });
   if(!list.length){container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun produit.</div>';return;}
-  var byOnglet=groupByOnglet(list,function(p){return p.categorie;},function(p){return p.sous_categorie;});
+  var byCat=groupByMenu(list,function(p){return p.nom;});
   var html='';
-  sortedOngletNames(byOnglet).forEach(function(ong){
-    html+=ongletHeaderHtml(ong);
-    sortedCatNames(byOnglet[ong]).forEach(function(cat){
-      var allCodesInCat=[];
-      Object.keys(byOnglet[ong][cat]).forEach(function(sub){byOnglet[ong][cat][sub].forEach(function(p){allCodesInCat.push(p.code);});});
-      html+='<div style="display:flex;align-items:center;gap:6px;margin:14px 0 4px;">'
-        +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;flex:1;">'+esc(cat)+'</div>'
-        +'<span style="font-size:9px;color:var(--txm);">TVA catégorie</span>'
-        +'<select class="fi" style="font-size:10px;padding:2px;width:auto;" onchange="if(this.value)applyTvaToCategory(\''+allCodesInCat.join(',')+'\',this.value);this.selectedIndex=0;">'
-        +'<option value="">Régler…</option><option value="5.5">5,5%</option><option value="10">10%</option><option value="20">20%</option>'
-        +'</select>'
-        +'</div>';
-      sortedSubNames(cat,byOnglet[ong][cat]).forEach(function(sub){
-        if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:8px 0 4px 8px;">↳ '+esc(sub)+'</div>';
-        byOnglet[ong][cat][sub].forEach(function(p){
+  sortedMenuCatNames(byCat).forEach(function(cat){
+    var allCodesInCat=[];
+    Object.keys(byCat[cat]).forEach(function(sub){byCat[cat][sub].forEach(function(p){allCodesInCat.push(p.code);});});
+    html+='<div style="display:flex;align-items:center;gap:6px;margin:22px 0 4px;padding-bottom:4px;border-bottom:2px solid var(--bx);">'
+      +'<div style="font-size:14px;font-weight:900;color:var(--bx);flex:1;">'+esc(cat)+'</div>'
+      +(cat==='Non trouvé sur le menu'?'<span style="font-size:10px;color:var(--txm);">nom trop différent de celui du menu public</span>':
+      ('<span style="font-size:9px;color:var(--txm);">TVA catégorie</span>'
+      +'<select class="fi" style="font-size:10px;padding:2px;width:auto;" onchange="if(this.value)applyTvaToCategory(\''+allCodesInCat.join(',')+'\',this.value);this.selectedIndex=0;">'
+      +'<option value="">Régler…</option><option value="5.5">5,5%</option><option value="10">10%</option><option value="20">20%</option>'
+      +'</select>'))
+      +'</div>';
+    sortedMenuSubNames(cat,byCat[cat]).forEach(function(sub){
+      if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:8px 0 4px 8px;">↳ '+esc(sub)+'</div>';
+      byCat[cat][sub].forEach(function(p){
           var r=coutRecette(p.code);
           var coutStr=r.total!=null?r.total.toFixed(2)+' €':'—';
           var hasWarn=r.warnings&&r.warnings.length;
@@ -9593,7 +9592,6 @@ function renderPrixRevientList(){
         });
       });
     });
-  });
   container.innerHTML=html;
 }
 // Met à jour le prix (sur place/emporter) ou la TVA d'un produit directement depuis "Prix de revient",
