@@ -1218,7 +1218,7 @@ function renderMenu() {
 
   // Sections
   document.getElementById('main').innerHTML = activeCats.map((c,i)=>{
-    const catItems = items.filter(it=>it.cat===c.id && !it.archived && it.dispoSurPlace!==false);
+    const catItems = items.filter(it=>it.cat===c.id && !it.archived && it.dispoSurPlace!==false && subcatVisible(c,it.subcat,'dispoSurPlace'));
     const subcats = [...new Set(catItems.map(it=>it.subcat).filter(Boolean))];
     const topItems = catItems.filter(it=>!it.subcat);
     
@@ -2344,6 +2344,22 @@ function ensureCatSubcats(cat){
   }
   return cat.subcats;
 }
+// Disponibilité par sous-catégorie : cat.subcatsDispo = { [nomSousCat]: {dispoSurPlace, dispoEmporter} }
+// Absent ou non défini = visible sur les deux (comportement par défaut inchangé).
+function subcatVisible(cat, subcatName, field){
+  if(!subcatName) return true;
+  const d = cat.subcatsDispo && cat.subcatsDispo[subcatName];
+  return !d || d[field]!==false;
+}
+function toggleSubcatDispo(catId, subcatName, field){
+  const cat = cats.find(c=>c.id===catId);
+  if(!cat) return;
+  if(!cat.subcatsDispo) cat.subcatsDispo = {};
+  if(!cat.subcatsDispo[subcatName]) cat.subcatsDispo[subcatName] = {};
+  cat.subcatsDispo[subcatName][field] = (cat.subcatsDispo[subcatName][field]===false) ? true : false;
+  renderAdminCats();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
+}
 
 function addSubcatToCategory(catId){
   const input = document.getElementById('newsubcat_for_'+catId);
@@ -2808,14 +2824,21 @@ function renderAdminCats(){
       </div>
       ${!c.archived ? `
       <div class="subcat-chip-list" style="margin-top:0.4rem;">
-        ${subcats.length ? subcats.map((sc,i)=>`
+        ${subcats.length ? subcats.map((sc,i)=>{
+          const d = c.subcatsDispo && c.subcatsDispo[sc];
+          const dispoSP = !d || d.dispoSurPlace!==false;
+          const dispoTA = !d || d.dispoEmporter!==false;
+          return `
           <span class="subcat-chip">
             <button class="subcat-chip-pos" onclick="openPositionPicker('subcat','${c.id}::${sc}')">${i+1}</button>
             <span onclick="renameSubcatPrompt('${c.id}','${sc.replace(/'/g,"\\'")}')" style="cursor:pointer;">${sc}</span>
+            <button class="subcat-chip-assign" style="opacity:${dispoSP?1:0.3};" title="🍽️ Sur place ${dispoSP?'(affichée)':'(masquée)'}" onclick="toggleSubcatDispo('${c.id}','${sc.replace(/'/g,"\\'")}','dispoSurPlace')">🍽️</button>
+            <button class="subcat-chip-assign" style="opacity:${dispoTA?1:0.3};" title="🥡 À emporter ${dispoTA?'(affichée)':'(masquée)'}" onclick="toggleSubcatDispo('${c.id}','${sc.replace(/'/g,"\\'")}','dispoEmporter')">🥡</button>
             <button class="subcat-chip-assign" onclick="openBulkAssignModal('${c.id}','${sc}')" title="Assigner des plats">👥</button>
             <button class="subcat-chip-assign" onclick="openTransferSubcat('${c.id}','${sc}')" title="Transférer vers une autre catégorie">↗️</button>
             <button class="subcat-chip-del" onclick="deleteSubcat('${c.id}','${sc}')">✕</button>
-          </span>`).join('') : ''}
+          </span>`;
+        }).join('') : ''}
       </div>` : ''}
       ${(!c.archived && isExpanded) ? `
       <div class="cat-section-label">Catégorie</div>
