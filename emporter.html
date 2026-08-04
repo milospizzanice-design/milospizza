@@ -1560,7 +1560,7 @@ function renderAdminItemsContextHeader(){
       <div class="items-context-header">
         <div class="items-context-title">${cat.name.fr}</div>
         <div class="items-context-actions">
-          <button onclick="renameCatPrompt('${cat.id}')" title="Renommer">✎</button>
+          <button onclick="openEditCatModal('${cat.id}')" title="Modifier">✎</button>
           <button onclick="openPositionPicker('cat','${cat.id}')" title="Position">↕️</button>
           <button onclick="addSubcatPrompt('${cat.id}')" title="Gérer les sous-catégories">📁+</button>
           <button onclick="openBulkAssignModal('${cat.id}',null)" title="Importer des plats existants">👥</button>
@@ -2094,6 +2094,7 @@ function saveEditCat(catId){
   cat.dispoEmporter = !!document.getElementById('ecm_dispo_emporter')?.checked;
   closeEditCatModal();
   renderNavTree();
+  renderAdminItemsContextHeader();
   autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie enregistrée':'❌ Échec'));
 }
 
