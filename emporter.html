@@ -749,6 +749,11 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
       <!-- QR CODE -->
       <div class="admin-section" id="as-qrcode">
+        <!-- Choix du canal : sur place (index.html) ou à emporter (emporter.html) -->
+        <div style="display:flex;gap:0.3rem;margin-bottom:0.6rem;">
+          <button id="qrchan_surplace" onclick="switchQRChannel('surplace')" style="flex:1;padding:0.5rem;font-size:0.72rem;font-family:'Montserrat',sans-serif;font-weight:700;border-radius:8px;border:none;cursor:pointer;background:#eee;color:#555;">🍽️ Sur place</button>
+          <button id="qrchan_emporter" onclick="switchQRChannel('emporter')" style="flex:1;padding:0.5rem;font-size:0.72rem;font-family:'Montserrat',sans-serif;font-weight:700;border-radius:8px;border:none;cursor:pointer;background:var(--rouge);color:#fff;">🥡 À emporter</button>
+        </div>
         <!-- Onglets des 3 options -->
         <div style="display:flex;gap:0.3rem;margin-bottom:1rem;border-bottom:2px solid #f0ede8;padding-bottom:0.5rem;">
           <button id="qrtab_simple" onclick="switchQRTab('simple')" style="flex:1;padding:0.45rem;font-size:0.7rem;font-family:'Montserrat',sans-serif;font-weight:700;border-radius:8px;border:none;cursor:pointer;background:var(--rouge);color:#fff;">1. Simple</button>
@@ -1199,10 +1204,9 @@ function setLang(lang) {
 
 function renderMenu() {
   const l = currentLang;
-  // Menu à emporter : uniquement les produits disponibles à emporter (dispoEmporter !== false), et
-  // seulement les catégories qui contiennent au moins un tel produit.
-  const emporterItemIds = new Set(items.filter(it=>!it.archived && it.dispoEmporter!==false).map(it=>it.id));
-  const activeCats = cats.filter(c=>!c.archived && items.some(it=>it.cat===c.id && emporterItemIds.has(it.id)));
+  // Menu à emporter : catégorie ET produit doivent être disponibles à emporter — si la
+  // catégorie est masquée à emporter, tout ce qu'elle contient est masqué avec elle.
+  const activeCats = cats.filter(c=>!c.archived && c.dispoEmporter!==false && items.some(it=>it.cat===c.id && !it.archived && it.dispoEmporter!==false));
   
   // Nav
   const socialLabel = {fr:'Nous suivre',en:'Follow us',it:'Seguici',de:'Folgen Sie uns',zh:'关注我们',ru:'Следите за нами',es:'Nous suivre'};
@@ -1216,7 +1220,7 @@ function renderMenu() {
 
   // Sections
   document.getElementById('main').innerHTML = activeCats.map((c,i)=>{
-    const catItems = items.filter(it=>it.cat===c.id && !it.archived && emporterItemIds.has(it.id));
+    const catItems = items.filter(it=>it.cat===c.id && !it.archived && it.dispoEmporter!==false);
     const subcats = [...new Set(catItems.map(it=>it.subcat).filter(Boolean))];
     const topItems = catItems.filter(it=>!it.subcat);
     
@@ -2055,6 +2059,14 @@ function openEditCatModal(catId){
       <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">Liste de suppléments</span>
       <label class="toggle"><input type="checkbox" id="ecm_supp" ${cat.isSupplementsCategory?'checked':''}><span class="toggle-slider"></span></label>
     </div>
+    <div class="toggle-row" style="margin-top:0.3rem;">
+      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">🍽️ Disponible sur place</span>
+      <label class="toggle"><input type="checkbox" id="ecm_dispo_surplace" ${cat.dispoSurPlace!==false?'checked':''}><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row" style="margin-top:0.3rem;">
+      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">🥡 Disponible à emporter</span>
+      <label class="toggle"><input type="checkbox" id="ecm_dispo_emporter" ${cat.dispoEmporter!==false?'checked':''}><span class="toggle-slider"></span></label>
+    </div>
     <div style="display:flex;gap:0.4rem;margin-top:0.8rem;flex-wrap:wrap;">
       <button class="aic-btn archive" onclick="toggleArchiveCat('${catId}');closeEditCatModal();">${cat.archived?'↩ Réactiver':'🌙 Archiver'}</button>
       <button class="aic-btn delete" onclick="deleteCategoryPermanently('${catId}');closeEditCatModal();">🗑️ Supprimer</button>
@@ -2078,6 +2090,8 @@ function saveEditCat(catId){
   cat.hideFromMenu = !!document.getElementById('ecm_hide')?.checked;
   cat.inAllergenList = !!document.getElementById('ecm_allerg')?.checked;
   cat.isSupplementsCategory = !!document.getElementById('ecm_supp')?.checked;
+  cat.dispoSurPlace = !!document.getElementById('ecm_dispo_surplace')?.checked;
+  cat.dispoEmporter = !!document.getElementById('ecm_dispo_emporter')?.checked;
   closeEditCatModal();
   renderNavTree();
   autoSaveItems().then(ok=>showToast(ok?'✓ Catégorie enregistrée':'❌ Échec'));
@@ -2391,7 +2405,30 @@ function adminLogout(){
   window.location.href = 'login.html';
 }
 
-const QR_URL = 'https://milospizza.restoglobal.fr';
+const QR_URL_SURPLACE = 'https://milospizza.restoglobal.fr';
+const QR_URL_EMPORTER = 'https://milospizza.restoglobal.fr/emporter.html';
+let currentQRChannel = 'emporter';
+let QR_URL = QR_URL_EMPORTER;
+function switchQRChannel(channel){
+  currentQRChannel = channel;
+  QR_URL = channel==='emporter' ? QR_URL_EMPORTER : QR_URL_SURPLACE;
+  const bS=document.getElementById('qrchan_surplace'), bE=document.getElementById('qrchan_emporter');
+  if(bS && bE){
+    bS.style.background = channel==='surplace' ? QR_ROUGE : '#eee';
+    bS.style.color = channel==='surplace' ? '#fff' : '#555';
+    bE.style.background = channel==='emporter' ? QR_ROUGE : '#eee';
+    bE.style.color = channel==='emporter' ? '#fff' : '#555';
+  }
+  const activeTab = ['simple','grid','design'].find(t=>{
+    const p=document.getElementById('qrpanel_'+t);
+    return p && p.style.display!=='none';
+  }) || 'simple';
+  loadQRious(()=>{
+    if(activeTab==='simple') renderQRSimple();
+    else if(activeTab==='grid') renderQRGrid();
+    else if(activeTab==='design'){ renderQRDesign(); updateQRDesignSavedNote(); }
+  });
+}
 const QR_ROUGE = '#9B1C1C';
 const QR_CREME = '#F5F0E8';
 let _qrGridFormat = 'A4';
