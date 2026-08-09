@@ -6945,7 +6945,11 @@ async function loadRecettesModule(){
       rctRecettes[r.produit_vendu_code].push(r);
     });
     await loadMenuPricesFromSite(); // nécessaire pour classer Produits & recettes selon le menu public réel
-    await syncProduitsFromMenu(); // synchro auto à chaque ouverture du module : les nouveaux articles du menu (dont les boissons) apparaissent sans avoir à cliquer sur "Synchroniser"
+    try{
+      await syncProduitsFromMenu(); // synchro auto à chaque ouverture du module : les nouveaux articles du menu (dont les boissons) apparaissent sans avoir à cliquer sur "Synchroniser"
+    }catch(e){
+      console.error('loadRecettesModule: syncProduitsFromMenu a échoué, on continue quand même l\'affichage du reste',e);
+    }
     // Seuils de stock par ingrédient (table 'ingredient_seuils') — chargée à part et de façon tolérante :
     // si la migration SQL n'a pas encore été exécutée côté Supabase, le reste du module continue à fonctionner.
     rctIngredientSeuils={};
@@ -7035,15 +7039,35 @@ async function syncProduitsFromMenu(){
       await extraireRecetteDepuisDescription(code,it.desc&&(it.desc.fr||it.desc));
     }catch(e){console.error('syncProduitsFromMenu',nom,e);}
   }
+  // Deuxième passe : produits déjà existants (créés avant cette fonctionnalité, ou via import CSV) qui
+  // n'ont encore aucune recette — on tente aussi l'extraction dessus à partir de leur description menu.
+  var extraitsExistants=0;
+  var sansRecette=rctProduitsVendus.filter(function(p){return p.actif!==false&&!(rctRecettes[p.code]&&rctRecettes[p.code].length);});
+  for(var j=0;j<sansRecette.length;j++){
+    var p=sansRecette[j];
+    try{
+      var item=findMenuPriceFor(p.nom);
+      if(item&&item.desc&&(item.desc.fr||item.desc)){
+        var avant=(rctRecettes[p.code]||[]).length;
+        await extraireRecetteDepuisDescription(p.code,item.desc.fr||item.desc);
+        var apres=(rctRecettes[p.code]||[]).length;
+        if(apres>avant)extraitsExistants++;
+      }
+    }catch(e){console.error('syncProduitsFromMenu:existant',p.nom,e);}
+  }
   // Fiches existantes (actives) qui n'ont plus de correspondance sur le menu public en ligne.
   var orphelins=rctProduitsVendus.filter(function(p){
     if(p.actif===false)return false;
     return !menuItems.some(function(it){var nom=(it.name&&(it.name.fr||it.name))||'';return matchScore(nom,p.nom)>=60;});
   }).map(function(p){return p.nom;});
   renderRecettesList();
-  if(Object.keys(rctPendingDoseIngredients).length)openDoseDefautModal();
+  try{
+    if(Object.keys(rctPendingDoseIngredients).length)openDoseDefautModal();
+  }catch(e){console.error('syncProduitsFromMenu:openDoseDefautModal',e);}
   var html='<div class="card" style="font-size:12px;">';
   html+=created.length?('✅ '+created.length+' produit(s) créé(s) depuis le menu : '+esc(created.join(', '))+'<br><br>'):'✅ Rien à créer, tout est déjà présent.<br><br>';
+  html+=extraitsExistants?('🧾 Recette extraite automatiquement pour '+extraitsExistants+' produit(s) existant(s) sans recette.<br><br>'):'';
+  if(Object.keys(rctPendingDoseIngredients).length)html+='⚖️ '+Object.keys(rctPendingDoseIngredients).length+' ingrédient(s) détecté(s) sans dose par défaut — pop-up ouverte pour les renseigner.<br><br>';
   html+=orphelins.length?('⚠️ '+orphelins.length+' produit(s) dans Recettes introuvable(s) sur le menu public (nom différent, ou retiré de la carte) — à vérifier :<br>'+esc(orphelins.join(', ')))
     :'✅ Aucune fiche orpheline.';
   html+='</div>';
