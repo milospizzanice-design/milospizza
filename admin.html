@@ -587,6 +587,13 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt" id="mrct-title">Recette</div>
     <div id="mrct-lines"></div>
     <button class="btn bs sm" onclick="addRecetteLine()" style="width:100%;margin-top:6px;">+ Ajouter un ingrédient (ligne vide)</button>
+    <div style="margin-top:10px;">
+      <button class="btn bs sm" onclick="toggleDupliquerRecette()" id="mrct-dupli-btn" style="width:100%;">⧉ Dupliquer une recette existante</button>
+      <div id="mrct-dupli-panel" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);">
+        <input type="text" class="fi" id="mrct-dupli-search" placeholder="🔍 Rechercher un produit à copier…" oninput="renderMrctDupliResults()" style="width:100%;margin-bottom:8px;">
+        <div id="mrct-dupli-results" style="max-height:220px;overflow-y:auto;"></div>
+      </div>
+    </div>
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bd);">
       <input type="text" class="fi" id="mrct-search" placeholder="🔍 Rechercher des ingrédients à ajouter…" oninput="renderMrctSearchResults()" style="width:100%;margin-bottom:8px;">
       <div id="mrct-search-results" style="max-height:220px;overflow-y:auto;"></div>
@@ -7203,7 +7210,7 @@ function renderRecettesList(){
         var lines=rctRecettes[p.code]||[];
         var inactive=p.actif===false;
         var dispoIci=rctProduitDispo[p.code]!==false; // par défaut disponible tant que rien n'est explicitement désactivé ici
-        html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';'+(inactive||!dispoIci?'opacity:.5;':'')+'">'
+        html+='<div class="card" data-rct-code="'+p.code+'" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';'+(inactive||!dispoIci?'opacity:.5;':'')+'">'
           +'<div style="flex:1;">'
           +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(p.nom)+(inactive?' <span style="font-size:10px;color:var(--txm);">(archivé)</span>':'')+(!inactive&&!dispoIci?' <span style="font-size:10px;color:#C0392B;">(indisponible ici)</span>':'')+'</div>'
           +'<div style="font-size:11px;color:var(--txm);">'+(lines.length?lines.length+' ingrédient'+(lines.length>1?'s':''):'Aucune recette définie')+'</div>'
@@ -7218,6 +7225,19 @@ function renderRecettesList(){
 }
 
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+// Reste sur la carte produit qu'on vient de modifier après un re-render de la liste, au lieu de laisser le scroll sauter n'importe où
+function scrollToProductCard(code){
+  requestAnimationFrame(function(){
+    var el=document.querySelector('[data-rct-code="'+code+'"]');
+    if(!el)return;
+    el.scrollIntoView({block:'center',behavior:'smooth'});
+    var prevTransition=el.style.transition,prevBg=el.style.backgroundColor;
+    el.style.transition='background-color .4s';
+    el.style.backgroundColor='#FFF3CD';
+    setTimeout(function(){el.style.backgroundColor=prevBg||'';setTimeout(function(){el.style.transition=prevTransition||'';},400);},900);
+  });
+}
 
 let mpvedCurrentCode=null;
 function distinctValues(arr,field){
@@ -7262,6 +7282,7 @@ async function saveEditProduitVendu(){
     rctProduitDispo[code]=dispo;
     closeM('mpved');
     renderRecettesList();
+    scrollToProductCard(code);
   }catch(e){console.error('saveEditProduitVendu',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
@@ -7275,7 +7296,45 @@ function openRecetteModal(code){
   renderRecetteLines(lines);
   document.getElementById('mrct-search').value='';
   document.getElementById('mrct-search-results').innerHTML='';
+  document.getElementById('mrct-dupli-panel').style.display='none';
+  document.getElementById('mrct-dupli-search').value='';
+  document.getElementById('mrct-dupli-results').innerHTML='';
   document.getElementById('mrct').classList.add('op');
+}
+function toggleDupliquerRecette(){
+  var panel=document.getElementById('mrct-dupli-panel');
+  var show=panel.style.display==='none';
+  panel.style.display=show?'block':'none';
+  if(show){
+    document.getElementById('mrct-dupli-search').value='';
+    renderMrctDupliResults();
+    document.getElementById('mrct-dupli-search').focus();
+  }
+}
+function renderMrctDupliResults(){
+  var q=(document.getElementById('mrct-dupli-search').value||'').trim();
+  var qn=normText(q);
+  var candidates=rctProduitsVendus.filter(function(p){
+    return p.code!==mrctCurrentCode&&(rctRecettes[p.code]||[]).length>0;
+  });
+  if(qn)candidates=candidates.filter(function(p){return normText(p.nom).indexOf(qn)>=0;});
+  candidates=candidates.slice(0,30);
+  var el=document.getElementById('mrct-dupli-results');
+  if(!candidates.length){el.innerHTML='<div style="font-size:11px;color:var(--txm);padding:6px;">Aucun produit avec recette trouvé.</div>';return;}
+  el.innerHTML=candidates.map(function(p){
+    var n=(rctRecettes[p.code]||[]).length;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--bd);font-size:12px;">'
+      +'<span style="flex:1;">'+esc(p.nom)+' <span style="color:var(--txm);font-size:10px;">('+n+' ingr.)</span></span>'
+      +'<button class="btn bs sm" onclick="dupliquerRecetteDepuis(\''+p.code+'\')" style="padding:4px 8px;white-space:nowrap;">Copier ici</button>'
+      +'</div>';
+  }).join('');
+}
+function dupliquerRecetteDepuis(sourceCode){
+  var currentLines=document.querySelectorAll('#mrct-lines [data-idx]');
+  if(currentLines.length&&!confirm('Remplacer les '+currentLines.length+' ligne(s) actuelle(s) par la recette copiée ?\n(Rien n\'est enregistré tant que tu ne cliques pas sur "Enregistrer".)'))return;
+  var src=(rctRecettes[sourceCode]||[]).map(function(l){return {ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};});
+  renderRecetteLines(src);
+  document.getElementById('mrct-dupli-panel').style.display='none';
 }
 function ingredientOptionsHtml(){
   var groups={}; // cat -> { subcat -> [] } — uniquement les ingrédients "produit fini" (utilisables tels quels dans une recette de produit vendu)
@@ -7424,6 +7483,7 @@ async function saveRecette(){
     rctRecettes[code]=lines;
     closeM('mrct');
     renderRecettesList();
+    scrollToProductCard(code);
   }catch(e){console.error('saveRecette',e);alert('Erreur lors de l\'enregistrement de la recette : '+e.message);}
 }
 
