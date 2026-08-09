@@ -455,6 +455,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <div class="rct-subtab on" id="rctbtn-list" onclick="goRecettesSub('list')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🍕 Produits &amp; recettes</div>
       <div class="rct-subtab" id="rctbtn-ingredients" onclick="goRecettesSub('ingredients')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧂 Ingrédients</div>
+      <div class="rct-subtab" id="rctbtn-boissons" onclick="goRecettesSub('boissons')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🥤 Boissons</div>
       <div class="rct-subtab" id="rctbtn-couts" onclick="goRecettesSub('couts')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💰 Coûts</div>
       <div class="rct-subtab" id="rctbtn-prix" onclick="goRecettesSub('prix')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💵 Prix de revient</div>
       <div class="rct-subtab" id="rctbtn-inv" onclick="goRecettesSub('inv')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📋 Inventaires</div>
@@ -513,6 +514,28 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="rct-ing-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
       <div id="rct-ing-list-container"></div>
     </div>
+    <!-- Sous-onglet: boissons — même moteur que Ingrédients (table 'ingredients'), filtré aux catégories
+         rattachées à l'onglet interne "Boissons", pour éviter un stock parallèle. -->
+    <div id="rct-pane-boissons" style="display:none;">
+      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+        Toutes les boissons (bières, vins, spiritueux, softs…), séparées des ingrédients cuisine pour plus de clarté. C'est le même stock d'ingrédients que l'onglet « Ingrédients » — juste une vue filtrée. Une catégorie rattachée à l'onglet Boissons apparaît ici automatiquement.
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn bp sm" onclick="openTransfertBoissonsModal()">🔀 Transférer des catégories existantes</button>
+        <button class="btn bs sm" onclick="openNewIngredientModal()" title="Choisis une catégorie déjà rattachée à Boissons dans la fenêtre qui s'ouvre">+ Ajouter une boisson</button>
+        <button class="btn bs sm" onclick="openCategoryEditModalPreset('Boissons')">+ Nouvelle catégorie Boissons</button>
+        <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" class="fi" id="rct-boiss-search" placeholder="Rechercher une boisson…" oninput="renderIngredientsList('boissons')" style="flex:1;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txm);white-space:nowrap;">
+          <input type="checkbox" id="rct-boiss-show-unlinked" onchange="renderIngredientsList('boissons')"> Sans prix seulement
+        </label>
+      </div>
+      <div id="rct-boiss-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
+      <div id="rct-boiss-list-container"></div>
+    </div>
+
     <!-- Panneau fixe (reste visible même en faisant défiler) : arborescence Section > Catégorie > Sous-catégorie,
          cliquable pour sauter directement à l'endroit correspondant dans la liste. -->
     <div id="ing-tree-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:110;" onclick="toggleIngTreePanel()"></div>
@@ -610,6 +633,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr"><label class="fl2">Catégorie</label><input type="text" class="fi" id="nig-cat" placeholder="Ex: Fromages"></div>
     <input type="hidden" id="nig-sub">
     <div class="ma"><button class="btn bs" onclick="closeM('mnig')">Annuler</button><button class="btn bp" onclick="saveNewIngredient()">Créer</button></div>
+  </div>
+</div>
+
+<div class="mb" id="mtboiss">
+  <div class="md">
+    <div class="mdt">🔀 Transférer vers 🥤 Boissons</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Coche les catégories qui sont en réalité des boissons (bières, vins, softs, spiritueux…). Elles basculeront dans l'onglet Boissons — les ingrédients, prix et recettes qui les utilisent restent inchangés, seule leur classification change.</div>
+    <div id="mtboiss-list" style="max-height:340px;overflow-y:auto;"></div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mtboiss')">Annuler</button><button class="btn bp" onclick="confirmTransfertBoissons()">Transférer</button></div>
   </div>
 </div>
 
@@ -6840,6 +6872,7 @@ function goRecettesSub(name){
   rctCurrentSub=name;
   document.getElementById('rct-pane-list').style.display=(name==='list')?'block':'none';
   document.getElementById('rct-pane-ingredients').style.display=(name==='ingredients')?'block':'none';
+  document.getElementById('rct-pane-boissons').style.display=(name==='boissons')?'block':'none';
   document.getElementById('rct-pane-couts').style.display=(name==='couts')?'block':'none';
   document.getElementById('rct-pane-prix').style.display=(name==='prix')?'block':'none';
   document.getElementById('rct-pane-inv').style.display=(name==='inv')?'block':'none';
@@ -6847,7 +6880,7 @@ function goRecettesSub(name){
   document.body.classList.toggle('ing-tree-active',name==='ingredients'); // pilote le décalage de la colonne fixe (desktop) — voir #ing-tree-panel
   if(name==='prix'){loadMenuPricesFromSite().then(renderPrixRevientList);renderPrixRevientList();}
   if(name==='inv')loadInventairesList();
-  ['list','ingredients','couts','prix','inv','import'].forEach(function(k){
+  ['list','ingredients','boissons','couts','prix','inv','import'].forEach(function(k){
     var b=document.getElementById('rctbtn-'+k);
     if(!b)return;
     if(k===name){b.style.background='var(--bx)';b.style.color='#fff';b.style.border='none';}
@@ -6967,6 +7000,13 @@ async function syncProduitsFromMenu(){
 }
 function ongletDeCategorie(cat){
   return (rctCategoriesOrdre[cat]&&rctCategoriesOrdre[cat].onglet)||null;
+}
+// Crée l'onglet interne "Boissons" côté Supabase s'il n'existe pas encore (première utilisation).
+async function ensureBoissonsOnglet(){
+  if(rctOngletsOrdre['Boissons']!=null)return;
+  var nextOrdre=(Object.keys(rctOngletsOrdre).length+1)*10;
+  sbCheck(await db.from('onglets_ordre').upsert([{restaurant_id:RCT_GLOBAL,nom:'Boissons',ordre:nextOrdre}],{onConflict:'restaurant_id,nom'}));
+  rctOngletsOrdre['Boissons']=nextOrdre;
 }
 // ── Classement de Produits & recettes selon le VRAI menu public (menudata.json) ─────────────
 // Contrairement à groupByOnglet (basé sur les tables internes categories_ordre, encore utilisées
@@ -7790,23 +7830,31 @@ function refreshIngredientStatusLight(code){
   statusEl.innerHTML=ingStatutIngredient(i).label;
   refreshIngredientDosePriceLight(code);
 }
-function renderIngredientsList(){
-  var searchEl=document.getElementById('rct-ing-search');
-  var unlinkedEl=document.getElementById('rct-ing-show-unlinked');
-  var container=document.getElementById('rct-ing-list-container');
-  var navEl=document.getElementById('rct-ing-nav');
-  if(!searchEl||!unlinkedEl||!container)return;
+function renderIngredientsList(mode){
+  // mode==='boissons' rend le même écran que le mode principal ('ing'), mais filtré aux catégories
+  // rattachées à l'onglet "Boissons" — un seul et même stock d'ingrédients (table 'ingredients'),
+  // juste deux vues distinctes. Appeler renderIngredientsList() sans argument rafraîchit les deux.
+  mode=mode==='boissons'?'boissons':'main';
+  var idSfx=mode==='boissons'?'boiss':'ing';
+  var searchEl=document.getElementById('rct-'+idSfx+'-search');
+  var unlinkedEl=document.getElementById('rct-'+idSfx+'-show-unlinked');
+  var container=document.getElementById('rct-'+idSfx+'-list-container');
+  var navEl=document.getElementById('rct-'+idSfx+'-nav');
+  if(!searchEl||!unlinkedEl||!container){if(mode==='main')renderIngredientsList('boissons');return;}
   var search=(searchEl.value||'').toLowerCase();
   var onlyUnlinked=unlinkedEl.checked;
   function statutIngredient(i){return ingStatutIngredient(i);}
   var list=rctIngredients.filter(function(i){
+    var estBoisson=ongletDeCategorie(i.categorie)==='Boissons';
+    if(mode==='boissons'){if(!estBoisson)return false;}else{if(estBoisson)return false;}
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
     if(onlyUnlinked&&statutIngredient(i).ok)return false;
     return true;
   });
   if(!list.length){
-    container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.</div>';
+    container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">'+(mode==='boissons'?'Aucune boisson pour l\'instant. Utilise « Transférer des catégories » ci-dessus, ou crée une catégorie rattachée à l\'onglet Boissons.':'Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.')+'</div>';
     if(navEl)navEl.innerHTML='';
+    if(mode==='main')renderIngredientsList('boissons');
     return;
   }
   function moveSelectHtml(i){
@@ -8056,8 +8104,11 @@ function renderIngredientsList(){
   }
   container.innerHTML=html;
   void container.offsetHeight; // force Safari iOS à terminer sa passe de mise en page avant le 1er tap sur un <select> fraîchement injecté (sinon le picker se referme tout seul au premier essai)
-  var treeEl=document.getElementById('ing-tree-content');
-  if(treeEl)treeEl.innerHTML=treeHtml||'<div style="color:var(--txm);">Aucune catégorie pour l\'instant.</div>';
+  if(mode==='main'){
+    var treeEl=document.getElementById('ing-tree-content');
+    if(treeEl)treeEl.innerHTML=treeHtml||'<div style="color:var(--txm);">Aucune catégorie pour l\'instant.</div>';
+    renderIngredientsList('boissons');
+  }
 }
 function toggleIngTreePanel(){
   var panel=document.getElementById('ing-tree-panel'),overlay=document.getElementById('ing-tree-overlay');
@@ -8485,6 +8536,42 @@ async function saveNewIngredient(){
   }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création : '+e.message);}
 }
 
+// ── Transfert en masse de catégories existantes vers l'onglet interne "Boissons" ────────────────
+function openTransfertBoissonsModal(){
+  var list=Object.keys(rctCategoriesOrdre).filter(function(c){return rctCategoriesOrdre[c].onglet!=='Boissons';}).sort(function(a,b){return a.localeCompare(b);});
+  var el=document.getElementById('mtboiss-list');
+  if(!list.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--txm);">Toutes les catégories sont déjà dans Boissons.</div>';
+  }else{
+    el.innerHTML=list.map(function(c){
+      var ongActuel=rctCategoriesOrdre[c].onglet||'non classé';
+      var n=rctIngredients.filter(function(i){return i.categorie===c;}).length;
+      return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--bd);font-size:12px;">'
+        +'<input type="checkbox" class="mtboiss-check" value="'+esc(c)+'">'
+        +'<span style="flex:1;">'+esc(c)+' <span style="color:var(--txm);font-size:10px;">('+n+' ingrédient'+(n>1?'s':'')+' — actuellement '+esc(ongActuel)+')</span></span>'
+        +'</label>';
+    }).join('');
+  }
+  document.getElementById('mtboiss').classList.add('op');
+}
+async function confirmTransfertBoissons(){
+  var checked=Array.prototype.slice.call(document.querySelectorAll('.mtboiss-check:checked')).map(function(c){return c.value;});
+  if(!checked.length){alert('Sélectionne au moins une catégorie.');return;}
+  try{
+    await ensureBoissonsOnglet();
+    for(var i=0;i<checked.length;i++){
+      var cat=checked[i];
+      var info=rctCategoriesOrdre[cat]||{ordre:(Object.keys(rctCategoriesOrdre).length+1)*10,unite_defaut_mesure:null};
+      sbCheck(await db.from('categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,nom:cat,ordre:info.ordre,onglet:'Boissons',unite_defaut_mesure:info.unite_defaut_mesure}],{onConflict:'restaurant_id,nom'}));
+      rctCategoriesOrdre[cat]={ordre:info.ordre,onglet:'Boissons',unite_defaut_mesure:info.unite_defaut_mesure};
+    }
+    closeM('mtboiss');
+    renderIngredientsList();
+    goRecettesSub('boissons');
+    alert('✅ '+checked.length+' catégorie'+(checked.length>1?'s':'')+' transférée'+(checked.length>1?'s':'')+' vers Boissons.');
+  }catch(e){console.error('confirmTransfertBoissons',e);alert('Erreur lors du transfert : '+e.message);}
+}
+
 // ── Import BL / catalogue fournisseur : photo/PDF → extraction → écran de validation obligatoire ──
 // Rien n'est écrit en base tant que confirmBlImport() n'est pas déclenché par l'utilisateur.
 var mblLines=[]; // {id,nomExtrait,matchCode,matchScore,qte,unite,prixTotal,selected}
@@ -8896,6 +8983,12 @@ let mcatCurrentCat=null; // null = mode création d'une nouvelle catégorie
 function openCategoryEditModalFromBtn(btn){
   var host=btn.closest('[data-catname]');
   openCategoryEditModal(host?host.getAttribute('data-catname'):null);
+}
+async function openCategoryEditModalPreset(ongletName){
+  if(ongletName==='Boissons')await ensureBoissonsOnglet();
+  openCategoryEditModal(null);
+  var sel=document.getElementById('mcat-onglet');
+  if(sel)sel.value=ongletName;
 }
 function openCategoryEditModal(catName){
   mcatCurrentCat=catName;
