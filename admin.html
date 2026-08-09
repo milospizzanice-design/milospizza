@@ -637,6 +637,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<div class="mb" id="mdosedft">
+  <div class="md" style="max-width:640px;">
+    <div class="mdt">⚖️ Doses par défaut manquantes</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Ces ingrédients ont été repérés dans les descriptions du menu mais n'ont pas encore de dose par défaut. Renseigne-les une fois ici : elles serviront pour ces recettes, et pour toutes les futures.</div>
+    <div id="mdosedft-list" style="max-height:400px;overflow-y:auto;"></div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mdosedft')">Plus tard</button><button class="btn bp" onclick="confirmDoseDefautModal()">Valider tout</button></div>
+  </div>
+</div>
+
 <div class="mb" id="mbl">
   <div class="md" style="max-width:640px;">
     <div class="mdt">📷 Importer un BL / catalogue fournisseur</div>
@@ -5297,6 +5306,7 @@ let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), c
 let rctIngExpanded={};      // {ingredient_code: true} — état déplié/replié de chaque carte, conservé entre les rendus
 let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT — encore utilisé par l'écran Coûts (legacy)
 let rctIngredientCouts={}; // {ingredient_code: {mode_prix,prix_unitaire,prix_kilo,prix_litre,poids_net_g,fournisseur_id,prix_source_code}} — prix/fournisseur directement par ingrédient, propre au restaurant courant. Remplace l'ancien système de rattachement à un catalogue stock séparé.
+let rctIngredientSeuils={}; // {ingredient_code: {fournisseur_id,type_suivi,seuil_min,colisage,unite_commande,actif}} — table 'ingredient_seuils', propre au restaurant courant. Remplacera le catalogue codé en dur de milos-pizza-port/dabray.html.
 let rctSuppliers=[]; // fournisseurs du restaurant courant (depuis stock_catalogue.suppliers)
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
 let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons — niveau au-dessus des catégories, commun
@@ -6935,6 +6945,15 @@ async function loadRecettesModule(){
       rctRecettes[r.produit_vendu_code].push(r);
     });
     await loadMenuPricesFromSite(); // nécessaire pour classer Produits & recettes selon le menu public réel
+    await syncProduitsFromMenu(); // synchro auto à chaque ouverture du module : les nouveaux articles du menu (dont les boissons) apparaissent sans avoir à cliquer sur "Synchroniser"
+    // Seuils de stock par ingrédient (table 'ingredient_seuils') — chargée à part et de façon tolérante :
+    // si la migration SQL n'a pas encore été exécutée côté Supabase, le reste du module continue à fonctionner.
+    rctIngredientSeuils={};
+    try{
+      var seuilsRes=await db.from('ingredient_seuils').select('*').eq('restaurant_id',resto);
+      if(seuilsRes&&!seuilsRes.error)(seuilsRes.data||[]).forEach(function(s){rctIngredientSeuils[s.ingredient_code]=s;});
+      else if(seuilsRes&&seuilsRes.error)console.warn('ingredient_seuils indisponible (migration SQL pas encore exécutée ?)',seuilsRes.error);
+    }catch(e){console.warn('ingredient_seuils indisponible (migration SQL pas encore exécutée ?)',e);}
     renderRecettesList();
     renderIngredientsList();
     renderCoutsList();
@@ -6950,6 +6969,45 @@ async function loadRecettesModule(){
 // Synchronise Produits & recettes sur le menu public réel : crée une fiche vide (sans recette,
 // à compléter) pour tout produit du menu qui n'a pas encore de fiche correspondante, et signale
 // les fiches existantes qui ne correspondent plus à rien sur le menu (à vérifier/archiver).
+let rctPendingDoseIngredients={}; // {ingredient_code:{nom,unite_defaut,produits:[code,...]}} — détectés dans la description du menu mais sans dose par défaut, en attente de saisie via la popup
+// Essaie de reconstituer la recette d'un produit à partir du texte de sa description sur le menu public
+// (ex: "Tomate, mozzarella, jambon, champignons") en le comparant à la liste Ingrédients/Boissons.
+// Les ingrédients reconnus avec une dose par défaut sont ajoutés tels quels (liés à ce % = 100%) ;
+// ceux sans dose par défaut sont mis de côté pour la popup de saisie groupée en fin de synchro.
+async function extraireRecetteDepuisDescription(prodCode,descText){
+  if(!descText||!descText.trim())return;
+  var tokens=descText.split(/[,;+]|(?:\bet\b)|(?:\bou\b)/i).map(function(t){return t.trim();}).filter(function(t){return t.length>1;});
+  if(!tokens.length)return;
+  var finis=rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini';});
+  var matched=[];
+  tokens.forEach(function(tok){
+    var best=null,bestScore=0;
+    finis.forEach(function(ing){
+      var sc=matchScore(tok,ing.nom);
+      if(sc>bestScore){bestScore=sc;best=ing;}
+    });
+    if(best&&bestScore>=60&&matched.indexOf(best.code)<0)matched.push(best.code);
+  });
+  if(!matched.length)return;
+  var linesToInsert=[];
+  matched.forEach(function(code){
+    var ing=rctIngredients.find(function(x){return x.code===code;});
+    if(!ing)return;
+    if(ing.quantite_defaut!=null&&ing.quantite_defaut>0){
+      linesToInsert.push({restaurant_id:RCT_GLOBAL,produit_vendu_code:prodCode,ingredient_code:code,quantite:ing.quantite_defaut,unite:ing.unite_defaut||'g',pourcentage_defaut:100});
+    }else{
+      rctPendingDoseIngredients[code]=rctPendingDoseIngredients[code]||{nom:ing.nom,unite_defaut:ing.unite_defaut||'g',produits:[]};
+      if(rctPendingDoseIngredients[code].produits.indexOf(prodCode)<0)rctPendingDoseIngredients[code].produits.push(prodCode);
+    }
+  });
+  if(linesToInsert.length){
+    try{
+      try{sbCheck(await db.from('recettes').insert(linesToInsert));}
+      catch(e1){sbCheck(await db.from('recettes').insert(linesToInsert.map(function(l){return {restaurant_id:l.restaurant_id,produit_vendu_code:l.produit_vendu_code,ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};})));}
+      rctRecettes[prodCode]=(rctRecettes[prodCode]||[]).concat(linesToInsert);
+    }catch(e){console.error('extraireRecetteDepuisDescription:insert',prodCode,e);}
+  }
+}
 async function syncProduitsFromMenu(){
   var reportEl=document.getElementById('rct-sync-report');
   if(reportEl)reportEl.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">Synchronisation en cours…</div>';
@@ -6974,6 +7032,7 @@ async function syncProduitsFromMenu(){
       var newP={restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:catObj?(catObj.name.fr||catObj.name):null,sous_categorie:it.subcat||null,actif:true};
       rctProduitsVendus.push(newP);
       created.push(nom);
+      await extraireRecetteDepuisDescription(code,it.desc&&(it.desc.fr||it.desc));
     }catch(e){console.error('syncProduitsFromMenu',nom,e);}
   }
   // Fiches existantes (actives) qui n'ont plus de correspondance sur le menu public en ligne.
@@ -6982,6 +7041,7 @@ async function syncProduitsFromMenu(){
     return !menuItems.some(function(it){var nom=(it.name&&(it.name.fr||it.name))||'';return matchScore(nom,p.nom)>=60;});
   }).map(function(p){return p.nom;});
   renderRecettesList();
+  if(Object.keys(rctPendingDoseIngredients).length)openDoseDefautModal();
   var html='<div class="card" style="font-size:12px;">';
   html+=created.length?('✅ '+created.length+' produit(s) créé(s) depuis le menu : '+esc(created.join(', '))+'<br><br>'):'✅ Rien à créer, tout est déjà présent.<br><br>';
   html+=orphelins.length?('⚠️ '+orphelins.length+' produit(s) dans Recettes introuvable(s) sur le menu public (nom différent, ou retiré de la carte) — à vérifier :<br>'+esc(orphelins.join(', ')))
@@ -7462,8 +7522,9 @@ function renderRecetteLines(lines){
   var html=lines.map(function(l,idx){
     return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
       +'<select class="fi mrct-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
-      +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1">'
-      +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
+      +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1" oninput="updateRecettePctBadge(this)">'
+      +'<select class="fi mrct-unit" style="flex:1;" onchange="updateRecettePctBadge(this)"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
+      +'<span class="mrct-pct" style="font-size:9px;color:var(--txm);min-width:34px;text-align:right;"></span>'
       +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>'
       +'</div>';
   }).join('');
@@ -7475,6 +7536,7 @@ function renderRecetteLines(lines){
     row.querySelector('.mrct-ing').value=l.ingredient_code||'';
     row.querySelector('.mrct-qty').value=l.quantite!=null?l.quantite:'';
     row.querySelector('.mrct-unit').value=l.unite||'g';
+    updateRecettePctBadge(row.querySelector('.mrct-qty'));
   });
 }
 function addRecetteLine(){
@@ -7489,8 +7551,9 @@ function addRecetteLineWithIngredient(ingredientCode){
   div.setAttribute('data-idx',idx);
   div.style.cssText='display:flex;gap:6px;align-items:center;';
   div.innerHTML='<select class="fi mrct-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
-    +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1">'
-    +'<select class="fi mrct-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
+    +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1" oninput="updateRecettePctBadge(this)">'
+    +'<select class="fi mrct-unit" style="flex:1;" onchange="updateRecettePctBadge(this)"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
+    +'<span class="mrct-pct" style="font-size:9px;color:var(--txm);min-width:34px;text-align:right;"></span>'
     +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>';
   container.appendChild(div);
   if(ingredientCode){
@@ -7507,6 +7570,22 @@ function applyDefaultUnitToRow(ingSelectEl){
   var qtyInput=row.querySelector('.mrct-qty, .ccm-qty');
   if(ing&&ing.unite_defaut&&unitSel)unitSel.value=ing.unite_defaut;
   if(ing&&ing.quantite_defaut!=null&&qtyInput)qtyInput.value=ing.quantite_defaut;
+  updateRecettePctBadge(qtyInput);
+}
+// Affiche à titre indicatif le % de la dose par défaut que représente la quantité saisie sur cette ligne
+// (ex: "200%") — c'est ce pourcentage qui sera mémorisé et qui suivra si la dose par défaut change.
+function updateRecettePctBadge(qtyInputEl){
+  if(!qtyInputEl)return;
+  var row=qtyInputEl.closest('[data-idx]');
+  if(!row)return;
+  var badge=row.querySelector('.mrct-pct');
+  if(!badge)return;
+  var ingSel=row.querySelector('.mrct-ing'),unitSel=row.querySelector('.mrct-unit');
+  var ing=ingSel?rctIngredients.find(function(x){return x.code===ingSel.value;}):null;
+  var qty=parseFloat(qtyInputEl.value);
+  if(!ing||!ing.quantite_defaut||!(qty>0)||(unitSel&&unitSel.value)!==(ing.unite_defaut||'g')){badge.textContent='';return;}
+  var pct=Math.round((qty/ing.quantite_defaut)*1000)/10;
+  badge.textContent=pct+'% déf.';
 }
 
 // ── Recherche + sélection multiple d'ingrédients pour la recette ────────────
@@ -7576,11 +7655,26 @@ async function saveRecette(){
     var ing=row.querySelector('.mrct-ing').value;
     var qty=parseFloat(row.querySelector('.mrct-qty').value);
     var unit=row.querySelector('.mrct-unit').value;
-    if(ing&&qty>0)lines.push({restaurant_id:RCT_GLOBAL,produit_vendu_code:code,ingredient_code:ing,quantite:qty,unite:unit});
+    if(ing&&qty>0){
+      // Si l'unité de la ligne correspond à l'unité par défaut de l'ingrédient, on enregistre aussi le
+      // pourcentage de sa dose par défaut (ex: 200%) — pour que ça suive automatiquement si la dose par
+      // défaut de l'ingrédient change plus tard. Sinon (unité différente), la ligne reste une valeur fixe.
+      var ingObj=rctIngredients.find(function(x){return x.code===ing;});
+      var pct=null;
+      if(ingObj&&ingObj.quantite_defaut>0&&(ingObj.unite_defaut||'g')===unit)pct=Math.round((qty/ingObj.quantite_defaut)*10000)/100;
+      lines.push({restaurant_id:RCT_GLOBAL,produit_vendu_code:code,ingredient_code:ing,quantite:qty,unite:unit,pourcentage_defaut:pct});
+    }
   });
   try{
     sbCheck(await db.from('recettes').delete().eq('restaurant_id',RCT_GLOBAL).eq('produit_vendu_code',code));
-    if(lines.length)sbCheck(await db.from('recettes').insert(lines));
+    if(lines.length){
+      try{
+        sbCheck(await db.from('recettes').insert(lines));
+      }catch(e1){
+        console.warn('saveRecette: insert avec pourcentage_defaut a échoué (migration SQL pas encore exécutée ?), nouvelle tentative sans',e1);
+        sbCheck(await db.from('recettes').insert(lines.map(function(l){return {restaurant_id:l.restaurant_id,produit_vendu_code:l.produit_vendu_code,ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};})));
+      }
+    }
     rctRecettes[code]=lines;
     closeM('mrct');
     renderRecettesList();
@@ -8038,6 +8132,27 @@ function renderIngredientsList(){
         +(pct!=null?'<div style="font-size:9px;color:var(--txm);margin-top:2px;">Le coût de cet ingrédient est calculé automatiquement '+(srcNom?'à partir du prix de "'+esc(srcNom)+'"':'à partir du coût de sa recette')+', ajusté de cette perte.</div>':'')
       ):'');
   }
+  function stockSeuilHtml(i){
+    var s=rctIngredientSeuils[i.code]||{};
+    var type=s.type_suivi||'two';
+    return '<div style="border-top:1px dashed var(--bd);margin-top:6px;padding-top:6px;">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--txm);margin-bottom:4px;">📦 Stock ('+esc(rctResto()==='port'?'Port':'Dabray')+')</div>'
+      +'<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
+      +'<select class="fi" style="width:130px;font-size:10px;" title="Comment cet article est pointé lors de l\'inventaire" onchange="updateIngredientSeuil(\''+i.code+'\',\'type_suivi\',this.value)">'
+        +'<option value="two"'+(type==='two'?' selected':'')+'>✅/📦 OK / à commander</option>'
+        +'<option value="level"'+(type==='level'?' selected':'')+'>📊 Jauge de niveau</option>'
+        +'<option value="yn"'+(type==='yn'?' selected':'')+'>❓ Oui / Non</option>'
+        +'<option value="rup"'+(type==='rup'?' selected':'')+'>🚦 OK / faible / rupture</option>'
+      +'</select>'
+      +'<select class="fi" style="font-size:10px;max-width:120px;" title="Fournisseur pour la commande" onchange="updateIngredientSeuil(\''+i.code+'\',\'fournisseur_id\',this.value)">'
+        +'<option value="">🚚 Fournisseur…</option>'
+        +rctSuppliers.map(function(sup){return '<option value="'+esc(sup.id)+'"'+(s.fournisseur_id===sup.id?' selected':'')+'>'+esc(sup.nom)+'</option>';}).join('')
+      +'</select>'
+      +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Seuil" title="Quantité en dessous de laquelle on repasse commande" value="'+(s.seuil_min!=null?s.seuil_min:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'seuil_min\',this.value)">'
+      +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="1" placeholder="Colisage" title="Quantité par colis/carton commandé" value="'+(s.colisage!=null?s.colisage:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'colisage\',this.value)">'
+      +'<input type="text" class="fi" style="width:74px;font-size:10px;" placeholder="Unité cmd" title="Unité de commande (carton, bouteille, fût…)" value="'+esc(s.unite_commande||'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_commande\',this.value)">'
+      +'</div></div>';
+  }
   function renderIngredientCard(i){
     var statut=statutIngredient(i);
     var hasBrutSource=!!((i.nature||'fini')==='fini'&&i.source_brut_code);
@@ -8081,6 +8196,7 @@ function renderIngredientsList(){
           +'<span style="color:var(--txm);">g/L</span>'
           +'</div>')
         :priceInputsHtml(statut.cout,i.code,i.categorie))
+      +(hasBrutSource?'':stockSeuilHtml(i))
       +'</div>'
       +'</div>';
   }
@@ -8486,6 +8602,20 @@ async function handlePriceFieldChange(ingredientCode,field,value){
     else refreshIngredientStatusLight(ingredientCode); // valeur seule → pas de reconstruction du DOM (garde le focus clavier sur mobile)
   }catch(e){console.error('handlePriceFieldChange',e);alert('Erreur : '+e.message);}
 }
+// ── Seuils de stock par ingrédient (table 'ingredient_seuils') — base du futur module Stock unifié ──
+async function updateIngredientSeuil(ingredientCode,field,value){
+  var resto=rctResto();
+  var payload={restaurant_id:resto,ingredient_code:ingredientCode};
+  if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande')payload[field]=value||null;
+  else payload[field]=(value===''?null:parseFloat(value));
+  try{
+    sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
+    rctIngredientSeuils[ingredientCode]=Object.assign({},rctIngredientSeuils[ingredientCode]||{},payload);
+  }catch(e){
+    console.error('updateIngredientSeuil',e);
+    alert('Erreur : '+e.message+'\n\nSi le message parle de la table "ingredient_seuils", la migration SQL n\'a probablement pas encore été exécutée dans Supabase.');
+  }
+}
 // ── Prix au contenant (ex: boîte de 800g à 13,94€) → recalcul auto du prix/kg, prix/L ou prix/unité ──
 // Gère aussi la conversion masse ↔ volume via une densité (g pour 1 litre), utile quand le produit est
 // acheté en volume (cl/L/ml) mais utilisé en grammes en recette (ex: crème de balsamique ≈ 920 g/L), ou l'inverse.
@@ -8589,7 +8719,29 @@ async function updateIngredientQuantiteDefaut(code,value){
     var ing=rctIngredients.find(function(i){return i.code===code;});
     if(ing)ing.quantite_defaut=qty;
     refreshIngredientDosePriceLight(code);
+    await cascadeUpdateRecettesForIngredientDefault(code,qty);
   }catch(e){console.error('updateIngredientQuantiteDefaut',e);alert('Erreur : '+e.message);}
+}
+// Quand la dose par défaut d'un ingrédient change, répercute automatiquement sur toutes les recettes qui
+// utilisent cet ingrédient à un pourcentage de cette dose (ex: une pizza à 200% garde 200%, en grammes
+// recalculés à partir de la nouvelle dose) — au lieu de figer chaque recette sur l'ancienne valeur en dur.
+async function cascadeUpdateRecettesForIngredientDefault(ingredientCode,newDefaultQty){
+  if(newDefaultQty==null||isNaN(newDefaultQty)||newDefaultQty<=0)return;
+  try{
+    var res=await db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL).eq('ingredient_code',ingredientCode);
+    if(res.error){console.warn('cascadeUpdateRecettesForIngredientDefault',res.error);return;}
+    var rows=(res.data||[]).filter(function(r){return r.pourcentage_defaut!=null;});
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      var newQty=Math.round(newDefaultQty*r.pourcentage_defaut/100*1000)/1000;
+      sbCheck(await db.from('recettes').update({quantite:newQty}).eq('restaurant_id',RCT_GLOBAL).eq('produit_vendu_code',r.produit_vendu_code).eq('ingredient_code',ingredientCode));
+      if(rctRecettes[r.produit_vendu_code]){
+        var line=rctRecettes[r.produit_vendu_code].find(function(x){return x.ingredient_code===ingredientCode;});
+        if(line){line.quantite=newQty;line.pourcentage_defaut=r.pourcentage_defaut;}
+      }
+    }
+    if(rows.length)renderRecettesList();
+  }catch(e){console.warn('cascadeUpdateRecettesForIngredientDefault',e);} // tolérant : si la colonne pourcentage_defaut n'existe pas encore (migration pas exécutée), on n'interrompt pas la sauvegarde de l'ingrédient
 }
 async function saveNewIngredient(){
   var nom=(document.getElementById('nig-nom').value||'').trim();
@@ -8639,6 +8791,65 @@ async function confirmTransfertBoissons(){
     setIngSubMode('boissons');
     alert('✅ '+checked.length+' catégorie'+(checked.length>1?'s':'')+' transférée'+(checked.length>1?'s':'')+' vers Boissons.');
   }catch(e){console.error('confirmTransfertBoissons',e);alert('Erreur lors du transfert : '+e.message);}
+}
+
+// ── Popup de saisie groupée des doses par défaut manquantes (détectées via l'extraction menu) ──────
+function openDoseDefautModal(){
+  var codes=Object.keys(rctPendingDoseIngredients);
+  var el=document.getElementById('mdosedft-list');
+  if(!codes.length){el.innerHTML='';return;}
+  el.innerHTML=codes.map(function(code){
+    var p=rctPendingDoseIngredients[code];
+    var nomsProduits=p.produits.map(function(pc){var pv=rctProduitsVendus.find(function(x){return x.code===pc;});return pv?pv.nom:pc;});
+    return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 4px;border-bottom:1px solid var(--bd);" data-dose-code="'+code+'">'
+      +'<div style="flex:1;min-width:140px;">'
+      +'<div style="font-weight:700;font-size:12px;color:var(--tx);">'+esc(p.nom)+'</div>'
+      +'<div style="font-size:10px;color:var(--txm);">utilisé dans : '+esc(nomsProduits.join(', '))+'</div>'
+      +'</div>'
+      +'<input type="number" class="fi dose-qty" style="width:70px;font-size:11px;" step="0.1" placeholder="Qté">'
+      +'<select class="fi dose-unit" style="width:70px;font-size:11px;">'
+        +['g','kg','ml','l','piece','dose'].map(function(u){return '<option value="'+u+'"'+(u===p.unite_defaut?' selected':'')+'>'+(u==='piece'?'pièce':u)+'</option>';}).join('')
+      +'</select>'
+      +'</div>';
+  }).join('');
+  document.getElementById('mdosedft').classList.add('op');
+}
+async function confirmDoseDefautModal(){
+  var rows=document.querySelectorAll('#mdosedft-list [data-dose-code]');
+  var toApply=[];
+  rows.forEach(function(row){
+    var code=row.getAttribute('data-dose-code');
+    var qty=parseFloat(row.querySelector('.dose-qty').value);
+    var unit=row.querySelector('.dose-unit').value;
+    if(code&&qty>0)toApply.push({code:code,qty:qty,unit:unit});
+  });
+  if(!toApply.length){alert('Renseigne au moins une dose, ou clique "Plus tard".');return;}
+  for(var i=0;i<toApply.length;i++){
+    var a=toApply[i];
+    var pending=rctPendingDoseIngredients[a.code];
+    if(!pending)continue;
+    try{
+      // Fixe la dose par défaut sur l'ingrédient (source unique, réutilisée partout ailleurs).
+      sbCheck(await db.from('ingredients').update({quantite_defaut:a.qty,unite_defaut:a.unit}).eq('restaurant_id',RCT_GLOBAL).eq('code',a.code));
+      var ing=rctIngredients.find(function(x){return x.code===a.code;});
+      if(ing){ing.quantite_defaut=a.qty;ing.unite_defaut=a.unit;}
+      // Crée la ligne de recette (à 100% de cette dose, donc suivra automatiquement si elle change) pour
+      // chaque produit repéré dans l'extraction en attente de cette dose.
+      var lines=pending.produits.map(function(pc){return {restaurant_id:RCT_GLOBAL,produit_vendu_code:pc,ingredient_code:a.code,quantite:a.qty,unite:a.unit,pourcentage_defaut:100};});
+      try{sbCheck(await db.from('recettes').insert(lines));}
+      catch(e1){sbCheck(await db.from('recettes').insert(lines.map(function(l){return {restaurant_id:l.restaurant_id,produit_vendu_code:l.produit_vendu_code,ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};})));}
+      lines.forEach(function(l){rctRecettes[l.produit_vendu_code]=(rctRecettes[l.produit_vendu_code]||[]).concat([l]);});
+      delete rctPendingDoseIngredients[a.code];
+    }catch(e){console.error('confirmDoseDefautModal',a.code,e);alert('Erreur sur "'+(pending?pending.nom:a.code)+'" : '+e.message);}
+  }
+  closeM('mdosedft');
+  renderRecettesList();
+  renderIngredientsList();
+  if(Object.keys(rctPendingDoseIngredients).length){
+    alert('Il reste '+Object.keys(rctPendingDoseIngredients).length+' ingrédient(s) sans dose — tu peux les traiter plus tard, la prochaine synchro les representera.');
+  }else{
+    alert('✅ Doses enregistrées et recettes complétées.');
+  }
 }
 
 // ── Import BL / catalogue fournisseur : photo/PDF → extraction → écran de validation obligatoire ──
