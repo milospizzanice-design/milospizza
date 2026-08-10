@@ -8782,17 +8782,32 @@ async function saveNewIngredient(){
 
 // ── Transfert en masse de catégories existantes vers l'onglet interne "Boissons" ────────────────
 function openTransfertBoissonsModal(){
-  var list=Object.keys(rctCategoriesOrdre).filter(function(c){return rctCategoriesOrdre[c].onglet!=='Boissons';}).sort(function(a,b){return a.localeCompare(b);});
+  // Union des catégories déjà enregistrées (categories_ordre) ET de celles simplement utilisées dans
+  // les produits vendus (ex: catégories venues du menu public via la synchro) ou les ingrédients, même
+  // si elles n'ont jamais été créées formellement — sinon elles étaient invisibles ici et impossibles à
+  // taguer Boissons, alors même que des produits/boissons les utilisaient déjà.
+  var allCats={};
+  Object.keys(rctCategoriesOrdre).forEach(function(c){allCats[c]=true;});
+  rctProduitsVendus.forEach(function(p){if(p.categorie)allCats[p.categorie]=true;});
+  rctIngredients.forEach(function(i){if(i.categorie)allCats[i.categorie]=true;});
+  var list=Object.keys(allCats).filter(function(c){
+    return !(rctCategoriesOrdre[c]&&rctCategoriesOrdre[c].onglet==='Boissons');
+  }).sort(function(a,b){return a.localeCompare(b);});
   var el=document.getElementById('mtboiss-list');
   if(!list.length){
     el.innerHTML='<div style="font-size:12px;color:var(--txm);">Toutes les catégories sont déjà dans Boissons.</div>';
   }else{
     el.innerHTML=list.map(function(c){
-      var ongActuel=rctCategoriesOrdre[c].onglet||'non classé';
-      var n=rctIngredients.filter(function(i){return i.categorie===c;}).length;
+      var enregistree=!!rctCategoriesOrdre[c];
+      var ongActuel=enregistree?(rctCategoriesOrdre[c].onglet||'non classé'):'non enregistrée — venue du menu/ingrédients';
+      var nProd=rctProduitsVendus.filter(function(p){return p.categorie===c;}).length;
+      var nIng=rctIngredients.filter(function(i){return i.categorie===c;}).length;
+      var detail=[];
+      if(nProd)detail.push(nProd+' produit'+(nProd>1?'s':''));
+      if(nIng)detail.push(nIng+' ingrédient'+(nIng>1?'s':''));
       return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--bd);font-size:12px;">'
         +'<input type="checkbox" class="mtboiss-check" value="'+esc(c)+'">'
-        +'<span style="flex:1;">'+esc(c)+' <span style="color:var(--txm);font-size:10px;">('+n+' ingrédient'+(n>1?'s':'')+' — actuellement '+esc(ongActuel)+')</span></span>'
+        +'<span style="flex:1;">'+esc(c)+' <span style="color:var(--txm);font-size:10px;">('+(detail.length?detail.join(', '):'vide')+' — '+esc(ongActuel)+')</span></span>'
         +'</label>';
     }).join('');
   }
