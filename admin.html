@@ -471,7 +471,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button type="button" id="pv-submode-boissons" class="btn bs sm" onclick="setPvSubMode('boissons')" style="flex:1;">🥤 Boissons</button>
       </div>
       <div id="pv-submode-boiss-tools" style="display:none;margin-bottom:10px;">
-        <button class="btn bp sm" onclick="openTransfertBoissonsModal()" style="width:100%;">🔀 Transférer des catégories existantes vers Boissons</button>
+        <div class="card" style="font-size:11px;color:var(--txm);">🍹 Le classement Plats/Boissons ici suit directement le réglage "Food / Drinks" de chaque catégorie sur le menu public — rien à faire ici. Si une catégorie manque côté Boissons, vérifie/change son réglage dans le back-office du menu (fiche catégorie → section visible).</div>
+        <button class="btn bs sm" onclick="openTransfertBoissonsModal()" style="width:100%;margin-top:6px;" title="Uniquement pour les catégories créées à la main dans l'admin, qui n'existent pas sur le menu public">🔀 Cas particulier : catégorie créée à la main (hors menu)</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <input type="text" class="fi" id="rct-search" placeholder="Rechercher un produit…" oninput="renderRecettesList()" style="flex:1;">
@@ -7076,6 +7077,16 @@ async function syncProduitsFromMenu(){
 function ongletDeCategorie(cat){
   return (rctCategoriesOrdre[cat]&&rctCategoriesOrdre[cat].onglet)||null;
 }
+// Une catégorie de PRODUITS correspond en général à une vraie catégorie du menu public, qui porte déjà
+// nativement son classement Food/Drinks (homeGroup, réglé dans le back-office du menu) — on s'appuie
+// dessus en priorité, aucun tag manuel à faire. Si la catégorie n'existe pas sur le menu (créée à la
+// main côté admin), on retombe sur le tag manuel (onglet 'Boissons').
+function menuCatIsDrinks(catName){
+  var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
+  var c=cats.find(function(x){return (x.name.fr||x.name)===catName;});
+  if(c)return c.homeGroup==='drinks';
+  return ongletDeCategorie(catName)==='Boissons';
+}
 // Crée l'onglet interne "Boissons" côté Supabase s'il n'existe pas encore (première utilisation).
 async function ensureBoissonsOnglet(){
   if(rctOngletsOrdre['Boissons']!=null)return;
@@ -7098,15 +7109,20 @@ function groupByMenu(items,getNom){
   var byCat={};
   // Pré-remplit avec toutes les catégories/sous-catégories du menu public (même vides) pour qu'une
   // sous-catégorie sans produit ne disparaisse pas de la liste — elle reste visible avec "+ Ajouter ici".
+  // Utilise la liste officielle cat.subcats (celle gérée dans le back-office du menu) plutôt que de la
+  // redeviner à partir des produits déjà présents, pour avoir exactement les mêmes noms que sur le menu.
   var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
   var menuItems=(rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[];
   cats.filter(function(c){return !c.archived;}).forEach(function(c){
     var catName=c.name.fr||c.name;
     byCat[catName]=byCat[catName]||{};
     byCat[catName]['']=byCat[catName][''] ||[];
-    var subs={};
-    menuItems.filter(function(it){return !it.archived&&it.cat===c.id&&it.subcat;}).forEach(function(it){subs[it.subcat]=true;});
-    Object.keys(subs).forEach(function(s){byCat[catName][s]=byCat[catName][s]||[];});
+    var subNames=(c.subcats&&c.subcats.length)?c.subcats.slice():Object.keys((function(){
+      var subs={};
+      menuItems.filter(function(it){return !it.archived&&it.cat===c.id&&it.subcat;}).forEach(function(it){subs[it.subcat]=true;});
+      return subs;
+    })());
+    subNames.forEach(function(s){byCat[catName][s]=byCat[catName][s]||[];});
   });
   items.forEach(function(item){
     var cl=menuClassifyProduit(getNom(item));
@@ -7132,7 +7148,9 @@ function sortedMenuSubNames(cat,subObj){
   var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
   var catObj=cats.find(function(c){return (c.name.fr||c.name)===cat;});
   var order={},idx=0;
-  if(catObj){
+  if(catObj&&catObj.subcats&&catObj.subcats.length){
+    catObj.subcats.forEach(function(s){if(order[s]==null)order[s]=idx++;});
+  }else if(catObj){
     ((rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[]).filter(function(it){return !it.archived&&it.cat===catObj.id&&it.subcat;}).forEach(function(it){
       if(order[it.subcat]==null)order[it.subcat]=idx++;
     });
@@ -7369,7 +7387,7 @@ function renderRecettesList(){
   }
   var byCat=groupByMenu(list,function(p){return p.nom;});
   var catNames=sortedMenuCatNames(byCat).filter(function(cat){
-    var estBoisson=ongletDeCategorie(cat)==='Boissons';
+    var estBoisson=menuCatIsDrinks(cat);
     return mode==='boissons'?estBoisson:!estBoisson;
   });
   var html='';
@@ -7404,7 +7422,7 @@ function renderRecettesList(){
     }
   });
   if(!catNames.length){
-    html='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">'+(mode==='boissons'?'Aucune catégorie rattachée à Boissons pour l\'instant. Utilise « Transférer des catégories existantes vers Boissons » ci-dessus.':'Rien à afficher ici.')+'</div>';
+    html='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">'+(mode==='boissons'?'Aucune catégorie du menu n\'est réglée sur "Drinks" pour l\'instant. Va dans le back-office du menu public, ouvre une catégorie (ex: Boissons, Cocktails) et mets-la sur "🍹 Drinks" — elle apparaîtra ici automatiquement.':'Rien à afficher ici.')+'</div>';
   }
   document.getElementById('rct-list-container').innerHTML=html;
 }
