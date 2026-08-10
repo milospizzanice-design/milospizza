@@ -456,7 +456,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="rct-subtab on" id="rctbtn-list" onclick="goRecettesSub('list')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🍕 Produits &amp; recettes</div>
       <div class="rct-subtab" id="rctbtn-ingredients" onclick="goRecettesSub('ingredients')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧂 Ingrédients</div>
       <div class="rct-subtab" id="rctbtn-couts" onclick="goRecettesSub('couts')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💰 Coûts</div>
-      <div class="rct-subtab" id="rctbtn-prix" onclick="goRecettesSub('prix')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💵 Prix de revient</div>
       <div class="rct-subtab" id="rctbtn-inv" onclick="goRecettesSub('inv')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📋 Inventaires</div>
       <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📥 Import ventes</div>
     </div>
@@ -464,7 +463,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <!-- Sous-onglet: liste produits vendus / recettes -->
     <div id="rct-pane-list">
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Le restaurant suit le sélecteur en haut de page. Chaque produit vendu (pizza, dessert…) peut avoir une recette : les ingrédients du stock et leur quantité, pour calculer la consommation théorique.
+        Le restaurant suit le sélecteur en haut de page. Chaque produit a sa recette (ingrédients + quantités), son coût matière calculé automatiquement, et son prix de vente — tout au même endroit. ⚠️ = ingrédient non relié ou sans prix, coût incomplet. 🍽️ = prix sur place · 🥡 = à emporter · coef = prix de vente HT ÷ coût matière (lu depuis la carte publique).
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <button type="button" id="pv-submode-plats" class="btn bp sm" onclick="setPvSubMode('plats')" style="flex:1;">🍕 Plats</button>
@@ -547,16 +546,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <input type="text" class="fi" id="rct-couts-search" placeholder="Rechercher un produit…" oninput="renderCoutsList()" style="width:100%;margin-bottom:10px;">
       <div id="rct-couts-container" style="overflow-x:auto;"></div>
-    </div>
-
-    <!-- Sous-onglet: prix de revient calculé -->
-    <div id="rct-pane-prix" style="display:none;">
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Calculé automatiquement à partir des recettes et des prix du stock. Un produit avec un ingrédient non relié ou sans prix affiche un ⚠️ — le total est alors incomplet.<br>
-        🍽️ = prix de vente sur place · 🥡 = à emporter · coef = prix de vente HT (÷1,1) ÷ coût matière, lu depuis la carte publique (correspondance par nom).
-      </div>
-      <input type="text" class="fi" id="rct-prix-search" placeholder="Rechercher un produit…" oninput="renderPrixRevientList()" style="width:100%;margin-bottom:10px;">
-      <div id="rct-prix-container"></div>
     </div>
 
     <!-- Sous-onglet: inventaires de référence -->
@@ -6876,13 +6865,11 @@ function goRecettesSub(name){
   document.getElementById('rct-pane-list').style.display=(name==='list')?'block':'none';
   document.getElementById('rct-pane-ingredients').style.display=(name==='ingredients')?'block':'none';
   document.getElementById('rct-pane-couts').style.display=(name==='couts')?'block':'none';
-  document.getElementById('rct-pane-prix').style.display=(name==='prix')?'block':'none';
   document.getElementById('rct-pane-inv').style.display=(name==='inv')?'block':'none';
   document.getElementById('rct-pane-import').style.display=(name==='import')?'block':'none';
   document.body.classList.toggle('ing-tree-active',name==='ingredients'); // pilote le décalage de la colonne fixe (desktop) — voir #ing-tree-panel
-  if(name==='prix'){loadMenuPricesFromSite().then(renderPrixRevientList);renderPrixRevientList();}
   if(name==='inv')loadInventairesList();
-  ['list','ingredients','couts','prix','inv','import'].forEach(function(k){
+  ['list','ingredients','couts','inv','import'].forEach(function(k){
     var b=document.getElementById('rctbtn-'+k);
     if(!b)return;
     if(k===name){b.style.background='var(--bx)';b.style.color='#fff';b.style.border='none';}
@@ -6962,7 +6949,6 @@ async function loadRecettesModule(){
     renderRecettesList();
     renderIngredientsList();
     renderCoutsList();
-    renderPrixRevientList();
   }catch(e){
     console.error('loadRecettesModule',e);
     document.getElementById('rct-list-container').innerHTML='<div class="card" style="color:#C0392B;font-size:12px;">Erreur de chargement.</div>';
@@ -7173,10 +7159,14 @@ function sortedMenuSubNames(cat,subObj){
     return oa!==ob?oa-ob:a.localeCompare(b);
   });
 }
-function menuCatHeaderHtml(cat){
+function menuCatHeaderHtml(cat,allCodesInCat){
   return '<div style="display:flex;align-items:center;gap:6px;margin:22px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--bx);">'
     +'<div style="font-size:14px;font-weight:900;color:var(--bx);flex:1;">'+esc(cat)+'</div>'
-    +(cat==='Non trouvé sur le menu'?'<span style="font-size:10px;color:var(--txm);">nom trop différent de celui du menu public</span>':'')
+    +(cat==='Non trouvé sur le menu'?'<span style="font-size:10px;color:var(--txm);">nom trop différent de celui du menu public</span>':
+      (allCodesInCat&&allCodesInCat.length?('<span style="font-size:9px;color:var(--txm);">TVA catégorie</span>'
+      +'<select class="fi" style="font-size:10px;padding:2px;width:auto;" onchange="if(this.value)applyTvaToCategory(\''+allCodesInCat.join(',')+'\',this.value);this.selectedIndex=0;">'
+      +'<option value="">Régler…</option><option value="5.5">5,5%</option><option value="10">10%</option><option value="20">20%</option>'
+      +'</select>'):''))
     +'</div>';
 }
 function groupByOnglet(items,getCat,getSub){
@@ -7404,7 +7394,9 @@ function renderRecettesList(){
   });
   var html='';
   catNames.forEach(function(cat){
-    html+=menuCatHeaderHtml(cat);
+    var allCodesInCat=[];
+    Object.keys(byCat[cat]).forEach(function(sub){byCat[cat][sub].forEach(function(p){allCodesInCat.push(p.code);});});
+    html+=menuCatHeaderHtml(cat,allCodesInCat);
     var subNames=sortedMenuSubNames(cat,byCat[cat]);
     var catHasAnyItem=false;
     subNames.forEach(function(sub){
@@ -7419,13 +7411,49 @@ function renderRecettesList(){
         var lines=rctRecettes[p.code]||[];
         var inactive=p.actif===false;
         var dispoIci=rctProduitDispo[p.code]!==false; // par défaut disponible tant que rien n'est explicitement désactivé ici
-        html+='<div class="card" data-rct-code="'+p.code+'" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';'+(inactive||!dispoIci?'opacity:.5;':'')+'">'
-          +'<div style="flex:1;">'
+        // Coût matière + prix de vente (fusion de l'ancien onglet "Prix de revient" directement ici)
+        var r=coutRecette(p.code);
+        var coutStr=r.total!=null?r.total.toFixed(2)+' €':'—';
+        var hasWarn=r.warnings&&r.warnings.length;
+        var menu=findMenuPriceFor(p.nom);
+        var venteHtml='';
+        if(r.total!=null&&menu){
+          var pvSurPlace=parsePrixVente(menu.price);
+          var pvEmporterRaw=parsePrixVente(menu.priceEmporter);
+          var tva=menu.tva!=null?menu.tva:10;
+          var coefSurPlace=pvSurPlace?((pvSurPlace/(1+tva/100))/r.total).toFixed(2):null;
+          var coefEmporter=pvEmporterRaw?((pvEmporterRaw/(1+tva/100))/r.total).toFixed(2):null;
+          venteHtml='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px;">'
+            +'<span style="font-size:10px;">🍽️</span>'
+            +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvSurPlace!=null?pvSurPlace:'')+'" placeholder="prix" onchange="updateMenuPrice(\''+p.code+'\',\'price\',this.value)">'
+            +'<span style="font-size:9px;color:var(--txm);">€'+(coefSurPlace?' · coef '+coefSurPlace:'')+'</span>'
+            +'<span style="font-size:10px;">🥡</span>'
+            +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvEmporterRaw!=null?pvEmporterRaw:'')+'" placeholder="idem" onchange="updateMenuPrice(\''+p.code+'\',\'priceEmporter\',this.value)">'
+            +'<span style="font-size:9px;color:var(--txm);">€'+(coefEmporter?' · coef '+coefEmporter:'')+'</span>'
+            +'<span style="font-size:9px;color:var(--txm);">TVA</span>'
+            +'<select class="fi" style="font-size:10px;width:auto;padding:1px 3px;" onchange="updateMenuPrice(\''+p.code+'\',\'tva\',this.value)">'
+              +'<option value="5.5"'+(tva===5.5?' selected':'')+'>5,5%</option>'
+              +'<option value="10"'+(tva===10?' selected':'')+'>10%</option>'
+              +'<option value="20"'+(tva===20?' selected':'')+'>20%</option>'
+            +'</select>'
+            +'</div>';
+        }else if(r.total!=null&&!menu){
+          venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">Prix de vente non trouvé sur la carte (nom différent ?)</div>';
+        }
+        html+='<div class="card" data-rct-code="'+p.code+'" style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';'+(inactive||!dispoIci?'opacity:.5;':'')+'">'
+          +'<div style="flex:1;cursor:pointer;" onclick="event.target.tagName!==\'INPUT\'&&event.target.tagName!==\'SELECT\'&&openPrixRevientDetailModal(\''+p.code+'\')">'
           +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(p.nom)+(inactive?' <span style="font-size:10px;color:var(--txm);">(archivé)</span>':'')+(!inactive&&!dispoIci?' <span style="font-size:10px;color:#C0392B;">(indisponible ici)</span>':'')+'</div>'
           +'<div style="font-size:11px;color:var(--txm);">'+(lines.length?lines.length+' ingrédient'+(lines.length>1?'s':''):'Aucune recette définie')+'</div>'
+          +(hasWarn?'<div style="font-size:10px;color:#C0392B;line-height:1.4;">⚠️ '+esc(r.warnings.join(' · '))+'</div>':'')
+          +venteHtml
           +'</div>'
+          +'<div style="text-align:right;">'
+          +'<div style="font-weight:800;font-size:14px;color:var(--bx);">'+coutStr+'</div>'
+          +'<div style="display:flex;gap:4px;margin-top:6px;">'
           +'<button class="btn bs sm" onclick="openRecetteModal(\''+p.code+'\')">Recette</button>'
-          +'<button class="btn bs sm" onclick="openEditProduitVenduModal(\''+p.code+'\')">✏️ Éditer</button>'
+          +'<button class="btn bs sm" onclick="openEditProduitVenduModal(\''+p.code+'\')">✏️</button>'
+          +'</div>'
+          +'</div>'
           +'</div>';
       });
     });
@@ -10060,76 +10088,8 @@ function findMenuPriceFor(nomProduit){
   });
   return (best&&bestScore>=60)?best:null;
 }
-function renderPrixRevientList(){
-  var searchEl=document.getElementById('rct-prix-search');
-  var container=document.getElementById('rct-prix-container');
-  if(!searchEl||!container)return;
-  var search=(searchEl.value||'').toLowerCase();
-  var list=rctProduitsVendus.filter(function(p){
-    if(p.actif===false)return false;
-    if(search&&p.nom.toLowerCase().indexOf(search)<0)return false;
-    return true;
-  });
-  if(!list.length){container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun produit.</div>';return;}
-  var byCat=groupByMenu(list,function(p){return p.nom;});
-  var html='';
-  sortedMenuCatNames(byCat).forEach(function(cat){
-    var allCodesInCat=[];
-    Object.keys(byCat[cat]).forEach(function(sub){byCat[cat][sub].forEach(function(p){allCodesInCat.push(p.code);});});
-    html+='<div style="display:flex;align-items:center;gap:6px;margin:22px 0 4px;padding-bottom:4px;border-bottom:2px solid var(--bx);">'
-      +'<div style="font-size:14px;font-weight:900;color:var(--bx);flex:1;">'+esc(cat)+'</div>'
-      +(cat==='Non trouvé sur le menu'?'<span style="font-size:10px;color:var(--txm);">nom trop différent de celui du menu public</span>':
-      ('<span style="font-size:9px;color:var(--txm);">TVA catégorie</span>'
-      +'<select class="fi" style="font-size:10px;padding:2px;width:auto;" onchange="if(this.value)applyTvaToCategory(\''+allCodesInCat.join(',')+'\',this.value);this.selectedIndex=0;">'
-      +'<option value="">Régler…</option><option value="5.5">5,5%</option><option value="10">10%</option><option value="20">20%</option>'
-      +'</select>'))
-      +'</div>';
-    sortedMenuSubNames(cat,byCat[cat]).forEach(function(sub){
-      if(sub)html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:8px 0 4px 8px;">↳ '+esc(sub)+'</div>';
-      byCat[cat][sub].forEach(function(p){
-          var r=coutRecette(p.code);
-          var coutStr=r.total!=null?r.total.toFixed(2)+' €':'—';
-          var hasWarn=r.warnings&&r.warnings.length;
-          var menu=findMenuPriceFor(p.nom);
-          var venteHtml='';
-          if(r.total!=null&&menu){
-            var pvSurPlace=parsePrixVente(menu.price);
-            var pvEmporterRaw=parsePrixVente(menu.priceEmporter);
-            var tva=menu.tva!=null?menu.tva:10;
-            var coefSurPlace=pvSurPlace?((pvSurPlace/(1+tva/100))/r.total).toFixed(2):null;
-            var coefEmporter=pvEmporterRaw?((pvEmporterRaw/(1+tva/100))/r.total).toFixed(2):null;
-            venteHtml='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px;" onclick="event.stopPropagation()">'
-              +'<span style="font-size:10px;">🍽️</span>'
-              +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvSurPlace!=null?pvSurPlace:'')+'" placeholder="prix" onchange="updateMenuPrice(\''+p.code+'\',\'price\',this.value)">'
-              +'<span style="font-size:9px;color:var(--txm);">€'+(coefSurPlace?' · coef '+coefSurPlace:'')+'</span>'
-              +'<span style="font-size:10px;">🥡</span>'
-              +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvEmporterRaw!=null?pvEmporterRaw:'')+'" placeholder="idem" onchange="updateMenuPrice(\''+p.code+'\',\'priceEmporter\',this.value)">'
-              +'<span style="font-size:9px;color:var(--txm);">€'+(coefEmporter?' · coef '+coefEmporter:'')+'</span>'
-              +'<span style="font-size:9px;color:var(--txm);">TVA</span>'
-              +'<select class="fi" style="font-size:10px;width:auto;padding:1px 3px;" onchange="updateMenuPrice(\''+p.code+'\',\'tva\',this.value)">'
-                +'<option value="5.5"'+(tva===5.5?' selected':'')+'>5,5%</option>'
-                +'<option value="10"'+(tva===10?' selected':'')+'>10%</option>'
-                +'<option value="20"'+(tva===20?' selected':'')+'>20%</option>'
-              +'</select>'
-              +'</div>';
-          }else if(r.total!=null&&!menu){
-            venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">Prix de vente non trouvé sur la carte (nom différent ?)</div>';
-          }
-          html+='<div class="card" style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';cursor:pointer;" onclick="openPrixRevientDetailModal(\''+p.code+'\')">'
-            +'<div style="flex:1;">'
-            +'<div style="font-weight:700;font-size:13px;color:var(--tx);">'+esc(p.nom)+'</div>'
-            +(hasWarn?'<div style="font-size:10px;color:#C0392B;line-height:1.4;">⚠️ '+esc(r.warnings.join(' · '))+'</div>':'')
-            +venteHtml
-            +'</div>'
-            +'<div style="font-weight:800;font-size:14px;color:var(--bx);">'+coutStr+'</div>'
-            +'</div>';
-        });
-      });
-    });
-  container.innerHTML=html;
-}
-// Met à jour le prix (sur place/emporter) ou la TVA d'un produit directement depuis "Prix de revient",
-// et l'enregistre sur la carte publique (menudata.json).
+// Met à jour le prix (sur place/emporter) ou la TVA d'un produit — appelable depuis les cartes fusionnées
+// dans Produits & recettes, et l'enregistre sur la carte publique (menudata.json).
 async function updateMenuPrice(prodCode,field,value){
   var p=rctProduitsVendus.find(function(x){return x.code===prodCode;});
   if(!p)return;
@@ -10140,7 +10100,7 @@ async function updateMenuPrice(prodCode,field,value){
   rctMenuDirtyNames[(item.name&&(item.name.fr||item.name))||'']=true;
   try{
     await saveMenuData();
-    renderPrixRevientList();
+    renderRecettesList();
   }catch(e){console.error('updateMenuPrice',e);alert('Erreur lors de l\'enregistrement sur la carte : '+e.message);}
 }
 // Applique un taux de TVA à tous les produits d'une catégorie en une fois.
@@ -10158,7 +10118,7 @@ async function applyTvaToCategory(codesCsv,tva){
   try{
     await saveMenuData();
     alert('✅ TVA à '+tva+'% appliquée à '+changed+' produit(s) de cette catégorie.');
-    renderPrixRevientList();
+    renderRecettesList();
   }catch(e){console.error('applyTvaToCategory',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
