@@ -6975,15 +6975,20 @@ async function loadRecettesModule(){
 // à compléter) pour tout produit du menu qui n'a pas encore de fiche correspondante, et signale
 // les fiches existantes qui ne correspondent plus à rien sur le menu (à vérifier/archiver).
 let rctPendingDoseIngredients={}; // {ingredient_code:{nom,unite_defaut,produits:[code,...]}} — détectés dans la description du menu mais sans dose par défaut, en attente de saisie via la popup
-// Essaie de reconstituer la recette d'un produit à partir du texte de sa description sur le menu public
-// (ex: "Tomate, mozzarella, jambon, champignons") en le comparant à la liste Ingrédients/Boissons.
-// Les ingrédients reconnus avec une dose par défaut sont ajoutés tels quels (liés à ce % = 100%) ;
-// ceux sans dose par défaut sont mis de côté pour la popup de saisie groupée en fin de synchro.
+// Essaie de reconstituer/compléter la recette d'un produit à partir du texte de sa description sur le
+// menu public (ex: "Rhum, jus de citron vert, sucre de canne, menthe") en le comparant à la liste
+// Ingrédients/Boissons. Les ingrédients reconnus avec une dose par défaut sont ajoutés tels quels (liés
+// à ce % = 100%) ; ceux sans dose par défaut sont mis de côté pour la popup de saisie groupée en fin de
+// synchro. Idempotent : ne duplique jamais une ligne déjà présente, donc peut être relancée après avoir
+// ajouté de nouveaux ingrédients pour compléter une recette déjà partiellement extraite.
+// Renvoie {added, pending, unmatched} pour permettre un rapport détaillé côté appelant.
 async function extraireRecetteDepuisDescription(prodCode,descText){
-  if(!descText||!descText.trim())return;
+  var diag={added:0,pending:0,unmatched:[]};
+  if(!descText||!descText.trim())return diag;
   var tokens=descText.split(/[,;+]|(?:\bet\b)|(?:\bou\b)/i).map(function(t){return t.trim();}).filter(function(t){return t.length>1;});
-  if(!tokens.length)return;
+  if(!tokens.length)return diag;
   var finis=rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini';});
+  var existingCodes=(rctRecettes[prodCode]||[]).map(function(l){return l.ingredient_code;});
   var matched=[];
   tokens.forEach(function(tok){
     var best=null,bestScore=0;
@@ -6991,11 +6996,13 @@ async function extraireRecetteDepuisDescription(prodCode,descText){
       var sc=matchScore(tok,ing.nom);
       if(sc>bestScore){bestScore=sc;best=ing;}
     });
-    if(best&&bestScore>=60&&matched.indexOf(best.code)<0)matched.push(best.code);
+    if(best&&bestScore>=60){if(matched.indexOf(best.code)<0)matched.push(best.code);}
+    else diag.unmatched.push(tok);
   });
-  if(!matched.length)return;
+  if(!matched.length)return diag;
   var linesToInsert=[];
   matched.forEach(function(code){
+    if(existingCodes.indexOf(code)>=0)return; // déjà dans la recette, on ne duplique pas
     var ing=rctIngredients.find(function(x){return x.code===code;});
     if(!ing)return;
     if(ing.quantite_defaut!=null&&ing.quantite_defaut>0){
@@ -7003,6 +7010,7 @@ async function extraireRecetteDepuisDescription(prodCode,descText){
     }else{
       rctPendingDoseIngredients[code]=rctPendingDoseIngredients[code]||{nom:ing.nom,unite_defaut:ing.unite_defaut||'g',produits:[]};
       if(rctPendingDoseIngredients[code].produits.indexOf(prodCode)<0)rctPendingDoseIngredients[code].produits.push(prodCode);
+      diag.pending++;
     }
   });
   if(linesToInsert.length){
@@ -7010,8 +7018,10 @@ async function extraireRecetteDepuisDescription(prodCode,descText){
       try{sbCheck(await db.from('recettes').insert(linesToInsert));}
       catch(e1){sbCheck(await db.from('recettes').insert(linesToInsert.map(function(l){return {restaurant_id:l.restaurant_id,produit_vendu_code:l.produit_vendu_code,ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};})));}
       rctRecettes[prodCode]=(rctRecettes[prodCode]||[]).concat(linesToInsert);
+      diag.added=linesToInsert.length;
     }catch(e){console.error('extraireRecetteDepuisDescription:insert',prodCode,e);}
   }
+  return diag;
 }
 async function syncProduitsFromMenu(){
   var reportEl=document.getElementById('rct-sync-report');
@@ -7040,19 +7050,19 @@ async function syncProduitsFromMenu(){
       await extraireRecetteDepuisDescription(code,it.desc&&(it.desc.fr||it.desc));
     }catch(e){console.error('syncProduitsFromMenu',nom,e);}
   }
-  // Deuxième passe : produits déjà existants (créés avant cette fonctionnalité, ou via import CSV) qui
-  // n'ont encore aucune recette — on tente aussi l'extraction dessus à partir de leur description menu.
-  var extraitsExistants=0;
-  var sansRecette=rctProduitsVendus.filter(function(p){return p.actif!==false&&!(rctRecettes[p.code]&&rctRecettes[p.code].length);});
-  for(var j=0;j<sansRecette.length;j++){
-    var p=sansRecette[j];
+  // Deuxième passe : TOUS les produits actifs (pas seulement ceux sans recette) — l'extraction est
+  // idempotente (ne duplique jamais une ligne déjà présente), donc ça permet de compléter une recette
+  // déjà partiellement extraite après avoir ajouté de nouveaux ingrédients reconnaissables.
+  var extraitsExistants=0,motsNonReconnus={};
+  var actifs=rctProduitsVendus.filter(function(p){return p.actif!==false;});
+  for(var j=0;j<actifs.length;j++){
+    var p=actifs[j];
     try{
       var item=findMenuPriceFor(p.nom);
       if(item&&item.desc&&(item.desc.fr||item.desc)){
-        var avant=(rctRecettes[p.code]||[]).length;
-        await extraireRecetteDepuisDescription(p.code,item.desc.fr||item.desc);
-        var apres=(rctRecettes[p.code]||[]).length;
-        if(apres>avant)extraitsExistants++;
+        var diag=await extraireRecetteDepuisDescription(p.code,item.desc.fr||item.desc);
+        if(diag.added>0)extraitsExistants++;
+        (diag.unmatched||[]).forEach(function(tok){motsNonReconnus[tok]=(motsNonReconnus[tok]||0)+1;});
       }
     }catch(e){console.error('syncProduitsFromMenu:existant',p.nom,e);}
   }
@@ -7067,8 +7077,10 @@ async function syncProduitsFromMenu(){
   }catch(e){console.error('syncProduitsFromMenu:openDoseDefautModal',e);}
   var html='<div class="card" style="font-size:12px;">';
   html+=created.length?('✅ '+created.length+' produit(s) créé(s) depuis le menu : '+esc(created.join(', '))+'<br><br>'):'✅ Rien à créer, tout est déjà présent.<br><br>';
-  html+=extraitsExistants?('🧾 Recette extraite automatiquement pour '+extraitsExistants+' produit(s) existant(s) sans recette.<br><br>'):'';
+  html+=extraitsExistants?('🧾 Recette complétée automatiquement pour '+extraitsExistants+' produit(s).<br><br>'):'';
   if(Object.keys(rctPendingDoseIngredients).length)html+='⚖️ '+Object.keys(rctPendingDoseIngredients).length+' ingrédient(s) détecté(s) sans dose par défaut — pop-up ouverte pour les renseigner.<br><br>';
+  var motsList=Object.keys(motsNonReconnus);
+  if(motsList.length)html+='❓ Mots de description non reconnus comme ingrédient (vérifie l\'orthographe, ou ajoute-les dans Ingrédients/Boissons) : '+esc(motsList.slice(0,30).join(', '))+(motsList.length>30?'…':'')+'<br><br>';
   html+=orphelins.length?('⚠️ '+orphelins.length+' produit(s) dans Recettes introuvable(s) sur le menu public (nom différent, ou retiré de la carte) — à vérifier :<br>'+esc(orphelins.join(', ')))
     :'✅ Aucune fiche orpheline.';
   html+='</div>';
