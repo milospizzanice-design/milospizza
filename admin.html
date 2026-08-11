@@ -481,6 +481,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <button class="btn bp sm" onclick="syncProduitsFromMenu()">🔄 Synchroniser avec le menu</button>
+        <button class="btn ba sm" onclick="openFlyerImportModal()">📸 Importer un flyer (prix emporter)</button>
         <button class="btn bs sm" onclick="openNewProduitVenduModal()">+ Produit vendu manuellement</button>
         <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvel onglet</button>
         <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
@@ -651,6 +652,24 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="font-size:12px;color:var(--txm);margin-bottom:10px;">Vérifie chaque ligne avant de valider. <span style="color:#92400E;font-weight:700;">🟠 = correspondance incertaine</span>, à confirmer ou corriger manuellement. Décoche les lignes à ignorer.</div>
       <div id="mbl-lines"></div>
       <div class="ma"><button class="btn bs" onclick="closeM('mbl')">Annuler</button><button class="btn bp" onclick="confirmBlImport()">✓ Valider les lignes cochées</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="mflyer">
+  <div class="md" style="max-width:640px;">
+    <div class="mdt">📸 Importer un flyer (prix à emporter)</div>
+    <div id="mflyer-step-upload">
+      <div style="font-size:12px;color:var(--txm);margin-bottom:10px;">Prends en photo (ou importe une image) de ton flyer à emporter. Les prix seront extraits et comparés à ceux déjà sur la carte — <strong>rien n'est enregistré tant que tu n'as pas validé chaque ligne</strong>. Fonctionne aussi bien pour un futur autre restaurant : rien ici n'est propre à Milo's.</div>
+      <div class="fr"><label class="fl2">Photo du flyer</label>
+        <input type="file" class="fi" id="mflyer-file" accept="image/*" style="padding:5px"></div>
+      <div id="mflyer-upload-status" style="font-size:12px;color:var(--txm);margin:8px 0;"></div>
+      <div class="ma"><button class="btn bs" onclick="closeM('mflyer')">Annuler</button><button class="btn bp" id="mflyer-analyze-btn" onclick="analyzeFlyerFile()">Analyser</button></div>
+    </div>
+    <div id="mflyer-step-preview" style="display:none;">
+      <div style="font-size:12px;color:var(--txm);margin-bottom:10px;">Vérifie chaque ligne. <span style="color:#92400E;font-weight:700;">🟠 = correspondance incertaine</span> avec un produit existant sur la carte, à confirmer ou corriger. Décoche ce qui n'est pas à appliquer.</div>
+      <div id="mflyer-lines"></div>
+      <div class="ma"><button class="btn bs" onclick="closeM('mflyer')">Annuler</button><button class="btn bp" onclick="confirmFlyerImport()">✓ Appliquer les prix cochés</button></div>
     </div>
   </div>
 </div>
@@ -9140,6 +9159,128 @@ async function confirmBlImport(){
   closeM('mbl');
   renderIngredientsList();
   alert('✅ '+(toImport.length-errors.length)+'/'+toImport.length+' ligne(s) importée(s).'+(errors.length?'\n\n⚠️ '+errors.join('\n'):''));
+}
+
+// ══ Import flyer/carte à emporter → extraction IA des prix (générique, réutilisable pour tout resto) ══
+// Réutilise le même Worker/secret que l'import BL (BL_PROXY_URL/BL_ADMIN_SECRET) — juste une route
+// dédiée /admin/extract-menu-prices côté Worker, car le prompt d'extraction (nom + prix d'un flyer)
+// est différent de celui d'une facture (nom + quantité + prix total). Voir la doc du projet pour le
+// code de cette route à ajouter au Worker si elle n'existe pas encore.
+var mflyerLines=[]; // {id,nomExtrait,prixExtrait,matchNom,matchScore,selected}
+function openFlyerImportModal(){
+  document.getElementById('mflyer-step-upload').style.display='block';
+  document.getElementById('mflyer-step-preview').style.display='none';
+  document.getElementById('mflyer-upload-status').textContent='';
+  var f=document.getElementById('mflyer-file');
+  if(f)f.value='';
+  document.getElementById('mflyer').classList.add('op');
+}
+async function analyzeFlyerFile(){
+  var fileEl=document.getElementById('mflyer-file');
+  var file=fileEl.files&&fileEl.files[0];
+  var statusEl=document.getElementById('mflyer-upload-status');
+  if(!file){alert('Choisis une photo du flyer.');return;}
+  var btn=document.getElementById('mflyer-analyze-btn');
+  btn.disabled=true;
+  statusEl.textContent='⏳ Lecture du fichier…';
+  try{
+    await loadMenuPricesFromSite(); // s'assurer d'avoir la carte publique à jour pour le rapprochement
+    var b64=await fileToBase64(file);
+    statusEl.textContent='⏳ Analyse en cours (extraction des prix)… peut prendre 10-20 s.';
+    var res=await fetch(BL_PROXY_URL+'/admin/extract-menu-prices',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Admin-Secret':BL_ADMIN_SECRET},
+      body:JSON.stringify({media_type:file.type||'image/jpeg',data:b64})
+    });
+    if(!res.ok){
+      var errBody=null;
+      try{errBody=await res.json();}catch(e){}
+      throw new Error((errBody&&errBody.error)?errBody.error:('HTTP '+res.status));
+    }
+    var json=await res.json();
+    var items=json.items||[];
+    if(!items.length){statusEl.textContent='⚠️ Aucun prix détecté sur cette image. Réessaie avec une photo plus nette.';btn.disabled=false;return;}
+    var menuItems=(rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[];
+    mflyerLines=items.map(function(it,i){
+      var nomExtrait=(it.nom||'').trim();
+      var best=null,bestScore=-1;
+      menuItems.filter(function(m){return !m.archived;}).forEach(function(m){
+        var nom=(m.name&&(m.name.fr||m.name))||'';
+        var sc=matchScore(nomExtrait,nom);
+        if(sc>bestScore){bestScore=sc;best=m;}
+      });
+      var bestNom=best?((best.name&&(best.name.fr||best.name))||''):'';
+      return {
+        id:'fl'+i,
+        nomExtrait:nomExtrait,
+        prixExtrait:it.prix!=null?it.prix:'',
+        matchNom:bestScore>=60?bestNom:'',
+        matchScore:bestScore<0?0:bestScore,
+        selected:true
+      };
+    });
+    document.getElementById('mflyer-step-upload').style.display='none';
+    document.getElementById('mflyer-step-preview').style.display='block';
+    renderFlyerLines();
+  }catch(e){
+    console.error('analyzeFlyerFile',e);
+    statusEl.textContent='❌ Erreur : '+e.message+'. Vérifie que la route /admin/extract-menu-prices est bien configurée sur le Worker.';
+  }finally{btn.disabled=false;}
+}
+function renderFlyerLines(){
+  var box=document.getElementById('mflyer-lines');
+  var menuItems=((rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[]).filter(function(m){return !m.archived;});
+  var nomOpts='<option value="">— ignorer (aucune correspondance) —</option>'+menuItems.map(function(m){
+    var nom=(m.name&&(m.name.fr||m.name))||'';
+    return '<option value="'+esc(nom)+'">'+esc(nom)+'</option>';
+  }).join('');
+  box.innerHTML=mflyerLines.map(function(l){
+    var ambiguous=!l.matchNom||l.matchScore<80;
+    var current=l.matchNom?findMenuPriceFor(l.matchNom):null;
+    var prixActuel=current?parsePrixVente(current.priceEmporter):null;
+    return '<div style="border:1px solid '+(ambiguous?'#E8B84B':'var(--bd)')+';background:'+(ambiguous?'#FFF9EC':'#fff')+';border-radius:8px;padding:8px 10px;margin-bottom:8px;">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+      +'<input type="checkbox" '+(l.selected?'checked':'')+' onchange="toggleFlyerLine(\''+l.id+'\',this.checked)">'
+      +'<strong style="font-size:12px;flex:1;">'+(ambiguous?'🟠 ':'')+esc(l.nomExtrait)+'</strong>'
+      +'<input type="number" class="fi" style="width:70px;font-size:11px;" step="0.01" placeholder="Prix" value="'+l.prixExtrait+'" onchange="updateFlyerLineField(\''+l.id+'\',\'prixExtrait\',this.value)">'
+      +'<span style="font-size:11px;color:var(--txm);">€</span>'
+      +'</div>'
+      +'<select class="fi" style="font-size:11px;width:100%;" onchange="updateFlyerLineField(\''+l.id+'\',\'matchNom\',this.value)">'+nomOpts.replace('value="'+esc(l.matchNom)+'"','value="'+esc(l.matchNom)+'" selected')+'</select>'
+      +(prixActuel!=null?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Prix emporter actuel sur la carte : '+prixActuel.toFixed(2)+' €</div>':'')
+      +(ambiguous&&l.matchNom?'<div style="font-size:10px;color:#92400E;margin-top:4px;">Correspondance incertaine — vérifie le produit choisi.</div>':'')
+      +(!l.matchNom?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Aucun produit correspondant trouvé sur la carte — choisis-en un ou laisse "ignorer".</div>':'')
+      +'</div>';
+  }).join('');
+}
+function toggleFlyerLine(id,checked){
+  var l=mflyerLines.find(function(x){return x.id===id;});
+  if(l)l.selected=checked;
+}
+function updateFlyerLineField(id,field,value){
+  var l=mflyerLines.find(function(x){return x.id===id;});
+  if(!l)return;
+  if(field==='prixExtrait')l[field]=value===''?'':parseFloat(value);
+  else l[field]=value;
+  if(field==='matchNom')l.matchScore=100; // choix manuel = plus d'ambiguïté
+  renderFlyerLines();
+}
+async function confirmFlyerImport(){
+  var toApply=mflyerLines.filter(function(l){return l.selected&&l.matchNom&&l.prixExtrait!==''&&l.prixExtrait!=null;});
+  if(!toApply.length){alert('Coche au moins une ligne avec un produit et un prix valides.');return;}
+  var applied=0,errors=[];
+  toApply.forEach(function(l){
+    var item=findMenuPriceFor(l.matchNom);
+    if(!item){errors.push(l.nomExtrait+' : produit introuvable sur la carte');return;}
+    item.priceEmporter=l.prixExtrait+'€';
+    rctMenuDirtyNames[(item.name&&(item.name.fr||item.name))||'']=true;
+    applied++;
+  });
+  try{
+    if(applied)await saveMenuData();
+    closeM('mflyer');
+    renderRecettesList();
+    alert('✅ '+applied+' prix à emporter mis à jour depuis le flyer.'+(errors.length?'\n\n⚠️ '+errors.join('\n'):''));
+  }catch(e){console.error('confirmFlyerImport',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
 // ── Suggestions de rattachement (similarité de nom, jamais automatique) ─────
