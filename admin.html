@@ -591,6 +591,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="md" style="max-width:420px;">
     <div class="mdt" id="mrct-title">Recette</div>
     <div id="mrct-lines"></div>
+    <div id="mrct-total-cost" style="text-align:right;font-size:12px;font-weight:700;color:var(--tx);margin-top:6px;padding-top:6px;border-top:1px dashed var(--bd);">Coût total : —</div>
     <button class="btn bs sm" onclick="addRecetteLine()" style="width:100%;margin-top:6px;">+ Ajouter un ingrédient (ligne vide)</button>
     <div style="margin-top:10px;">
       <button class="btn bs sm" onclick="toggleDupliquerRecette()" id="mrct-dupli-btn" style="width:100%;">⧉ Dupliquer une recette existante</button>
@@ -7607,7 +7608,8 @@ function renderRecetteLines(lines){
       +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1" oninput="updateRecettePctBadge(this)">'
       +'<select class="fi mrct-unit" style="flex:1;" onchange="updateRecettePctBadge(this)"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
       +'<span class="mrct-pct" style="font-size:9px;color:var(--txm);min-width:34px;text-align:right;"></span>'
-      +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>'
+      +'<span class="mrct-cost" style="font-size:11px;font-weight:700;color:var(--txm);min-width:42px;text-align:right;"></span>'
+      +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove();updateRecetteTotalCost();" style="padding:6px 8px;">✕</button>'
       +'</div>';
   }).join('');
   document.getElementById('mrct-lines').innerHTML=html;
@@ -7620,6 +7622,7 @@ function renderRecetteLines(lines){
     row.querySelector('.mrct-unit').value=l.unite||'g';
     updateRecettePctBadge(row.querySelector('.mrct-qty'));
   });
+  updateRecetteTotalCost();
 }
 function addRecetteLine(){
   addRecetteLineWithIngredient('');
@@ -7636,13 +7639,15 @@ function addRecetteLineWithIngredient(ingredientCode){
     +'<input type="number" class="fi mrct-qty" style="flex:1;" placeholder="Qté" step="0.1" oninput="updateRecettePctBadge(this)">'
     +'<select class="fi mrct-unit" style="flex:1;" onchange="updateRecettePctBadge(this)"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
     +'<span class="mrct-pct" style="font-size:9px;color:var(--txm);min-width:34px;text-align:right;"></span>'
-    +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>';
+    +'<span class="mrct-cost" style="font-size:11px;font-weight:700;color:var(--txm);min-width:42px;text-align:right;"></span>'
+    +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove();updateRecetteTotalCost();" style="padding:6px 8px;">✕</button>';
   container.appendChild(div);
   if(ingredientCode){
     var ingSel=div.querySelector('.mrct-ing');
     ingSel.value=ingredientCode;
     applyDefaultUnitToRow(ingSel);
   }
+  updateRecetteTotalCost();
 }
 function applyDefaultUnitToRow(ingSelectEl){
   var row=ingSelectEl.closest('[data-idx]');
@@ -7656,18 +7661,47 @@ function applyDefaultUnitToRow(ingSelectEl){
 }
 // Affiche à titre indicatif le % de la dose par défaut que représente la quantité saisie sur cette ligne
 // (ex: "200%") — c'est ce pourcentage qui sera mémorisé et qui suivra si la dose par défaut change.
+// Calcule aussi le coût de cette ligne (et rafraîchit le total) pour voir tout de suite ce que coûte
+// chaque ingrédient dans la recette, pas seulement le total global.
 function updateRecettePctBadge(qtyInputEl){
   if(!qtyInputEl)return;
   var row=qtyInputEl.closest('[data-idx]');
   if(!row)return;
   var badge=row.querySelector('.mrct-pct');
-  if(!badge)return;
+  var costSpan=row.querySelector('.mrct-cost');
   var ingSel=row.querySelector('.mrct-ing'),unitSel=row.querySelector('.mrct-unit');
   var ing=ingSel?rctIngredients.find(function(x){return x.code===ingSel.value;}):null;
   var qty=parseFloat(qtyInputEl.value);
-  if(!ing||!ing.quantite_defaut||!(qty>0)||(unitSel&&unitSel.value)!==(ing.unite_defaut||'g')){badge.textContent='';return;}
-  var pct=Math.round((qty/ing.quantite_defaut)*1000)/10;
-  badge.textContent=pct+'% déf.';
+  if(badge){
+    if(!ing||!ing.quantite_defaut||!(qty>0)||(unitSel&&unitSel.value)!==(ing.unite_defaut||'g'))badge.textContent='';
+    else badge.textContent=(Math.round((qty/ing.quantite_defaut)*1000)/10)+'% déf.';
+  }
+  if(costSpan){
+    if(!ing||!(qty>0)){costSpan.textContent='';costSpan.title='';}
+    else{
+      var r=coutIngredient(ing.code,qty,unitSel?unitSel.value:'g');
+      if(r.cout!=null){costSpan.textContent=r.cout.toFixed(2)+'€';costSpan.style.color='var(--txm)';costSpan.title='';}
+      else{costSpan.textContent='⚠️';costSpan.style.color='#C0392B';costSpan.title=r.warning||'prix manquant sur cet ingrédient';}
+    }
+  }
+  updateRecetteTotalCost();
+}
+// Additionne le coût de toutes les lignes actuellement dans la modale (pas encore forcément enregistrées)
+// pour donner un total qui réagit en direct pendant qu'on compose la recette.
+function updateRecetteTotalCost(){
+  var totalEl=document.getElementById('mrct-total-cost');
+  if(!totalEl)return;
+  var rows=document.querySelectorAll('#mrct-lines [data-idx]');
+  var total=0,hasCout=false,hasWarn=false;
+  rows.forEach(function(row){
+    var ingSel=row.querySelector('.mrct-ing'),unitSel=row.querySelector('.mrct-unit'),qtyInput=row.querySelector('.mrct-qty');
+    var code=ingSel?ingSel.value:'';
+    var qty=qtyInput?parseFloat(qtyInput.value):NaN;
+    if(!code||!(qty>0))return;
+    var r=coutIngredient(code,qty,unitSel?unitSel.value:'g');
+    if(r.cout!=null){total+=r.cout;hasCout=true;}else hasWarn=true;
+  });
+  totalEl.textContent='Coût total : '+(hasCout?total.toFixed(2)+' €':'—')+(hasWarn?' (incomplet ⚠️)':'');
 }
 
 // ── Recherche + sélection multiple d'ingrédients pour la recette ────────────
