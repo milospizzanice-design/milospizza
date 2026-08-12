@@ -502,7 +502,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="card">
         <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:8px;">Importer depuis un fichier</div>
         <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Fichier CSV avec 2 colonnes : <strong>Catégorie;Ingrédient</strong> (une ligne d'en-tête optionnelle). Un nouvel import s'ajoute à la liste existante sans effacer ce qui est déjà rattaché.</div>
-        <div class="fr"><label class="fl2">Fichier CSV</label><input type="file" class="fi" id="rct-ing-file" accept=".csv,text/csv" style="padding:5px"></div>
+        <div class="fr"><label class="fl2">Fichier CSV ou PDF</label><input type="file" class="fi" id="rct-ing-file" accept=".csv,text/csv,application/pdf" style="padding:5px"></div>
         <button class="btn bp" onclick="previewIngredientsImport()" style="width:100%;">Analyser le fichier</button>
       </div>
       <div id="rct-ing-preview"></div>
@@ -9295,7 +9295,12 @@ async function analyzeFlyerFile(){
         prixExtrait:it.prix!=null?it.prix:'',
         matchNom:bestScore>=60?bestNom:'',
         matchScore:bestScore<0?0:bestScore,
-        selected:true
+        selected:true,
+        createMode:false,
+        catForNew:Object.keys(rctCategoriesOrdre)[0]||'',
+        compoForNew:'',
+        isPizza:/pizza/i.test(nomExtrait),
+        justCreatedCode:null
       };
     });
     document.getElementById('mflyer-step-upload').style.display='none';
@@ -9313,10 +9318,27 @@ function renderFlyerLines(){
     var nom=(m.name&&(m.name.fr||m.name))||'';
     return '<option value="'+esc(nom)+'">'+esc(nom)+'</option>';
   }).join('');
+  var catOptsHtml=Object.keys(rctCategoriesOrdre).sort(function(a,b){return (rctCategoriesOrdre[a].ordre||0)-(rctCategoriesOrdre[b].ordre||0);}).map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
   box.innerHTML=mflyerLines.map(function(l){
     var ambiguous=!l.matchNom||l.matchScore<80;
     var current=l.matchNom?findMenuPriceFor(l.matchNom):null;
     var prixActuel=current?parsePrixVente(current.priceEmporter):null;
+    var createBlock='';
+    if(!l.matchNom&&!l.justCreatedCode){
+      createBlock='<div style="margin-top:6px;padding:8px;background:#F7F3EC;border-radius:6px;">'
+        +(l.createMode?(
+          '<div style="display:flex;flex-direction:column;gap:6px;">'
+          +'<select class="fi" style="font-size:11px;" onchange="updateFlyerCreateField(\''+l.id+'\',\'catForNew\',this.value)">'+catOptsHtml.replace('value="'+esc(l.catForNew)+'"','value="'+esc(l.catForNew)+'" selected')+'</select>'
+          +'<textarea class="fi" style="font-size:11px;min-height:50px;" placeholder="Composition : tomate, mozzarella, jambon, champignons…" onchange="updateFlyerCreateField(\''+l.id+'\',\'compoForNew\',this.value)">'+esc(l.compoForNew)+'</textarea>'
+          +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;"><input type="checkbox" '+(l.isPizza?'checked':'')+' onchange="updateFlyerCreateField(\''+l.id+'\',\'isPizza\',this.checked)"> 🍕 C\'est une pizza (ajoute automatiquement une pâte à pizza à la recette)</label>'
+          +'<div style="display:flex;gap:6px;"><button class="btn bs sm" onclick="updateFlyerCreateField(\''+l.id+'\',\'createMode\',false)" style="flex:1;">Annuler</button><button class="btn bp sm" onclick="createProduitFromFlyerLine(\''+l.id+'\')" style="flex:1;">✓ Créer</button></div>'
+          +'</div>'
+        ):(
+          '<div style="font-size:10px;color:var(--txm);margin-bottom:4px;">Aucun produit correspondant trouvé sur la carte — choisis-en un ci-dessus, ou :</div>'
+          +'<button class="btn bp sm" onclick="updateFlyerCreateField(\''+l.id+'\',\'createMode\',true)" style="width:100%;">➕ Créer le produit</button>'
+        ))
+        +'</div>';
+    }
     return '<div style="border:1px solid '+(ambiguous?'#E8B84B':'var(--bd)')+';background:'+(ambiguous?'#FFF9EC':'#fff')+';border-radius:8px;padding:8px 10px;margin-bottom:8px;">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
       +'<input type="checkbox" '+(l.selected?'checked':'')+' onchange="toggleFlyerLine(\''+l.id+'\',this.checked)">'
@@ -9327,13 +9349,72 @@ function renderFlyerLines(){
       +'<select class="fi" style="font-size:11px;width:100%;" onchange="updateFlyerLineField(\''+l.id+'\',\'matchNom\',this.value)">'+nomOpts.replace('value="'+esc(l.matchNom)+'"','value="'+esc(l.matchNom)+'" selected')+'</select>'
       +(prixActuel!=null?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Prix emporter actuel sur la carte : '+prixActuel.toFixed(2)+' €</div>':'')
       +(ambiguous&&l.matchNom?'<div style="font-size:10px;color:#92400E;margin-top:4px;">Correspondance incertaine — vérifie le produit choisi.</div>':'')
-      +(!l.matchNom?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Aucun produit correspondant trouvé sur la carte — choisis-en un ou laisse "ignorer".</div>':'')
+      +(l.justCreatedCode?'<div style="font-size:10px;color:#065F46;margin-top:4px;">✅ Produit créé (catégorie + recette). Le prix ne peut pas encore être poussé sur la carte publique tant qu\'il n\'y est pas ajouté depuis index.html — ajoute-le là-bas puis relance la synchro.</div>':'')
+      +createBlock
       +'</div>';
   }).join('');
 }
 function toggleFlyerLine(id,checked){
   var l=mflyerLines.find(function(x){return x.id===id;});
   if(l)l.selected=checked;
+}
+function updateFlyerCreateField(id,field,value){
+  var l=mflyerLines.find(function(x){return x.id===id;});
+  if(!l)return;
+  l[field]=value;
+  renderFlyerLines();
+}
+// Retrouve l'ingrédient "pâte à pizza" (peu importe la formulation exacte utilisée dans la liste
+// Ingrédients) par similarité de nom plutôt qu'un nom figé — évite de dépendre d'une orthographe précise.
+function findPateAPizzaIngredient(){
+  var best=null,bestScore=-1;
+  rctIngredients.filter(function(i){return i.actif!==false;}).forEach(function(i){
+    var sc=matchScore('pate a pizza',i.nom);
+    if(sc>bestScore){bestScore=sc;best=i;}
+  });
+  return bestScore>=60?best:null;
+}
+async function createProduitFromFlyerLine(id){
+  var l=mflyerLines.find(function(x){return x.id===id;});
+  if(!l)return;
+  if(!l.catForNew){alert('Choisis une catégorie.');return;}
+  var nom=l.nomExtrait;
+  var code='pv_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);
+  try{
+    sbCheck(await db.from('produits_vendus').insert({restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:l.catForNew,sous_categorie:null,actif:true}));
+    rctProduitsVendus.push({restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:l.catForNew,sous_categorie:null,actif:true});
+    var diag=await extraireRecetteDepuisDescription(code,l.compoForNew);
+    var pizzaAdded=false,pizzaWarn=false;
+    if(l.isPizza){
+      var pate=findPateAPizzaIngredient();
+      var existingCodes=(rctRecettes[code]||[]).map(function(x){return x.ingredient_code;});
+      if(pate&&existingCodes.indexOf(pate.code)<0){
+        if(pate.quantite_defaut!=null&&pate.quantite_defaut>0){
+          var line={restaurant_id:RCT_GLOBAL,produit_vendu_code:code,ingredient_code:pate.code,quantite:pate.quantite_defaut,unite:pate.unite_defaut||'g',pourcentage_defaut:100};
+          try{sbCheck(await db.from('recettes').insert(line));}
+          catch(e1){sbCheck(await db.from('recettes').insert({restaurant_id:line.restaurant_id,produit_vendu_code:line.produit_vendu_code,ingredient_code:line.ingredient_code,quantite:line.quantite,unite:line.unite}));}
+          rctRecettes[code]=(rctRecettes[code]||[]).concat([line]);
+          pizzaAdded=true;
+        }else{
+          rctPendingDoseIngredients[pate.code]=rctPendingDoseIngredients[pate.code]||{nom:pate.nom,unite_defaut:pate.unite_defaut||'g',produits:[]};
+          if(rctPendingDoseIngredients[pate.code].produits.indexOf(code)<0)rctPendingDoseIngredients[pate.code].produits.push(code);
+          pizzaAdded=true;
+        }
+      }else if(!pate){
+        pizzaWarn=true;
+      }
+    }
+    l.createMode=false;
+    l.justCreatedCode=code;
+    renderFlyerLines();
+    renderRecettesList();
+    if(Object.keys(rctPendingDoseIngredients).length)openDoseDefautModal();
+    var msg='✅ "'+nom+'" créé dans "'+l.catForNew+'".';
+    if(diag.added)msg+=' '+diag.added+' ingrédient(s) reconnu(s) dans la composition.';
+    if(diag.unmatched&&diag.unmatched.length)msg+=' ⚠️ Non reconnus : '+diag.unmatched.join(', ')+'.';
+    if(pizzaWarn)msg+=' ⚠️ Aucun ingrédient "pâte à pizza" trouvé dans Ingrédients — crée-le puis rajoute-le manuellement à la recette.';
+    alert(msg);
+  }catch(e){console.error('createProduitFromFlyerLine',e);alert('Erreur : '+e.message);}
 }
 function updateFlyerLineField(id,field,value){
   var l=mflyerLines.find(function(x){return x.id===id;});
@@ -9400,8 +9481,10 @@ function parseIngredientsCsv(text){
 }
 function previewIngredientsImport(){
   var fileInput=document.getElementById('rct-ing-file');
-  if(!fileInput.files.length){alert('Choisis un fichier CSV.');return;}
+  if(!fileInput.files.length){alert('Choisis un fichier CSV ou PDF.');return;}
   var file=fileInput.files[0];
+  var isPdf=(file.type==='application/pdf')||/\.pdf$/i.test(file.name||'');
+  if(isPdf){previewIngredientsImportPdf(file);return;}
   var reader=new FileReader();
   reader.onload=function(e){
     var parsed;
@@ -9413,6 +9496,46 @@ function previewIngredientsImport(){
   };
   reader.onerror=function(){alert('Erreur de lecture du fichier.');};
   reader.readAsText(file,'UTF-8');
+}
+// Import depuis un PDF (liste/catalogue sans structure Catégorie;Ingrédient) : on réutilise le même
+// moteur d'extraction IA que le BL fournisseur (route /admin/extract-invoice, déjà branché et testé
+// pour lire des PDF), on ne garde que le nom de chaque ligne détectée, et on présuggère une catégorie
+// (celle de l'ingrédient existant le plus proche, sinon la première catégorie dispo) — modifiable
+// ensuite comme n'importe quel ingrédient une fois importé.
+async function previewIngredientsImportPdf(file){
+  var container=document.getElementById('rct-ing-preview');
+  container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;">⏳ Analyse du PDF en cours (extraction des lignes)… peut prendre 10-20 s.</div>';
+  try{
+    var b64=await fileToBase64(file);
+    var res=await fetch(BL_PROXY_URL+'/admin/extract-invoice',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Admin-Secret':BL_ADMIN_SECRET},
+      body:JSON.stringify({media_type:file.type||'application/pdf',data:b64})
+    });
+    if(!res.ok){
+      var errBody=null;
+      try{errBody=await res.json();}catch(e){}
+      throw new Error((errBody&&errBody.error)?errBody.error:('HTTP '+res.status));
+    }
+    var json=await res.json();
+    var lines=json.lines||[];
+    if(!lines.length){container.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">⚠️ Aucune ligne détectée sur ce PDF. Essaie avec un export CSV, ou un PDF plus net.</div>';return;}
+    rctPendingIngImport=lines.map(function(l){
+      var nomClean=stripLeadingPackNumber(l.nom||'');
+      var best=null,bestScore=-1;
+      rctIngredients.forEach(function(ing){
+        var sc=matchScore(nomClean,ing.nom);
+        if(sc>bestScore){bestScore=sc;best=ing;}
+      });
+      var suggestedCat=(bestScore>=20&&best)?best.categorie:(Object.keys(rctCategoriesOrdre)[0]||'Autres');
+      return {nom:nomClean,categorie:suggestedCat};
+    }).filter(function(r){return r.nom;});
+    if(!rctPendingIngImport.length){container.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">⚠️ Aucune ligne exploitable trouvée sur ce PDF.</div>';return;}
+    renderIngredientsPreview();
+  }catch(e){
+    console.error('previewIngredientsImportPdf',e);
+    container.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">❌ Erreur : '+esc(e.message)+'</div>';
+  }
 }
 function renderIngredientsPreview(){
   if(!rctPendingIngImport){document.getElementById('rct-ing-preview').innerHTML='';return;}
