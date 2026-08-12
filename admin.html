@@ -8296,6 +8296,7 @@ function renderIngredientsList(){
       +'<div style="font-size:10px;font-weight:700;color:var(--txm);margin-bottom:4px;">📦 Stock ('+esc(rctResto()==='port'?'Port':'Dabray')+')</div>'
       +'<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
       +'<select class="fi" style="width:130px;font-size:10px;" title="Comment cet article est pointé lors de l\'inventaire" onchange="updateIngredientSeuil(\''+i.code+'\',\'type_suivi\',this.value)">'
+        +'<option value="qty"'+(type==='qty'?' selected':'')+'>🔢 Quantité (unités/poids/L)</option>'
         +'<option value="two"'+(type==='two'?' selected':'')+'>✅/📦 OK / à commander</option>'
         +'<option value="level"'+(type==='level'?' selected':'')+'>📊 Jauge de niveau</option>'
         +'<option value="yn"'+(type==='yn'?' selected':'')+'>❓ Oui / Non</option>'
@@ -8306,6 +8307,10 @@ function renderIngredientsList(){
         +rctSuppliers.map(function(sup){return '<option value="'+esc(sup.id)+'"'+(s.fournisseur_id===sup.id?' selected':'')+'>'+esc(sup.nom)+'</option>';}).join('')
       +'</select>'
       +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Seuil" title="Quantité en dessous de laquelle on repasse commande" value="'+(s.seuil_min!=null?s.seuil_min:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'seuil_min\',this.value)">'
+      +(type==='qty'?'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Cible" title="Quantité à atteindre quand on commande (le système calcule combien commander pour y arriver)" value="'+(s.cible!=null?s.cible:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'cible\',this.value)">':'')
+      +(type==='qty'?'<select class="fi" style="width:64px;font-size:10px;" title="Unité de comptage en stock (unité, poids ou volume)" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_comptage\',this.value)">'
+        +['piece','g','kg','ml','cl','l'].map(function(u){return '<option value="'+u+'"'+((s.unite_comptage||'piece')===u?' selected':'')+'>'+(u==='piece'?'pièce':u)+'</option>';}).join('')
+        +'</select>':'')
       +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="1" placeholder="Colisage" title="Quantité par colis/carton commandé" value="'+(s.colisage!=null?s.colisage:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'colisage\',this.value)">'
       +'<input type="text" class="fi" style="width:74px;font-size:10px;" placeholder="Unité cmd" title="Unité de commande (carton, bouteille, fût…)" value="'+esc(s.unite_commande||'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_commande\',this.value)">'
       +'</div>'
@@ -8888,7 +8893,7 @@ async function handlePriceFieldChange(ingredientCode,field,value){
 async function updateIngredientSeuil(ingredientCode,field,value){
   var resto=rctResto();
   var payload={restaurant_id:resto,ingredient_code:ingredientCode};
-  if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande')payload[field]=value||null;
+  if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
   else payload[field]=(value===''?null:parseFloat(value));
   try{
     sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
