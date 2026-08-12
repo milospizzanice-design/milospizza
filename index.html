@@ -1492,12 +1492,28 @@ function removeExtraPlacement(itemId, idx){
   autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
 }
 
+// Convertit un ancien prix composite en texte libre (ex: "Verre 7€ · Btl 26€", séparateurs · / |)
+// en tableau priceVariants structuré. Retourne null si le format ne ressemble pas à un prix composite
+// reconnaissable (dans ce cas on laisse le champ prix simple tel quel, rien n'est modifié).
+function parseLegacyMultiPrice(priceStr){
+  if(!priceStr || typeof priceStr!=='string') return null;
+  const parts = priceStr.split(/[·|/]/).map(s=>s.trim()).filter(Boolean);
+  if(parts.length<2) return null;
+  const out=[];
+  for(let i=0;i<parts.length;i++){
+    const m = parts[i].match(/^(.*?)\s*([\d]+(?:[.,]\d+)?)\s*€?\s*$/);
+    if(!m) return null;
+    out.push({label:m[1].trim(), price:m[2].replace(',','.').trim()+'€'});
+  }
+  return out;
+}
+
 function renderPriceVariantsEditor(it){
   const variants = it.priceVariants || [];
   const rows = variants.map((v,i)=>`
     <div style="display:flex;gap:0.3rem;margin-bottom:0.3rem;align-items:center;">
       <input class="admin-input" style="flex:1;margin-bottom:0;" value="${v.label||''}" placeholder="Ex: Verre" onchange="updatePriceVariant('${it.id}',${i},'label',this.value)">
-      <input class="admin-input" style="width:70px;margin-bottom:0;text-align:right;" value="${(v.price||'').replace('€','')}" placeholder="Prix" inputmode="decimal" onchange="updatePriceVariant('${it.id}',${i},'price',this.value)">
+      <input class="admin-input" style="width:70px;margin-bottom:0;text-align:right;" value="${(v.price||'').replace(/€/g,'')}" placeholder="Prix" inputmode="decimal" onchange="updatePriceVariant('${it.id}',${i},'price',this.value)">
       <span style="font-size:0.85rem;color:var(--vert);font-weight:700;">€</span>
       <button onclick="removePriceVariant('${it.id}',${i})" style="background:none;border:none;color:#c0392b;font-size:0.95rem;cursor:pointer;flex-shrink:0;">✕</button>
     </div>`).join('');
@@ -1526,7 +1542,7 @@ function updatePriceVariant(itemId, idx, field, val){
   const it = items.find(i=>i.id===itemId);
   if(!it || !it.priceVariants || !it.priceVariants[idx]) return;
   if(field==='price'){
-    const clean = val.replace('€','').trim();
+    const clean = val.replace(/€/g,'').trim();
     it.priceVariants[idx].price = clean ? clean+'€' : '';
   } else {
     it.priceVariants[idx].label = val;
@@ -1633,7 +1649,7 @@ function renderAdminItems(list){
     const priceCell = hasVariants
       ? `<button class="plat-price-bubble plat-price-multi" onclick="openItemEditModal('${it.id}')">🏷 ${it.priceVariants.length}</button>`
       : `<div class="plat-price-wrap">
-           <input class="plat-price-num" id="p_${it.id}" value="${(it.price||'').replace('€','').trim()}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
+           <input class="plat-price-num" id="p_${it.id}" value="${(it.price||'').replace(/€/g,'').trim()}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
            <span class="plat-price-suffix">€</span>
          </div>`;
     return `<div class="plat-row" id="row_${it.id}">
@@ -1657,7 +1673,7 @@ async function autoSaveItems(){
 function onPriceChange(id, val){
   const it = items.find(i=>i.id===id);
   if(!it) return;
-  const clean = val.replace('€','').trim();
+  const clean = val.replace(/€/g,'').trim();
   it.price = clean ? clean + '€' : '';
   autoSaveItems().then(ok=>{
     showToast(ok ? '✓ Prix enregistré' : '❌ Échec de l\'enregistrement - réessayez');
@@ -1688,11 +1704,19 @@ function openItemEditModal(itemId){
   if (_editModalItemId) {
     const prevPriceEl = document.getElementById('p_'+_editModalItemId);
     const prevIt = items.find(i=>i.id===_editModalItemId);
-    if(prevPriceEl && prevIt){ const clean=prevPriceEl.value.replace('€','').trim(); prevIt.price = clean ? clean+'€' : ''; }
+    if(prevPriceEl && prevIt){ const clean=prevPriceEl.value.replace(/€/g,'').trim(); prevIt.price = clean ? clean+'€' : ''; }
   }
   _editModalItemId = itemId;
   const it = items.find(i=>i.id===itemId);
   if(!it) return;
+  // Migration à la volée : les anciens prix composites en texte libre (ex: "Verre 7€ · Btl 26€",
+  // typiquement les vins) ne sont pas éditables via le champ prix simple ni compris par l'éditeur
+  // "Prix multiples" tant qu'ils n'ont pas été convertis. On les convertit dès l'ouverture du modal
+  // pour que l'éditeur affiche tout de suite des lignes Verre/Btl éditables et enregistrables.
+  if((!it.priceVariants || !it.priceVariants.length) && it.price){
+    const migrated = parseLegacyMultiPrice(it.price);
+    if(migrated) it.priceVariants = migrated;
+  }
   const catOpts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}" ${c.id===it.cat?'selected':''}>${c.name.fr}</option>`).join('');
   const itCat = cats.find(c=>c.id===it.cat);
   const catSubcats = itCat ? ensureCatSubcats(itCat) : [];
@@ -1832,7 +1856,7 @@ function itemAllPlacements(it){
 
 function parsePriceValue(priceStr){
   if(!priceStr) return 0;
-  const cleaned = String(priceStr).replace('€','').replace(',','.').trim();
+  const cleaned = String(priceStr).replace(/€/g,'').replace(',','.').trim();
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 }
@@ -2878,6 +2902,15 @@ function renderAdminCats(){
         <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Utiliser comme liste de suppléments (pop-up)</span>
         <label class="toggle"><input type="checkbox" id="catsupp_${c.id}" ${c.isSupplementsCategory?'checked':''} onchange="toggleCatIsSupplements('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
       </div>
+      <div class="toggle-row">
+        <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">🍕 Afficher l'encart Menu Enfant</span>
+        <label class="toggle"><input type="checkbox" id="catmenuenfant_${c.id}" ${(c.extras&&c.extras.includes('menu_enfant'))?'checked':''} onchange="toggleCatMenuEnfant('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      ${(c.extras&&c.extras.includes('menu_enfant')) ? `
+      <div style="display:flex;align-items:center;gap:0.4rem;margin:-0.2rem 0 0.5rem;">
+        <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;flex-shrink:0;">Prix affiché</span>
+        <input class="admin-input" id="catmenuenfantprice_${c.id}" value="${c.menuEnfantPrice||'12€'}" style="flex:0 0 80px;margin-bottom:0;text-align:right;" onchange="setCatMenuEnfantPrice('${c.id}',this.value)">
+      </div>` : ''}
 
       <div class="cat-section-label">Sous-catégories</div>
       <div style="display:flex;gap:0.3rem;">
@@ -3199,6 +3232,25 @@ function toggleCatIsSupplements(id, val){
   autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
 }
 
+function toggleCatMenuEnfant(id, val){
+  const c=cats.find(c=>c.id===id);
+  if(!c) return;
+  if(!c.extras) c.extras=[];
+  if(val && !c.extras.includes('menu_enfant')) c.extras.push('menu_enfant');
+  if(!val) c.extras=c.extras.filter(e=>e!=='menu_enfant');
+  renderMenu();
+  renderAdminCats();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
+}
+function setCatMenuEnfantPrice(id, val){
+  const c=cats.find(c=>c.id===id);
+  if(!c) return;
+  const clean=(val||'').trim();
+  c.menuEnfantPrice = clean ? (clean.includes('€')?clean:clean+'€') : '12€';
+  renderMenu();
+  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
+}
+
 function toggleCatExtras(id, extra, val){
   const c=cats.find(c=>c.id===id);
   if(!c) return;
@@ -3452,7 +3504,7 @@ function collectItemEdits(){
     const d=document.getElementById('d_'+it.id);
     const ph=document.getElementById('ph_'+it.id);
     if(n && n.value.trim()) it.name.fr=n.value.trim();
-    if(p){ const clean=p.value.replace('€','').trim(); it.price = clean ? clean+'€' : ''; }
+    if(p){ const clean=p.value.replace(/€/g,'').trim(); it.price = clean ? clean+'€' : ''; }
     if(d)it.desc.fr=d.value;
     if(ph)it.photo=ph.value;
     // Collect allergens
