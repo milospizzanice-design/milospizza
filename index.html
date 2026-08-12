@@ -3527,7 +3527,7 @@ async function handleFileUpload(e){
         renderAdminItems(getFilteredAdminItems());
         // Save to GitHub immediately
         const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
-        saveKeyToGithub(targetFile, {cats, items, upsells}).then((result)=>{
+        const photoSavePromise = saveKeyToGithub(targetFile, {cats, items, upsells}).then((result)=>{
           if (result && result.content && result.content.sha) {
             showToast('📷 Photo sauvegardée automatiquement !');
           } else {
@@ -3535,7 +3535,10 @@ async function handleFileUpload(e){
           }
         }).catch(()=>{
           showToast('❌ Échec de la sauvegarde - réessayez');
+        }).finally(()=>{
+          _pendingPhotoSaves = _pendingPhotoSaves.filter(p=>p!==photoSavePromise);
         });
+        _pendingPhotoSaves.push(photoSavePromise);
       }
     }
     if(prog)prog.style.display='none';
@@ -4508,6 +4511,11 @@ async function restoreVersion(idx) {
 // DRAFT / PUBLISH MODE
 // ═══════════════════════════════════════
 let isDraftMode = false;
+// La sauvegarde de photo (upload item) part en arrière-plan sans être attendue par l'appelant — si on
+// clique "Publier" pendant qu'elle est encore en vol, publishDraft() peut relire le brouillon AVANT que
+// cette écriture n'ait atteint GitHub, et publier une version sans la nouvelle photo. Ce registre permet
+// à publishDraft() d'attendre que tout ce qui est en cours soit bien écrit avant de lire/copier le brouillon.
+let _pendingPhotoSaves = [];
 const DRAFT_FILE = 'menudata_draft.json';
 const DRAFT_HOME = 'home_draft.json';
 const DRAFT_DESIGN = 'design_draft.json';
@@ -4575,6 +4583,13 @@ async function publishDraft() {
   showToast('⏳ Publication en cours...');
 
   try {
+    // Attend toute écriture de photo encore en vol (voir _pendingPhotoSaves) — sinon on risque de lire
+    // le brouillon avant que la dernière photo uploadée n'y soit vraiment écrite sur GitHub.
+    if (_pendingPhotoSaves.length) {
+      showToast('⏳ Finalisation de la sauvegarde photo...');
+      await Promise.all(_pendingPhotoSaves);
+    }
+
     const files = [
       [DRAFT_FILE, DATA_FILE],
       [DRAFT_HOME, 'home.json'],
