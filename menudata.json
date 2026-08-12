@@ -128,7 +128,12 @@
       },
       "archived": false,
       "subcats": [],
-      "homeGroup": "drinks"
+      "homeGroup": "drinks",
+      "hideFromMenu": false,
+      "inAllergenList": true,
+      "isSupplementsCategory": false,
+      "dispoSurPlace": true,
+      "dispoEmporter": false
     },
     {
       "id": "vins",
@@ -147,8 +152,7 @@
         "Vins blancs",
         "Vins Rosé",
         "Vins Rouges",
-        "Les Bulles",
-        "Alcools"
+        "Les Bulles"
       ],
       "homeGroup": "drinks"
     },
@@ -1130,7 +1134,7 @@
         "es": ""
       },
       "desc": {
-        "fr": "Burrata crèmeuse, nectarines rôties, tomate cœur de bœuf, ciboulette, basilic",
+        "fr": "Une assiette en pâte à pizza avec : Burrata crèmeuse, nectarines rôties, tomate cœur de bœuf, ciboulette, basilic",
         "en": "",
         "it": "",
         "de": "",
@@ -1157,7 +1161,7 @@
         "es": ""
       },
       "desc": {
-        "fr": "Burrata crèmeuse, nectarines rôties, tomate cœur de bœuf, ciboulette, basilic",
+        "fr": "Une assiette en pâte à pizza avec : Burrata crèmeuse, nectarines rôties, tomate cœur de bœuf, ciboulette, basilic",
         "en": "",
         "it": "",
         "de": "",
@@ -1166,7 +1170,7 @@
         "es": ""
       },
       "price": "16€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1782504185/IMG_6738_h7gqso.jpg",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1785669853/495FB6A4-73E3-4A86-9317-D40AD1D6874F_ezkk3z.png",
       "archived": false,
       "allergens": []
     },
@@ -1466,7 +1470,8 @@
       "price": "12€",
       "photo": "",
       "archived": false,
-      "allergens": []
+      "allergens": [],
+      "dispoEmporter": false
     },
     {
       "id": "i66",
@@ -1719,7 +1724,8 @@
           "cat": "cat_1782498102706",
           "subcat": null
         }
-      ]
+      ],
+      "dispoEmporter": false
     },
     {
       "id": "i86",
@@ -1886,7 +1892,8 @@
         "oeufs",
         "lait"
       ],
-      "extraPlacements": []
+      "extraPlacements": [],
+      "dispoEmporter": false
     },
     {
       "id": "i41",
@@ -2001,7 +2008,8 @@
       "archived": false,
       "allergens": [
         "lait"
-      ]
+      ],
+      "dispoEmporter": false
     },
     {
       "id": "i38",
@@ -2640,7 +2648,7 @@
       "cat": "boissons",
       "subcat": "Softs",
       "name": {
-        "fr": "Sprite 25cl",
+        "fr": "Limonade Sprite 25cl",
         "en": "Lemonade 25cl",
         "it": "Limonata 25cl",
         "de": "Limonade 25cl",
@@ -2764,7 +2772,8 @@
           "label": "avec chantilly",
           "price": "0,5€"
         }
-      ]
+      ],
+      "dispoEmporter": false
     },
     {
       "id": "i49",
@@ -3115,6 +3124,164 @@
       "price": "15.5€",
       "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1783106243/image00002_enszof.jpg",
       "archived": false
+    },
+    {
+      "id": "i1785843630171",
+      "cat": "desserts",
+      "subcat": null,
+      "name": {
+        "fr": "Pot Ben & Jerry’s",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Caramel beurre salé, chocolat, cookie",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "11",
+      "photo": "",
+      "archived": false,
+      "dispoSurPlace": false,
+      "allergens": []
+    },
+    {
+      "id": "i1785843673430",
+      "cat": "desserts",
+      "subcat": null,
+      "name": {
+        "fr": "Pot Haagen Dasz 100mL",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Vanille Macadamia",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "4,5",
+      "photo": "",
+      "archived": false,
+      "dispoSurPlace": false,
+      "allergens": []
+    },
+    {
+      "id": "i1785843794419",
+      "cat": "vins",
+      "subcat": "Vins blancs",
+      "name": {
+        "fr": "Estandon, Collines blanc",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Vin de pays du var",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "15€",
+      "photo": "",
+      "archived": false,
+      "dispoSurPlace": false,
+      "allergens": [],
+      "priceVariants": [
+        {
+          "label": "",
+          "price": "15€"
+        }
+      ]
+    },
+    {
+      "id": "i1785843887746fcsb",
+      "cat": "vins",
+      "subcat": "Vins Rosé",
+      "name": {
+        "fr": "Estandon, Collines Rosé",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Vin de pays du var",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "15€",
+      "photo": "",
+      "archived": false,
+      "dispoSurPlace": false,
+      "allergens": [],
+      "priceVariants": [
+        {
+          "label": "",
+          "price": "15€"
+        }
+      ]
+    },
+    {
+      "id": "i1785843942002xk0k",
+      "cat": "vins",
+      "subcat": "Vins Rouges",
+      "name": {
+        "fr": "Estandon, Collines Rouge",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "desc": {
+        "fr": "Vin de pays du var",
+        "en": "",
+        "it": "",
+        "de": "",
+        "zh": "",
+        "ru": "",
+        "es": ""
+      },
+      "price": "15€",
+      "photo": "",
+      "archived": false,
+      "dispoSurPlace": false,
+      "allergens": [],
+      "priceVariants": [
+        {
+          "label": "",
+          "price": "15€"
+        }
+      ]
     }
   ],
   "upsells": [
