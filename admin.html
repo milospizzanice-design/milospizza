@@ -471,7 +471,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <div id="pv-submode-boiss-tools" style="display:none;margin-bottom:10px;">
         <div class="card" style="font-size:11px;color:var(--txm);">🍹 Le classement Plats/Boissons ici suit directement le réglage "Food / Drinks" de chaque catégorie sur le menu public — rien à faire ici. Si une catégorie manque côté Boissons, vérifie/change son réglage dans le back-office du menu (fiche catégorie → section visible).</div>
-        <button class="btn bs sm" onclick="openTransfertOngletModal('Boissons')" style="width:100%;margin-top:6px;" title="Uniquement pour les catégories créées à la main dans l'admin, qui n'existent pas sur le menu public">🔀 Cas particulier : catégorie créée à la main (hors menu)</button>
+        <button class="btn bs sm" onclick="openTransfertBoissonsModal()" style="width:100%;margin-top:6px;" title="Uniquement pour les catégories créées à la main dans l'admin, qui n'existent pas sur le menu public">🔀 Cas particulier : catégorie créée à la main (hors menu)</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <input type="text" class="fi" id="rct-search" placeholder="Rechercher un produit…" oninput="renderRecettesList()" style="flex:1;">
@@ -495,14 +495,17 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
         Liste des ingrédients tels qu'ils apparaissent sur la carte, groupés par catégorie (base, fromages, charcuterie, légumes, condiments…). C'est cette liste qui est utilisée pour composer les recettes. Tu peux relier chaque ingrédient à un produit du stock (facultatif, mais nécessaire plus tard pour le calcul théorique/réel).
       </div>
-      <div id="ing-submode-pills" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;"></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button type="button" id="ing-submode-food" class="btn bp sm" onclick="setIngSubMode('food')" style="flex:1;">🍕 Food / Alimentaire</button>
+        <button type="button" id="ing-submode-boissons" class="btn bs sm" onclick="setIngSubMode('boissons')" style="flex:1;">🥤 Boissons</button>
+      </div>
       <div id="ing-submode-boiss-tools" style="display:none;margin-bottom:10px;">
-        <button class="btn bp sm" id="ing-submode-transfer-btn" onclick="openTransfertOngletModal()" style="width:100%;">🔀 Transférer des catégories existantes</button>
+        <button class="btn bp sm" onclick="openTransfertBoissonsModal()" style="width:100%;">🔀 Transférer des catégories existantes vers Boissons</button>
       </div>
       <div class="card">
         <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:8px;">Importer depuis un fichier</div>
         <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Fichier CSV avec 2 colonnes : <strong>Catégorie;Ingrédient</strong> (une ligne d'en-tête optionnelle). Un nouvel import s'ajoute à la liste existante sans effacer ce qui est déjà rattaché.</div>
-        <div class="fr"><label class="fl2">Fichier CSV ou PDF</label><input type="file" class="fi" id="rct-ing-file" accept=".csv,text/csv,application/pdf" style="padding:5px"></div>
+        <div class="fr"><label class="fl2">Fichier CSV</label><input type="file" class="fi" id="rct-ing-file" accept=".csv,text/csv" style="padding:5px"></div>
         <button class="btn bp" onclick="previewIngredientsImport()" style="width:100%;">Analyser le fichier</button>
       </div>
       <div id="rct-ing-preview"></div>
@@ -619,10 +622,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 <div class="mb" id="mtboiss">
   <div class="md">
-    <div class="mdt" id="mtboiss-title">🔀 Transférer vers…</div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Coche les catégories qui appartiennent en réalité à cette section. Elles basculeront dans cet onglet — les ingrédients, prix et recettes qui les utilisent restent inchangés, seule leur classification change.</div>
+    <div class="mdt">🔀 Transférer vers 🥤 Boissons</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Coche les catégories qui sont en réalité des boissons (bières, vins, softs, spiritueux…). Elles basculeront dans l'onglet Boissons — les ingrédients, prix et recettes qui les utilisent restent inchangés, seule leur classification change.</div>
     <div id="mtboiss-list" style="max-height:340px;overflow-y:auto;"></div>
-    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mtboiss')">Annuler</button><button class="btn bp" onclick="confirmTransfertOnglet()">Transférer</button></div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mtboiss')">Annuler</button><button class="btn bp" onclick="confirmTransfertBoissons()">Transférer</button></div>
   </div>
 </div>
 
@@ -689,6 +692,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="msup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
     <div class="fr" style="border-top:1px solid var(--bx);padding-top:10px;"><label class="fl2">Nouveau fournisseur</label><input type="text" class="fi" id="msup-new-name" placeholder="Ex: Metro, Pomona…"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('msup')">Fermer</button><button class="btn bp" onclick="createSupplier()">+ Ajouter</button></div>
+  </div>
+</div>
+
+<!-- Modal règles de commande : variations de seuil/cible par jour fixe ou par veille de livraison fournisseur, propres à un ingrédient -->
+<div class="mb" id="mregles">
+  <div class="md" style="max-width:480px;">
+    <div class="mdt">📅 Règles de commande — <span id="mregles-ing-nom"></span></div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">La règle qui correspond au jour du jour l'emporte sur le seuil/cible par défaut ci-dessus. "Veille de livraison" recalcule automatiquement le jour concerné selon les jours de livraison du fournisseur (à régler dans Gérer les fournisseurs).</div>
+    <div id="mregles-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('mregles')">Fermer</button><button class="btn bp" onclick="addRegleCommande()">+ Ajouter une règle</button></div>
   </div>
 </div>
 
@@ -5314,6 +5327,7 @@ let rctIngExpanded={};      // {ingredient_code: true} — état déplié/repli�
 let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT — encore utilisé par l'écran Coûts (legacy)
 let rctIngredientCouts={}; // {ingredient_code: {mode_prix,prix_unitaire,prix_kilo,prix_litre,poids_net_g,fournisseur_id,prix_source_code}} — prix/fournisseur directement par ingrédient, propre au restaurant courant. Remplace l'ancien système de rattachement à un catalogue stock séparé.
 let rctIngredientSeuils={}; // {ingredient_code: {fournisseur_id,type_suivi,seuil_min,colisage,unite_commande,actif}} — table 'ingredient_seuils', propre au restaurant courant. Remplacera le catalogue codé en dur de milos-pizza-port/dabray.html.
+let rctIngredientRegles={}; // {ingredient_code: [regle,...]} — table 'ingredient_regles_commande' : variations de seuil/cible par jour fixe ou par veille de livraison fournisseur, prioritaires sur le seuil par défaut d'ingredient_seuils.
 let rctSuppliers=[]; // fournisseurs du restaurant courant (depuis stock_catalogue.suppliers)
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
 let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons — niveau au-dessus des catégories, commun
@@ -6963,6 +6977,17 @@ async function loadRecettesModule(){
       if(seuilsRes&&!seuilsRes.error)(seuilsRes.data||[]).forEach(function(s){rctIngredientSeuils[s.ingredient_code]=s;});
       else if(seuilsRes&&seuilsRes.error)console.warn('ingredient_seuils indisponible (migration SQL pas encore exécutée ?)',seuilsRes.error);
     }catch(e){console.warn('ingredient_seuils indisponible (migration SQL pas encore exécutée ?)',e);}
+    // Règles de commande (table 'ingredient_regles_commande') — chargée à part et de façon tolérante,
+    // comme ingredient_seuils : si la migration SQL n'a pas encore été exécutée, le reste continue de fonctionner.
+    rctIngredientRegles={};
+    try{
+      var reglesRes=await db.from('ingredient_regles_commande').select('*').eq('restaurant_id',resto);
+      if(reglesRes&&!reglesRes.error)(reglesRes.data||[]).forEach(function(r){
+        rctIngredientRegles[r.ingredient_code]=rctIngredientRegles[r.ingredient_code]||[];
+        rctIngredientRegles[r.ingredient_code].push(r);
+      });
+      else if(reglesRes&&reglesRes.error)console.warn('ingredient_regles_commande indisponible (migration SQL pas encore exécutée ?)',reglesRes.error);
+    }catch(e){console.warn('ingredient_regles_commande indisponible (migration SQL pas encore exécutée ?)',e);}
     renderRecettesList();
     renderIngredientsList();
     renderCoutsList();
@@ -7100,8 +7125,14 @@ function menuCatIsDrinks(catName){
   var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
   var c=cats.find(function(x){return (x.name.fr||x.name)===catName;});
   if(c)return c.homeGroup==='drinks';
-  var ong=(ongletDeCategorie(catName)||'').toLowerCase();
-  return ong.indexOf('boisson')>=0;
+  return ongletDeCategorie(catName)==='Boissons';
+}
+// Crée l'onglet interne "Boissons" côté Supabase s'il n'existe pas encore (première utilisation).
+async function ensureBoissonsOnglet(){
+  if(rctOngletsOrdre['Boissons']!=null)return;
+  var nextOrdre=(Object.keys(rctOngletsOrdre).length+1)*10;
+  sbCheck(await db.from('onglets_ordre').upsert([{restaurant_id:RCT_GLOBAL,nom:'Boissons',ordre:nextOrdre}],{onConflict:'restaurant_id,nom'}));
+  rctOngletsOrdre['Boissons']=nextOrdre;
 }
 // ── Classement de Produits & recettes selon le VRAI menu public (menudata.json) ─────────────
 // Contrairement à groupByOnglet (basé sur les tables internes categories_ordre, encore utilisées
@@ -8111,45 +8142,21 @@ function refreshIngredientStatusLight(code){
   statusEl.innerHTML=ingStatutIngredient(i).label;
   refreshIngredientDosePriceLight(code);
 }
-// Sous-onglet interne à Ingrédients : null = "sans onglet" (Food/Alimentaire par défaut, comportement historique),
-// sinon le nom EXACT d'un onglet réel (rctOngletsOrdre). Génère une pill par onglet existant, donc n'importe
-// quelle section créée via "+ Nouvelle section" (Boissons, Hygiène & Emballage, ...) apparaît automatiquement
-// ici sans code à modifier. Comme on compare directement au nom courant de l'onglet (pas une chaîne figée
-// "Boissons"), renommer un onglet ne casse plus rien.
-var rctIngActiveOnglet=null;
-function ingOngletIcon(name){
-  var n=(name||'').toLowerCase();
-  if(n.indexOf('boisson')>=0)return '🥤';
-  if(n.indexOf('hygi')>=0||n.indexOf('emballage')>=0)return '🧼';
-  return '🏷️';
-}
-function renderIngSubModePills(){
-  var host=document.getElementById('ing-submode-pills');
-  if(!host)return;
-  var ongNames=Object.keys(rctOngletsOrdre).sort(function(a,b){return (rctOngletsOrdre[a]||0)-(rctOngletsOrdre[b]||0);});
-  var pills=[{val:null,label:'🍕 Food / Alimentaire'}].concat(ongNames.map(function(o){return {val:o,label:ingOngletIcon(o)+' '+o};}));
-  host.innerHTML=pills.map(function(p){
-    var active=rctIngActiveOnglet===p.val;
-    return '<button type="button" class="btn '+(active?'bp':'bs')+' sm" style="flex:1;min-width:110px;" onclick="setIngActiveOnglet(\''+encodeURIComponent(p.val||'')+'\')">'+esc(p.label)+'</button>';
-  }).join('')
-  +'<button type="button" class="btn bs sm" style="flex:1;min-width:110px;" onclick="openOngletEditModal(null)">+ Nouvelle section</button>';
-  var tools=document.getElementById('ing-submode-boiss-tools');
-  if(tools)tools.style.display=rctIngActiveOnglet?'block':'none';
-  var transferBtn=document.getElementById('ing-submode-transfer-btn');
-  if(transferBtn&&rctIngActiveOnglet)transferBtn.textContent='🔀 Transférer des catégories existantes vers '+rctIngActiveOnglet;
-}
-function setIngActiveOnglet(encoded){
-  rctIngActiveOnglet=decodeURIComponent(encoded||'')||null;
-  renderIngSubModePills();
+var rctIngSubMode='food'; // 'food' | 'boissons' — sous-onglet interne à Ingrédients, partage la même liste/arborescence
+function setIngSubMode(mode){
+  rctIngSubMode=(mode==='boissons')?'boissons':'food';
+  var bFood=document.getElementById('ing-submode-food'),bBoiss=document.getElementById('ing-submode-boissons'),tools=document.getElementById('ing-submode-boiss-tools');
+  if(bFood)bFood.className='btn '+(rctIngSubMode==='food'?'bp':'bs')+' sm';
+  if(bBoiss)bBoiss.className='btn '+(rctIngSubMode==='boissons'?'bp':'bs')+' sm';
+  if(tools)tools.style.display=rctIngSubMode==='boissons'?'block':'none';
   renderIngredientsList();
 }
 async function openCategoryEditModalForCurrentSub(){
-  if(rctIngActiveOnglet){await openCategoryEditModalPreset(rctIngActiveOnglet);}
+  if(rctIngSubMode==='boissons'){await openCategoryEditModalPreset('Boissons');}
   else{openCategoryEditModal(null);}
 }
 function renderIngredientsList(){
-  var mode=rctIngActiveOnglet;
-  renderIngSubModePills();
+  var mode=rctIngSubMode;
   var searchEl=document.getElementById('rct-ing-search');
   var unlinkedEl=document.getElementById('rct-ing-show-unlinked');
   var container=document.getElementById('rct-ing-list-container');
@@ -8159,14 +8166,14 @@ function renderIngredientsList(){
   var onlyUnlinked=unlinkedEl.checked;
   function statutIngredient(i){return ingStatutIngredient(i);}
   var list=rctIngredients.filter(function(i){
-    var catOng=ongletDeCategorie(i.categorie);
-    if(mode===null){if(catOng)return false;}else{if(catOng!==mode)return false;}
+    var estBoisson=ongletDeCategorie(i.categorie)==='Boissons';
+    if(mode==='boissons'){if(!estBoisson)return false;}else{if(estBoisson)return false;}
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
     if(onlyUnlinked&&statutIngredient(i).ok)return false;
     return true;
   });
   if(!list.length){
-    container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">'+(mode?('Rien dans « '+esc(mode)+' » pour l\'instant. Utilise « 🔀 Transférer des catégories existantes » ci-dessus, ou crée une catégorie rattachée à cet onglet.'):'Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.')+'</div>';
+    container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">'+(mode==='boissons'?'Aucune boisson pour l\'instant. Utilise « Transférer des catégories existantes vers Boissons » ci-dessus, ou crée une catégorie rattachée à l\'onglet Boissons.':'Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.')+'</div>';
     if(navEl)navEl.innerHTML='';
     var treeElEmpty=document.getElementById('ing-tree-content');
     if(treeElEmpty)treeElEmpty.innerHTML='<div style="color:var(--txm);">Aucune catégorie pour l\'instant.</div>';
@@ -8301,7 +8308,11 @@ function renderIngredientsList(){
       +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Seuil" title="Quantité en dessous de laquelle on repasse commande" value="'+(s.seuil_min!=null?s.seuil_min:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'seuil_min\',this.value)">'
       +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="1" placeholder="Colisage" title="Quantité par colis/carton commandé" value="'+(s.colisage!=null?s.colisage:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'colisage\',this.value)">'
       +'<input type="text" class="fi" style="width:74px;font-size:10px;" placeholder="Unité cmd" title="Unité de commande (carton, bouteille, fût…)" value="'+esc(s.unite_commande||'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_commande\',this.value)">'
-      +'</div></div>';
+      +'</div>'
+      +'<div style="margin-top:4px;">'
+      +'<button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+((rctIngredientRegles[i.code]&&rctIngredientRegles[i.code].length)?' ('+rctIngredientRegles[i.code].length+')':'')+'</button>'
+      +'</div>'
+      +'</div>';
   }
   function renderIngredientCard(i){
     var statut=statutIngredient(i);
@@ -8444,6 +8455,106 @@ function renderIngredientsList(){
   var treeEl=document.getElementById('ing-tree-content');
   if(treeEl)treeEl.innerHTML=treeHtml||'<div style="color:var(--txm);">Aucune catégorie pour l\'instant.</div>';
 }
+// ── Règles de commande par ingrédient (table 'ingredient_regles_commande') ──
+// Une règle peut être 'jours_fixes' (jours choisis à la main, comme l'ancien dayRules) ou
+// 'veille_livraison' (calculée automatiquement le jour avant que le fournisseur livre, pour couvrir
+// jusqu'à la prochaine livraison). La règle dont le jour correspond au jour du jour l'emporte sur le
+// seuil/cible par défaut d'ingredient_seuils ; si aucune règle ne correspond, le défaut s'applique.
+let mreglesIngCode=null;
+function openReglesCommandeModal(code){
+  mreglesIngCode=code;
+  var ing=rctIngredients.find(function(x){return x.code===code;});
+  document.getElementById('mregles-ing-nom').textContent=ing?ing.nom:code;
+  renderReglesCommandeList();
+  openM('mregles');
+}
+function regleFournisseurOptionsHtml(selectedId){
+  return '<option value="">Fournisseur…</option>'
+    +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(selectedId===s.id?' selected':'')+'>'+esc(s.nom)+'</option>';}).join('');
+}
+function renderReglesCommandeList(){
+  var box=document.getElementById('mregles-list');
+  var rules=rctIngredientRegles[mreglesIngCode]||[];
+  if(!rules.length){box.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucune règle pour l\'instant — le seuil/cible par défaut s\'applique tous les jours.</div>';return;}
+  box.innerHTML=rules.map(function(r){
+    var mode=r.mode||'jours_fixes';
+    var days=r.jours||[];
+    return '<div class="card" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;">'
+      +'<div style="display:flex;gap:6px;align-items:center;">'
+      +'<select class="fi" style="flex:1;font-size:11px;" onchange="updateRegleCommande(\''+r.id+'\',\'mode\',this.value)">'
+        +'<option value="jours_fixes"'+(mode==='jours_fixes'?' selected':'')+'>📆 Jours fixes</option>'
+        +'<option value="veille_livraison"'+(mode==='veille_livraison'?' selected':'')+'>🚚 Veille de livraison</option>'
+      +'</select>'
+      +'<button class="btn bs sm" onclick="deleteRegleCommande(\''+r.id+'\')" style="background:#FEE2E2;color:#991B1B;">🗑</button>'
+      +'</div>'
+      +(mode==='jours_fixes'?
+        ('<div style="display:flex;gap:4px;flex-wrap:wrap;">'
+          +SUP_DAY_LABELS.map(function(lbl,idx){
+            var on=days.indexOf(idx)>=0;
+            return '<span onclick="toggleRegleDay(\''+r.id+'\','+idx+')" style="cursor:pointer;font-size:10px;padding:3px 7px;border-radius:6px;border:1px solid '+(on?'var(--bx)':'var(--bd)')+';background:'+(on?'var(--bx)':'transparent')+';color:'+(on?'#fff':'var(--txm)')+';">'+lbl+'</span>';
+          }).join('')
+          +'</div>')
+        :('<select class="fi" style="font-size:11px;" onchange="updateRegleCommande(\''+r.id+'\',\'fournisseur_id\',this.value)">'
+          +regleFournisseurOptionsHtml(r.fournisseur_id)
+          +'</select>'
+          +'<div style="font-size:9px;color:var(--txm);">S\'applique automatiquement la veille de chaque jour de livraison de ce fournisseur.</div>'))
+      +'<div style="display:flex;gap:8px;">'
+      +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Seuil</div>'
+        +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="0.1" value="'+(r.seuil_min!=null?r.seuil_min:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'seuil_min\',this.value)"></div>'
+      +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Cible</div>'
+        +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="0.1" value="'+(r.cible!=null?r.cible:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'cible\',this.value)"></div>'
+      +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Colisage</div>'
+        +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="1" value="'+(r.colisage!=null?r.colisage:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'colisage\',this.value)"></div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+async function addRegleCommande(){
+  var resto=rctResto();
+  var payload={restaurant_id:resto,ingredient_code:mreglesIngCode,mode:'jours_fixes',jours:[]};
+  try{
+    var r=sbCheck(await db.from('ingredient_regles_commande').insert(payload).select().single());
+    rctIngredientRegles[mreglesIngCode]=rctIngredientRegles[mreglesIngCode]||[];
+    rctIngredientRegles[mreglesIngCode].push(r.data);
+    renderReglesCommandeList();
+    renderIngredientsList();
+  }catch(e){console.error('addRegleCommande',e);alert('Erreur : '+e.message+'\n\n(La migration SQL ingredient_regles_commande a-t-elle été exécutée ?)');}
+}
+async function updateRegleCommande(id,field,value){
+  var rules=rctIngredientRegles[mreglesIngCode]||[];
+  var rule=rules.find(function(r){return r.id===id;});
+  if(!rule)return;
+  var payload={};
+  if(field==='seuil_min'||field==='cible'||field==='colisage')payload[field]=value===''?null:parseFloat(value);
+  else payload[field]=value||null;
+  rule[field]=payload[field];
+  try{
+    sbCheck(await db.from('ingredient_regles_commande').update(payload).eq('id',id));
+    if(field==='mode')renderReglesCommandeList();
+  }catch(e){console.error('updateRegleCommande',e);alert('Erreur : '+e.message);}
+}
+async function toggleRegleDay(id,day){
+  var rules=rctIngredientRegles[mreglesIngCode]||[];
+  var rule=rules.find(function(r){return r.id===id;});
+  if(!rule)return;
+  var days=(rule.jours||[]).slice();
+  var idx=days.indexOf(day);
+  if(idx>=0)days.splice(idx,1);else days.push(day);
+  rule.jours=days;
+  try{
+    sbCheck(await db.from('ingredient_regles_commande').update({jours:days}).eq('id',id));
+    renderReglesCommandeList();
+  }catch(e){console.error('toggleRegleDay',e);alert('Erreur : '+e.message);}
+}
+async function deleteRegleCommande(id){
+  if(!confirm('Supprimer cette règle ?'))return;
+  try{
+    sbCheck(await db.from('ingredient_regles_commande').delete().eq('id',id));
+    rctIngredientRegles[mreglesIngCode]=(rctIngredientRegles[mreglesIngCode]||[]).filter(function(r){return r.id!==id;});
+    renderReglesCommandeList();
+    renderIngredientsList();
+  }catch(e){console.error('deleteRegleCommande',e);alert('Erreur : '+e.message);}
+}
 function toggleIngTreePanel(){
   var panel=document.getElementById('ing-tree-panel'),overlay=document.getElementById('ing-tree-overlay');
   if(!panel)return;
@@ -8539,6 +8650,26 @@ async function openSuppliersModal(){
   renderSuppliersList();
   document.getElementById('msup').classList.add('op');
 }
+var SUP_DAY_LABELS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+function supplierDeliveryDaysHtml(id,s){
+  var days=s.deliveryDays||[];
+  return '<div style="margin-top:2px;">'
+    +'<label class="fl2" style="font-size:10px;">🚚 Jours de livraison (pour les règles "veille de livraison")</label>'
+    +'<div style="display:flex;gap:4px;flex-wrap:wrap;">'
+    +SUP_DAY_LABELS.map(function(lbl,idx){
+      var on=days.indexOf(idx)>=0;
+      return '<span onclick="toggleSupplierDeliveryDay(\''+id+'\','+idx+')" style="cursor:pointer;font-size:10px;padding:3px 7px;border-radius:6px;border:1px solid '+(on?'var(--bx)':'var(--bd)')+';background:'+(on?'var(--bx)':'transparent')+';color:'+(on?'#fff':'var(--txm)')+';">'+lbl+'</span>';
+    }).join('')
+    +'</div></div>';
+}
+async function toggleSupplierDeliveryDay(id,day){
+  if(!msupSuppliersBlob[id])return;
+  var days=(msupSuppliersBlob[id].deliveryDays||[]).slice();
+  var idx=days.indexOf(day);
+  if(idx>=0)days.splice(idx,1);else days.push(day);
+  msupSuppliersBlob[id].deliveryDays=days;
+  try{await saveSuppliersBlob();renderSuppliersList();}catch(e){console.error('toggleSupplierDeliveryDay',e);alert('Erreur : '+e.message);}
+}
 function renderSuppliersList(){
   var box=document.getElementById('msup-list');
   var ids=Object.keys(msupSuppliersBlob);
@@ -8560,6 +8691,7 @@ function renderSuppliersList(){
           +'<option value="">-- à préciser --</option>'
           +otherIds.map(function(oid){return '<option value="'+oid+'"'+(s.realSupplierId===oid?' selected':'')+'>'+esc(msupSuppliersBlob[oid].name||'')+'</option>';}).join('')
         +'</select></div>':'')
+      +supplierDeliveryDaysHtml(id,s)
       +'</div>';
   }).join('');
 }
@@ -8906,120 +9038,56 @@ async function saveNewIngredient(){
   }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création : '+e.message);}
 }
 
-// ── Transfert en masse de catégories existantes vers un onglet (Boissons, Hygiène & Emballage, ...) ────
-// target explicite optionnel (ex: appelé depuis le pane Produits&recettes qui vise toujours "Boissons") ;
-// sinon utilise la section actuellement sélectionnée dans le pane Ingrédients.
-var rctTransferOngletTarget=null;
-function openTransfertOngletModal(explicitTarget){
-  var target=explicitTarget||rctIngActiveOnglet;
-  if(!target){alert('Sélectionne d\'abord une section (pill) autre que Food / Alimentaire.');return;}
-  rctTransferOngletTarget=target;
+// ── Transfert en masse de catégories existantes vers l'onglet interne "Boissons" ────────────────
+function openTransfertBoissonsModal(){
   // Union des catégories déjà enregistrées (categories_ordre) ET de celles simplement utilisées dans
   // les produits vendus (ex: catégories venues du menu public via la synchro) ou les ingrédients, même
   // si elles n'ont jamais été créées formellement — sinon elles étaient invisibles ici et impossibles à
-  // rattacher à la section, alors même que des produits l'utilisaient déjà.
+  // taguer Boissons, alors même que des produits/boissons les utilisaient déjà.
   var allCats={};
   Object.keys(rctCategoriesOrdre).forEach(function(c){allCats[c]=true;});
   rctProduitsVendus.forEach(function(p){if(p.categorie)allCats[p.categorie]=true;});
   rctIngredients.forEach(function(i){if(i.categorie)allCats[i.categorie]=true;});
   var list=Object.keys(allCats).filter(function(c){
-    return !(rctCategoriesOrdre[c]&&rctCategoriesOrdre[c].onglet===target);
+    return !(rctCategoriesOrdre[c]&&rctCategoriesOrdre[c].onglet==='Boissons');
   }).sort(function(a,b){return a.localeCompare(b);});
-  document.getElementById('mtboiss-title').textContent='🔀 Transférer vers '+ingOngletIcon(target)+' '+target;
   var el=document.getElementById('mtboiss-list');
-  // Sous-catégories candidates : toutes celles dont la catégorie parente n'est PAS déjà dans l'onglet cible
-  // (sinon elles y sont déjà de fait). Une sous-catégorie transférée devient une catégorie indépendante
-  // rattachée directement à la section cible (elle "sort" de sa catégorie parente).
-  var subItems=[];
-  Object.keys(rctSousCategoriesOrdre).forEach(function(parentCat){
-    if(rctCategoriesOrdre[parentCat]&&rctCategoriesOrdre[parentCat].onglet===target)return;
-    Object.keys(rctSousCategoriesOrdre[parentCat]||{}).forEach(function(sub){
-      subItems.push({parent:parentCat,sub:sub});
-    });
-  });
-  var html='';
-  if(!list.length&&!subItems.length){
-    html='<div style="font-size:12px;color:var(--txm);">Toutes les catégories sont déjà dans '+esc(target)+'.</div>';
+  if(!list.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--txm);">Toutes les catégories sont déjà dans Boissons.</div>';
   }else{
-    if(list.length){
-      html+=list.map(function(c){
-        var enregistree=!!rctCategoriesOrdre[c];
-        var ongActuel=enregistree?(rctCategoriesOrdre[c].onglet||'non classé'):'non enregistrée — venue du menu/ingrédients';
-        var nProd=rctProduitsVendus.filter(function(p){return p.categorie===c;}).length;
-        var nIng=rctIngredients.filter(function(i){return i.categorie===c;}).length;
-        var detail=[];
-        if(nProd)detail.push(nProd+' produit'+(nProd>1?'s':''));
-        if(nIng)detail.push(nIng+' ingrédient'+(nIng>1?'s':''));
-        return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--bd);font-size:12px;">'
-          +'<input type="checkbox" class="mtboiss-check" data-type="cat" value="'+esc(c)+'">'
-          +'<span style="flex:1;">📂 '+esc(c)+' <span style="color:var(--txm);font-size:10px;">('+(detail.length?detail.join(', '):'vide')+' — '+esc(ongActuel)+')</span></span>'
-          +'</label>';
-      }).join('');
-    }
-    if(subItems.length){
-      html+='<div style="font-size:10px;color:var(--txm);font-weight:700;margin:10px 0 2px;">SOUS-CATÉGORIES (deviendront des catégories indépendantes dans '+esc(target)+')</div>';
-      html+=subItems.map(function(s){
-        var nProd=rctProduitsVendus.filter(function(p){return p.categorie===s.parent&&p.sous_categorie===s.sub;}).length;
-        var nIng=rctIngredients.filter(function(i){return i.categorie===s.parent&&i.sous_categorie===s.sub;}).length;
-        var detail=[];
-        if(nProd)detail.push(nProd+' produit'+(nProd>1?'s':''));
-        if(nIng)detail.push(nIng+' ingrédient'+(nIng>1?'s':''));
-        var val='sub::'+encodeURIComponent(s.parent)+'::'+encodeURIComponent(s.sub);
-        return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--bd);font-size:12px;">'
-          +'<input type="checkbox" class="mtboiss-check" data-type="sub" value="'+esc(val)+'">'
-          +'<span style="flex:1;">↳ '+esc(s.sub)+' <span style="color:var(--txm);font-size:10px;">(dans '+esc(s.parent)+' — '+(detail.length?detail.join(', '):'vide')+')</span></span>'
-          +'</label>';
-      }).join('');
-    }
-    el.innerHTML=html;
+    el.innerHTML=list.map(function(c){
+      var enregistree=!!rctCategoriesOrdre[c];
+      var ongActuel=enregistree?(rctCategoriesOrdre[c].onglet||'non classé'):'non enregistrée — venue du menu/ingrédients';
+      var nProd=rctProduitsVendus.filter(function(p){return p.categorie===c;}).length;
+      var nIng=rctIngredients.filter(function(i){return i.categorie===c;}).length;
+      var detail=[];
+      if(nProd)detail.push(nProd+' produit'+(nProd>1?'s':''));
+      if(nIng)detail.push(nIng+' ingrédient'+(nIng>1?'s':''));
+      return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--bd);font-size:12px;">'
+        +'<input type="checkbox" class="mtboiss-check" value="'+esc(c)+'">'
+        +'<span style="flex:1;">'+esc(c)+' <span style="color:var(--txm);font-size:10px;">('+(detail.length?detail.join(', '):'vide')+' — '+esc(ongActuel)+')</span></span>'
+        +'</label>';
+    }).join('');
   }
   document.getElementById('mtboiss').classList.add('op');
 }
-async function confirmTransfertOnglet(){
-  var target=rctTransferOngletTarget;
-  if(!target){closeM('mtboiss');return;}
-  var checkedEls=Array.prototype.slice.call(document.querySelectorAll('.mtboiss-check:checked'));
-  if(!checkedEls.length){alert('Sélectionne au moins une catégorie ou sous-catégorie.');return;}
+async function confirmTransfertBoissons(){
+  var checked=Array.prototype.slice.call(document.querySelectorAll('.mtboiss-check:checked')).map(function(c){return c.value;});
+  if(!checked.length){alert('Sélectionne au moins une catégorie.');return;}
   try{
-    var nCat=0,nSub=0;
-    for(var i=0;i<checkedEls.length;i++){
-      var el=checkedEls[i];
-      if(el.getAttribute('data-type')==='sub'){
-        var parts=el.value.split('::');
-        var parentCat=decodeURIComponent(parts[1]),subName=decodeURIComponent(parts[2]);
-        if(rctCategoriesOrdre[subName]){
-          alert('⚠️ "'+subName+'" existe déjà comme catégorie indépendante — ignoré, déplace-le manuellement depuis l\'édition de catégorie.');
-          continue;
-        }
-        var ordre=(Object.keys(rctCategoriesOrdre).length+1)*10;
-        sbCheck(await db.from('categories_ordre').insert({restaurant_id:RCT_GLOBAL,nom:subName,ordre:ordre,onglet:target}));
-        sbCheck(await db.from('produits_vendus').update({categorie:subName,sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',parentCat).eq('sous_categorie',subName));
-        sbCheck(await db.from('ingredients').update({categorie:subName,sous_categorie:null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',parentCat).eq('sous_categorie',subName));
-        sbCheck(await db.from('produits').update({cout_categorie:subName,cout_sous_categorie:null}).eq('restaurant_id',rctResto()).eq('cout_categorie',parentCat).eq('cout_sous_categorie',subName));
-        sbCheck(await db.from('sous_categories_ordre').delete().eq('restaurant_id',RCT_GLOBAL).eq('categorie',parentCat).eq('nom',subName));
-        rctCategoriesOrdre[subName]={ordre:ordre,onglet:target,unite_defaut_mesure:null};
-        rctProduitsVendus.forEach(function(p){if(p.categorie===parentCat&&p.sous_categorie===subName){p.categorie=subName;p.sous_categorie=null;}});
-        rctIngredients.forEach(function(x){if(x.categorie===parentCat&&x.sous_categorie===subName){x.categorie=subName;x.sous_categorie=null;}});
-        rctStockProduits.forEach(function(p){if(p.cout_categorie===parentCat&&p.cout_sous_categorie===subName){p.cout_categorie=subName;p.cout_sous_categorie=null;}});
-        if(rctSousCategoriesOrdre[parentCat])delete rctSousCategoriesOrdre[parentCat][subName];
-        nSub++;
-      }else{
-        var cat=el.value;
-        var info=rctCategoriesOrdre[cat]||{ordre:(Object.keys(rctCategoriesOrdre).length+1)*10,unite_defaut_mesure:null};
-        sbCheck(await db.from('categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,nom:cat,ordre:info.ordre,onglet:target,unite_defaut_mesure:info.unite_defaut_mesure}],{onConflict:'restaurant_id,nom'}));
-        rctCategoriesOrdre[cat]={ordre:info.ordre,onglet:target,unite_defaut_mesure:info.unite_defaut_mesure};
-        nCat++;
-      }
+    await ensureBoissonsOnglet();
+    for(var i=0;i<checked.length;i++){
+      var cat=checked[i];
+      var info=rctCategoriesOrdre[cat]||{ordre:(Object.keys(rctCategoriesOrdre).length+1)*10,unite_defaut_mesure:null};
+      sbCheck(await db.from('categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,nom:cat,ordre:info.ordre,onglet:'Boissons',unite_defaut_mesure:info.unite_defaut_mesure}],{onConflict:'restaurant_id,nom'}));
+      rctCategoriesOrdre[cat]={ordre:info.ordre,onglet:'Boissons',unite_defaut_mesure:info.unite_defaut_mesure};
     }
     closeM('mtboiss');
     renderRecettesList();
     renderCoutsList();
-    renderIngredientsList();
-    var parts2=[];
-    if(nCat)parts2.push(nCat+' catégorie'+(nCat>1?'s':''));
-    if(nSub)parts2.push(nSub+' sous-catégorie'+(nSub>1?'s':''));
-    alert('✅ '+parts2.join(' et ')+' transférée(s) vers '+target+'.');
-  }catch(e){console.error('confirmTransfertOnglet',e);alert('Erreur lors du transfert : '+e.message);}
+    setIngSubMode('boissons');
+    alert('✅ '+checked.length+' catégorie'+(checked.length>1?'s':'')+' transférée'+(checked.length>1?'s':'')+' vers Boissons.');
+  }catch(e){console.error('confirmTransfertBoissons',e);alert('Erreur lors du transfert : '+e.message);}
 }
 
 // ── Popup de saisie groupée des doses par défaut manquantes (détectées via l'extraction menu) ──────
@@ -9295,12 +9363,7 @@ async function analyzeFlyerFile(){
         prixExtrait:it.prix!=null?it.prix:'',
         matchNom:bestScore>=60?bestNom:'',
         matchScore:bestScore<0?0:bestScore,
-        selected:true,
-        createMode:false,
-        catForNew:Object.keys(rctCategoriesOrdre)[0]||'',
-        compoForNew:'',
-        isPizza:/pizza/i.test(nomExtrait),
-        justCreatedCode:null
+        selected:true
       };
     });
     document.getElementById('mflyer-step-upload').style.display='none';
@@ -9318,27 +9381,10 @@ function renderFlyerLines(){
     var nom=(m.name&&(m.name.fr||m.name))||'';
     return '<option value="'+esc(nom)+'">'+esc(nom)+'</option>';
   }).join('');
-  var catOptsHtml=Object.keys(rctCategoriesOrdre).sort(function(a,b){return (rctCategoriesOrdre[a].ordre||0)-(rctCategoriesOrdre[b].ordre||0);}).map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
   box.innerHTML=mflyerLines.map(function(l){
     var ambiguous=!l.matchNom||l.matchScore<80;
     var current=l.matchNom?findMenuPriceFor(l.matchNom):null;
     var prixActuel=current?parsePrixVente(current.priceEmporter):null;
-    var createBlock='';
-    if(!l.matchNom&&!l.justCreatedCode){
-      createBlock='<div style="margin-top:6px;padding:8px;background:#F7F3EC;border-radius:6px;">'
-        +(l.createMode?(
-          '<div style="display:flex;flex-direction:column;gap:6px;">'
-          +'<select class="fi" style="font-size:11px;" onchange="updateFlyerCreateField(\''+l.id+'\',\'catForNew\',this.value)">'+catOptsHtml.replace('value="'+esc(l.catForNew)+'"','value="'+esc(l.catForNew)+'" selected')+'</select>'
-          +'<textarea class="fi" style="font-size:11px;min-height:50px;" placeholder="Composition : tomate, mozzarella, jambon, champignons…" onchange="updateFlyerCreateField(\''+l.id+'\',\'compoForNew\',this.value)">'+esc(l.compoForNew)+'</textarea>'
-          +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;"><input type="checkbox" '+(l.isPizza?'checked':'')+' onchange="updateFlyerCreateField(\''+l.id+'\',\'isPizza\',this.checked)"> 🍕 C\'est une pizza (ajoute automatiquement une pâte à pizza à la recette)</label>'
-          +'<div style="display:flex;gap:6px;"><button class="btn bs sm" onclick="updateFlyerCreateField(\''+l.id+'\',\'createMode\',false)" style="flex:1;">Annuler</button><button class="btn bp sm" onclick="createProduitFromFlyerLine(\''+l.id+'\')" style="flex:1;">✓ Créer</button></div>'
-          +'</div>'
-        ):(
-          '<div style="font-size:10px;color:var(--txm);margin-bottom:4px;">Aucun produit correspondant trouvé sur la carte — choisis-en un ci-dessus, ou :</div>'
-          +'<button class="btn bp sm" onclick="updateFlyerCreateField(\''+l.id+'\',\'createMode\',true)" style="width:100%;">➕ Créer le produit</button>'
-        ))
-        +'</div>';
-    }
     return '<div style="border:1px solid '+(ambiguous?'#E8B84B':'var(--bd)')+';background:'+(ambiguous?'#FFF9EC':'#fff')+';border-radius:8px;padding:8px 10px;margin-bottom:8px;">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
       +'<input type="checkbox" '+(l.selected?'checked':'')+' onchange="toggleFlyerLine(\''+l.id+'\',this.checked)">'
@@ -9349,72 +9395,13 @@ function renderFlyerLines(){
       +'<select class="fi" style="font-size:11px;width:100%;" onchange="updateFlyerLineField(\''+l.id+'\',\'matchNom\',this.value)">'+nomOpts.replace('value="'+esc(l.matchNom)+'"','value="'+esc(l.matchNom)+'" selected')+'</select>'
       +(prixActuel!=null?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Prix emporter actuel sur la carte : '+prixActuel.toFixed(2)+' €</div>':'')
       +(ambiguous&&l.matchNom?'<div style="font-size:10px;color:#92400E;margin-top:4px;">Correspondance incertaine — vérifie le produit choisi.</div>':'')
-      +(l.justCreatedCode?'<div style="font-size:10px;color:#065F46;margin-top:4px;">✅ Produit créé (catégorie + recette). Le prix ne peut pas encore être poussé sur la carte publique tant qu\'il n\'y est pas ajouté depuis index.html — ajoute-le là-bas puis relance la synchro.</div>':'')
-      +createBlock
+      +(!l.matchNom?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Aucun produit correspondant trouvé sur la carte — choisis-en un ou laisse "ignorer".</div>':'')
       +'</div>';
   }).join('');
 }
 function toggleFlyerLine(id,checked){
   var l=mflyerLines.find(function(x){return x.id===id;});
   if(l)l.selected=checked;
-}
-function updateFlyerCreateField(id,field,value){
-  var l=mflyerLines.find(function(x){return x.id===id;});
-  if(!l)return;
-  l[field]=value;
-  renderFlyerLines();
-}
-// Retrouve l'ingrédient "pâte à pizza" (peu importe la formulation exacte utilisée dans la liste
-// Ingrédients) par similarité de nom plutôt qu'un nom figé — évite de dépendre d'une orthographe précise.
-function findPateAPizzaIngredient(){
-  var best=null,bestScore=-1;
-  rctIngredients.filter(function(i){return i.actif!==false;}).forEach(function(i){
-    var sc=matchScore('pate a pizza',i.nom);
-    if(sc>bestScore){bestScore=sc;best=i;}
-  });
-  return bestScore>=60?best:null;
-}
-async function createProduitFromFlyerLine(id){
-  var l=mflyerLines.find(function(x){return x.id===id;});
-  if(!l)return;
-  if(!l.catForNew){alert('Choisis une catégorie.');return;}
-  var nom=l.nomExtrait;
-  var code='pv_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);
-  try{
-    sbCheck(await db.from('produits_vendus').insert({restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:l.catForNew,sous_categorie:null,actif:true}));
-    rctProduitsVendus.push({restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:l.catForNew,sous_categorie:null,actif:true});
-    var diag=await extraireRecetteDepuisDescription(code,l.compoForNew);
-    var pizzaAdded=false,pizzaWarn=false;
-    if(l.isPizza){
-      var pate=findPateAPizzaIngredient();
-      var existingCodes=(rctRecettes[code]||[]).map(function(x){return x.ingredient_code;});
-      if(pate&&existingCodes.indexOf(pate.code)<0){
-        if(pate.quantite_defaut!=null&&pate.quantite_defaut>0){
-          var line={restaurant_id:RCT_GLOBAL,produit_vendu_code:code,ingredient_code:pate.code,quantite:pate.quantite_defaut,unite:pate.unite_defaut||'g',pourcentage_defaut:100};
-          try{sbCheck(await db.from('recettes').insert(line));}
-          catch(e1){sbCheck(await db.from('recettes').insert({restaurant_id:line.restaurant_id,produit_vendu_code:line.produit_vendu_code,ingredient_code:line.ingredient_code,quantite:line.quantite,unite:line.unite}));}
-          rctRecettes[code]=(rctRecettes[code]||[]).concat([line]);
-          pizzaAdded=true;
-        }else{
-          rctPendingDoseIngredients[pate.code]=rctPendingDoseIngredients[pate.code]||{nom:pate.nom,unite_defaut:pate.unite_defaut||'g',produits:[]};
-          if(rctPendingDoseIngredients[pate.code].produits.indexOf(code)<0)rctPendingDoseIngredients[pate.code].produits.push(code);
-          pizzaAdded=true;
-        }
-      }else if(!pate){
-        pizzaWarn=true;
-      }
-    }
-    l.createMode=false;
-    l.justCreatedCode=code;
-    renderFlyerLines();
-    renderRecettesList();
-    if(Object.keys(rctPendingDoseIngredients).length)openDoseDefautModal();
-    var msg='✅ "'+nom+'" créé dans "'+l.catForNew+'".';
-    if(diag.added)msg+=' '+diag.added+' ingrédient(s) reconnu(s) dans la composition.';
-    if(diag.unmatched&&diag.unmatched.length)msg+=' ⚠️ Non reconnus : '+diag.unmatched.join(', ')+'.';
-    if(pizzaWarn)msg+=' ⚠️ Aucun ingrédient "pâte à pizza" trouvé dans Ingrédients — crée-le puis rajoute-le manuellement à la recette.';
-    alert(msg);
-  }catch(e){console.error('createProduitFromFlyerLine',e);alert('Erreur : '+e.message);}
 }
 function updateFlyerLineField(id,field,value){
   var l=mflyerLines.find(function(x){return x.id===id;});
@@ -9481,10 +9468,8 @@ function parseIngredientsCsv(text){
 }
 function previewIngredientsImport(){
   var fileInput=document.getElementById('rct-ing-file');
-  if(!fileInput.files.length){alert('Choisis un fichier CSV ou PDF.');return;}
+  if(!fileInput.files.length){alert('Choisis un fichier CSV.');return;}
   var file=fileInput.files[0];
-  var isPdf=(file.type==='application/pdf')||/\.pdf$/i.test(file.name||'');
-  if(isPdf){previewIngredientsImportPdf(file);return;}
   var reader=new FileReader();
   reader.onload=function(e){
     var parsed;
@@ -9496,46 +9481,6 @@ function previewIngredientsImport(){
   };
   reader.onerror=function(){alert('Erreur de lecture du fichier.');};
   reader.readAsText(file,'UTF-8');
-}
-// Import depuis un PDF (liste/catalogue sans structure Catégorie;Ingrédient) : on réutilise le même
-// moteur d'extraction IA que le BL fournisseur (route /admin/extract-invoice, déjà branché et testé
-// pour lire des PDF), on ne garde que le nom de chaque ligne détectée, et on présuggère une catégorie
-// (celle de l'ingrédient existant le plus proche, sinon la première catégorie dispo) — modifiable
-// ensuite comme n'importe quel ingrédient une fois importé.
-async function previewIngredientsImportPdf(file){
-  var container=document.getElementById('rct-ing-preview');
-  container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;">⏳ Analyse du PDF en cours (extraction des lignes)… peut prendre 10-20 s.</div>';
-  try{
-    var b64=await fileToBase64(file);
-    var res=await fetch(BL_PROXY_URL+'/admin/extract-invoice',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Admin-Secret':BL_ADMIN_SECRET},
-      body:JSON.stringify({media_type:file.type||'application/pdf',data:b64})
-    });
-    if(!res.ok){
-      var errBody=null;
-      try{errBody=await res.json();}catch(e){}
-      throw new Error((errBody&&errBody.error)?errBody.error:('HTTP '+res.status));
-    }
-    var json=await res.json();
-    var lines=json.lines||[];
-    if(!lines.length){container.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">⚠️ Aucune ligne détectée sur ce PDF. Essaie avec un export CSV, ou un PDF plus net.</div>';return;}
-    rctPendingIngImport=lines.map(function(l){
-      var nomClean=stripLeadingPackNumber(l.nom||'');
-      var best=null,bestScore=-1;
-      rctIngredients.forEach(function(ing){
-        var sc=matchScore(nomClean,ing.nom);
-        if(sc>bestScore){bestScore=sc;best=ing;}
-      });
-      var suggestedCat=(bestScore>=20&&best)?best.categorie:(Object.keys(rctCategoriesOrdre)[0]||'Autres');
-      return {nom:nomClean,categorie:suggestedCat};
-    }).filter(function(r){return r.nom;});
-    if(!rctPendingIngImport.length){container.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">⚠️ Aucune ligne exploitable trouvée sur ce PDF.</div>';return;}
-    renderIngredientsPreview();
-  }catch(e){
-    console.error('previewIngredientsImportPdf',e);
-    container.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">❌ Erreur : '+esc(e.message)+'</div>';
-  }
 }
 function renderIngredientsPreview(){
   if(!rctPendingIngImport){document.getElementById('rct-ing-preview').innerHTML='';return;}
@@ -9739,6 +9684,7 @@ function openCategoryEditModalFromBtn(btn){
   openCategoryEditModal(host?host.getAttribute('data-catname'):null);
 }
 async function openCategoryEditModalPreset(ongletName){
+  if(ongletName==='Boissons')await ensureBoissonsOnglet();
   openCategoryEditModal(null);
   var sel=document.getElementById('mcat-onglet');
   if(sel)sel.value=ongletName;
