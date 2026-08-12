@@ -1252,7 +1252,7 @@ function renderMenu() {
     
     if (c.extras) c.extras.forEach(e => {
       const t = T[l];
-      if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${t.childMenu}</div><p>${t.childDesc}</p><div class="e-price">12€</div></div>`;
+      if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${t.childMenu}</div><p>${t.childDesc}</p><div class="e-price">${c.menuEnfantPrice||'12€'}</div></div>`;
       if (e==='supplements') {
   html += `<div class="supplements-box"><h3>${t.supplements}</h3><p>${t.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
 }
@@ -1647,7 +1647,10 @@ function renderAdminItems(list){
 
 async function autoSaveItems(){
   const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
-  const result = await saveKeyToGithub(targetFile, {cats, items, upsells});
+  const p = saveKeyToGithub(targetFile, {cats, items, upsells});
+  _pendingPhotoSaves.push(p);
+  p.finally(()=>{ _pendingPhotoSaves = _pendingPhotoSaves.filter(x=>x!==p); });
+  const result = await p;
   return !!(result && result.content && result.content.sha);
 }
 
@@ -2058,6 +2061,14 @@ function openEditCatModal(catId){
       <label class="toggle"><input type="checkbox" id="ecm_supp" ${cat.isSupplementsCategory?'checked':''}><span class="toggle-slider"></span></label>
     </div>
     <div class="toggle-row" style="margin-top:0.3rem;">
+      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">🍕 Encart Menu Enfant</span>
+      <label class="toggle"><input type="checkbox" id="ecm_menuenfant" ${(cat.extras&&cat.extras.includes('menu_enfant'))?'checked':''} onchange="document.getElementById('ecm_menuenfant_price_row').style.display=this.checked?'flex':'none';"><span class="toggle-slider"></span></label>
+    </div>
+    <div id="ecm_menuenfant_price_row" class="toggle-row" style="margin-top:0.3rem;display:${(cat.extras&&cat.extras.includes('menu_enfant'))?'flex':'none'};">
+      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">Prix affiché</span>
+      <input class="admin-input" id="ecm_menuenfant_price" value="${cat.menuEnfantPrice||'12€'}" style="width:80px;text-align:right;">
+    </div>
+    <div class="toggle-row" style="margin-top:0.3rem;">
       <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">🍽️ Disponible sur place</span>
       <label class="toggle"><input type="checkbox" id="ecm_dispo_surplace" ${cat.dispoSurPlace!==false?'checked':''}><span class="toggle-slider"></span></label>
     </div>
@@ -2088,6 +2099,12 @@ function saveEditCat(catId){
   cat.hideFromMenu = !!document.getElementById('ecm_hide')?.checked;
   cat.inAllergenList = !!document.getElementById('ecm_allerg')?.checked;
   cat.isSupplementsCategory = !!document.getElementById('ecm_supp')?.checked;
+  var menuEnfantOn = !!document.getElementById('ecm_menuenfant')?.checked;
+  if(!cat.extras) cat.extras=[];
+  if(menuEnfantOn && !cat.extras.includes('menu_enfant')) cat.extras.push('menu_enfant');
+  if(!menuEnfantOn) cat.extras = cat.extras.filter(e=>e!=='menu_enfant');
+  var menuEnfantPriceVal = document.getElementById('ecm_menuenfant_price')?.value.trim();
+  if(menuEnfantPriceVal) cat.menuEnfantPrice = menuEnfantPriceVal;
   cat.dispoSurPlace = !!document.getElementById('ecm_dispo_surplace')?.checked;
   cat.dispoEmporter = !!document.getElementById('ecm_dispo_emporter')?.checked;
   closeEditCatModal();
@@ -4511,10 +4528,11 @@ async function restoreVersion(idx) {
 // DRAFT / PUBLISH MODE
 // ═══════════════════════════════════════
 let isDraftMode = false;
-// La sauvegarde de photo (upload item) part en arrière-plan sans être attendue par l'appelant — si on
-// clique "Publier" pendant qu'elle est encore en vol, publishDraft() peut relire le brouillon AVANT que
-// cette écriture n'ait atteint GitHub, et publier une version sans la nouvelle photo. Ce registre permet
-// à publishDraft() d'attendre que tout ce qui est en cours soit bien écrit avant de lire/copier le brouillon.
+// Chaque autoSaveItems()/save photo part en arrière-plan sans être attendu par l'appelant — si on clique
+// "Publier" pendant qu'une sauvegarde est encore en vol, publishDraft() peut relire le brouillon AVANT
+// que cette écriture n'ait atteint GitHub, et publier une version qui ne contient pas le dernier changement
+// (prix, photo, etc.). Ce registre permet à publishDraft() d'attendre que tout soit bien écrit avant de
+// lire/copier le brouillon.
 let _pendingPhotoSaves = [];
 const DRAFT_FILE = 'menudata_draft.json';
 const DRAFT_HOME = 'home_draft.json';
@@ -4945,7 +4963,7 @@ function showSectionTab(tabKey) {
   catItems.forEach(it => html += renderItem(it, l));
 
   if (c.extras) c.extras.forEach(e => {
-    if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${T_local.childMenu}</div><p>${T_local.childDesc}</p><div class="e-price">12€</div></div>`;
+    if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${T_local.childMenu}</div><p>${T_local.childDesc}</p><div class="e-price">${c.menuEnfantPrice||'12€'}</div></div>`;
     if (e==='supplements') html += `<div class="supplements-box"><h3>${T_local.supplements}</h3><p>${T_local.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
   });
 
