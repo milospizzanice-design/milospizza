@@ -1173,7 +1173,7 @@ function selectLang(l){
   if(sp && sp.style.display === 'flex' && currentGroup) {
     const group = HOME_GROUPS[currentGroup];
     if(group) {
-      const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === currentGroup);
+      const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && c.dispoEmporter!==false && (c.homeGroup || 'food') === currentGroup);
       const tabs = buildSectionTabs(groupCats);
       window._currentSectionTabs = tabs;
       document.getElementById('sectionTabs').innerHTML = tabs.map((t, i) =>
@@ -4730,9 +4730,9 @@ function buildSectionTabs(groupCats){
     if (subcats.length === 0) {
       tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
     } else {
-      const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null));
+      const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null) && it.dispoEmporter!==false);
       subcats.forEach(sc => {
-        const hasItems = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, sc));
+        const hasItems = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, sc) && it.dispoEmporter!==false) && subcatVisible(c, sc, 'dispoEmporter');
         if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
       });
       if (hasUnassigned) {
@@ -4792,7 +4792,7 @@ function openSectionPage(groupKey) {
   }
 
   // Get active cats for this group dans le bon ordre (position par section)
-  const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === groupKey);
+  const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && c.dispoEmporter!==false && (c.homeGroup || 'food') === groupKey);
   // L'ordre est déjà celui de cats[] (maintenu par moveCatToPosition scoped par section)
   const tabs = buildSectionTabs(groupCats);
   window._currentSectionTabs = tabs;
@@ -4919,8 +4919,9 @@ function showSectionTab(tabKey) {
   const activeTab = document.getElementById(tabKeyToBtnId(tabKey));
   if (activeTab) activeTab.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
 
-  // Render items : uniquement ceux de cette sous-catégorie précise (ou sans sous-catégorie pour l'onglet "catégorie")
-  const catItems = items.filter(it => !it.archived && itemIsInPlacement(it, tab.catId, tab.subcat));
+  // Render items : uniquement ceux de cette sous-catégorie précise (ou sans sous-catégorie pour l'onglet "catégorie"),
+  // et uniquement ceux disponibles sur ce canal (à emporter) — au niveau article ET sous-catégorie.
+  const catItems = items.filter(it => !it.archived && itemIsInPlacement(it, tab.catId, tab.subcat) && it.dispoEmporter!==false && subcatVisible(c, it.subcat, 'dispoEmporter'));
 
   const T_local = T[l] || T.fr;
   const upsell = upsells.find(u=>u.active && (u.cats ? u.cats.includes(tab.catId) : u.cat===tab.catId));

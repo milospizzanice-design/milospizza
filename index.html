@@ -1173,7 +1173,7 @@ function selectLang(l){
   if(sp && sp.style.display === 'flex' && currentGroup) {
     const group = HOME_GROUPS[currentGroup];
     if(group) {
-      const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === currentGroup);
+      const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && c.dispoSurPlace!==false && (c.homeGroup || 'food') === currentGroup);
       const tabs = buildSectionTabs(groupCats);
       window._currentSectionTabs = tabs;
       document.getElementById('sectionTabs').innerHTML = tabs.map((t, i) =>
@@ -1252,7 +1252,7 @@ function renderMenu() {
     
     if (c.extras) c.extras.forEach(e => {
       const t = T[l];
-      if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${t.childMenu}</div><p>${t.childDesc}</p><div class="e-price">${c.menuEnfantPrice||'12€'}</div></div>`;
+      if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${t.childMenu}</div><p>${t.childDesc}</p><div class="e-price">12€</div></div>`;
       if (e==='supplements') {
   html += `<div class="supplements-box"><h3>${t.supplements}</h3><p>${t.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
 }
@@ -1492,28 +1492,12 @@ function removeExtraPlacement(itemId, idx){
   autoSaveItems().then(ok=>{ if(!ok) showToast('❌ Échec de l\'enregistrement'); });
 }
 
-// Convertit un ancien prix composite en texte libre (ex: "Verre 7€ · Btl 26€", séparateurs · / |)
-// en tableau priceVariants structuré. Retourne null si le format ne ressemble pas à un prix composite
-// reconnaissable (dans ce cas on laisse le champ prix simple tel quel, rien n'est modifié).
-function parseLegacyMultiPrice(priceStr){
-  if(!priceStr || typeof priceStr!=='string') return null;
-  const parts = priceStr.split(/[·|/]/).map(s=>s.trim()).filter(Boolean);
-  if(parts.length<2) return null;
-  const out=[];
-  for(let i=0;i<parts.length;i++){
-    const m = parts[i].match(/^(.*?)\s*([\d]+(?:[.,]\d+)?)\s*€?\s*$/);
-    if(!m) return null;
-    out.push({label:m[1].trim(), price:m[2].replace(',','.').trim()+'€'});
-  }
-  return out;
-}
-
 function renderPriceVariantsEditor(it){
   const variants = it.priceVariants || [];
   const rows = variants.map((v,i)=>`
     <div style="display:flex;gap:0.3rem;margin-bottom:0.3rem;align-items:center;">
       <input class="admin-input" style="flex:1;margin-bottom:0;" value="${v.label||''}" placeholder="Ex: Verre" onchange="updatePriceVariant('${it.id}',${i},'label',this.value)">
-      <input class="admin-input" style="width:70px;margin-bottom:0;text-align:right;" value="${(v.price||'').replace(/€/g,'')}" placeholder="Prix" inputmode="decimal" onchange="updatePriceVariant('${it.id}',${i},'price',this.value)">
+      <input class="admin-input" style="width:70px;margin-bottom:0;text-align:right;" value="${(v.price||'').replace('€','')}" placeholder="Prix" inputmode="decimal" onchange="updatePriceVariant('${it.id}',${i},'price',this.value)">
       <span style="font-size:0.85rem;color:var(--vert);font-weight:700;">€</span>
       <button onclick="removePriceVariant('${it.id}',${i})" style="background:none;border:none;color:#c0392b;font-size:0.95rem;cursor:pointer;flex-shrink:0;">✕</button>
     </div>`).join('');
@@ -1542,7 +1526,7 @@ function updatePriceVariant(itemId, idx, field, val){
   const it = items.find(i=>i.id===itemId);
   if(!it || !it.priceVariants || !it.priceVariants[idx]) return;
   if(field==='price'){
-    const clean = val.replace(/€/g,'').trim();
+    const clean = val.replace('€','').trim();
     it.priceVariants[idx].price = clean ? clean+'€' : '';
   } else {
     it.priceVariants[idx].label = val;
@@ -1649,7 +1633,7 @@ function renderAdminItems(list){
     const priceCell = hasVariants
       ? `<button class="plat-price-bubble plat-price-multi" onclick="openItemEditModal('${it.id}')">🏷 ${it.priceVariants.length}</button>`
       : `<div class="plat-price-wrap">
-           <input class="plat-price-num" id="p_${it.id}" value="${(it.price||'').replace(/€/g,'').trim()}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
+           <input class="plat-price-num" id="p_${it.id}" value="${(it.price||'').replace('€','').trim()}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
            <span class="plat-price-suffix">€</span>
          </div>`;
     return `<div class="plat-row" id="row_${it.id}">
@@ -1663,17 +1647,14 @@ function renderAdminItems(list){
 
 async function autoSaveItems(){
   const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
-  const p = saveKeyToGithub(targetFile, {cats, items, upsells});
-  _pendingPhotoSaves.push(p);
-  p.finally(()=>{ _pendingPhotoSaves = _pendingPhotoSaves.filter(x=>x!==p); });
-  const result = await p;
+  const result = await saveKeyToGithub(targetFile, {cats, items, upsells});
   return !!(result && result.content && result.content.sha);
 }
 
 function onPriceChange(id, val){
   const it = items.find(i=>i.id===id);
   if(!it) return;
-  const clean = val.replace(/€/g,'').trim();
+  const clean = val.replace('€','').trim();
   it.price = clean ? clean + '€' : '';
   autoSaveItems().then(ok=>{
     showToast(ok ? '✓ Prix enregistré' : '❌ Échec de l\'enregistrement - réessayez');
@@ -1704,19 +1685,11 @@ function openItemEditModal(itemId){
   if (_editModalItemId) {
     const prevPriceEl = document.getElementById('p_'+_editModalItemId);
     const prevIt = items.find(i=>i.id===_editModalItemId);
-    if(prevPriceEl && prevIt){ const clean=prevPriceEl.value.replace(/€/g,'').trim(); prevIt.price = clean ? clean+'€' : ''; }
+    if(prevPriceEl && prevIt){ const clean=prevPriceEl.value.replace('€','').trim(); prevIt.price = clean ? clean+'€' : ''; }
   }
   _editModalItemId = itemId;
   const it = items.find(i=>i.id===itemId);
   if(!it) return;
-  // Migration à la volée : les anciens prix composites en texte libre (ex: "Verre 7€ · Btl 26€",
-  // typiquement les vins) ne sont pas éditables via le champ prix simple ni compris par l'éditeur
-  // "Prix multiples" tant qu'ils n'ont pas été convertis. On les convertit dès l'ouverture du modal
-  // pour que l'éditeur affiche tout de suite des lignes Verre/Btl éditables et enregistrables.
-  if((!it.priceVariants || !it.priceVariants.length) && it.price){
-    const migrated = parseLegacyMultiPrice(it.price);
-    if(migrated) it.priceVariants = migrated;
-  }
   const catOpts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}" ${c.id===it.cat?'selected':''}>${c.name.fr}</option>`).join('');
   const itCat = cats.find(c=>c.id===it.cat);
   const catSubcats = itCat ? ensureCatSubcats(itCat) : [];
@@ -1856,7 +1829,7 @@ function itemAllPlacements(it){
 
 function parsePriceValue(priceStr){
   if(!priceStr) return 0;
-  const cleaned = String(priceStr).replace(/€/g,'').replace(',','.').trim();
+  const cleaned = String(priceStr).replace('€','').replace(',','.').trim();
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 }
@@ -2085,14 +2058,6 @@ function openEditCatModal(catId){
       <label class="toggle"><input type="checkbox" id="ecm_supp" ${cat.isSupplementsCategory?'checked':''}><span class="toggle-slider"></span></label>
     </div>
     <div class="toggle-row" style="margin-top:0.3rem;">
-      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">🍕 Encart Menu Enfant</span>
-      <label class="toggle"><input type="checkbox" id="ecm_menuenfant" ${(cat.extras&&cat.extras.includes('menu_enfant'))?'checked':''} onchange="document.getElementById('ecm_menuenfant_price_row').style.display=this.checked?'flex':'none';"><span class="toggle-slider"></span></label>
-    </div>
-    <div id="ecm_menuenfant_price_row" class="toggle-row" style="margin-top:0.3rem;display:${(cat.extras&&cat.extras.includes('menu_enfant'))?'flex':'none'};">
-      <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">Prix affiché</span>
-      <input class="admin-input" id="ecm_menuenfant_price" value="${cat.menuEnfantPrice||'12€'}" style="width:80px;text-align:right;">
-    </div>
-    <div class="toggle-row" style="margin-top:0.3rem;">
       <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;">🍽️ Disponible sur place</span>
       <label class="toggle"><input type="checkbox" id="ecm_dispo_surplace" ${cat.dispoSurPlace!==false?'checked':''}><span class="toggle-slider"></span></label>
     </div>
@@ -2123,12 +2088,6 @@ function saveEditCat(catId){
   cat.hideFromMenu = !!document.getElementById('ecm_hide')?.checked;
   cat.inAllergenList = !!document.getElementById('ecm_allerg')?.checked;
   cat.isSupplementsCategory = !!document.getElementById('ecm_supp')?.checked;
-  var menuEnfantOn = !!document.getElementById('ecm_menuenfant')?.checked;
-  if(!cat.extras) cat.extras=[];
-  if(menuEnfantOn && !cat.extras.includes('menu_enfant')) cat.extras.push('menu_enfant');
-  if(!menuEnfantOn) cat.extras = cat.extras.filter(e=>e!=='menu_enfant');
-  var menuEnfantPriceVal = document.getElementById('ecm_menuenfant_price')?.value.trim();
-  if(menuEnfantPriceVal) cat.menuEnfantPrice = menuEnfantPriceVal;
   cat.dispoSurPlace = !!document.getElementById('ecm_dispo_surplace')?.checked;
   cat.dispoEmporter = !!document.getElementById('ecm_dispo_emporter')?.checked;
   closeEditCatModal();
@@ -2902,15 +2861,6 @@ function renderAdminCats(){
         <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">Utiliser comme liste de suppléments (pop-up)</span>
         <label class="toggle"><input type="checkbox" id="catsupp_${c.id}" ${c.isSupplementsCategory?'checked':''} onchange="toggleCatIsSupplements('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
       </div>
-      <div class="toggle-row">
-        <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555">🍕 Afficher l'encart Menu Enfant</span>
-        <label class="toggle"><input type="checkbox" id="catmenuenfant_${c.id}" ${(c.extras&&c.extras.includes('menu_enfant'))?'checked':''} onchange="toggleCatMenuEnfant('${c.id}',this.checked)"><span class="toggle-slider"></span></label>
-      </div>
-      ${(c.extras&&c.extras.includes('menu_enfant')) ? `
-      <div style="display:flex;align-items:center;gap:0.4rem;margin:-0.2rem 0 0.5rem;">
-        <span style="font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#555;flex-shrink:0;">Prix affiché</span>
-        <input class="admin-input" id="catmenuenfantprice_${c.id}" value="${c.menuEnfantPrice||'12€'}" style="flex:0 0 80px;margin-bottom:0;text-align:right;" onchange="setCatMenuEnfantPrice('${c.id}',this.value)">
-      </div>` : ''}
 
       <div class="cat-section-label">Sous-catégories</div>
       <div style="display:flex;gap:0.3rem;">
@@ -3232,25 +3182,6 @@ function toggleCatIsSupplements(id, val){
   autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
 }
 
-function toggleCatMenuEnfant(id, val){
-  const c=cats.find(c=>c.id===id);
-  if(!c) return;
-  if(!c.extras) c.extras=[];
-  if(val && !c.extras.includes('menu_enfant')) c.extras.push('menu_enfant');
-  if(!val) c.extras=c.extras.filter(e=>e!=='menu_enfant');
-  renderMenu();
-  renderAdminCats();
-  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
-}
-function setCatMenuEnfantPrice(id, val){
-  const c=cats.find(c=>c.id===id);
-  if(!c) return;
-  const clean=(val||'').trim();
-  c.menuEnfantPrice = clean ? (clean.includes('€')?clean:clean+'€') : '12€';
-  renderMenu();
-  autoSaveItems().then(ok=>showToast(ok?'✓ Enregistré':'❌ Échec de l\'enregistrement'));
-}
-
 function toggleCatExtras(id, extra, val){
   const c=cats.find(c=>c.id===id);
   if(!c) return;
@@ -3504,7 +3435,7 @@ function collectItemEdits(){
     const d=document.getElementById('d_'+it.id);
     const ph=document.getElementById('ph_'+it.id);
     if(n && n.value.trim()) it.name.fr=n.value.trim();
-    if(p){ const clean=p.value.replace(/€/g,'').trim(); it.price = clean ? clean+'€' : ''; }
+    if(p){ const clean=p.value.replace('€','').trim(); it.price = clean ? clean+'€' : ''; }
     if(d)it.desc.fr=d.value;
     if(ph)it.photo=ph.value;
     // Collect allergens
@@ -3596,7 +3527,7 @@ async function handleFileUpload(e){
         renderAdminItems(getFilteredAdminItems());
         // Save to GitHub immediately
         const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
-        const photoSavePromise = saveKeyToGithub(targetFile, {cats, items, upsells}).then((result)=>{
+        saveKeyToGithub(targetFile, {cats, items, upsells}).then((result)=>{
           if (result && result.content && result.content.sha) {
             showToast('📷 Photo sauvegardée automatiquement !');
           } else {
@@ -3604,10 +3535,7 @@ async function handleFileUpload(e){
           }
         }).catch(()=>{
           showToast('❌ Échec de la sauvegarde - réessayez');
-        }).finally(()=>{
-          _pendingPhotoSaves = _pendingPhotoSaves.filter(p=>p!==photoSavePromise);
         });
-        _pendingPhotoSaves.push(photoSavePromise);
       }
     }
     if(prog)prog.style.display='none';
@@ -4580,12 +4508,6 @@ async function restoreVersion(idx) {
 // DRAFT / PUBLISH MODE
 // ═══════════════════════════════════════
 let isDraftMode = false;
-// Chaque autoSaveItems()/save photo part en arrière-plan sans être attendu par l'appelant — si on clique
-// "Publier" pendant qu'une sauvegarde est encore en vol, publishDraft() peut relire le brouillon AVANT
-// que cette écriture n'ait atteint GitHub, et publier une version qui ne contient pas le dernier changement
-// (prix, photo, etc.). Ce registre permet à publishDraft() d'attendre que tout soit bien écrit avant de
-// lire/copier le brouillon.
-let _pendingPhotoSaves = [];
 const DRAFT_FILE = 'menudata_draft.json';
 const DRAFT_HOME = 'home_draft.json';
 const DRAFT_DESIGN = 'design_draft.json';
@@ -4653,13 +4575,6 @@ async function publishDraft() {
   showToast('⏳ Publication en cours...');
 
   try {
-    // Attend toute écriture de photo encore en vol (voir _pendingPhotoSaves) — sinon on risque de lire
-    // le brouillon avant que la dernière photo uploadée n'y soit vraiment écrite sur GitHub.
-    if (_pendingPhotoSaves.length) {
-      showToast('⏳ Finalisation de la sauvegarde photo...');
-      await Promise.all(_pendingPhotoSaves);
-    }
-
     const files = [
       [DRAFT_FILE, DATA_FILE],
       [DRAFT_HOME, 'home.json'],
@@ -4813,9 +4728,9 @@ function buildSectionTabs(groupCats){
     if (subcats.length === 0) {
       tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
     } else {
-      const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null));
+      const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null) && it.dispoSurPlace!==false);
       subcats.forEach(sc => {
-        const hasItems = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, sc));
+        const hasItems = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, sc) && it.dispoSurPlace!==false) && subcatVisible(c, sc, 'dispoSurPlace');
         if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
       });
       if (hasUnassigned) {
@@ -4875,7 +4790,7 @@ function openSectionPage(groupKey) {
   }
 
   // Get active cats for this group dans le bon ordre (position par section)
-  const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && (c.homeGroup || 'food') === groupKey);
+  const groupCats = cats.filter(c => !c.archived && !c.hideFromMenu && c.dispoSurPlace!==false && (c.homeGroup || 'food') === groupKey);
   // L'ordre est déjà celui de cats[] (maintenu par moveCatToPosition scoped par section)
   const tabs = buildSectionTabs(groupCats);
   window._currentSectionTabs = tabs;
@@ -5002,8 +4917,9 @@ function showSectionTab(tabKey) {
   const activeTab = document.getElementById(tabKeyToBtnId(tabKey));
   if (activeTab) activeTab.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
 
-  // Render items : uniquement ceux de cette sous-catégorie précise (ou sans sous-catégorie pour l'onglet "catégorie")
-  const catItems = items.filter(it => !it.archived && itemIsInPlacement(it, tab.catId, tab.subcat));
+  // Render items : uniquement ceux de cette sous-catégorie précise (ou sans sous-catégorie pour l'onglet "catégorie"),
+  // et uniquement ceux disponibles sur ce canal (sur place) — au niveau article ET sous-catégorie.
+  const catItems = items.filter(it => !it.archived && itemIsInPlacement(it, tab.catId, tab.subcat) && it.dispoSurPlace!==false && subcatVisible(c, it.subcat, 'dispoSurPlace'));
 
   const T_local = T[l] || T.fr;
   const upsell = upsells.find(u=>u.active && (u.cats ? u.cats.includes(tab.catId) : u.cat===tab.catId));
@@ -5015,7 +4931,7 @@ function showSectionTab(tabKey) {
   catItems.forEach(it => html += renderItem(it, l));
 
   if (c.extras) c.extras.forEach(e => {
-    if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${T_local.childMenu}</div><p>${T_local.childDesc}</p><div class="e-price">${c.menuEnfantPrice||'12€'}</div></div>`;
+    if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${T_local.childMenu}</div><p>${T_local.childDesc}</p><div class="e-price">12€</div></div>`;
     if (e==='supplements') html += `<div class="supplements-box"><h3>${T_local.supplements}</h3><p>${T_local.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
   });
 

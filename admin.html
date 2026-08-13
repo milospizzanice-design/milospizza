@@ -342,14 +342,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div id="pm" style="display:none">
     <div class="card">
       <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
-        <span>&#127962; &#201;tablissements</span>
-        <button class="btn bp sm" onclick="openAddResto()">+ Ajouter</button>
-      </div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Alimente le s&#233;lecteur de restaurant en haut de l'admin. Apr&#232;s ajout, le fichier de gestion des stocks correspondant doit encore &#234;tre cr&#233;&#233;.</div>
-      <div id="pm-restos"></div>
-    </div>
-    <div class="card">
-      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
         <span>&#127918; Postes disponibles</span>
         <button class="btn bp sm" onclick="openAddPoste()">+ Ajouter</button>
       </div>
@@ -956,6 +948,14 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 <div id="page-reglages" style="display:none;">
   <div class="page" style="padding-top:14px;">
+    <div class="card">
+      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>&#127962; &#201;tablissements</span>
+        <button class="btn bp sm" onclick="openAddResto()">+ Ajouter</button>
+      </div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Alimente le s&#233;lecteur de restaurant en haut de l'admin (RH, Recettes, Stocks…). Apr&#232;s ajout, le fichier de gestion des stocks correspondant doit encore &#234;tre cr&#233;&#233; s'il s'agit d'un point de vente avec stock physique.</div>
+      <div id="pm-restos"></div>
+    </div>
     <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
       Active ou désactive ce que les salariés voient dans l'app de pointage. Utile pour mettre en place le pointage dès maintenant sans exposer des fonctionnalités pas encore prêtes (ex: gestion des stocks).
     </div>
