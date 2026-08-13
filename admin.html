@@ -2533,10 +2533,10 @@ async function saveResto(){
   var pin=document.getElementById('resto-pin').value.trim();
   if(!id||!nom){alert('Indiquez au minimum un identifiant et un nom');return;}
   if(restoEditId){
-    var r=await db.from('restaurants').update({nom:nom,couleur:couleur,admin_pin:pin}).eq('id',restoEditId);
+    var r=await db.from('restaurants').update({nom:nom,label:nom,couleur:couleur,admin_pin:pin}).eq('id',restoEditId);
     if(r.error){alert('Erreur: '+r.error.message);return;}
   }else{
-    var r2=await db.from('restaurants').insert({id:id,nom:nom,couleur:couleur,admin_pin:pin});
+    var r2=await db.from('restaurants').insert({id:id,nom:nom,label:nom,couleur:couleur,admin_pin:pin});
     if(r2.error){alert('Erreur: '+r2.error.message);return;}
     if(!RESTAURANT_FILES[id]){
       alert('Restaurant enregistr\u00e9. Pensez \u00e0 demander la cr\u00e9ation du fichier de gestion des stocks pour "'+nom+'" avant de pouvoir l\'utiliser.');
