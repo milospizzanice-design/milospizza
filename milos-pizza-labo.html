@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no">
 <title>Milo's Pizza · Stocks Labo</title>
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest-port.json">
+<link rel="manifest" href="manifest-labo.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Labo">
@@ -192,10 +192,11 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 </head>
 <body>
 <header>
-  <h1>🔬 Milo's Pizza · Stocks Labo</h1>
+  <h1>🏭 Milo's Pizza · Stocks Labo</h1>
   <div class="hrow">
     <span class="day-badge" id="day-badge">—</span>
     <span id="role-badge" class="role-badge"></span>
+    <span id="labo-recep-badge" onclick="openLaboRecepModal()" style="display:none;background:#1ABC9C;color:white;border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">🔬 0</span>
     <button class="btn-logout" onclick="logout()">⏻ Quitter</button>
   </div>
 </header>
@@ -238,6 +239,18 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
     <div id="rupture-list" style="background:#FFF4F3;border-radius:10px;padding:10px 14px;font-size:13px;color:#C0392B;margin-bottom:16px;max-height:200px;overflow-y:auto;"></div>
     <button id="rupture-ack-btn" style="width:100%;background:#C0392B;color:white;border:none;border-radius:12px;padding:13px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;cursor:pointer;">
       J'AI PRIS NOTE → CONTINUER
+    </button>
+  </div>
+</div>
+
+<!-- RÉCEPTION LABO -->
+<div id="labo-recep-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:410;display:none;align-items:center;justify-content:center;padding:20px;overflow:hidden;">
+  <div style="background:white;border-radius:18px;padding:22px 20px;width:100%;max-width:400px;max-height:85vh;overflow-y:auto;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.5px;color:#1ABC9C;margin-bottom:8px;">🔬 Réception Labo</div>
+    <div style="font-size:13px;color:var(--mid);margin-bottom:12px;">Accepte ou rejette chaque bac/lot reçu.</div>
+    <div id="labo-recep-list" style="margin-bottom:16px;"></div>
+    <button id="labo-recep-close-btn" onclick="closeLaboRecepModal()" style="width:100%;background:#444;color:white;border:none;border-radius:12px;padding:13px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;cursor:pointer;">
+      FERMER
     </button>
   </div>
 </div>
@@ -286,7 +299,7 @@ html{-webkit-text-size-adjust:100% !important;text-size-adjust:100% !important;}
 
 <div id="pin-screen">
   <div style="flex:1;display:flex;align-items:center;justify-content:center;">
-    <div class="pin-logo">🍕 MILO'S PIZZA PORT</div>
+    <div class="pin-logo">🏭 MILO'S PIZZA LABO</div>
   </div>
 
   <div class="pin-card">
@@ -564,10 +577,10 @@ const DEFAULT_DB={
     prod:{name:'Producteurs Réunis',color:'#B7950B',wa:'Producteurs Réunis',days:[0,1,2,3,4,5,6],dayStart:8,dayEnd:5},
     dabray:{name:'Dabray',color:'#922B21',wa:'Dabray (labo)',days:[0],dayStart:8,dayEnd:5},
   },
+  // Le Labo est une centrale d'achat : l'équipe s'y connecte normalement via le pointage (accès
+  // automatique sans PIN, voir tryAutoLogin()). Ce code sert d'accès admin de secours.
   users:{
-    '1734':{name:'Responsable Bar',cats:['boissons-emporter','boissons-place','glaces']},
-    '3553':{name:'Chef de Cuisine',cats:['epicerie','fromages','charcuterie']},
-    '6934':{name:'Tout le Restaurant',cats:['boissons-emporter','boissons-place','epicerie','fromages','charcuterie','glaces','hygiene']},
+    '6934':{name:'Admin',cats:['boissons-emporter','boissons-place','epicerie','fromages','charcuterie','glaces','hygiene']},
   },
   cats:[
     {id:'boissons-emporter',label:'🥤 Boissons à emporter',color:'#2980B9',subcats:[
@@ -903,6 +916,7 @@ async function completeLogin(user){
   await pullCatalogueFromSupabase(); // recharge le catalogue (produits/fournisseurs/catégories) avant d'afficher, pour éviter tout écart entre appareils
   await loadStockState(); // récupère les comptages partagés du jour + commandes en retard avant d'afficher
   setDay(currentDay);
+  loadLaboReceptions();
 }
 
 async function categoriesForRoles(roleIds){
@@ -1074,7 +1088,7 @@ function buildRow(p){
 
   const row=document.createElement('div');
   row.className='prow';row.id='row-'+sid;row.dataset.id=p.id;row.dataset.sup=p.sup;
-  row.innerHTML=`<div class="sup-dot" style="background:${color}"></div><div class="pinfo"><div class="pname">${p.name}</div><div class="pmeta"><span class="sup-tag" style="background:${color}">${(sup?.name||p.sup).split('\u2192')[0].trim().split(' ')[0]}</span>${p.unit&&p.unit!=='—'?' · '+p.unit:''}${meta?' · '+meta:''}</div></div><div class="pwrap">${ctrl}</div>`;
+  row.innerHTML=`<div class="sup-dot" style="background:${color}"></div><div class="pinfo"><div class="pname">${p.name}${p.prix?` <span style="font-weight:400;color:var(--mid);font-size:11px">— ${parseFloat(p.prix).toFixed(2)}\u00a0€/${p.prixUnite==='l'?'L':p.prixUnite==='unite'?'unit\u00e9':'kg'}</span>`:''}</div><div class="pmeta"><span class="sup-tag" style="background:${color}">${(sup?.name||p.sup).split('\u2192')[0].trim().split(' ')[0]}</span>${p.unit&&p.unit!=='—'?' · '+p.unit:''}${meta?' · '+meta:''}</div></div><div class="pwrap">${ctrl}</div>`;
   return row;
 }
 
@@ -1214,7 +1228,7 @@ function buildWA(sup){
   var isVia=sup!=='all'&&DB.suppliers[sup]&&DB.suppliers[sup].viaDabray;
   var isDabray=sup==='dabray';
   var sepLine='────────────────────────────';
-  var header="Milo's Pizza Labo 🔬";
+  var header="Milo's Pizza Labo 🏭";
   
   var msg=header+'\n';
   msg+='Hello, veuillez trouver ci-dessous notre commande.\n';
@@ -1456,11 +1470,193 @@ function startWizard(){
 
 function markEnvoyeForStep(sup){
   markEnvoye(sup);
-  if(sup==="dabray"){
+  if(DB.suppliers[sup]&&DB.suppliers[sup].isLabo)pushLaboCommande(sup);
+  if(sup==='dabray'){
     Object.keys(DB.suppliers).forEach(function(s){
       if(DB.suppliers[s]&&DB.suppliers[s].mergeIntoDabray)markEnvoye(s);
     });
   }
+}
+
+// ══ LABO — écrit une vraie commande numérique en plus du WhatsApp ══
+async function pushLaboCommande(supId){
+  var sup=DB.suppliers[supId];
+  if(!sup||!sup.isLabo)return;
+  var lignes=[];
+  var manquants=[];
+  DB.products.filter(function(p){return p.sup===supId;}).forEach(function(p){
+    var pill=document.getElementById('pi-'+san(p.id));
+    var st=getStatus(p);
+    var isOrdered=pill?pill.classList.contains('p-order'):st.order;
+    if(!isOrdered)return;
+    if(!p.laboProduitCode){manquants.push(p.name);return;}
+    lignes.push({produit_code:p.laboProduitCode,produit_nom:p.name,restaurant_produit_id:p.id,quantite_demandee:st.qty||1});
+  });
+  if(manquants.length){
+    alert('⚠️ Ces produits sont fournis par le Labo mais ne sont pas reliés au catalogue Labo (voir Admin > Produits) : '+manquants.join(', ')+'.\nIls ne seront pas inclus dans la commande numérique (le WhatsApp, lui, les inclut).');
+  }
+  if(!lignes.length)return;
+  try{
+    var empNom=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)?currentUser.name:'—';
+    var cmd=await sb.from('labo_commandes').insert({restaurant_id:RESTAURANT_ID,statut:'en_attente',created_by_nom:empNom}).select().single();
+    if(cmd.error)throw new Error(cmd.error.message);
+    var commandeId=cmd.data.id;
+    var rows=lignes.map(function(l){return{commande_id:commandeId,produit_code:l.produit_code,produit_nom:l.produit_nom,restaurant_produit_id:l.restaurant_produit_id,quantite_demandee:l.quantite_demandee};});
+    var ins=await sb.from('labo_commandes_lignes').insert(rows);
+    if(ins.error)throw new Error(ins.error.message);
+  }catch(e){
+    console.error('Erreur commande Labo',e);
+    alert('⚠️ Le message WhatsApp a été préparé, mais l\'enregistrement numérique vers le Labo a échoué : '+e.message+'\nPréviens le Labo directement pour cette fois.');
+  }
+}
+
+// ══ LABO — Réception des envois (accepter/rejeter lot par lot + effet stock) ══
+var laboPendingReceptions=[]; // [{envoi_ligne_id, lot, commande_ligne}]
+async function loadLaboReceptions(){
+  try{
+    var cmdRes=await sb.from('labo_commandes').select('id,numero').eq('restaurant_id',RESTAURANT_ID);
+    if(cmdRes.error)throw new Error(cmdRes.error.message);
+    var commandes=cmdRes.data||[];
+    if(!commandes.length){laboPendingReceptions=[];updateLaboRecepBadge();return;}
+    var cmdIds=commandes.map(function(c){return c.id;});
+    var lignesRes=await sb.from('labo_commandes_lignes').select('*').in('commande_id',cmdIds);
+    if(lignesRes.error)throw new Error(lignesRes.error.message);
+    var lignes=lignesRes.data||[];
+    var ligneIds=lignes.map(function(l){return l.id;});
+    if(!ligneIds.length){laboPendingReceptions=[];updateLaboRecepBadge();return;}
+    var envoisRes=await sb.from('labo_envois').select('id,commande_id').in('commande_id',cmdIds);
+    if(envoisRes.error)throw new Error(envoisRes.error.message);
+    var envois=envoisRes.data||[];
+    var envoiIds=envois.map(function(e){return e.id;});
+    if(!envoiIds.length){laboPendingReceptions=[];updateLaboRecepBadge();return;}
+    var envoiLignesRes=await sb.from('labo_envois_lignes').select('*').in('envoi_id',envoiIds);
+    if(envoiLignesRes.error)throw new Error(envoiLignesRes.error.message);
+    var envoiLignes=envoiLignesRes.data||[];
+    var envoiLigneIds=envoiLignes.map(function(el){return el.id;});
+    var recuesRes=await sb.from('labo_receptions_lignes').select('envoi_ligne_id').in('envoi_ligne_id',envoiLigneIds.length?envoiLigneIds:['00000000-0000-0000-0000-000000000000']);
+    if(recuesRes.error)throw new Error(recuesRes.error.message);
+    var dejaTraitees=new Set((recuesRes.data||[]).map(function(r){return r.envoi_ligne_id;}));
+    var lotIds=envoiLignes.map(function(el){return el.lot_id;});
+    var lotsRes=await sb.from('labo_lots').select('*').in('id',lotIds.length?lotIds:['00000000-0000-0000-0000-000000000000']);
+    if(lotsRes.error)throw new Error(lotsRes.error.message);
+    var lots=lotsRes.data||[];
+    var ligneById={};lignes.forEach(function(l){ligneById[l.id]=l;});
+    var cmdById={};commandes.forEach(function(c){cmdById[c.id]=c;});
+    var lotById={};lots.forEach(function(lo){lotById[lo.id]=lo;});
+    var envoiCmd={};envois.forEach(function(e){envoiCmd[e.id]=e.commande_id;});
+    laboPendingReceptions=envoiLignes.filter(function(el){return !dejaTraitees.has(el.id);}).map(function(el){
+      var commandeLigne=ligneById[el.commande_ligne_id];
+      var commandeId=envoiCmd[el.envoi_id];
+      return{
+        envoi_ligne_id:el.id,
+        lot:lotById[el.lot_id],
+        commande_ligne:commandeLigne,
+        commande_numero:commandeLigne?(cmdById[commandeId]||{}).numero:null
+      };
+    }).filter(function(r){return r.lot&&r.commande_ligne;});
+  }catch(e){
+    console.error('Erreur chargement réceptions Labo',e);
+    laboPendingReceptions=[];
+  }
+  updateLaboRecepBadge();
+  if(laboPendingReceptions.length)openLaboRecepModal();
+}
+function updateLaboRecepBadge(){
+  var b=document.getElementById('labo-recep-badge');
+  if(!b)return;
+  if(laboPendingReceptions.length){b.textContent='🔬 '+laboPendingReceptions.length;b.style.display='inline-block';}
+  else b.style.display='none';
+}
+function openLaboRecepModal(){
+  renderLaboRecepList();
+  var m=document.getElementById('labo-recep-modal');
+  if(m)m.style.display='flex';
+}
+function closeLaboRecepModal(){
+  var m=document.getElementById('labo-recep-modal');
+  if(m)m.style.display='none';
+}
+function renderLaboRecepList(){
+  var el=document.getElementById('labo-recep-list');
+  if(!el)return;
+  if(!laboPendingReceptions.length){
+    el.innerHTML='<div style="color:var(--mid);font-size:13px;">Rien à réceptionner pour le moment.</div>';
+    return;
+  }
+  el.innerHTML=laboPendingReceptions.map(function(r){
+    return '<div style="border:1px solid #eee;border-radius:10px;padding:10px;margin-bottom:8px;">'
+      +'<div style="font-weight:700;font-size:13px;">'+(r.commande_numero?'Commande #'+r.commande_numero+' — ':'')+(r.commande_ligne.produit_nom||r.commande_ligne.produit_code)+'</div>'
+      +'<div style="font-size:12px;color:var(--mid);margin-bottom:8px;">'+(Number(r.lot.poids_reel_g)/1000).toFixed(3)+' kg</div>'
+      +'<div style="display:flex;gap:8px;">'
+      +'<button onclick="accepterLotLabo(\''+r.envoi_ligne_id+'\')" style="flex:1;background:#27AE60;color:white;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:12px;cursor:pointer;">✓ Accepter</button>'
+      +'<button onclick="rejeterLotLabo(\''+r.envoi_ligne_id+'\')" style="flex:1;background:#C0392B;color:white;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:12px;cursor:pointer;">✗ Rejeter</button>'
+      +'</div></div>';
+  }).join('');
+}
+async function accepterLotLabo(envoiLigneId){
+  var r=laboPendingReceptions.find(function(x){return x.envoi_ligne_id===envoiLigneId;});
+  if(!r)return;
+  var empNom=(currentUser&&currentUser.name)?currentUser.name:'—';
+  try{
+    var ins=await sb.from('labo_receptions_lignes').insert({envoi_ligne_id:envoiLigneId,statut:'accepte',recu_par_nom:empNom});
+    if(ins.error)throw new Error(ins.error.message);
+    var upl=await sb.from('labo_lots').update({statut:'recu'}).eq('id',r.lot.id);
+    if(upl.error)throw new Error(upl.error.message);
+    var produitId=r.commande_ligne.restaurant_produit_id||r.commande_ligne.produit_code;
+    var cur=await sb.from('stock_etat').select('valeur').eq('restaurant_id',RESTAURANT_ID).eq('produit_id',produitId).maybeSingle();
+    if(cur.error)throw new Error(cur.error.message);
+    var curVal=parseFloat((cur.data&&cur.data.valeur)||0)||0;
+    var nouvelleValeur=curVal+1;
+    var upd=await sb.from('stock_etat').upsert({restaurant_id:RESTAURANT_ID,produit_id:produitId,valeur:String(nouvelleValeur),maj_par_nom:empNom,maj_at:new Date().toISOString()},{onConflict:'restaurant_id,produit_id'});
+    if(upd.error)throw new Error(upd.error.message);
+    var p=DB.products.find(function(pp){return pp.id===produitId;});
+    if(p)STATE[p.id]=nouvelleValeur;
+  }catch(e){
+    alert('Erreur lors de l\'acceptation : '+e.message);
+    return;
+  }
+  await checkAndCloseLaboCommande(r.commande_ligne.commande_id);
+  await afterLaboRecepAction();
+}
+async function rejeterLotLabo(envoiLigneId){
+  var r=laboPendingReceptions.find(function(x){return x.envoi_ligne_id===envoiLigneId;});
+  if(!r)return;
+  var commentaire=prompt('Raison du rejet (optionnel) :')||'';
+  var empNom=(currentUser&&currentUser.name)?currentUser.name:'—';
+  try{
+    var ins=await sb.from('labo_receptions_lignes').insert({envoi_ligne_id:envoiLigneId,statut:'rejete',commentaire:commentaire,recu_par_nom:empNom});
+    if(ins.error)throw new Error(ins.error.message);
+    var upl=await sb.from('labo_lots').update({statut:'rejete'}).eq('id',r.lot.id);
+    if(upl.error)throw new Error(upl.error.message);
+  }catch(e){
+    alert('Erreur lors du rejet : '+e.message);
+    return;
+  }
+  await checkAndCloseLaboCommande(r.commande_ligne.commande_id);
+  await afterLaboRecepAction();
+}
+async function checkAndCloseLaboCommande(commandeId){
+  if(!commandeId)return;
+  try{
+    var envoisRes=await sb.from('labo_envois').select('id').eq('commande_id',commandeId);
+    if(envoisRes.error)throw new Error(envoisRes.error.message);
+    var envoiIds=(envoisRes.data||[]).map(function(e){return e.id;});
+    if(!envoiIds.length)return;
+    var elRes=await sb.from('labo_envois_lignes').select('id').in('envoi_id',envoiIds);
+    if(elRes.error)throw new Error(elRes.error.message);
+    var elIds=(elRes.data||[]).map(function(x){return x.id;});
+    if(!elIds.length)return;
+    var recRes=await sb.from('labo_receptions_lignes').select('envoi_ligne_id').in('envoi_ligne_id',elIds);
+    if(recRes.error)throw new Error(recRes.error.message);
+    if((recRes.data||[]).length>=elIds.length){
+      await sb.from('labo_commandes').update({statut:'cloturee'}).eq('id',commandeId);
+    }
+  }catch(e){console.error('checkAndCloseLaboCommande',e);}
+}
+async function afterLaboRecepAction(){
+  await loadLaboReceptions();
+  renderLaboRecepList();
+  if(currentUser)recalc();
 }
 function sendCurrent(){
   if(currentSup==='all'){
@@ -1533,7 +1729,7 @@ function closeWizard(){
 function toggleSec(h){h.classList.toggle('coll');h.nextElementSibling.classList.toggle('coll');}
 
 // ══ ADMIN ══
-async function openAdmin(){document.getElementById('admin-screen').style.display='flex';showTab('produits');}
+async function openAdmin(){document.getElementById('admin-screen').style.display='flex';await loadLaboProduitsCache();showTab('produits');}
 function closeAdmin(){document.getElementById('admin-screen').style.display='none';document.getElementById('pin-screen').style.display='flex';}
 function showTab(tab){
   document.querySelectorAll('.atab').forEach(t=>t.classList.remove('active'));
@@ -1588,6 +1784,12 @@ function renderAdminProduits(body){
     <div class="arow"><div class="arow-info">Sous-catégorie</div><select class="aselect" id="np-sub"><option value="">— aucune —</option></select></div>
     <div class="arow"><div class="arow-info">Fournisseur</div><select class="aselect" id="np-sup">${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}">${s.name}</option>`).join('')}</select></div>
     <div class="arow"><div class="arow-info">Unité</div><input class="ainput ainput-w120" id="np-unit" placeholder="bouteille, bac..."></div>
+    <div class="arow"><div class="arow-info">Prix</div><input class="ainput ainput-w52" id="np-prix" type="number" step="0.01" min="0" placeholder="0.00">
+      <select class="aselect" id="np-prixunite" style="width:80px">
+        <option value="kg">€/kg</option>
+        <option value="l">€/L</option>
+        <option value="unite">€/unit\u00e9</option>
+      </select></div>
     <div class="arow"><div class="arow-info">Type de contrôle</div>
       <select class="aselect" id="np-type" onchange="toggleNewProdFields()">
         <option value="qty" selected>🔢 Quantité exacte</option>
@@ -1649,8 +1851,17 @@ function renderAdminProduits(body){
         row.innerHTML=`
           <div style="flex:1;min-width:130px;">
             <input class="ainput ainput-full" style="margin-bottom:4px;" value="${p.name}" onchange="updProd('${p.id}','name',this.value)">
+            <div style="display:flex;gap:4px;margin-bottom:4px;">
+              <input class="ainput ainput-w52" type="number" step="0.01" min="0" value="${p.prix||''}" placeholder="Prix" onchange="updProd('${p.id}','prix',this.value)">
+              <select class="aselect" style="font-size:10px;flex:1" onchange="updProd('${p.id}','prixUnite',this.value)">
+                <option value="kg"${(!p.prixUnite||p.prixUnite==='kg')?' selected':''}>€/kg</option>
+                <option value="l"${p.prixUnite==='l'?' selected':''}>€/L</option>
+                <option value="unite"${p.prixUnite==='unite'?' selected':''}>€/unit\u00e9</option>
+              </select>
+            </div>
             <div style="display:flex;flex-direction:column;gap:3px;">
               <select class="aselect" style="font-size:10px;" onchange="updProdSup('${p.id}',this.value)">${Object.entries(DB.suppliers).map(([id,s])=>`<option value="${id}"${id===p.sup?' selected':''}>${s.name}</option>`).join('')}</select>
+              ${(DB.suppliers[p.sup]&&DB.suppliers[p.sup].isLabo)?`<select class="aselect" style="font-size:10px;background:#E8FBF6;" onchange="updProdLaboLink('${p.id}',this.value)"><option value="">— relier au produit Labo —</option>${laboProduitsCache.map(lp=>`<option value="${lp.code}"${lp.code===p.laboProduitCode?' selected':''}>${lp.nom}</option>`).join('')}</select>`:''}
               <select class="aselect" style="font-size:10px;" onchange="updProdCat('${p.id}',this.value,this)">${DB.cats.map(c2=>`<option value="${c2.id}"${c2.id===p.cat?' selected':''}>${c2.label}</option>`).join('')}</select>
               <select class="aselect" style="font-size:10px;" id="subsel-${san(p.id)}" onchange="updProdSub('${p.id}',this.value)"><option value="">— sous-cat —</option>${(DB.cats.find(c2=>c2.id===p.cat)?.subcats||[]).map(s=>`<option value="${s.id}"${s.id===p.sub?' selected':''}>${s.label}</option>`).join('')}</select>
               <select class="aselect" style="font-size:10px;" onchange="updProdType('${p.id}',this.value)">
@@ -1689,6 +1900,34 @@ function renderAdminProduits(body){
   });
 }
 
+function copyCatalogToOtherRestaurant(){
+  const targetSK=(SK==='milos_port_v3')?'milos_dabray_v3':'milos_port_v3';
+  const targetName=(SK==='milos_port_v3')?'Dabray':'Port';
+  if(!confirm('Copier les '+DB.products.length+' produit(s) de ce restaurant vers '+targetName+' ? (ajout uniquement, rien n\'est écrasé là-bas)'))return;
+  try{
+    const raw=localStorage.getItem(targetSK);
+    const targetDB=raw?JSON.parse(raw):JSON.parse(JSON.stringify(DEFAULT_DB));
+    targetDB.cats=targetDB.cats||[];
+    targetDB.suppliers=targetDB.suppliers||{};
+    targetDB.products=targetDB.products||[];
+    targetDB.overrides=targetDB.overrides||{};
+    DB.cats.forEach(function(c){
+      if(!targetDB.cats.some(function(tc){return tc.id===c.id;}))targetDB.cats.push(JSON.parse(JSON.stringify(c)));
+    });
+    Object.keys(DB.suppliers).forEach(function(sid){
+      if(!targetDB.suppliers[sid])targetDB.suppliers[sid]=JSON.parse(JSON.stringify(DB.suppliers[sid]));
+    });
+    const idSuffix='-imp'+Date.now().toString(36);
+    DB.products.forEach(function(p){
+      const copy=JSON.parse(JSON.stringify(p));
+      copy.id=p.id+idSuffix;
+      targetDB.products.push(copy);
+      if(DB.overrides[p.id])targetDB.overrides[copy.id]=JSON.parse(JSON.stringify(DB.overrides[p.id]));
+    });
+    localStorage.setItem(targetSK,JSON.stringify(targetDB));
+    alert(DB.products.length+' produit(s) copié(s) vers '+targetName+'. Ouvrez l\'admin de ce restaurant pour les ajuster.');
+  }catch(e){alert('Erreur: '+e.message);}
+}
 function duplicateProduct(id){
   const p=DB.products.find(x=>x.id===id);if(!p)return;
   const copy=JSON.parse(JSON.stringify(p));
@@ -1863,12 +2102,16 @@ function addProduct(){
   const sub=document.getElementById('np-sub').value;
   const sup=document.getElementById('np-sup').value;
   const unit=document.getElementById('np-unit').value.trim()||'—';
+  const prix=parseFloat(document.getElementById('np-prix').value)||0;
+  const prixUnite=document.getElementById('np-prixunite').value;
   const type=document.getElementById('np-type').value;
   const s=parseSeuil(document.getElementById('np-s').value||'1');
   const c=parseFloat(document.getElementById('np-c').value)||1;
   const colis=parseInt(document.getElementById('np-colis').value)||1;
   const id='p-'+uid();
   const prod={id,cat,sub,sup,name,unit,type};
+  if(prix)prod.prix=prix;
+  prod.prixUnite=prixUnite;
   if(type==='qty'||type==='threshold'){prod.sDefault=s;prod.cDefault=c;prod.colisQty=colis;}
   DB.products.push(prod);
   // Sauvegarder les règles par jour si définies
@@ -1882,6 +2125,14 @@ function addProduct(){
 }
 function updProd(id,field,val){const p=DB.products.find(p=>p.id===id);if(p&&val.trim()){p[field]=val;saveDB();}}
 function updProdSup(id,supId){const p=DB.products.find(p=>p.id===id);if(p){p.sup=supId;saveDB();}}
+function updProdLaboLink(id,code){const p=DB.products.find(p=>p.id===id);if(p){p.laboProduitCode=code;saveDB();}}
+let laboProduitsCache=[];
+async function loadLaboProduitsCache(){
+  try{
+    var r=await sb.from('labo_produits').select('code,nom,categorie_code,actif').eq('actif',true);
+    if(!r.error)laboProduitsCache=r.data||[];
+  }catch(e){console.error('loadLaboProduitsCache',e);}
+}
 function updProdCat(id,catId){
   const p=DB.products.find(p=>p.id===id);
   if(!p)return;
@@ -2041,7 +2292,7 @@ function renderAdminFournisseurs(body){
     <div class="arow"><div class="arow-info">Nom commercial</div><input class="ainput ainput-w120" id="nf-commercial" placeholder="Nom sur facture"></div>
     <div class="arow"><div class="arow-info">Téléphone</div><input class="ainput ainput-w120" id="nf-phone" type="tel" placeholder="06 12 34 56 78"></div>
     <div class="arow"><div class="arow-info">Email</div><input class="ainput ainput-w120" id="nf-email" type="email" placeholder="contact@fournisseur.fr"></div>
-    <div class="arow"><div class="arow-info">Nom groupe WhatsApp</div><input class="ainput ainput-w120" id="nf-wa" placeholder="Ex: 📦 Commandes Labo"></div>
+    <div class="arow"><div class="arow-info">Nom groupe WhatsApp</div><input class="ainput ainput-w120" id="nf-wa" placeholder="Ex: 📦 Commandes Port"></div>
     <div class="arow" style="background:#FEF9E7;border-radius:8px;padding:6px 10px;font-size:11px;color:#7D6608;">💡 Le nom du groupe doit être identique à celui dans WhatsApp — l'employé le verra avant d'envoyer</div>
     <div class="arow" style="flex-direction:column;align-items:flex-start;gap:6px;"><div class="arow-info">Jours de livraison</div>
       <div class="day-tags" id="nf-days">${['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map((d,i)=>`<span class="dtag" data-day="${[1,2,3,4,5,6,0][i]}" onclick="this.classList.toggle('on')">${d}</span>`).join('')}</div>
@@ -2075,6 +2326,10 @@ function renderAdminFournisseurs(body){
       <select class="aselect" style="font-size:11px;" onchange="updSup('${id}','viaDabray',this.value==='via_dabray')">
         <option value="direct"${!sup.viaDabray?' selected':''}>Commande directe</option>
         <option value="via_dabray"${sup.viaDabray?' selected':''}>Via Dabray</option>
+      </select>
+      <select class="aselect" style="font-size:11px;margin-top:4px;" onchange="updSup('${id}','isLabo',this.value==='oui')">
+        <option value="non"${!sup.isLabo?' selected':''}>Fournisseur normal</option>
+        <option value="oui"${sup.isLabo?' selected':''}>🔬 C'est le Labo (commande numérique)</option>
       </select>
     </div>
     <button class="abtn abtn-danger" style="padding:5px 8px;font-size:11px;align-self:flex-start;" onclick="delSupplier('${id}')">✕</button>`;
@@ -2186,6 +2441,13 @@ function renderAdminConfig(body){
     <textarea id="restore-url" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:8px;font-size:11px;background:var(--cream);min-height:60px;" placeholder="Collez le lien ici..."></textarea>
     <button class="abtn abtn-primary" style="width:100%;margin-top:8px;padding:10px;" onclick="restoreConfig()">↺ Restaurer</button>`;
   body.appendChild(restoreCard);
+  // Dupliquer le catalogue vers l'autre restaurant
+  var dupCard=document.createElement('div');dupCard.className='acard';
+  var otherName=(SK==='milos_port_v3')?'Dabray':'Port';
+  dupCard.innerHTML=`<div class="acard-title">⎘ Copier ce catalogue vers ${otherName}</div>
+    <p style="font-size:12px;color:var(--mid);margin-bottom:12px;">Copie tous les produits (+ catégories/fournisseurs manquants) de ce restaurant vers ${otherName}, sans écraser ce qui existe déjà là-bas. Pratique pour démarrer un nouveau restaurant sans tout retaper.</p>
+    <button class="abtn abtn-primary" style="width:100%;padding:12px;" onclick="copyCatalogToOtherRestaurant()">⎘ Copier vers ${otherName}</button>`;
+  body.appendChild(dupCard);
   // Mode inventaire complet
   var invCard=document.createElement('div');invCard.className='acard';
   var invActive=DB.inventoryMode&&DB.inventoryMode.active&&DB.inventoryMode.endTime&&Date.now()<new Date(DB.inventoryMode.endTime).getTime();
