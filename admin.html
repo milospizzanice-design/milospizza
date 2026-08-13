@@ -5348,6 +5348,13 @@ function rctResto(){
   var sel=document.getElementById('global-resto-select');
   return sel?sel.value:'port';
 }
+// Libellé humain d'un restaurant à partir de la table 'restaurants' (générique, marche pour
+// Port/Dabray/Labo et tout futur restaurant ajouté via le panneau "Gérer restaurants").
+function rctRestoLabel(id){
+  id=id||rctResto();
+  var r=(typeof restosData!=='undefined'?restosData:[]).find(function(x){return x.id===id;});
+  return r?(r.nom||r.id):id;
+}
 function sbCheck(result){
   if(result&&result.error){
     console.error('Supabase error',result.error);
@@ -6910,8 +6917,8 @@ function goRecettesSub(name){
 
 async function loadRecettesModule(){
   var resto=rctResto();
-  if(resto!=='port'&&resto!=='dabray'){
-    document.getElementById('rct-list-container').innerHTML='<div class="card" style="color:var(--txm);font-size:12px;">Module recettes disponible uniquement pour Port et Dabray pour l\'instant.</div>';
+  if(!resto){
+    document.getElementById('rct-list-container').innerHTML='<div class="card" style="color:var(--txm);font-size:12px;">Sélectionne un restaurant en haut de page.</div>';
     return;
   }
   try{
@@ -7543,7 +7550,7 @@ function openEditProduitVenduModal(code){
   document.getElementById('mpved-sub').value=p.sous_categorie||'';
   document.getElementById('mpved-dispo').checked=rctProduitDispo[code]!==false;
   document.getElementById('mpved-actif').checked=p.actif!==false;
-  document.getElementById('mpved-dispo-label').textContent='Disponible sur '+(rctResto()==='port'?'Port':'Dabray');
+  document.getElementById('mpved-dispo-label').textContent='Disponible sur '+rctRestoLabel();
   var catList=document.getElementById('mpved-cat-list');
   catList.innerHTML=distinctValues(rctProduitsVendus,'categorie').map(function(v){return '<option value="'+esc(v)+'">';}).join('');
   var subList=document.getElementById('mpved-sub-list');
@@ -8293,7 +8300,7 @@ function renderIngredientsList(){
     var s=rctIngredientSeuils[i.code]||{};
     var type=s.type_suivi||'two';
     return '<div style="border-top:1px dashed var(--bd);margin-top:6px;padding-top:6px;">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--txm);margin-bottom:4px;">📦 Stock ('+esc(rctResto()==='port'?'Port':'Dabray')+')</div>'
+      +'<div style="font-size:10px;font-weight:700;color:var(--txm);margin-bottom:4px;">📦 Stock ('+esc(rctRestoLabel())+')</div>'
       +'<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
       +'<select class="fi" style="width:130px;font-size:10px;" title="Comment cet article est pointé lors de l\'inventaire" onchange="updateIngredientSeuil(\''+i.code+'\',\'type_suivi\',this.value)">'
         +'<option value="qty"'+(type==='qty'?' selected':'')+'>🔢 Quantité (unités/poids/L)</option>'
@@ -8646,7 +8653,7 @@ async function copyPricesDabrayToPort(){
 }
 async function openSuppliersModal(){
   var resto=rctResto();
-  document.getElementById('msup-resto').textContent=resto==='port'?'Port':(resto==='dabray'?'Dabray':resto);
+  document.getElementById('msup-resto').textContent=rctRestoLabel(resto);
   try{
     var r=sbCheck(await db.from('stock_catalogue').select('suppliers').eq('restaurant_id',resto).maybeSingle());
     msupSuppliersBlob=(r.data&&r.data.suppliers)||{};
