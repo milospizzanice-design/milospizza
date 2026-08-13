@@ -8300,7 +8300,12 @@ function renderIngredientsList(){
     var s=rctIngredientSeuils[i.code]||{};
     var type=s.type_suivi||'two';
     return '<div style="border-top:1px dashed var(--bd);margin-top:6px;padding-top:6px;">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--txm);margin-bottom:4px;">📦 Stock ('+esc(rctRestoLabel())+')</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--txm);">📦 Stock ('+esc(rctRestoLabel())+')</div>'
+      +'<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--txm);white-space:nowrap;" title="Décoche pour masquer cet ingrédient sur ce restaurant précis (les autres restaurants ne sont pas affectés).">'
+      +'<input type="checkbox" '+(s.actif!==false?'checked':'')+' onchange="updateIngredientSeuil(\''+i.code+'\',\'actif\',this.checked)"> Visible ici'
+      +'</label>'
+      +'</div>'
       +'<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
       +'<select class="fi" style="width:130px;font-size:10px;" title="Comment cet article est pointé lors de l\'inventaire" onchange="updateIngredientSeuil(\''+i.code+'\',\'type_suivi\',this.value)">'
         +'<option value="qty"'+(type==='qty'?' selected':'')+'>🔢 Quantité (unités/poids/L)</option>'
@@ -8332,10 +8337,11 @@ function renderIngredientsList(){
     var brutSourceIng=hasBrutSource?rctIngredients.find(function(x){return x.code===i.source_brut_code;}):null;
     var expanded=!!rctIngExpanded[i.code];
     var statusHtml=hasBrutSource?'🔪 Préparé à partir de '+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code):statut.label;
-    return '<div class="card" style="padding:0;overflow:hidden;">'
+    var maskedHere=(rctIngredientSeuils[i.code]&&rctIngredientSeuils[i.code].actif===false);
+    return '<div class="card" style="padding:0;overflow:hidden;'+(maskedHere?'opacity:.5;':'')+'">'
       +'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;" onclick="toggleIngCard(\''+i.code+'\')">'
       +'<div style="flex:1;min-width:0;">'
-      +'<div style="font-weight:700;font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(i.nom)+'</div>'
+      +'<div style="font-weight:700;font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(i.nom)+(maskedHere?' <span style="font-size:9px;font-weight:600;color:var(--txm);">(masqué sur '+esc(rctRestoLabel())+')</span>':'')+'</div>'
       +'<div style="font-size:11px;color:var(--txm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ing-status-'+i.code+'">'+statusHtml+'</div>'
       +'</div>'
       +'<span id="ing-arrow-'+i.code+'" style="font-size:11px;color:var(--txm);flex-shrink:0;">'+(expanded?'▲':'▼')+'</span>'
@@ -8900,11 +8906,13 @@ async function handlePriceFieldChange(ingredientCode,field,value){
 async function updateIngredientSeuil(ingredientCode,field,value){
   var resto=rctResto();
   var payload={restaurant_id:resto,ingredient_code:ingredientCode};
-  if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
+  if(field==='actif')payload[field]=!!value;
+  else if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
   else payload[field]=(value===''?null:parseFloat(value));
   try{
     sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
     rctIngredientSeuils[ingredientCode]=Object.assign({},rctIngredientSeuils[ingredientCode]||{},payload);
+    if(field==='actif')renderIngredientsList(); // impacte l'affichage grisé de la carte → rendu complet nécessaire
   }catch(e){
     console.error('updateIngredientSeuil',e);
     alert('Erreur : '+e.message+'\n\nSi le message parle de la table "ingredient_seuils", la migration SQL n\'a probablement pas encore été exécutée dans Supabase.');
