@@ -513,7 +513,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvelle section</button>
         <button class="btn bs sm" onclick="openCategoryEditModalForCurrentSub()">+ Nouvelle catégorie</button>
         <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
-        <button class="btn bs sm" onclick="copyPricesDabrayToPort()" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;" title="Écrase tous les prix de Port avec ceux de Dabray">⚠️ Copier prix Dabray → Port</button>
+        <button class="btn bs sm" onclick="mergeOldPerRestoPrices()" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;" title="Utile une seule fois : fusionne les anciens prix qui étaient enregistrés séparément par restaurant, en un seul prix commun">🔀 Fusionner les anciens prix par restaurant</button>
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
         <button class="btn bp sm" id="ing-tree-toggle-btn" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
       </div>
@@ -5325,8 +5325,8 @@ let rctRecettes={};         // {produit_vendu_code: [{ingredient_code,quantite,u
 let rctIngredients=[];      // ingrédients de la carte (table 'ingredients'), communs à tous les restaurants
 let rctIngExpanded={};      // {ingredient_code: true} — état déplié/replié de chaque carte, conservé entre les rendus
 let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT COURANT — encore utilisé par l'écran Coûts (legacy)
-let rctIngredientCouts={}; // {ingredient_code: {mode_prix,prix_unitaire,prix_kilo,prix_litre,poids_net_g,fournisseur_id,prix_source_code}} — prix/fournisseur directement par ingrédient, propre au restaurant courant. Remplace l'ancien système de rattachement à un catalogue stock séparé.
-let rctIngredientSeuils={}; // {ingredient_code: {fournisseur_id,type_suivi,seuil_min,colisage,unite_commande,actif}} — table 'ingredient_seuils', propre au restaurant courant. Remplacera le catalogue codé en dur de milos-pizza-port/dabray.html.
+let rctIngredientCouts={}; // {ingredient_code: {mode_prix,prix_unitaire,prix_kilo,prix_litre,poids_net_g,fournisseur_id,prix_source_code}} — prix commun à tous les restaurants (achat au même prix partout), stocké avec restaurant_id=RCT_GLOBAL. Remplace l'ancien système par restaurant.
+let rctIngredientSeuilsAll={}; // {restaurant_id: {ingredient_code: {fournisseur_id,type_suivi,seuil_min,colisage,unite_commande,actif}}} — table 'ingredient_seuils', chargée pour tous les restaurants pour édition côte à côte. Remplacera le catalogue codé en dur de milos-pizza-port/dabray.html.
 let rctIngredientRegles={}; // {ingredient_code: [regle,...]} — table 'ingredient_regles_commande' : variations de seuil/cible par jour fixe ou par veille de livraison fournisseur, prioritaires sur le seuil par défaut d'ingredient_seuils.
 let rctSuppliers=[]; // fournisseurs du restaurant courant (depuis stock_catalogue.suppliers)
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
@@ -6927,7 +6927,7 @@ async function loadRecettesModule(){
       db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('produits').select('*').eq('restaurant_id',resto).order('nom'),
-      db.from('ingredient_couts').select('*').eq('restaurant_id',resto),
+      db.from('ingredient_couts').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('ingredient_composition').select('*').eq('restaurant_id',resto),
       db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto),
       db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
@@ -6976,12 +6976,17 @@ async function loadRecettesModule(){
     }catch(e){
       console.error('loadRecettesModule: syncProduitsFromMenu a échoué, on continue quand même l\'affichage du reste',e);
     }
-    // Seuils de stock par ingrédient (table 'ingredient_seuils') — chargée à part et de façon tolérante :
-    // si la migration SQL n'a pas encore été exécutée côté Supabase, le reste du module continue à fonctionner.
-    rctIngredientSeuils={};
+    // Seuils de stock par ingrédient (table 'ingredient_seuils') — chargée pour TOUS les restaurants d'un coup
+    // (pas seulement celui sélectionné en haut) pour pouvoir éditer les 3 seuils côte à côte sans changer de
+    // restaurant à chaque fois. Chargée de façon tolérante : si la migration SQL n'a pas encore été exécutée
+    // côté Supabase, le reste du module continue à fonctionner.
+    rctIngredientSeuilsAll={};
     try{
-      var seuilsRes=await db.from('ingredient_seuils').select('*').eq('restaurant_id',resto);
-      if(seuilsRes&&!seuilsRes.error)(seuilsRes.data||[]).forEach(function(s){rctIngredientSeuils[s.ingredient_code]=s;});
+      var seuilsRes=await db.from('ingredient_seuils').select('*');
+      if(seuilsRes&&!seuilsRes.error)(seuilsRes.data||[]).forEach(function(s){
+        rctIngredientSeuilsAll[s.restaurant_id]=rctIngredientSeuilsAll[s.restaurant_id]||{};
+        rctIngredientSeuilsAll[s.restaurant_id][s.ingredient_code]=s;
+      });
       else if(seuilsRes&&seuilsRes.error)console.warn('ingredient_seuils indisponible (migration SQL pas encore exécutée ?)',seuilsRes.error);
     }catch(e){console.warn('ingredient_seuils indisponible (migration SQL pas encore exécutée ?)',e);}
     // Règles de commande (table 'ingredient_regles_commande') — chargée à part et de façon tolérante,
@@ -8297,38 +8302,45 @@ function renderIngredientsList(){
       ):'');
   }
   function stockSeuilHtml(i){
-    var s=rctIngredientSeuils[i.code]||{};
-    var type=s.type_suivi||'two';
+    var restos=(typeof restosData!=='undefined'&&restosData.length)?restosData:[{id:rctResto(),nom:rctRestoLabel()}];
+    var curResto=rctResto();
     return '<div style="border-top:1px dashed var(--bd);margin-top:6px;padding-top:6px;">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--txm);margin-bottom:4px;">📦 Stock — seuils par restaurant (édite les 3 directement ici, plus besoin de changer de restaurant en haut)</div>'
+      +restos.map(function(r){return oneRestoSeuilHtml(i,r,r.id===curResto);}).join('')
+      +'</div>';
+  }
+  function oneRestoSeuilHtml(i,r,isCurrent){
+    var s=(rctIngredientSeuilsAll[r.id]||{})[i.code]||{};
+    var type=s.type_suivi||'two';
+    return '<div style="background:'+(isCurrent?'#FFF7ED':'var(--cream,#FAFAFA)')+';border:1px solid var(--bd);border-radius:8px;padding:6px 8px;margin-bottom:6px;">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--txm);">📦 Stock ('+esc(rctRestoLabel())+')</div>'
+      +'<div style="font-size:10px;font-weight:700;color:var(--tx);">'+esc(r.nom||r.id)+'</div>'
       +'<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--txm);white-space:nowrap;" title="Décoche pour masquer cet ingrédient sur ce restaurant précis (les autres restaurants ne sont pas affectés).">'
-      +'<input type="checkbox" '+(s.actif!==false?'checked':'')+' onchange="updateIngredientSeuil(\''+i.code+'\',\'actif\',this.checked)"> Visible ici'
+      +'<input type="checkbox" '+(s.actif!==false?'checked':'')+' onchange="updateIngredientSeuil(\''+i.code+'\',\'actif\',this.checked,\''+r.id+'\')"> Visible ici'
       +'</label>'
       +'</div>'
       +'<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
-      +'<select class="fi" style="width:130px;font-size:10px;" title="Comment cet article est pointé lors de l\'inventaire" onchange="updateIngredientSeuil(\''+i.code+'\',\'type_suivi\',this.value)">'
+      +'<select class="fi" style="width:130px;font-size:10px;" title="Comment cet article est pointé lors de l\'inventaire" onchange="updateIngredientSeuil(\''+i.code+'\',\'type_suivi\',this.value,\''+r.id+'\')">'
         +'<option value="qty"'+(type==='qty'?' selected':'')+'>🔢 Quantité (unités/poids/L)</option>'
         +'<option value="two"'+(type==='two'?' selected':'')+'>✅/📦 OK / à commander</option>'
         +'<option value="level"'+(type==='level'?' selected':'')+'>📊 Jauge de niveau</option>'
         +'<option value="yn"'+(type==='yn'?' selected':'')+'>❓ Oui / Non</option>'
         +'<option value="rup"'+(type==='rup'?' selected':'')+'>🚦 OK / faible / rupture</option>'
       +'</select>'
-      +'<select class="fi" style="font-size:10px;max-width:120px;" title="Fournisseur pour la commande" onchange="updateIngredientSeuil(\''+i.code+'\',\'fournisseur_id\',this.value)">'
+      +'<select class="fi" style="font-size:10px;max-width:120px;" title="Fournisseur pour la commande" onchange="updateIngredientSeuil(\''+i.code+'\',\'fournisseur_id\',this.value,\''+r.id+'\')">'
         +'<option value="">🚚 Fournisseur…</option>'
         +rctSuppliers.map(function(sup){return '<option value="'+esc(sup.id)+'"'+(s.fournisseur_id===sup.id?' selected':'')+'>'+esc(sup.nom)+'</option>';}).join('')
       +'</select>'
-      +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Seuil" title="Quantité en dessous de laquelle on repasse commande" value="'+(s.seuil_min!=null?s.seuil_min:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'seuil_min\',this.value)">'
-      +(type==='qty'?'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Cible" title="Quantité à atteindre quand on commande (le système calcule combien commander pour y arriver)" value="'+(s.cible!=null?s.cible:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'cible\',this.value)">':'')
-      +(type==='qty'?'<select class="fi" style="width:64px;font-size:10px;" title="Unité de comptage en stock (unité, poids ou volume)" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_comptage\',this.value)">'
+      +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Seuil" title="Quantité en dessous de laquelle on repasse commande" value="'+(s.seuil_min!=null?s.seuil_min:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'seuil_min\',this.value,\''+r.id+'\')">'
+      +(type==='qty'?'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Cible" title="Quantité à atteindre quand on commande (le système calcule combien commander pour y arriver)" value="'+(s.cible!=null?s.cible:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'cible\',this.value,\''+r.id+'\')">':'')
+      +(type==='qty'?'<select class="fi" style="width:64px;font-size:10px;" title="Unité de comptage en stock (unité, poids ou volume)" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_comptage\',this.value,\''+r.id+'\')">'
         +['piece','g','kg','ml','cl','l'].map(function(u){return '<option value="'+u+'"'+((s.unite_comptage||'piece')===u?' selected':'')+'>'+(u==='piece'?'pièce':u)+'</option>';}).join('')
         +'</select>':'')
-      +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="1" placeholder="Colisage" title="Quantité par colis/carton commandé" value="'+(s.colisage!=null?s.colisage:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'colisage\',this.value)">'
-      +'<input type="text" class="fi" style="width:74px;font-size:10px;" placeholder="Unité cmd" title="Unité de commande (carton, bouteille, fût…)" value="'+esc(s.unite_commande||'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_commande\',this.value)">'
+      +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="1" placeholder="Colisage" title="Quantité par colis/carton commandé" value="'+(s.colisage!=null?s.colisage:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'colisage\',this.value,\''+r.id+'\')">'
+      +'<input type="text" class="fi" style="width:74px;font-size:10px;" placeholder="Unité cmd" title="Unité de commande (carton, bouteille, fût…)" value="'+esc(s.unite_commande||'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_commande\',this.value,\''+r.id+'\')">'
       +'</div>'
-      +'<div style="margin-top:4px;">'
-      +'<button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+((rctIngredientRegles[i.code]&&rctIngredientRegles[i.code].length)?' ('+rctIngredientRegles[i.code].length+')':'')+'</button>'
-      +'</div>'
+      +(isCurrent?'<div style="margin-top:4px;"><button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+((rctIngredientRegles[i.code]&&rctIngredientRegles[i.code].length)?' ('+rctIngredientRegles[i.code].length+')':'')+'</button></div>'
+        :'<div style="margin-top:4px;font-size:9px;color:var(--txm);">📅 Règles de commande avancées : change de restaurant en haut de page pour celles de '+esc(r.nom||r.id)+'.</div>')
       +'</div>';
   }
   function renderIngredientCard(i){
@@ -8337,7 +8349,7 @@ function renderIngredientsList(){
     var brutSourceIng=hasBrutSource?rctIngredients.find(function(x){return x.code===i.source_brut_code;}):null;
     var expanded=!!rctIngExpanded[i.code];
     var statusHtml=hasBrutSource?'🔪 Préparé à partir de '+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code):statut.label;
-    var maskedHere=(rctIngredientSeuils[i.code]&&rctIngredientSeuils[i.code].actif===false);
+    var maskedHere=!!((rctIngredientSeuilsAll[rctResto()]||{})[i.code]&&(rctIngredientSeuilsAll[rctResto()]||{})[i.code].actif===false);
     return '<div class="card" style="padding:0;overflow:hidden;'+(maskedHere?'opacity:.5;':'')+'">'
       +'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;" onclick="toggleIngCard(\''+i.code+'\')">'
       +'<div style="flex:1;min-width:0;">'
@@ -8621,41 +8633,39 @@ async function updateIngredientUniteDefaut(code,unite){
 }
 // ── Gestion des fournisseurs (par restaurant, stockés dans stock_catalogue.suppliers) ──
 let msupSuppliersBlob={};
-// Copie en masse tous les prix d'ingrédients de Dabray vers Port, en écrasant ce qui existe déjà côté Port.
-// Le fournisseur n'est PAS copié (chaque restaurant a son propre catalogue de fournisseurs, un fournisseur_id
-// de Dabray n'a aucun sens côté Port) — à revérifier manuellement après coup si besoin.
-async function copyPricesDabrayToPort(){
-  if(!confirm('Copier TOUS les prix d\'ingrédients de Dabray vers Port ?\n\nCeci va ÉCRASER tous les prix déjà renseignés côté Port par ceux de Dabray. Action irréversible.\n\n(Les fournisseurs ne sont pas copiés : ils sont propres à chaque restaurant.)'))return;
-  if(!confirm('Dernière confirmation : les prix actuels de Port seront définitivement remplacés. Continuer ?'))return;
+// Fusionne les anciens prix d'ingrédients enregistrés séparément par restaurant (avant que les prix ne
+// deviennent communs à tous les établissements, puisqu'on achète au même prix partout) en une seule ligne
+// globale par ingrédient. Priorité en cas de valeur différente entre restaurants pour un même champ : Port,
+// puis Dabray, puis Labo — à revérifier ensuite. Le fournisseur n'est PAS repris (chaque restaurant a son
+// propre catalogue de fournisseurs, un fournisseur_id de Port n'a pas forcément de sens ailleurs).
+async function mergeOldPerRestoPrices(){
+  if(!confirm('Fusionner les anciens prix enregistrés séparément par restaurant (Port/Dabray/Labo) en un seul prix commun par ingrédient ?\n\nEn cas de prix différent entre restaurants pour un même ingrédient, celui de Port est gardé en priorité (à revérifier ensuite dans la fiche ingrédient). Le fournisseur n\'est pas repris automatiquement.'))return;
   try{
-    var r=sbCheck(await db.from('ingredient_couts').select('*').eq('restaurant_id','dabray'));
+    var r=sbCheck(await db.from('ingredient_couts').select('*').neq('restaurant_id',RCT_GLOBAL));
     var rows=r.data||[];
-    if(!rows.length){alert('Aucun prix trouvé côté Dabray.');return;}
-    var payload=rows.map(function(row){
-      return {
-        restaurant_id:'port',
-        ingredient_code:row.ingredient_code,
-        mode_prix:row.mode_prix,
-        prix_unitaire:row.prix_unitaire,
-        prix_kilo:row.prix_kilo,
-        prix_gramme:row.prix_gramme,
-        prix_litre:row.prix_litre,
-        poids_net_g:row.poids_net_g,
-        prix_source_code:row.prix_source_code,
-        contenant_qte:row.contenant_qte,
-        contenant_unite:row.contenant_unite,
-        contenant_prix:row.contenant_prix,
-        densite:row.densite,
-        fournisseur_id:null
-      };
+    if(!rows.length){alert('Aucun ancien prix par restaurant trouvé — rien à fusionner.');return;}
+    var priority=['port','dabray','labo'];
+    var byCode={};
+    rows.sort(function(a,b){
+      var pa=priority.indexOf(a.restaurant_id);if(pa<0)pa=99;
+      var pb=priority.indexOf(b.restaurant_id);if(pb<0)pb=99;
+      return pa-pb;
     });
+    var fields=['mode_prix','prix_unitaire','prix_kilo','prix_gramme','prix_litre','poids_net_g','prix_source_code','contenant_qte','contenant_unite','contenant_prix','densite'];
+    rows.forEach(function(row){
+      byCode[row.ingredient_code]=byCode[row.ingredient_code]||{restaurant_id:RCT_GLOBAL,ingredient_code:row.ingredient_code};
+      fields.forEach(function(f){
+        if(byCode[row.ingredient_code][f]==null&&row[f]!=null)byCode[row.ingredient_code][f]=row[f];
+      });
+    });
+    var payload=Object.values(byCode);
     var chunkSize=200;
     for(var i=0;i<payload.length;i+=chunkSize){
       sbCheck(await db.from('ingredient_couts').upsert(payload.slice(i,i+chunkSize),{onConflict:'restaurant_id,ingredient_code'}));
     }
-    alert('✅ '+payload.length+' prix copiés de Dabray vers Port.\n\nPense à revérifier les fournisseurs côté Port (non copiés, propres à chaque restaurant).');
-    if(rctResto()==='port')await loadRecettesModule();
-  }catch(e){console.error('copyPricesDabrayToPort',e);alert('Erreur : '+e.message);}
+    alert('✅ '+payload.length+' prix fusionnés en prix communs.\n\nPense à revérifier les prix dans la fiche de chaque ingrédient (l\'ancien prix de Port a été gardé en priorité en cas de différence), et à réassigner le fournisseur si besoin (non repris automatiquement).');
+    await loadRecettesModule();
+  }catch(e){console.error('mergeOldPerRestoPrices',e);alert('Erreur : '+e.message);}
 }
 async function openSuppliersModal(){
   var resto=rctResto();
@@ -8807,7 +8817,7 @@ async function openBesoinsLaboModal(){
 }
 async function linkProductPrice(ingredientCode,sourceCode){
   try{
-    sbCheck(await db.from('ingredient_couts').upsert([{restaurant_id:rctResto(),ingredient_code:ingredientCode,prix_source_code:sourceCode}],{onConflict:'restaurant_id,ingredient_code'}));
+    sbCheck(await db.from('ingredient_couts').upsert([{restaurant_id:RCT_GLOBAL,ingredient_code:ingredientCode,prix_source_code:sourceCode}],{onConflict:'restaurant_id,ingredient_code'}));
     rctIngredientCouts[ingredientCode]=rctIngredientCouts[ingredientCode]||{};
     var mp=rctIngredientCouts[ingredientCode];
     var src=rctIngredientCouts[sourceCode];
@@ -8818,7 +8828,7 @@ async function linkProductPrice(ingredientCode,sourceCode){
 }
 async function unlinkProductPrice(ingredientCode){
   try{
-    sbCheck(await db.from('ingredient_couts').upsert([{restaurant_id:rctResto(),ingredient_code:ingredientCode,prix_source_code:null}],{onConflict:'restaurant_id,ingredient_code'}));
+    sbCheck(await db.from('ingredient_couts').upsert([{restaurant_id:RCT_GLOBAL,ingredient_code:ingredientCode,prix_source_code:null}],{onConflict:'restaurant_id,ingredient_code'}));
     if(rctIngredientCouts[ingredientCode])rctIngredientCouts[ingredientCode].prix_source_code=null; // le prix copié reste affiché tel quel, librement modifiable maintenant
     renderIngredientsList();
   }catch(e){console.error('unlinkProductPrice',e);alert('Erreur : '+e.message);}
@@ -8832,7 +8842,7 @@ async function unlinkProductPrice(ingredientCode){
 async function updateComposedDensite(code,value){
   var dens=value===''?null:parseFloat(value);
   try{
-    sbCheck(await db.from('ingredient_couts').upsert([{restaurant_id:rctResto(),ingredient_code:code,densite:dens}],{onConflict:'restaurant_id,ingredient_code'}));
+    sbCheck(await db.from('ingredient_couts').upsert([{restaurant_id:RCT_GLOBAL,ingredient_code:code,densite:dens}],{onConflict:'restaurant_id,ingredient_code'}));
     rctIngredientCouts[code]=Object.assign({},rctIngredientCouts[code]||{},{densite:dens});
     refreshIngredientStatusLight(code);
   }catch(e){console.error('updateComposedDensite',e);alert('Erreur : '+e.message);}
@@ -8872,8 +8882,7 @@ async function updateIngredientNature(code,nature){
 // Point d'entrée pour tout changement dans la bulle prix/fournisseur d'un ingrédient — écrit directement
 // sur l'ingrédient, plus besoin d'un catalogue stock séparé.
 async function handlePriceFieldChange(ingredientCode,field,value){
-  var resto=rctResto();
-  var payload={restaurant_id:resto,ingredient_code:ingredientCode};
+  var payload={restaurant_id:RCT_GLOBAL,ingredient_code:ingredientCode};
   if(field==='mode_prix'||field==='fournisseur_id')payload[field]=value||null;
   else payload[field]=(value===''?null:parseFloat(value));
   var existing=rctIngredientCouts[ingredientCode]||{};
@@ -8903,16 +8912,17 @@ async function handlePriceFieldChange(ingredientCode,field,value){
   }catch(e){console.error('handlePriceFieldChange',e);alert('Erreur : '+e.message);}
 }
 // ── Seuils de stock par ingrédient (table 'ingredient_seuils') — base du futur module Stock unifié ──
-async function updateIngredientSeuil(ingredientCode,field,value){
-  var resto=rctResto();
+async function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
+  var resto=restoIdOverride||rctResto();
   var payload={restaurant_id:resto,ingredient_code:ingredientCode};
   if(field==='actif')payload[field]=!!value;
   else if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
   else payload[field]=(value===''?null:parseFloat(value));
   try{
     sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
-    rctIngredientSeuils[ingredientCode]=Object.assign({},rctIngredientSeuils[ingredientCode]||{},payload);
-    if(field==='actif')renderIngredientsList(); // impacte l'affichage grisé de la carte → rendu complet nécessaire
+    rctIngredientSeuilsAll[resto]=rctIngredientSeuilsAll[resto]||{};
+    rctIngredientSeuilsAll[resto][ingredientCode]=Object.assign({},rctIngredientSeuilsAll[resto][ingredientCode]||{},payload);
+    if(field==='actif'||field==='type_suivi')renderIngredientsList(); // impacte l'affichage (grisé / champs qty) → rendu complet nécessaire
   }catch(e){
     console.error('updateIngredientSeuil',e);
     alert('Erreur : '+e.message+'\n\nSi le message parle de la table "ingredient_seuils", la migration SQL n\'a probablement pas encore été exécutée dans Supabase.');
@@ -8967,7 +8977,7 @@ async function saveContenantAndRecalc(ingCode){
   var ing=rctIngredients.find(function(x){return x.code===ingCode;});
   var catDefaut=(ing&&rctCategoriesOrdre[ing.categorie]&&rctCategoriesOrdre[ing.categorie].unite_defaut_mesure)||null;
   var mode=inferModeFromCout(cout)||catDefaut||'unitaire';
-  var payload={restaurant_id:rctResto(),ingredient_code:ingCode,contenant_qte:qte,contenant_unite:unite,contenant_prix:prix,densite:dens,mode_prix:mode};
+  var payload={restaurant_id:RCT_GLOBAL,ingredient_code:ingCode,contenant_qte:qte,contenant_unite:unite,contenant_prix:prix,densite:dens,mode_prix:mode};
   var champ=modePrixField(mode);
   var calc=computeUnitPriceFromContenant(mode,qte,unite,prix,dens);
   if(calc!=null)payload[champ]=Math.round(calc*100000)/100000;
@@ -9316,7 +9326,7 @@ async function confirmBlImport(){
       var mode=inferModeFromCout(existingCout)||catDefaut||(l.unite==='ml'||l.unite==='cl'||l.unite==='l'?'litre':(l.unite==='piece'?'unitaire':'kilo'));
       var champ=modePrixField(mode);
       var calc=computeUnitPriceFromContenant(mode,l.qte,l.unite,l.prixTotal,existingCout.densite);
-      var payload={restaurant_id:resto,ingredient_code:code,mode_prix:mode,contenant_qte:l.qte,contenant_unite:l.unite,contenant_prix:l.prixTotal};
+      var payload={restaurant_id:RCT_GLOBAL,ingredient_code:code,mode_prix:mode,contenant_qte:l.qte,contenant_unite:l.unite,contenant_prix:l.prixTotal};
       if(calc!=null)payload[champ]=Math.round(calc*100000)/100000;
       sbCheck(await db.from('ingredient_couts').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
       rctIngredientCouts[code]=Object.assign({},existingCout,payload);
@@ -9615,7 +9625,7 @@ async function updateProduitCout(code,field,value){
     if(p){
       var ingMatch=rctIngredients.find(function(ing){return caisseNormalize(ing.nom)===caisseNormalize(p.nom);});
       if(ingMatch){
-        var ipayload=Object.assign({restaurant_id:resto,ingredient_code:ingMatch.code},payload);
+        var ipayload=Object.assign({restaurant_id:RCT_GLOBAL,ingredient_code:ingMatch.code},payload);
         sbCheck(await db.from('ingredient_couts').upsert([ipayload],{onConflict:'restaurant_id,ingredient_code'}));
         rctIngredientCouts[ingMatch.code]=rctIngredientCouts[ingMatch.code]||{};
         rctIngredientCouts[ingMatch.code][field]=payload[field];
