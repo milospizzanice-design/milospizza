@@ -450,6 +450,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="rct-subtab" id="rctbtn-couts" onclick="goRecettesSub('couts')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💰 Coûts</div>
       <div class="rct-subtab" id="rctbtn-inv" onclick="goRecettesSub('inv')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📋 Inventaires</div>
       <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📥 Import ventes</div>
+      <div class="rct-subtab" id="rctbtn-interne" onclick="goRecettesSub('interne')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🚚 Interne</div>
     </div>
 
     <!-- Sous-onglet: liste produits vendus / recettes -->
@@ -578,6 +579,14 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <div id="rct-conso-result"></div>
     </div>
+
+    <!-- Sous-onglet: commandes internes vers le Labo -->
+    <div id="rct-pane-interne" style="display:none;">
+      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
+        Port et Dabray demandent des ingrédients au Labo, le Labo valide et prépare l'envoi. Ceci crée un bon de livraison interne consultable des deux côtés — ça ne modifie pas les comptages d'inventaire, qui restent faits manuellement comme d'habitude.
+      </div>
+      <div id="rct-interne-container"></div>
+    </div>
   </div>
 </div>
 <div class="mb" id="mrct">
@@ -601,7 +610,31 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
-<!-- Modal nouveau ingrédient manuel -->
+<!-- Modal nouvelle demande interne (Port/Dabray -> Labo) -->
+<div class="mb" id="mdemint">
+  <div class="md" style="max-width:420px;">
+    <div class="mdt">📤 Nouvelle demande au Labo</div>
+    <div class="fr"><label class="fl2">Note (optionnel)</label><input type="text" class="fi" id="mdemint-note" placeholder="Ex: pour le service de samedi"></div>
+    <div id="mdemint-lignes"></div>
+    <div style="margin-top:10px;">
+      <input type="text" class="fi" id="mdemint-search" placeholder="🔍 Rechercher un ingrédient à ajouter…" oninput="renderMdemintSearchResults()" style="width:100%;margin-bottom:8px;">
+      <div id="mdemint-search-results" style="max-height:220px;overflow-y:auto;"></div>
+    </div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mdemint')">Annuler</button><button class="btn bp" onclick="envoyerDemandeInterne()">Envoyer la demande</button></div>
+  </div>
+</div>
+
+<!-- Modal validation d'une demande interne (côté Labo) -->
+<div class="mb" id="mvalint">
+  <div class="md" style="max-width:420px;">
+    <div class="mdt" id="mvalint-title">📥 Demande reçue</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Ajuste les quantités réellement envoyées si besoin avant de valider.</div>
+    <div id="mvalint-lignes"></div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mvalint')">Fermer</button><button class="btn bp" onclick="validerDemandeInterne()">✅ Valider l'envoi</button></div>
+  </div>
+</div>
+
+<!-- Modal nouvel ingrédient manuel -->
 <div class="mb" id="mnig">
   <div class="md">
     <div class="mdt">Nouvel ingrédient</div>
@@ -6905,14 +6938,194 @@ function goRecettesSub(name){
   document.getElementById('rct-pane-couts').style.display=(name==='couts')?'block':'none';
   document.getElementById('rct-pane-inv').style.display=(name==='inv')?'block':'none';
   document.getElementById('rct-pane-import').style.display=(name==='import')?'block':'none';
+  document.getElementById('rct-pane-interne').style.display=(name==='interne')?'block':'none';
   document.body.classList.toggle('ing-tree-active',name==='ingredients'); // pilote le décalage de la colonne fixe (desktop) — voir #ing-tree-panel
   if(name==='inv')loadInventairesList();
-  ['list','ingredients','couts','inv','import'].forEach(function(k){
+  if(name==='interne')loadInterneList();
+  ['list','ingredients','couts','inv','import','interne'].forEach(function(k){
     var b=document.getElementById('rctbtn-'+k);
     if(!b)return;
     if(k===name){b.style.background='var(--bx)';b.style.color='#fff';b.style.border='none';}
     else{b.style.background='#FAF4EC';b.style.color='var(--tx)';b.style.border='1px solid var(--bd)';}
   });
+}
+
+// ══ Commandes internes vers le Labo (table 'demandes_internes') ══
+// Port/Dabray demandent, le Labo valide l'envoi. Ça crée un bon de livraison consultable des deux côtés ;
+// ça ne touche jamais aux comptages d'inventaire (faits manuellement, séparément).
+var rctDemandesInternes=[];
+var mdemintCart=[]; // {code,nom,qte,unite}
+
+async function loadInterneList(){
+  var resto=rctResto();
+  var container=document.getElementById('rct-interne-container');
+  if(!container)return;
+  container.innerHTML='<div style="font-size:12px;color:var(--txm);">Chargement…</div>';
+  try{
+    var q=db.from('demandes_internes').select('*').order('created_at',{ascending:false});
+    if(resto!=='labo')q=q.eq('restaurant_demandeur',resto);
+    var r=sbCheck(await q);
+    rctDemandesInternes=r.data||[];
+    renderInterneList();
+  }catch(e){
+    console.error('loadInterneList',e);
+    container.innerHTML='<div class="card" style="color:#C0392B;font-size:12px;">Erreur de chargement.'
+      +(String(e.message||'').indexOf('demandes_internes')>=0?' La table "demandes_internes" n\'existe probablement pas encore dans Supabase (migration SQL à exécuter).':'')
+      +'</div>';
+  }
+}
+
+function renderInterneList(){
+  var resto=rctResto();
+  var container=document.getElementById('rct-interne-container');
+  if(!container)return;
+  var html='';
+  if(resto!=='labo'){
+    html+='<button class="btn bp" onclick="openNouvelleDemandeModal()" style="width:100%;margin-bottom:14px;">📤 Nouvelle demande au Labo</button>';
+  }
+  var enAttente=rctDemandesInternes.filter(function(d){return d.statut==='en_attente';});
+  var autres=rctDemandesInternes.filter(function(d){return d.statut!=='en_attente';});
+  if(resto==='labo'&&enAttente.length){
+    html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin-bottom:6px;">📬 En attente de validation ('+enAttente.length+')</div>';
+    html+=enAttente.map(demandeCardHtml).join('');
+  }
+  html+='<div style="font-size:11px;font-weight:700;color:var(--txm);margin:14px 0 6px;">🗂 Historique</div>';
+  if(!autres.length&&!(resto!=='labo'&&enAttente.length))html+='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucune demande pour l\'instant.</div>';
+  if(resto!=='labo')html+=enAttente.map(demandeCardHtml).join(''); // côté demandeur, les "en attente" apparaissent aussi dans la liste normale
+  html+=autres.map(demandeCardHtml).join('');
+  container.innerHTML=html;
+}
+
+function demandeCardHtml(d){
+  var badge=d.statut==='en_attente'?'<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">⏳ En attente</span>'
+    :d.statut==='envoyee'?'<span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">✅ Envoyée</span>'
+    :'<span style="background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">❌ Annulée</span>';
+  var lignes=d.lignes||[];
+  var resumeLignes=lignes.map(function(l){return esc(l.nom)+' : '+(l.quantite_envoyee!=null?l.quantite_envoyee:l.quantite_demandee)+' '+esc(l.unite||'');}).join(', ');
+  var dateStr=d.created_at?new Date(d.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  var resto=rctResto();
+  return '<div class="card" style="padding:10px 14px;margin-bottom:8px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">'
+    +'<div style="font-weight:700;font-size:12px;color:var(--tx);">'+(resto==='labo'?esc(rctRestoLabel(d.restaurant_demandeur)):'Demande #'+d.id)+'</div>'
+    +badge
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--txm);margin-bottom:4px;">'+dateStr+(d.note?' · '+esc(d.note):'')+'</div>'
+    +'<div style="font-size:12px;color:var(--tx);">'+(resumeLignes||'—')+'</div>'
+    +(resto==='labo'&&d.statut==='en_attente'?'<button class="btn bp sm" onclick="openValiderDemandeModal('+d.id+')" style="width:100%;margin-top:8px;">Traiter cette demande</button>':'')
+    +'</div>';
+}
+
+function openNouvelleDemandeModal(){
+  mdemintCart=[];
+  document.getElementById('mdemint-note').value='';
+  document.getElementById('mdemint-search').value='';
+  document.getElementById('mdemint-search-results').innerHTML='';
+  renderMdemintLignes();
+  openM('mdemint');
+}
+
+function renderMdemintSearchResults(){
+  var q=normText(document.getElementById('mdemint-search').value||'');
+  var box=document.getElementById('mdemint-search-results');
+  if(!q){box.innerHTML='';return;}
+  var already=mdemintCart.map(function(l){return l.code;});
+  var matches=rctIngredients.filter(function(i){return !already.includes(i.code)&&normText(i.nom).indexOf(q)>=0;}).slice(0,15);
+  box.innerHTML=matches.map(function(i){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px;border-bottom:1px solid var(--bd);font-size:12px;">'
+      +'<span>'+esc(i.nom)+'</span>'
+      +'<button class="btn bs sm" onclick="addToDemandeCart(\''+i.code+'\')" style="padding:3px 10px;">+ Ajouter</button>'
+      +'</div>';
+  }).join('')||'<div style="font-size:12px;color:var(--txm);padding:6px 4px;">Aucun résultat.</div>';
+}
+
+function addToDemandeCart(code){
+  var ing=rctIngredients.find(function(i){return i.code===code;});
+  if(!ing||mdemintCart.some(function(l){return l.code===code;}))return;
+  mdemintCart.push({code:code,nom:ing.nom,qte:1,unite:(ing.unite_reference||'pièce')});
+  document.getElementById('mdemint-search').value='';
+  document.getElementById('mdemint-search-results').innerHTML='';
+  renderMdemintLignes();
+}
+
+function updateDemandeCartQte(code,val){
+  var l=mdemintCart.find(function(x){return x.code===code;});
+  if(l)l.qte=val===''?'':parseFloat(val);
+}
+
+function removeFromDemandeCart(code){
+  mdemintCart=mdemintCart.filter(function(l){return l.code!==code;});
+  renderMdemintLignes();
+}
+
+function renderMdemintLignes(){
+  var box=document.getElementById('mdemint-lignes');
+  if(!mdemintCart.length){box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;padding:10px 0;">Aucun ingrédient ajouté. Recherche ci-dessous pour en ajouter.</div>';return;}
+  box.innerHTML=mdemintCart.map(function(l){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--bd);">'
+      +'<span style="flex:1;font-size:12px;color:var(--tx);">'+esc(l.nom)+'</span>'
+      +'<input type="number" class="fi" style="width:64px;font-size:12px;" step="0.1" value="'+l.qte+'" onchange="updateDemandeCartQte(\''+l.code+'\',this.value)">'
+      +'<span style="font-size:11px;color:var(--txm);width:44px;">'+esc(l.unite)+'</span>'
+      +'<button class="btn bs sm" onclick="removeFromDemandeCart(\''+l.code+'\')" style="padding:3px 8px;">✕</button>'
+      +'</div>';
+  }).join('');
+}
+
+async function envoyerDemandeInterne(){
+  if(!mdemintCart.length){alert('Ajoute au moins un ingrédient.');return;}
+  var lignes=mdemintCart.map(function(l){return {ingredient_code:l.code,nom:l.nom,quantite_demandee:l.qte||0,unite:l.unite,quantite_envoyee:null};});
+  try{
+    sbCheck(await db.from('demandes_internes').insert([{
+      restaurant_demandeur:rctResto(),
+      restaurant_fournisseur:'labo',
+      statut:'en_attente',
+      lignes:lignes,
+      note:(document.getElementById('mdemint-note').value||'').trim()||null
+    }]));
+    closeM('mdemint');
+    await loadInterneList();
+  }catch(e){
+    console.error('envoyerDemandeInterne',e);
+    alert('Erreur : '+e.message+(String(e.message||'').indexOf('demandes_internes')>=0?'\n\nLa table "demandes_internes" n\'existe probablement pas encore dans Supabase (migration SQL à exécuter).':''));
+  }
+}
+
+var mvalintCurrentId=null;
+function openValiderDemandeModal(id){
+  var d=rctDemandesInternes.find(function(x){return x.id===id;});
+  if(!d)return;
+  mvalintCurrentId=id;
+  document.getElementById('mvalint-title').textContent='📥 Demande de '+esc(rctRestoLabel(d.restaurant_demandeur))+(d.note?' — '+esc(d.note):'');
+  document.getElementById('mvalint-lignes').innerHTML=(d.lignes||[]).map(function(l,idx){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--bd);">'
+      +'<span style="flex:1;font-size:12px;color:var(--tx);">'+esc(l.nom)+'<br><span style="font-size:10px;color:var(--txm);">demandé : '+l.quantite_demandee+' '+esc(l.unite||'')+'</span></span>'
+      +'<input type="number" class="fi" style="width:70px;font-size:12px;" step="0.1" value="'+(l.quantite_envoyee!=null?l.quantite_envoyee:l.quantite_demandee)+'" id="mvalint-qte-'+idx+'">'
+      +'<span style="font-size:11px;color:var(--txm);width:44px;">'+esc(l.unite||'')+'</span>'
+      +'</div>';
+  }).join('');
+  openM('mvalint');
+}
+
+async function validerDemandeInterne(){
+  var d=rctDemandesInternes.find(function(x){return x.id===mvalintCurrentId;});
+  if(!d)return;
+  var lignes=(d.lignes||[]).map(function(l,idx){
+    var input=document.getElementById('mvalint-qte-'+idx);
+    var val=input?parseFloat(input.value):l.quantite_demandee;
+    return Object.assign({},l,{quantite_envoyee:isNaN(val)?0:val});
+  });
+  try{
+    sbCheck(await db.from('demandes_internes').update({statut:'envoyee',envoyee_at:new Date().toISOString(),lignes:lignes}).eq('id',d.id));
+    closeM('mvalint');
+    await loadInterneList();
+  }catch(e){console.error('validerDemandeInterne',e);alert('Erreur : '+e.message);}
+}
+
+async function annulerDemandeInterne(id){
+  if(!confirm('Annuler cette demande ?'))return;
+  try{
+    sbCheck(await db.from('demandes_internes').update({statut:'annulee'}).eq('id',id));
+    await loadInterneList();
+  }catch(e){console.error('annulerDemandeInterne',e);alert('Erreur : '+e.message);}
 }
 
 async function loadRecettesModule(){
