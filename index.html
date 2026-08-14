@@ -1252,7 +1252,7 @@ function renderMenu() {
     
     if (c.extras) c.extras.forEach(e => {
       const t = T[l];
-      if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${t.childMenu}</div><p>${t.childDesc}</p><div class="e-price">${c.menuEnfantPrix||'12€'}</div></div>`;
+      if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${t.childMenu}</div><p>${t.childDesc}</p><div class="e-price">${c.menuEnfantPrix||'15€'}</div></div>`;
       if (e==='supplements') {
   html += `<div class="supplements-box"><h3>${t.supplements}</h3><p>${t.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
 }
@@ -2067,7 +2067,7 @@ function openEditCatModal(catId){
     </div>
     ${(cat.extras&&cat.extras.includes('menu_enfant'))?`
     <label class="admin-label" style="margin-top:0.4rem;">Prix du Menu Enfant (bloc affiché sur cette catégorie)</label>
-    <input class="admin-input" id="ecm_menu_enfant_prix" value="${cat.menuEnfantPrix||'12€'}" placeholder="Ex: 12€">
+    <input class="admin-input" id="ecm_menu_enfant_prix" value="${cat.menuEnfantPrix||'15€'}" placeholder="Ex: 12€">
     `:''}
     <div style="display:flex;gap:0.4rem;margin-top:0.8rem;flex-wrap:wrap;">
       <button class="aic-btn archive" onclick="toggleArchiveCat('${catId}');closeEditCatModal();">${cat.archived?'↩ Réactiver':'🌙 Archiver'}</button>
@@ -4937,7 +4937,7 @@ function showSectionTab(tabKey) {
   catItems.forEach(it => html += renderItem(it, l));
 
   if (c.extras) c.extras.forEach(e => {
-    if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${T_local.childMenu}</div><p>${T_local.childDesc}</p><div class="e-price">${c.menuEnfantPrix||'12€'}</div></div>`;
+    if (e==='menu_enfant') html += `<div class="menu-enfant"><div class="e-title">${T_local.childMenu}</div><p>${T_local.childDesc}</p><div class="e-price">${c.menuEnfantPrix||'15€'}</div></div>`;
     if (e==='supplements') html += `<div class="supplements-box"><h3>${T_local.supplements}</h3><p>${T_local.supplementsDesc}</p><a href="#" onclick="openSupplementsPopup();return false;" style="display:inline-block;margin-top:0.5rem;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:var(--rouge);text-decoration:underline;text-underline-offset:2px;">Voir tous nos suppléments →</a></div>`;
   });
 
