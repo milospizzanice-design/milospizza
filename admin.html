@@ -488,10 +488,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
         Liste des ingrédients tels qu'ils apparaissent sur la carte, groupés par catégorie (base, fromages, charcuterie, légumes, condiments…). C'est cette liste qui est utilisée pour composer les recettes. Tu peux relier chaque ingrédient à un produit du stock (facultatif, mais nécessaire plus tard pour le calcul théorique/réel).
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <button type="button" id="ing-submode-food" class="btn bp sm" onclick="setIngSubMode('food')" style="flex:1;">🍕 Food / Alimentaire</button>
-        <button type="button" id="ing-submode-boissons" class="btn bs sm" onclick="setIngSubMode('boissons')" style="flex:1;">🥤 Boissons</button>
-      </div>
+      <div id="ing-onglets-bar" style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;"></div>
       <div id="ing-submode-boiss-tools" style="display:none;margin-bottom:10px;">
         <button class="btn bp sm" onclick="openTransfertBoissonsModal()" style="width:100%;">🔀 Transférer des catégories existantes vers Boissons</button>
       </div>
@@ -8367,20 +8364,41 @@ function refreshIngredientStatusLight(code){
   statusEl.innerHTML=ingStatutIngredient(i).label;
   refreshIngredientDosePriceLight(code);
 }
-var rctIngSubMode='food'; // 'food' | 'boissons' — sous-onglet interne à Ingrédients, partage la même liste/arborescence
+var rctIngSubMode='Food / Alimentaire'; // nom de la section active (une entrée de rctOngletsOrdre, ou '_sans_onglet') — sous-onglet interne à Ingrédients, partage la même liste/arborescence
 function setIngSubMode(mode){
-  rctIngSubMode=(mode==='boissons')?'boissons':'food';
-  var bFood=document.getElementById('ing-submode-food'),bBoiss=document.getElementById('ing-submode-boissons'),tools=document.getElementById('ing-submode-boiss-tools');
-  if(bFood)bFood.className='btn '+(rctIngSubMode==='food'?'bp':'bs')+' sm';
-  if(bBoiss)bBoiss.className='btn '+(rctIngSubMode==='boissons'?'bp':'bs')+' sm';
-  if(tools)tools.style.display=rctIngSubMode==='boissons'?'block':'none';
+  rctIngSubMode=mode;
+  var tools=document.getElementById('ing-submode-boiss-tools');
+  if(tools)tools.style.display=(rctIngSubMode==='Boissons')?'block':'none';
+  renderIngOngletsBar();
   renderIngredientsList();
 }
+// Barre de sections dynamique : une entrée par onglet créé (via "+ Nouvelle section"), plus "Non classé"
+// pour les catégories qui n'ont pas encore de section. Remplace l'ancien binaire figé Food/Boissons.
+function renderIngOngletsBar(){
+  var bar=document.getElementById('ing-onglets-bar');
+  if(!bar)return;
+  var noms=Object.keys(rctOngletsOrdre).sort(function(a,b){return (rctOngletsOrdre[a]||0)-(rctOngletsOrdre[b]||0);});
+  var sansOngletExiste=rctIngredients.some(function(i){return !ongletDeCategorie(i.categorie);});
+  if(sansOngletExiste||!noms.length)noms=noms.concat(['_sans_onglet']);
+  if(noms.indexOf(rctIngSubMode)<0)rctIngSubMode=noms[0];
+  bar.innerHTML=noms.map(function(n){
+    var isSans=n==='_sans_onglet';
+    var label=isSans?'📂 Non classé':esc(n);
+    var active=rctIngSubMode===n;
+    var safe=n.replace(/'/g,"\\'");
+    return '<div style="flex-shrink:0;display:flex;align-items:center;">'
+      +'<button type="button" class="btn '+(active?'bp':'bs')+' sm" onclick="setIngSubMode(\''+safe+'\')" style="white-space:nowrap;">'+label+'</button>'
+      +(isSans?'':'<button type="button" class="btn bs sm" onclick="openOngletEditModal(\''+safe+'\')" style="padding:5px 7px;margin-left:2px;" title="Renommer / réordonner cette section">✏️</button>'
+        +'<button type="button" class="btn bs sm" onclick="deleteOnglet(\''+safe+'\')" style="padding:5px 7px;margin-left:2px;color:#C0392B;" title="Supprimer cette section">✕</button>')
+      +'</div>';
+  }).join('');
+}
 async function openCategoryEditModalForCurrentSub(){
-  if(rctIngSubMode==='boissons'){await openCategoryEditModalPreset('Boissons');}
+  if(rctIngSubMode&&rctIngSubMode!=='_sans_onglet'){await openCategoryEditModalPreset(rctIngSubMode);}
   else{openCategoryEditModal(null);}
 }
 function renderIngredientsList(){
+  renderIngOngletsBar();
   var mode=rctIngSubMode;
   var searchEl=document.getElementById('rct-ing-search');
   var unlinkedEl=document.getElementById('rct-ing-show-unlinked');
@@ -8391,8 +8409,8 @@ function renderIngredientsList(){
   var onlyUnlinked=unlinkedEl.checked;
   function statutIngredient(i){return ingStatutIngredient(i);}
   var list=rctIngredients.filter(function(i){
-    var estBoisson=ongletDeCategorie(i.categorie)==='Boissons';
-    if(mode==='boissons'){if(!estBoisson)return false;}else{if(estBoisson)return false;}
+    var catOnglet=ongletDeCategorie(i.categorie)||'_sans_onglet';
+    if(catOnglet!==mode)return false;
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
     if(onlyUnlinked&&statutIngredient(i).ok)return false;
     return true;
