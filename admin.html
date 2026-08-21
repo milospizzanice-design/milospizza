@@ -8504,7 +8504,7 @@ function renderIngredientsList(){
   }
   function oneRestoSeuilHtml(i,r,isCurrent){
     var s=(rctIngredientSeuilsAll[r.id]||{})[i.code]||{};
-    var type=s.type_suivi||'two';
+    var type=s.type_suivi||'qty';
     return '<div style="background:'+(isCurrent?'#FFF7ED':'var(--cream,#FAFAFA)')+';border:1px solid var(--bd);border-radius:8px;padding:6px 8px;margin-bottom:6px;">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">'
       +'<div style="font-size:10px;font-weight:700;color:var(--tx);">'+esc(r.nom||r.id)+'</div>'
@@ -8650,6 +8650,7 @@ function renderIngredientsList(){
           +'<div style="font-size:11px;font-weight:700;color:var(--txm);flex:1;">↳ '+esc(sub)+'</div>'
           +'<button class="btn bs sm" onclick="openNewIngredientModal(\''+esc(cat)+'\',\''+esc(sub)+'\')" style="padding:2px 8px;font-size:11px;font-weight:900;" title="Ajouter un ingrédient ici">+</button>'
           +'<button class="btn bs sm" onclick="openCategoryEditModal(\''+esc(cat)+'\')" style="padding:2px 7px;font-size:10px;" title="Modifier cette sous-catégorie">✏️</button>'
+          +'<button class="btn bs sm" onclick="promoteSubcatToCategorie(\''+esc(cat)+'\',\''+esc(sub)+'\')" style="padding:2px 7px;font-size:10px;" title="En faire une catégorie indépendante (sortie de \''+esc(cat)+'\')">⬆️</button>'
           +'<button class="btn bs sm" onclick="deleteSubcategorieDirect(\''+esc(cat)+'\',\''+esc(sub)+'\')" style="padding:2px 7px;font-size:10px;background:#FEE2E2;color:#991B1B;" title="Supprimer cette sous-catégorie">🗑</button>'
           +'</div>';
         if(items.length){
