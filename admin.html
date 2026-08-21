@@ -488,9 +488,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
         Liste des ingrédients tels qu'ils apparaissent sur la carte, groupés par catégorie (base, fromages, charcuterie, légumes, condiments…). C'est cette liste qui est utilisée pour composer les recettes. Tu peux relier chaque ingrédient à un produit du stock (facultatif, mais nécessaire plus tard pour le calcul théorique/réel).
       </div>
-      <div id="ing-onglets-bar" style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;"></div>
-      <div id="ing-submode-boiss-tools" style="display:none;margin-bottom:10px;">
-        <button class="btn bp sm" onclick="openTransfertBoissonsModal()" style="width:100%;">🔀 Transférer des catégories existantes vers Boissons</button>
+      <div style="margin-bottom:10px;">
+        <button class="btn bs sm" onclick="openTransfertBoissonsModal()" style="width:100%;">🔀 Transférer des catégories existantes vers Boissons</button>
       </div>
       <div class="card">
         <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:8px;">Importer depuis un fichier</div>
@@ -509,7 +508,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <button class="btn ba sm" onclick="openBlImportModal()" style="margin-bottom:6px;">📷 Importer un BL / catalogue fournisseur</button>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvelle section</button>
-        <button class="btn bs sm" onclick="openCategoryEditModalForCurrentSub()">+ Nouvelle catégorie</button>
+        <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
         <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
         <button class="btn bs sm" onclick="mergeOldPerRestoPrices()" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;" title="Utile une seule fois : fusionne les anciens prix qui étaient enregistrés séparément par restaurant, en un seul prix commun">🔀 Fusionner les anciens prix par restaurant</button>
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
@@ -8364,42 +8363,7 @@ function refreshIngredientStatusLight(code){
   statusEl.innerHTML=ingStatutIngredient(i).label;
   refreshIngredientDosePriceLight(code);
 }
-var rctIngSubMode='Food / Alimentaire'; // nom de la section active (une entrée de rctOngletsOrdre, ou '_sans_onglet') — sous-onglet interne à Ingrédients, partage la même liste/arborescence
-function setIngSubMode(mode){
-  rctIngSubMode=mode;
-  var tools=document.getElementById('ing-submode-boiss-tools');
-  if(tools)tools.style.display=(rctIngSubMode==='Boissons')?'block':'none';
-  renderIngOngletsBar();
-  renderIngredientsList();
-}
-// Barre de sections dynamique : une entrée par onglet créé (via "+ Nouvelle section"), plus "Non classé"
-// pour les catégories qui n'ont pas encore de section. Remplace l'ancien binaire figé Food/Boissons.
-function renderIngOngletsBar(){
-  var bar=document.getElementById('ing-onglets-bar');
-  if(!bar)return;
-  var noms=Object.keys(rctOngletsOrdre).sort(function(a,b){return (rctOngletsOrdre[a]||0)-(rctOngletsOrdre[b]||0);});
-  var sansOngletExiste=rctIngredients.some(function(i){return !ongletDeCategorie(i.categorie);});
-  if(sansOngletExiste||!noms.length)noms=noms.concat(['_sans_onglet']);
-  if(noms.indexOf(rctIngSubMode)<0)rctIngSubMode=noms[0];
-  bar.innerHTML=noms.map(function(n){
-    var isSans=n==='_sans_onglet';
-    var label=isSans?'📂 Non classé':esc(n);
-    var active=rctIngSubMode===n;
-    var safe=n.replace(/'/g,"\\'");
-    return '<div style="flex-shrink:0;display:flex;align-items:center;">'
-      +'<button type="button" class="btn '+(active?'bp':'bs')+' sm" onclick="setIngSubMode(\''+safe+'\')" style="white-space:nowrap;">'+label+'</button>'
-      +(isSans?'':'<button type="button" class="btn bs sm" onclick="openOngletEditModal(\''+safe+'\')" style="padding:5px 7px;margin-left:2px;" title="Renommer / réordonner cette section">✏️</button>'
-        +'<button type="button" class="btn bs sm" onclick="deleteOnglet(\''+safe+'\')" style="padding:5px 7px;margin-left:2px;color:#C0392B;" title="Supprimer cette section">✕</button>')
-      +'</div>';
-  }).join('');
-}
-async function openCategoryEditModalForCurrentSub(){
-  if(rctIngSubMode&&rctIngSubMode!=='_sans_onglet'){await openCategoryEditModalPreset(rctIngSubMode);}
-  else{openCategoryEditModal(null);}
-}
 function renderIngredientsList(){
-  renderIngOngletsBar();
-  var mode=rctIngSubMode;
   var searchEl=document.getElementById('rct-ing-search');
   var unlinkedEl=document.getElementById('rct-ing-show-unlinked');
   var container=document.getElementById('rct-ing-list-container');
@@ -8409,14 +8373,12 @@ function renderIngredientsList(){
   var onlyUnlinked=unlinkedEl.checked;
   function statutIngredient(i){return ingStatutIngredient(i);}
   var list=rctIngredients.filter(function(i){
-    var catOnglet=ongletDeCategorie(i.categorie)||'_sans_onglet';
-    if(catOnglet!==mode)return false;
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
     if(onlyUnlinked&&statutIngredient(i).ok)return false;
     return true;
   });
   if(!list.length){
-    container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">'+(mode==='boissons'?'Aucune boisson pour l\'instant. Utilise « Transférer des catégories existantes vers Boissons » ci-dessus, ou crée une catégorie rattachée à l\'onglet Boissons.':'Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.')+'</div>';
+    container.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;text-align:center;">Aucun ingrédient pour l\'instant. Importe la carte ou ajoute-en un manuellement.</div>';
     if(navEl)navEl.innerHTML='';
     var treeElEmpty=document.getElementById('ing-tree-content');
     if(treeElEmpty)treeElEmpty.innerHTML='<div style="color:var(--txm);">Aucune catégorie pour l\'instant.</div>';
