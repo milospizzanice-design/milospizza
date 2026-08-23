@@ -702,11 +702,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 </div>
 
 
-<!-- Modal gestion des fournisseurs (par restaurant) -->
+<!-- Modal gestion des fournisseurs (liste commune aux 3 restaurants — c'est le Labo qui commande vraiment à l'extérieur) -->
 <div class="mb" id="msup">
   <div class="md" style="max-width:460px;">
     <div class="mdt">Fournisseurs — <span id="msup-resto"></span></div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Coche "= Labo" pour un fournisseur interne qui représente une commande passée en interne au Labo plutôt qu'à l'extérieur. Indique alors le vrai fournisseur externe que le Labo utilisera quand lui-même en a besoin.</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Liste commune à Port, Dabray et Labo. Coche "🏭 Interne" pour l'option "commande passée en interne au Labo" plutôt qu'à un vrai fournisseur externe. Délai de commande et heure limite servent au calcul automatique des besoins (mode "veille de livraison" dans les règles de commande d'un ingrédient).</div>
+    <button class="btn bs sm" onclick="importFournisseursDepuisExistant()" style="margin-bottom:10px;width:100%;">📥 Récupérer les fournisseurs déjà utilisés (Port/Dabray/Labo)</button>
     <div id="msup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
     <div class="fr" style="border-top:1px solid var(--bx);padding-top:10px;"><label class="fl2">Nouveau fournisseur</label><input type="text" class="fi" id="msup-new-name" placeholder="Ex: Metro, Pomona…"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('msup')">Fermer</button><button class="btn bp" onclick="createSupplier()">+ Ajouter</button></div>
@@ -717,7 +718,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="mregles">
   <div class="md" style="max-width:480px;">
     <div class="mdt">📅 Règles de commande — <span id="mregles-ing-nom"></span></div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">La règle qui correspond au jour du jour l'emporte sur le seuil/cible par défaut ci-dessus. "Veille de livraison" recalcule automatiquement le jour concerné selon les jours de livraison du fournisseur (à régler dans Gérer les fournisseurs).</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">La règle qui correspond au jour du jour l'emporte sur le seuil/cible par défaut ci-dessus. "Veille de livraison" recalcule automatiquement le jour concerné selon les jours de livraison du fournisseur (à régler dans Gérer les fournisseurs). L'heure limite est optionnelle : elle surcharge celle du fournisseur pour cette référence précise.</div>
     <div id="mregles-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mregles')">Fermer</button><button class="btn bp" onclick="addRegleCommande()">+ Ajouter une règle</button></div>
   </div>
@@ -727,7 +728,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="mbesoinslabo">
   <div class="md" style="max-width:520px;">
     <div class="mdt">📦 Besoins Labo</div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Tous les produits que Port et/ou Dabray sourcent depuis le Labo (fournisseur = 🏭 Labo), groupés par vrai fournisseur externe pour préparer les commandes du Labo. Liste informative pour l'instant — pas encore de suivi de rupture automatique.</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Tous les produits que Port et/ou Dabray sourcent en interne (fournisseur = 🏭 Interne), groupés par vrai fournisseur externe — déterminé par la fiche seuils du Labo lui-même sur ce même ingrédient. Liste informative pour l'instant — pas encore de suivi de rupture automatique.</div>
     <div id="mbesoinslabo-list"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mbesoinslabo')">Fermer</button></div>
   </div>
@@ -7128,7 +7129,7 @@ async function loadRecettesModule(){
     return;
   }
   try{
-    var [pv,rc,ing,pr,icouts,ic,dispo,catOrd,subOrd,ongOrd,sc]=await Promise.all([
+    var [pv,rc,ing,pr,icouts,ic,dispo,catOrd,subOrd,ongOrd,fourn]=await Promise.all([
       db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
       db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
@@ -7139,13 +7140,21 @@ async function loadRecettesModule(){
       db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('sous_categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('onglets_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
-      db.from('stock_catalogue').select('suppliers').eq('restaurant_id',resto).maybeSingle()
+      db.from('fournisseurs').select('*').order('nom')
     ]);
     rctProduitsVendus=pv.data||[];
     rctIngredients=ing.data||[];
     rctStockProduits=pr.data||[];
-    var suppliersBlob=(sc.data&&sc.data.suppliers)||{};
-    rctSuppliers=Object.keys(suppliersBlob).map(function(id){return {id:id,nom:(suppliersBlob[id]&&suppliersBlob[id].name)||id};}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
+    // Fournisseurs (table globale 'fournisseurs', commune aux 3 restaurants) — chargée de façon tolérante,
+    // comme ingredient_seuils : si la migration SQL n'a pas encore été exécutée, le reste continue de fonctionner.
+    if(fourn&&!fourn.error){
+      rctSuppliers=(fourn.data||[]).map(function(f){
+        return {id:f.id,nom:f.nom,jours_livraison:f.jours_livraison||[],delai_commande_jours:f.delai_commande_jours,heure_limite:f.heure_limite,is_labo_interne:!!f.is_labo_interne,actif:f.actif!==false};
+      });
+    }else{
+      if(fourn&&fourn.error)console.warn('fournisseurs indisponible (migration SQL pas encore exécutée ?)',fourn.error);
+      rctSuppliers=[];
+    }
     rctIngredientCouts={};
     (icouts.data||[]).forEach(function(c){rctIngredientCouts[c.ingredient_code]=c;});
     // Résout les prix "copiés" (un ingrédient peut hériter du prix d'un autre au lieu du sien propre)
@@ -8701,6 +8710,7 @@ function renderReglesCommandeList(){
     var mode=r.mode||'jours_fixes';
     var days=r.jours||[];
     return '<div class="card" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;">'
+      +(r.categorie_source?'<div style="font-size:9px;color:var(--bx);font-weight:700;">🏷 Issue de la catégorie "'+esc(r.categorie_source)+'"</div>':'')
       +'<div style="display:flex;gap:6px;align-items:center;">'
       +'<select class="fi" style="flex:1;font-size:11px;" onchange="updateRegleCommande(\''+r.id+'\',\'mode\',this.value)">'
         +'<option value="jours_fixes"'+(mode==='jours_fixes'?' selected':'')+'>📆 Jours fixes</option>'
@@ -8726,9 +8736,73 @@ function renderReglesCommandeList(){
         +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="0.1" value="'+(r.cible!=null?r.cible:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'cible\',this.value)"></div>'
       +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Colisage</div>'
         +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="1" value="'+(r.colisage!=null?r.colisage:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'colisage\',this.value)"></div>'
+      +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Heure limite</div>'
+        +'<input type="time" class="fi" style="width:76px;font-size:11px;text-align:center;" value="'+(r.heure_limite||'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'heure_limite\',this.value)"></div>'
       +'</div>'
+      +'<button class="btn bs sm" onclick="applyRegleToCategorie(\''+r.id+'\')" style="font-size:10px;">📋 Appliquer à toute la catégorie</button>'
       +'</div>';
   }).join('');
+}
+// Duplique une règle (jours/fournisseur/seuils/heure limite) vers tous les autres ingrédients de la même
+// catégorie, sur le restaurant courant. Trace la provenance via categorie_source : une règle déjà issue de
+// cette catégorie (créée par un appel précédent) est mise à jour à la place d'être dupliquée. Une règle
+// individuelle (categorie_source vide, créée/éditée à la main) déclenche une confirmation séparée pour choisir
+// entre l'écraser (elle devient une règle de catégorie) ou la conserver telle quelle (ingrédient non touché).
+async function applyRegleToCategorie(ruleId){
+  var rules=rctIngredientRegles[mreglesIngCode]||[];
+  var rule=rules.find(function(r){return r.id===ruleId;});
+  if(!rule)return;
+  var ing=rctIngredients.find(function(x){return x.code===mreglesIngCode;});
+  if(!ing||!ing.categorie){alert('Cet ingrédient n\'a pas de catégorie définie.');return;}
+  var categorie=ing.categorie;
+  var targets=rctIngredients.filter(function(x){return x.categorie===categorie&&x.code!==mreglesIngCode;});
+  if(!targets.length){alert('Aucun autre ingrédient dans la catégorie "'+categorie+'".');return;}
+
+  var toUpdate=[],toCreate=[],withManual=[];
+  targets.forEach(function(t){
+    var tRules=rctIngredientRegles[t.code]||[];
+    var fromCat=tRules.find(function(r){return r.categorie_source===categorie;});
+    if(fromCat){toUpdate.push({code:t.code,ruleId:fromCat.id});return;}
+    var manual=tRules.find(function(r){return !r.categorie_source;});
+    if(manual){withManual.push({code:t.code,ruleId:manual.id});return;}
+    toCreate.push(t.code);
+  });
+
+  var overwriteManual=false;
+  if(withManual.length){
+    overwriteManual=confirm(withManual.length+' ingrédient(s) de cette catégorie ont déjà une règle individuelle (pas issue d\'une règle de catégorie).\n\nOK = écraser aussi ces règles individuelles avec la règle de catégorie.\nAnnuler = laisser ces ingrédients intacts (seuls les autres recevront la règle).');
+    if(overwriteManual)toUpdate=toUpdate.concat(withManual);
+  }
+  var totalCount=toCreate.length+toUpdate.length;
+  if(!totalCount){alert('Rien à appliquer — tous les ingrédients concernés ont une règle individuelle conservée.');return;}
+  if(!confirm('Appliquer cette règle à '+totalCount+' ingrédient(s) de la catégorie "'+categorie+'" ?'))return;
+
+  var resto=rctResto();
+  var basePayload={mode:rule.mode||'jours_fixes',jours:rule.jours||[],fournisseur_id:rule.fournisseur_id||null,seuil_min:rule.seuil_min!=null?rule.seuil_min:null,cible:rule.cible!=null?rule.cible:null,colisage:rule.colisage!=null?rule.colisage:null,heure_limite:rule.heure_limite||null,categorie_source:categorie};
+  try{
+    if(!rule.categorie_source){
+      sbCheck(await db.from('ingredient_regles_commande').update({categorie_source:categorie}).eq('id',rule.id));
+      rule.categorie_source=categorie;
+    }
+    if(toCreate.length){
+      var insertPayloads=toCreate.map(function(code){return Object.assign({restaurant_id:resto,ingredient_code:code},basePayload);});
+      var rIns=sbCheck(await db.from('ingredient_regles_commande').insert(insertPayloads).select());
+      (rIns.data||[]).forEach(function(row){
+        rctIngredientRegles[row.ingredient_code]=rctIngredientRegles[row.ingredient_code]||[];
+        rctIngredientRegles[row.ingredient_code].push(row);
+      });
+    }
+    for(var i=0;i<toUpdate.length;i++){
+      var u=toUpdate[i];
+      sbCheck(await db.from('ingredient_regles_commande').update(basePayload).eq('id',u.ruleId));
+      var tRules=rctIngredientRegles[u.code]||[];
+      var existing=tRules.find(function(r){return r.id===u.ruleId;});
+      if(existing)Object.assign(existing,basePayload);
+    }
+    var skipped=withManual.length&&!overwriteManual?withManual.length:0;
+    alert('✅ Règle appliquée à '+totalCount+' ingrédient(s).'+(skipped?' ('+skipped+' ingrédient(s) avec règle individuelle conservée(s) intacte(s), non touché(s).)':''));
+    renderIngredientsList();
+  }catch(e){console.error('applyRegleToCategorie',e);alert('Erreur : '+e.message+'\n\n(La colonne categorie_source de ingredient_regles_commande a-t-elle été ajoutée ?)');}
 }
 async function addRegleCommande(){
   var resto=rctResto();
@@ -8822,8 +8896,7 @@ async function updateIngredientUniteDefaut(code,unite){
     refreshIngredientDosePriceLight(code);
   }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
 }
-// ── Gestion des fournisseurs (par restaurant, stockés dans stock_catalogue.suppliers) ──
-let msupSuppliersBlob={};
+// ── Gestion des fournisseurs (table globale 'fournisseurs', commune aux 3 restaurants — c'est le Labo qui commande vraiment à l'extérieur) ──
 // Fusionne les anciens prix d'ingrédients enregistrés séparément par restaurant (avant que les prix ne
 // deviennent communs à tous les établissements, puisqu'on achète au même prix partout) en une seule ligne
 // globale par ingrédient. Priorité en cas de valeur différente entre restaurants pour un même champ : Port,
@@ -8859,19 +8932,53 @@ async function mergeOldPerRestoPrices(){
   }catch(e){console.error('mergeOldPerRestoPrices',e);alert('Erreur : '+e.message);}
 }
 async function openSuppliersModal(){
-  var resto=rctResto();
-  document.getElementById('msup-resto').textContent=rctRestoLabel(resto);
-  try{
-    var r=sbCheck(await db.from('stock_catalogue').select('suppliers').eq('restaurant_id',resto).maybeSingle());
-    msupSuppliersBlob=(r.data&&r.data.suppliers)||{};
-  }catch(e){console.error('openSuppliersModal',e);msupSuppliersBlob={};}
+  document.getElementById('msup-resto').textContent='(liste commune Port / Dabray / Labo)';
   document.getElementById('msup-new-name').value='';
   renderSuppliersList();
   document.getElementById('msup').classList.add('op');
 }
+// Récupère les fournisseurs déjà saisis dans l'ancien système par-restaurant (stock_catalogue.suppliers de
+// Port/Dabray/Labo) et les regroupe dans la liste commune. Fusion par nom (insensible à la casse/espaces) —
+// deux fournisseurs de restaurants différents avec le même nom deviennent une seule entrée commune. Les noms
+// déjà présents dans la liste commune ne sont pas dupliqués (relançable sans risque).
+async function importFournisseursDepuisExistant(){
+  if(!confirm('Récupérer les fournisseurs déjà utilisés dans Port/Dabray/Labo (ancien système par restaurant) et les regrouper dans la liste commune ?\n\nFusion par nom identique. Les fournisseurs déjà présents dans la liste commune ne sont pas dupliqués.'))return;
+  try{
+    var r=sbCheck(await db.from('stock_catalogue').select('restaurant_id,suppliers').in('restaurant_id',['port','dabray','labo']));
+    var rows=r.data||[];
+    if(!rows.length){alert('Aucune donnée trouvée dans stock_catalogue pour Port/Dabray/Labo.');return;}
+    var byKey={}; // nom normalisé -> {nom, jours_livraison, is_labo_interne}
+    rows.forEach(function(row){
+      var sups=row.suppliers||{};
+      Object.keys(sups).forEach(function(sid){
+        var s=sups[sid];
+        if(!s||!s.name)return;
+        var key=s.name.trim().toLowerCase();
+        if(!key)return;
+        if(!byKey[key])byKey[key]={nom:s.name.trim(),jours_livraison:s.deliveryDays||[],is_labo_interne:false};
+        if(!byKey[key].jours_livraison.length&&(s.deliveryDays||[]).length)byKey[key].jours_livraison=s.deliveryDays;
+        if(s.isLabo)byKey[key].is_labo_interne=true;
+      });
+    });
+    var existingNames={};
+    rctSuppliers.forEach(function(s){existingNames[(s.nom||'').trim().toLowerCase()]=true;});
+    var toCreate=Object.keys(byKey).filter(function(k){return !existingNames[k];}).map(function(k){return byKey[k];});
+    if(!toCreate.length){alert('Rien à importer — tous les noms trouvés existent déjà dans la liste commune.');return;}
+    var payloads=toCreate.map(function(f){
+      return {id:'sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+Math.random().toString(36).slice(2,4),nom:f.nom,jours_livraison:f.jours_livraison,is_labo_interne:f.is_labo_interne,actif:true};
+    });
+    var rIns=sbCheck(await db.from('fournisseurs').insert(payloads).select());
+    (rIns.data||[]).forEach(function(row){
+      rctSuppliers.push({id:row.id,nom:row.nom,jours_livraison:row.jours_livraison||[],delai_commande_jours:row.delai_commande_jours,heure_limite:row.heure_limite,is_labo_interne:!!row.is_labo_interne,actif:row.actif!==false});
+    });
+    rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
+    alert('✅ '+toCreate.length+' fournisseur(s) importé(s) dans la liste commune.\n\nPense à vérifier/compléter le délai de commande et l\'heure limite pour chacun (pas repris automatiquement — ça n\'existait pas dans l\'ancien système), et à revérifier les cases "🏭 Interne" importées.');
+    renderSuppliersList();
+  }catch(e){console.error('importFournisseursDepuisExistant',e);alert('Erreur : '+e.message+'\n\n(La table fournisseurs a-t-elle été créée en SQL ?)');}
+}
 var SUP_DAY_LABELS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 function supplierDeliveryDaysHtml(id,s){
-  var days=s.deliveryDays||[];
+  var days=s.jours_livraison||[];
   return '<div style="margin-top:2px;">'
     +'<label class="fl2" style="font-size:10px;">🚚 Jours de livraison (pour les règles "veille de livraison")</label>'
     +'<div style="display:flex;gap:4px;flex-wrap:wrap;">'
@@ -8882,63 +8989,59 @@ function supplierDeliveryDaysHtml(id,s){
     +'</div></div>';
 }
 async function toggleSupplierDeliveryDay(id,day){
-  if(!msupSuppliersBlob[id])return;
-  var days=(msupSuppliersBlob[id].deliveryDays||[]).slice();
+  var s=rctSuppliers.find(function(x){return x.id===id;});
+  if(!s)return;
+  var days=(s.jours_livraison||[]).slice();
   var idx=days.indexOf(day);
   if(idx>=0)days.splice(idx,1);else days.push(day);
-  msupSuppliersBlob[id].deliveryDays=days;
-  try{await saveSuppliersBlob();renderSuppliersList();}catch(e){console.error('toggleSupplierDeliveryDay',e);alert('Erreur : '+e.message);}
+  s.jours_livraison=days;
+  try{sbCheck(await db.from('fournisseurs').update({jours_livraison:days}).eq('id',id));renderSuppliersList();}catch(e){console.error('toggleSupplierDeliveryDay',e);alert('Erreur : '+e.message);}
 }
 function renderSuppliersList(){
   var box=document.getElementById('msup-list');
-  var ids=Object.keys(msupSuppliersBlob);
-  if(!ids.length){box.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucun fournisseur pour l\'instant.</div>';return;}
-  box.innerHTML=ids.sort(function(a,b){return (msupSuppliersBlob[a].name||'').localeCompare(msupSuppliersBlob[b].name||'');}).map(function(id){
-    var s=msupSuppliersBlob[id];
-    var isLabo=!!s.isLabo;
-    var otherIds=ids.filter(function(x){return x!==id;});
+  if(!rctSuppliers.length){box.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucun fournisseur pour l\'instant.</div>';return;}
+  box.innerHTML=rctSuppliers.slice().sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');}).map(function(s){
+    var id=s.id;
     return '<div class="card" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;">'
       +'<div style="display:flex;gap:6px;align-items:center;">'
-      +'<input type="text" class="fi" style="flex:1;" value="'+esc(s.name||'')+'" onchange="updateSupplierField(\''+id+'\',\'name\',this.value)">'
+      +'<input type="text" class="fi" style="flex:1;" value="'+esc(s.nom||'')+'" onchange="updateSupplierField(\''+id+'\',\'nom\',this.value)">'
       +'<button class="btn bs sm" onclick="deleteSupplier(\''+id+'\')" style="background:#FEE2E2;color:#991B1B;">🗑</button>'
       +'</div>'
       +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;">'
-      +'<input type="checkbox" '+(isLabo?'checked':'')+' onchange="updateSupplierField(\''+id+'\',\'isLabo\',this.checked)"> 🏭 = Labo (commande interne)'
+      +'<input type="checkbox" '+(s.is_labo_interne?'checked':'')+' onchange="updateSupplierField(\''+id+'\',\'is_labo_interne\',this.checked)"> 🏭 Interne (commande passée au Labo, pas un vrai fournisseur externe)'
       +'</label>'
-      +(isLabo?'<div class="fr" style="margin:0;"><label class="fl2" style="font-size:10px;">Vrai fournisseur externe (utilisé par le Labo)</label>'
-        +'<select class="fi" onchange="updateSupplierField(\''+id+'\',\'realSupplierId\',this.value)">'
-          +'<option value="">-- à préciser --</option>'
-          +otherIds.map(function(oid){return '<option value="'+oid+'"'+(s.realSupplierId===oid?' selected':'')+'>'+esc(msupSuppliersBlob[oid].name||'')+'</option>';}).join('')
-        +'</select></div>':'')
+      +'<div style="display:flex;gap:8px;">'
+      +'<div style="flex:1;"><label class="fl2" style="font-size:10px;">Délai de commande (jours avant livraison)</label>'
+        +'<input type="number" class="fi" min="0" step="1" value="'+(s.delai_commande_jours!=null?s.delai_commande_jours:'')+'" onchange="updateSupplierField(\''+id+'\',\'delai_commande_jours\',this.value)"></div>'
+      +'<div style="flex:1;"><label class="fl2" style="font-size:10px;">Heure limite</label>'
+        +'<input type="time" class="fi" value="'+(s.heure_limite||'')+'" onchange="updateSupplierField(\''+id+'\',\'heure_limite\',this.value)"></div>'
+      +'</div>'
       +supplierDeliveryDaysHtml(id,s)
       +'</div>';
   }).join('');
 }
-async function saveSuppliersBlob(){
-  sbCheck(await db.from('stock_catalogue').upsert([{restaurant_id:rctResto(),suppliers:msupSuppliersBlob}],{onConflict:'restaurant_id'}));
-}
 async function updateSupplierField(id,field,value){
-  if(!msupSuppliersBlob[id])return;
-  msupSuppliersBlob[id][field]=value;
-  if(field==='isLabo'&&!value)delete msupSuppliersBlob[id].realSupplierId;
+  var s=rctSuppliers.find(function(x){return x.id===id;});
+  if(!s)return;
+  var payload={};
+  if(field==='delai_commande_jours')payload[field]=value===''?null:parseInt(value,10);
+  else if(field==='is_labo_interne')payload[field]=!!value;
+  else if(field==='heure_limite')payload[field]=value||null;
+  else payload[field]=value;
+  s[field]=payload[field];
   try{
-    await saveSuppliersBlob();
-    if(field==='name'){
-      var sp=rctSuppliers.find(function(x){return x.id===id;});
-      if(sp)sp.nom=value;
-    }
+    sbCheck(await db.from('fournisseurs').update(payload).eq('id',id));
     renderSuppliersList();
-    if(field==='name')renderIngredientsList();
+    if(field==='nom')renderIngredientsList();
   }catch(e){console.error('updateSupplierField',e);alert('Erreur : '+e.message);}
 }
 async function createSupplier(){
   var name=(document.getElementById('msup-new-name').value||'').trim();
   if(!name){alert('Indique un nom de fournisseur.');return;}
   var id='sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  msupSuppliersBlob[id]={name:name};
   try{
-    await saveSuppliersBlob();
-    rctSuppliers.push({id:id,nom:name});
+    sbCheck(await db.from('fournisseurs').insert({id:id,nom:name,jours_livraison:[],actif:true}));
+    rctSuppliers.push({id:id,nom:name,jours_livraison:[],delai_commande_jours:null,heure_limite:null,is_labo_interne:false,actif:true});
     rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
     document.getElementById('msup-new-name').value='';
     renderSuppliersList();
@@ -8946,14 +9049,29 @@ async function createSupplier(){
   }catch(e){console.error('createSupplier',e);alert('Erreur : '+e.message);}
 }
 async function deleteSupplier(id){
-  var inUse=Object.keys(rctIngredientCouts).some(function(code){return rctIngredientCouts[code].fournisseur_id===id;});
-  var msg=inUse?'Ce fournisseur est utilisé par au moins un ingrédient ici — le champ fournisseur repassera à vide pour ces ingrédients. Continuer ?':'Supprimer ce fournisseur ?';
+  var affectedSeuils=[];
+  Object.keys(rctIngredientSeuilsAll||{}).forEach(function(resto){
+    var m=rctIngredientSeuilsAll[resto];
+    Object.keys(m).forEach(function(code){if(m[code].fournisseur_id===id)affectedSeuils.push({resto:resto,code:code});});
+  });
+  var affectedRegles=[];
+  Object.keys(rctIngredientRegles||{}).forEach(function(code){
+    (rctIngredientRegles[code]||[]).forEach(function(r){if(r.fournisseur_id===id)affectedRegles.push(r.id);});
+  });
+  var inUse=affectedSeuils.length||affectedRegles.length;
+  var msg=inUse?('Ce fournisseur est utilisé par '+affectedSeuils.length+' ingrédient(s) (seuils) et '+affectedRegles.length+' règle(s) de commande — le champ fournisseur repassera à vide pour ces éléments. Continuer ?'):'Supprimer ce fournisseur ?';
   if(!confirm(msg))return;
-  delete msupSuppliersBlob[id];
   try{
-    await saveSuppliersBlob();
+    sbCheck(await db.from('fournisseurs').delete().eq('id',id));
     rctSuppliers=rctSuppliers.filter(function(s){return s.id!==id;});
-    Object.keys(rctIngredientCouts).forEach(function(code){if(rctIngredientCouts[code].fournisseur_id===id)rctIngredientCouts[code].fournisseur_id=null;});
+    for(var i=0;i<affectedSeuils.length;i++){
+      var a=affectedSeuils[i];
+      sbCheck(await db.from('ingredient_seuils').update({fournisseur_id:null}).eq('restaurant_id',a.resto).eq('ingredient_code',a.code));
+      rctIngredientSeuilsAll[a.resto][a.code].fournisseur_id=null;
+    }
+    for(var j=0;j<affectedRegles.length;j++){
+      sbCheck(await db.from('ingredient_regles_commande').update({fournisseur_id:null}).eq('id',affectedRegles[j]));
+    }
     renderSuppliersList();
     renderIngredientsList();
   }catch(e){console.error('deleteSupplier',e);alert('Erreur : '+e.message);}
@@ -8964,23 +9082,32 @@ async function openBesoinsLaboModal(){
   box.innerHTML='<div style="font-size:11px;color:var(--txm);">Chargement…</div>';
   document.getElementById('mbesoinslabo').classList.add('op');
   try{
+    // Tout est déjà en mémoire (rctIngredientSeuilsAll charge les 3 restaurants, rctSuppliers est global) —
+    // plus besoin de requêtes séparées ni de l'ancien isLabo/realSupplierId par restaurant : le fournisseur
+    // "réel" pour un ingrédient sourcé en interne se trouve simplement dans la fiche seuils du Labo lui-même.
     var restos=['port','dabray'];
-    var r=sbCheck(await db.from('stock_catalogue').select('restaurant_id,suppliers').in('restaurant_id',restos));
-    var suppliersByResto={};
-    (r.data||[]).forEach(function(row){suppliersByResto[row.restaurant_id]=row.suppliers||{};});
-    var rc=sbCheck(await db.from('ingredient_couts').select('restaurant_id,ingredient_code,fournisseur_id').in('restaurant_id',restos));
-    var rows=(rc.data||[]).filter(function(x){return x.fournisseur_id;});
+    var laboSeuils=(rctIngredientSeuilsAll&&rctIngredientSeuilsAll['labo'])||{};
     var byIngredient={}; // ingredient_code -> {nom, restos:[], realSupName}
-    rows.forEach(function(row){
-      var sups=suppliersByResto[row.restaurant_id]||{};
-      var sup=sups[row.fournisseur_id];
-      if(!sup||!sup.isLabo)return;
-      var ing=rctIngredients.find(function(p){return p.code===row.ingredient_code;});
-      var nom=ing?ing.nom:row.ingredient_code;
-      var realSup=sup.realSupplierId?(sups[sup.realSupplierId]&&sups[sup.realSupplierId].name):null;
-      if(!byIngredient[row.ingredient_code])byIngredient[row.ingredient_code]={nom:nom,restos:[],realSupName:realSup};
-      if(byIngredient[row.ingredient_code].restos.indexOf(row.restaurant_id)<0)byIngredient[row.ingredient_code].restos.push(row.restaurant_id);
-      if(!byIngredient[row.ingredient_code].realSupName&&realSup)byIngredient[row.ingredient_code].realSupName=realSup;
+    restos.forEach(function(resto){
+      var seuils=(rctIngredientSeuilsAll&&rctIngredientSeuilsAll[resto])||{};
+      Object.keys(seuils).forEach(function(code){
+        var s=seuils[code];
+        if(!s.fournisseur_id)return;
+        var sup=rctSuppliers.find(function(x){return x.id===s.fournisseur_id;});
+        if(!sup||!sup.is_labo_interne)return;
+        var ing=rctIngredients.find(function(p){return p.code===code;});
+        var nom=ing?ing.nom:code;
+        var laboSeuil=laboSeuils[code];
+        var realSupId=laboSeuil&&laboSeuil.fournisseur_id;
+        var realSup=null;
+        if(realSupId){
+          var rs=rctSuppliers.find(function(x){return x.id===realSupId;});
+          if(rs&&!rs.is_labo_interne)realSup=rs.nom;
+        }
+        if(!byIngredient[code])byIngredient[code]={nom:nom,restos:[],realSupName:realSup};
+        if(byIngredient[code].restos.indexOf(resto)<0)byIngredient[code].restos.push(resto);
+        if(!byIngredient[code].realSupName&&realSup)byIngredient[code].realSupName=realSup;
+      });
     });
     var byRealSup={};
     Object.keys(byIngredient).forEach(function(code){
@@ -8991,7 +9118,7 @@ async function openBesoinsLaboModal(){
     });
     var groupNames=Object.keys(byRealSup).sort();
     if(!groupNames.length){
-      box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucun ingrédient marqué "fournisseur = 🏭 Labo" pour l\'instant sur Port ou Dabray. Va dans "🚚 Gérer les fournisseurs" pour créer un fournisseur Labo, puis assigne-le aux ingrédients concernés depuis l\'écran Ingrédients.</div>';
+      box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucun ingrédient marqué "fournisseur = 🏭 Interne" pour l\'instant sur Port ou Dabray. Va dans "🚚 Gérer les fournisseurs" pour cocher un fournisseur comme interne, puis assigne-le aux ingrédients concernés depuis l\'écran Ingrédients.</div>';
       return;
     }
     box.innerHTML=groupNames.map(function(g){
