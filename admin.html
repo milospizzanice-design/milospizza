@@ -8935,7 +8935,7 @@ async function openSuppliersModal(){
   document.getElementById('msup-resto').textContent='(liste commune Port / Dabray / Labo)';
   document.getElementById('msup-new-name').value='';
   renderSuppliersList();
-  document.getElementById('msup').classList.add('op');
+  openM('msup');
 }
 // Récupère les fournisseurs déjà saisis dans l'ancien système par-restaurant (stock_catalogue.suppliers de
 // Port/Dabray/Labo) et les regroupe dans la liste commune. Fusion par nom (insensible à la casse/espaces) —
@@ -9080,7 +9080,7 @@ async function deleteSupplier(id){
 async function openBesoinsLaboModal(){
   var box=document.getElementById('mbesoinslabo-list');
   box.innerHTML='<div style="font-size:11px;color:var(--txm);">Chargement…</div>';
-  document.getElementById('mbesoinslabo').classList.add('op');
+  openM('mbesoinslabo');
   try{
     // Tout est déjà en mémoire (rctIngredientSeuilsAll charge les 3 restaurants, rctSuppliers est global) —
     // plus besoin de requêtes séparées ni de l'ancien isLabo/realSupplierId par restaurant : le fournisseur
