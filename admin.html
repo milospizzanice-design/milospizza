@@ -7140,12 +7140,12 @@ async function loadRecettesModule(){
       db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('sous_categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('onglets_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
-      db.from('fournisseurs').select('*').order('nom')
+      db.from('fournisseurs_stock').select('*').order('nom')
     ]);
     rctProduitsVendus=pv.data||[];
     rctIngredients=ing.data||[];
     rctStockProduits=pr.data||[];
-    // Fournisseurs (table globale 'fournisseurs', commune aux 3 restaurants) — chargée de façon tolérante,
+    // Fournisseurs (table globale 'fournisseurs_stock', commune aux 3 restaurants) — chargée de façon tolérante,
     // comme ingredient_seuils : si la migration SQL n'a pas encore été exécutée, le reste continue de fonctionner.
     if(fourn&&!fourn.error){
       rctSuppliers=(fourn.data||[]).map(function(f){
@@ -8896,7 +8896,7 @@ async function updateIngredientUniteDefaut(code,unite){
     refreshIngredientDosePriceLight(code);
   }catch(e){console.error('updateIngredientUniteDefaut',e);alert('Erreur : '+e.message);}
 }
-// ── Gestion des fournisseurs (table globale 'fournisseurs', commune aux 3 restaurants — c'est le Labo qui commande vraiment à l'extérieur) ──
+// ── Gestion des fournisseurs (table globale 'fournisseurs_stock', commune aux 3 restaurants — c'est le Labo qui commande vraiment à l'extérieur) ──
 // Fusionne les anciens prix d'ingrédients enregistrés séparément par restaurant (avant que les prix ne
 // deviennent communs à tous les établissements, puisqu'on achète au même prix partout) en une seule ligne
 // globale par ingrédient. Priorité en cas de valeur différente entre restaurants pour un même champ : Port,
@@ -8967,14 +8967,14 @@ async function importFournisseursDepuisExistant(){
     var payloads=toCreate.map(function(f){
       return {id:'sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+Math.random().toString(36).slice(2,4),nom:f.nom,jours_livraison:f.jours_livraison,is_labo_interne:f.is_labo_interne,actif:true};
     });
-    var rIns=sbCheck(await db.from('fournisseurs').insert(payloads).select());
+    var rIns=sbCheck(await db.from('fournisseurs_stock').insert(payloads).select());
     (rIns.data||[]).forEach(function(row){
       rctSuppliers.push({id:row.id,nom:row.nom,jours_livraison:row.jours_livraison||[],delai_commande_jours:row.delai_commande_jours,heure_limite:row.heure_limite,is_labo_interne:!!row.is_labo_interne,actif:row.actif!==false});
     });
     rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
     alert('✅ '+toCreate.length+' fournisseur(s) importé(s) dans la liste commune.\n\nPense à vérifier/compléter le délai de commande et l\'heure limite pour chacun (pas repris automatiquement — ça n\'existait pas dans l\'ancien système), et à revérifier les cases "🏭 Interne" importées.');
     renderSuppliersList();
-  }catch(e){console.error('importFournisseursDepuisExistant',e);alert('Erreur : '+e.message+'\n\n(La table fournisseurs a-t-elle été créée en SQL ?)');}
+  }catch(e){console.error('importFournisseursDepuisExistant',e);alert('Erreur : '+e.message+'\n\n(La table fournisseurs_stock a-t-elle été créée en SQL ?)');}
 }
 var SUP_DAY_LABELS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 function supplierDeliveryDaysHtml(id,s){
@@ -8995,7 +8995,7 @@ async function toggleSupplierDeliveryDay(id,day){
   var idx=days.indexOf(day);
   if(idx>=0)days.splice(idx,1);else days.push(day);
   s.jours_livraison=days;
-  try{sbCheck(await db.from('fournisseurs').update({jours_livraison:days}).eq('id',id));renderSuppliersList();}catch(e){console.error('toggleSupplierDeliveryDay',e);alert('Erreur : '+e.message);}
+  try{sbCheck(await db.from('fournisseurs_stock').update({jours_livraison:days}).eq('id',id));renderSuppliersList();}catch(e){console.error('toggleSupplierDeliveryDay',e);alert('Erreur : '+e.message);}
 }
 function renderSuppliersList(){
   var box=document.getElementById('msup-list');
@@ -9030,7 +9030,7 @@ async function updateSupplierField(id,field,value){
   else payload[field]=value;
   s[field]=payload[field];
   try{
-    sbCheck(await db.from('fournisseurs').update(payload).eq('id',id));
+    sbCheck(await db.from('fournisseurs_stock').update(payload).eq('id',id));
     renderSuppliersList();
     if(field==='nom')renderIngredientsList();
   }catch(e){console.error('updateSupplierField',e);alert('Erreur : '+e.message);}
@@ -9040,7 +9040,7 @@ async function createSupplier(){
   if(!name){alert('Indique un nom de fournisseur.');return;}
   var id='sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   try{
-    sbCheck(await db.from('fournisseurs').insert({id:id,nom:name,jours_livraison:[],actif:true}));
+    sbCheck(await db.from('fournisseurs_stock').insert({id:id,nom:name,jours_livraison:[],actif:true}));
     rctSuppliers.push({id:id,nom:name,jours_livraison:[],delai_commande_jours:null,heure_limite:null,is_labo_interne:false,actif:true});
     rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
     document.getElementById('msup-new-name').value='';
@@ -9062,7 +9062,7 @@ async function deleteSupplier(id){
   var msg=inUse?('Ce fournisseur est utilisé par '+affectedSeuils.length+' ingrédient(s) (seuils) et '+affectedRegles.length+' règle(s) de commande — le champ fournisseur repassera à vide pour ces éléments. Continuer ?'):'Supprimer ce fournisseur ?';
   if(!confirm(msg))return;
   try{
-    sbCheck(await db.from('fournisseurs').delete().eq('id',id));
+    sbCheck(await db.from('fournisseurs_stock').delete().eq('id',id));
     rctSuppliers=rctSuppliers.filter(function(s){return s.id!==id;});
     for(var i=0;i<affectedSeuils.length;i++){
       var a=affectedSeuils[i];
