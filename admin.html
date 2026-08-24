@@ -752,6 +752,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Si cet ingrédient est une préparation faite de plusieurs produits du stock (ex: crème + moutarde + miel), compose-la ici. Si une recette est définie, elle est utilisée à la place du simple rattachement.</div>
     <div id="mingcomp-lines"></div>
     <button class="btn bs sm" onclick="addCompoLine()" style="width:100%;margin-top:6px;">+ Ajouter un produit stock</button>
+    <div id="mingcomp-total" style="margin-top:10px;padding-top:8px;border-top:1px solid var(--bd);font-size:12px;"></div>
     <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mingcomp')">Annuler</button><button class="btn bp" onclick="saveIngredientComposition()">Enregistrer</button></div>
   </div>
 </div>
@@ -8330,7 +8331,15 @@ function refreshIngredientDosePriceLight(code){
 function ingStatutIngredient(i){
   var compo=rctIngredientComposition[i.code]||[];
   var cout=rctIngredientCouts[i.code];
-  if(compo.length)return {ok:true,label:'🧪 Recette ('+compo.length+' ingrédient'+(compo.length>1?'s':'')+')',cout:null,isComposed:true};
+  if(compo.length){
+    // Avant, un ingrédient composé affichait toujours "ok" (🧪) sans jamais vérifier si sa composition
+    // se calcule réellement — un sous-ingrédient sans prix restait invisible ici, alors que ça cassait
+    // silencieusement le coût de tout produit vendu qui utilise cet ingrédient composé. On sonde le calcul
+    // réel (100g, unité neutre qui ne dépend pas de l'unité habituelle de cet ingrédient) pour le savoir.
+    var probe=coutIngredient(i.code,100,'g');
+    if(probe.cout==null)return {ok:false,label:'<span style="color:#C0392B;">⚠️ Recette incomplète</span>',cout:null,isComposed:true,warning:probe.warning};
+    return {ok:true,label:'🧪 Recette ('+compo.length+' ingrédient'+(compo.length>1?'s':'')+')',cout:null,isComposed:true};
+  }
   if(cout&&cout.prix_source_code){
     var srcIng=rctIngredients.find(function(x){return x.code===cout.prix_source_code;});
     var srcCout=rctIngredientCouts[cout.prix_source_code];
@@ -8580,6 +8589,7 @@ function renderIngredientsList(){
       +miseEnPlaceHtml(i)
       +(hasBrutSource?'<div style="font-size:10px;color:var(--txm);">🔪 Pas de fournisseur séparé — cet article est préparé sur place à partir de "'+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code)+'", pas acheté tel quel.</div>'
         :statut.isComposed?('<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>'
+          +(statut.warning?'<div style="font-size:10px;color:#C0392B;margin-top:2px;">⚠️ '+esc(statut.warning)+' <button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')" style="padding:2px 7px;font-size:9px;margin-left:4px;">🔧 Voir le détail</button></div>':'')
           +'<div style="display:flex;gap:4px;align-items:center;font-size:10px;margin-top:4px;">'
           +'<span style="color:var(--txm);">Si utilisé en ml/L dans une pizza — densité :</span>'
           +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="1" placeholder="1000" title="Grammes pour 1 litre (1000 = eau). Nécessaire pour convertir en grammes si cet ingrédient composé est utilisé en ml/L dans une recette." value="'+(rctIngredientCouts[i.code]&&rctIngredientCouts[i.code].densite!=null?rctIngredientCouts[i.code].densite:'')+'" onchange="updateComposedDensite(\''+i.code+'\',this.value)">'
@@ -8941,8 +8951,11 @@ async function openSuppliersModal(){
 // Port/Dabray/Labo) et les regroupe dans la liste commune. Fusion par nom (insensible à la casse/espaces) —
 // deux fournisseurs de restaurants différents avec le même nom deviennent une seule entrée commune. Les noms
 // déjà présents dans la liste commune ne sont pas dupliqués (relançable sans risque).
+let msupImportInProgress=false;
 async function importFournisseursDepuisExistant(){
+  if(msupImportInProgress)return; // anti double-clic/double-tap : empêche deux imports concurrents qui se dupliqueraient
   if(!confirm('Récupérer les fournisseurs déjà utilisés dans Port/Dabray/Labo (ancien système par restaurant) et les regrouper dans la liste commune ?\n\nFusion par nom identique. Les fournisseurs déjà présents dans la liste commune ne sont pas dupliqués.'))return;
+  msupImportInProgress=true;
   try{
     var r=sbCheck(await db.from('stock_catalogue').select('restaurant_id,suppliers').in('restaurant_id',['port','dabray','labo']));
     var rows=r.data||[];
@@ -8960,21 +8973,26 @@ async function importFournisseursDepuisExistant(){
         if(s.isLabo)byKey[key].is_labo_interne=true;
       });
     });
+    // Re-vérifie contre la base (pas seulement rctSuppliers en mémoire, qui peut être légèrement en retard)
+    // juste avant d'écrire, pour réduire encore la fenêtre de course en cas de double appel malgré le verrou.
+    var fresh=sbCheck(await db.from('fournisseurs_stock').select('nom'));
     var existingNames={};
-    rctSuppliers.forEach(function(s){existingNames[(s.nom||'').trim().toLowerCase()]=true;});
+    (fresh.data||[]).forEach(function(s){existingNames[(s.nom||'').trim().toLowerCase()]=true;});
     var toCreate=Object.keys(byKey).filter(function(k){return !existingNames[k];}).map(function(k){return byKey[k];});
     if(!toCreate.length){alert('Rien à importer — tous les noms trouvés existent déjà dans la liste commune.');return;}
     var payloads=toCreate.map(function(f){
       return {id:'sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+Math.random().toString(36).slice(2,4),nom:f.nom,jours_livraison:f.jours_livraison,is_labo_interne:f.is_labo_interne,actif:true};
     });
-    var rIns=sbCheck(await db.from('fournisseurs_stock').insert(payloads).select());
+    var rIns=sbCheck(await db.from('fournisseurs_stock').upsert(payloads,{onConflict:'nom',ignoreDuplicates:true}).select());
     (rIns.data||[]).forEach(function(row){
+      if(rctSuppliers.some(function(s){return s.id===row.id;}))return;
       rctSuppliers.push({id:row.id,nom:row.nom,jours_livraison:row.jours_livraison||[],delai_commande_jours:row.delai_commande_jours,heure_limite:row.heure_limite,is_labo_interne:!!row.is_labo_interne,actif:row.actif!==false});
     });
     rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
     alert('✅ '+toCreate.length+' fournisseur(s) importé(s) dans la liste commune.\n\nPense à vérifier/compléter le délai de commande et l\'heure limite pour chacun (pas repris automatiquement — ça n\'existait pas dans l\'ancien système), et à revérifier les cases "🏭 Interne" importées.');
     renderSuppliersList();
-  }catch(e){console.error('importFournisseursDepuisExistant',e);alert('Erreur : '+e.message+'\n\n(La table fournisseurs_stock a-t-elle été créée en SQL ?)');}
+  }catch(e){console.error('importFournisseursDepuisExistant',e);alert('Erreur : '+e.message+'\n\n(La table fournisseurs_stock a-t-elle été créée en SQL, avec la contrainte unique sur nom ?)');}
+  finally{msupImportInProgress=false;}
 }
 var SUP_DAY_LABELS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 function supplierDeliveryDaysHtml(id,s){
@@ -9964,16 +9982,20 @@ function openIngredientCompoModal(code){
   document.getElementById('mingcomp-title').textContent='Recette — '+(i?i.nom:code);
   var lines=(rctIngredientComposition[code]||[]).map(function(l){return {sub_ingredient_code:l.sub_ingredient_code,quantite:l.quantite,unite:l.unite};});
   renderCompoLines(lines);
-  document.getElementById('mingcomp').classList.add('op');
+  openM('mingcomp');
 }
 function renderCompoLines(lines){
   var opts=ingredientCompoOptionsHtml(mingcompCurrentCode);
   var html=lines.map(function(l,idx){
-    return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
-      +'<select class="fi compo-prod" style="flex:2;"><option value="">-- ingrédient --</option>'+opts+'</select>'
-      +'<input type="number" class="fi compo-qty" style="flex:1;" placeholder="Qté" step="0.1">'
-      +'<select class="fi compo-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option></select>'
-      +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>'
+    return '<div class="fr" style="display:flex;flex-direction:column;gap:2px;" data-idx="'+idx+'">'
+      +'<div style="display:flex;gap:6px;align-items:center;">'
+      +'<select class="fi compo-prod" style="flex:2;" onchange="updateCompoLineStatus(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
+      +'<input type="number" class="fi compo-qty" style="flex:1;" placeholder="Qté" step="0.1" oninput="updateCompoLineStatus(this)">'
+      +'<select class="fi compo-unit" style="flex:1;" onchange="updateCompoLineStatus(this)"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option></select>'
+      +'<span class="compo-cost" style="font-size:11px;font-weight:700;color:var(--txm);min-width:42px;text-align:right;"></span>'
+      +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove();updateCompoTotal();" style="padding:6px 8px;">✕</button>'
+      +'</div>'
+      +'<div class="compo-warning" style="font-size:10px;color:#C0392B;"></div>'
       +'</div>';
   }).join('');
   document.getElementById('mingcomp-lines').innerHTML=html;
@@ -9984,7 +10006,49 @@ function renderCompoLines(lines){
     row.querySelector('.compo-prod').value=l.sub_ingredient_code||'';
     row.querySelector('.compo-qty').value=l.quantite!=null?l.quantite:'';
     row.querySelector('.compo-unit').value=l.unite||'g';
+    updateCompoLineStatus(row.querySelector('.compo-qty'));
   });
+  updateCompoTotal();
+}
+// Coût/warning en direct sur une ligne de composition, avec accès direct à la correction du sous-ingrédient
+// en cause — même logique que dans l'éditeur de recette produit vendu (mrct), pour ne plus jamais avoir à
+// deviner quel ingrédient casse le calcul.
+function updateCompoLineStatus(el){
+  var row=el.closest('[data-idx]');
+  if(!row)return;
+  var costSpan=row.querySelector('.compo-cost'),warnDiv=row.querySelector('.compo-warning');
+  var prodSel=row.querySelector('.compo-prod'),unitSel=row.querySelector('.compo-unit'),qtyInput=row.querySelector('.compo-qty');
+  var code=prodSel?prodSel.value:'';
+  var qty=parseFloat(qtyInput?qtyInput.value:'');
+  if(costSpan)costSpan.textContent='';
+  if(warnDiv)warnDiv.innerHTML='';
+  if(!code||!(qty>0))return;
+  var r=coutIngredient(code,qty,unitSel?unitSel.value:'g');
+  if(costSpan){
+    if(r.cout!=null){costSpan.textContent=r.cout.toFixed(3)+'€';costSpan.style.color='var(--txm)';}
+    else{costSpan.textContent='⚠️';costSpan.style.color='#C0392B';}
+  }
+  if(warnDiv&&r.warning){
+    warnDiv.innerHTML='⚠️ '+esc(r.warning)+' <button class="btn bs sm" onclick="jumpToIngredientFix(\''+code+'\')" style="padding:2px 7px;font-size:9px;margin-left:4px;">🔧 Corriger cet ingrédient</button>';
+  }
+  updateCompoTotal();
+}
+function updateCompoTotal(){
+  var totalEl=document.getElementById('mingcomp-total');
+  if(!totalEl)return;
+  var rows=document.querySelectorAll('#mingcomp-lines [data-idx]');
+  var total=0,hasCout=false,hasWarning=false;
+  rows.forEach(function(row){
+    var prodSel=row.querySelector('.compo-prod'),unitSel=row.querySelector('.compo-unit'),qtyInput=row.querySelector('.compo-qty');
+    var code=prodSel?prodSel.value:'';
+    var qty=parseFloat(qtyInput?qtyInput.value:'');
+    if(!code||!(qty>0))return;
+    var r=coutIngredient(code,qty,unitSel?unitSel.value:'g');
+    if(r.cout!=null){total+=r.cout;hasCout=true;}
+    if(r.warning)hasWarning=true;
+  });
+  if(!rows.length){totalEl.innerHTML='';return;}
+  totalEl.innerHTML='<span>Coût total de cette composition</span> <span style="float:right;font-weight:800;color:'+(hasWarning?'#C0392B':'var(--bx)')+';">'+(hasCout?total.toFixed(3)+' €'+(hasWarning?' (incomplet)':''):'— (incomplet)')+'</span>';
 }
 function addCompoLine(){
   var container=document.getElementById('mingcomp-lines');
@@ -9993,12 +10057,17 @@ function addCompoLine(){
   var div=document.createElement('div');
   div.className='fr';
   div.setAttribute('data-idx',idx);
-  div.style.cssText='display:flex;gap:6px;align-items:center;';
-  div.innerHTML='<select class="fi compo-prod" style="flex:2;"><option value="">-- ingrédient --</option>'+opts+'</select>'
-    +'<input type="number" class="fi compo-qty" style="flex:1;" placeholder="Qté" step="0.1">'
-    +'<select class="fi compo-unit" style="flex:1;"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option></select>'
-    +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove()" style="padding:6px 8px;">✕</button>';
+  div.style.cssText='display:flex;flex-direction:column;gap:2px;';
+  div.innerHTML='<div style="display:flex;gap:6px;align-items:center;">'
+    +'<select class="fi compo-prod" style="flex:2;" onchange="updateCompoLineStatus(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
+    +'<input type="number" class="fi compo-qty" style="flex:1;" placeholder="Qté" step="0.1" oninput="updateCompoLineStatus(this)">'
+    +'<select class="fi compo-unit" style="flex:1;" onchange="updateCompoLineStatus(this)"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option></select>'
+    +'<span class="compo-cost" style="font-size:11px;font-weight:700;color:var(--txm);min-width:42px;text-align:right;"></span>'
+    +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove();updateCompoTotal();" style="padding:6px 8px;">✕</button>'
+    +'</div>'
+    +'<div class="compo-warning" style="font-size:10px;color:#C0392B;"></div>';
   container.appendChild(div);
+  updateCompoTotal();
 }
 async function saveIngredientComposition(){
   var code=mingcompCurrentCode;
@@ -10650,6 +10719,7 @@ function detailRecette(produitVenduCode){
 // Ingrédients, déjà filtré et déplié, plutôt que d'avoir à le rechercher manuellement.
 function jumpToIngredientFix(ingCode){
   closeM('mprixdetail');
+  closeM('mingcomp');
   goRecettesSub('ingredients');
   var searchEl=document.getElementById('rct-ing-search');
   var ing=rctIngredients.find(function(x){return x.code===ingCode;});
