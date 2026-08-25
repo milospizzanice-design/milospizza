@@ -5858,7 +5858,8 @@ let caisseMenuItemsAll=[];   // items du menu public, pour dériver les sous-cat
 // ── Réglages : fonctionnalités activables/désactivables pour les salariés (app pointage) ──
 // Ajouter une entrée ici suffit pour qu'elle apparaisse dans l'écran Réglages.
 var FEATURE_FLAGS_CATALOG=[
-  {key:'stocks_enabled',label:'📦 Gestion des stocks',desc:'Bouton "Gérer les stocks" dans l\'app de pointage des salariés.'}
+  {key:'stocks_enabled',label:'📦 Gestion des stocks',desc:'Bouton "Gérer les stocks" dans l\'app de pointage des salariés.'},
+  {key:'comptage_rapide_enabled',label:'🧮 Comptage rapide',desc:'Bouton "Comptage rapide" dans l\'app de pointage des salariés (nouveau module de comptage, branché sur ingredient_seuils).'}
 ];
 var rctFeatureFlags={};
 async function loadReglagesModule(){

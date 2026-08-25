@@ -181,9 +181,21 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cl">G&eacute;rer les stocks</div>
         <div class="cs">Compter, commander</div>
       </div>
+      <div class="cbtn" onclick="menuComptage()" id="cbtn-comptage">
+        <div class="ci">&#129518;</div>
+        <div class="cl">Comptage rapide</div>
+        <div class="cs">Nouveau module de comptage (test)</div>
+      </div>
       <button class="canc" onclick="reset()" style="margin-top:8px">D&#233;connexion</button>
     </div>
     
+    <div class="screen" id="s-comptage">
+      <div class="panel-title" style="margin-bottom:10px">&#129518; Comptage rapide</div>
+      <input type="text" id="cpt-search" class="ainp" placeholder="Rechercher un ingr&eacute;dient..." oninput="renderComptageList()" style="margin-bottom:10px">
+      <div id="cpt-list" style="max-height:58vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
+    </div>
+
     <div class="screen" id="s-camera">
       <div class="pl" id="camname"></div>
       <div id="camstatus" style="margin:14px auto;padding:14px 18px;border-radius:12px;font-size:16px;max-width:340px;text-align:center"></div>
@@ -359,6 +371,16 @@ async function applyFeatureFlags(){
       }else{
         btn.style.opacity='';
         btn.style.pointerEvents='';
+      }
+    }
+    var btnCpt=document.getElementById('cbtn-comptage');
+    if(btnCpt){
+      if(flags.comptage_rapide_enabled===false){
+        btnCpt.style.opacity='0.4';
+        btnCpt.style.pointerEvents='none';
+      }else{
+        btnCpt.style.opacity='';
+        btnCpt.style.pointerEvents='';
       }
     }
   }catch(e){console.error('applyFeatureFlags',e);}
@@ -1041,6 +1063,124 @@ async function menuStocks(){
   var url=STOCK_FILES[RESTAURANT_ID]||'milos-pizza-port.html';
   if(newTab&&!newTab.closed){newTab.location.href=url;}
   else{window.open(url,'_blank');}
+}
+
+// ── COMPTAGE RAPIDE (nouveau module, branché sur ingredients/ingredient_seuils/ingredient_comptages) ──
+// Léger et sans PIN séparé : réutilise directement la session de pointage (emp) déjà authentifiée.
+function escCpt(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+var cptIngredients=[]; // [{code,nom,categorie,type_suivi,unite_comptage,dernier:{valeur,compte_le}|null}]
+var cptSaving={}; // code -> true pendant l'enregistrement, anti double-tap
+
+async function menuComptage(){
+  if(window.rgFeatureFlags&&window.rgFeatureFlags.comptage_rapide_enabled===false){
+    alert('Le comptage rapide n\'est pas encore activé pour le moment. Demande à un manager.');
+    return;
+  }
+  ss('comptage');
+  var box=document.getElementById('cpt-list');
+  box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
+  document.getElementById('cpt-search').value='';
+  try{
+    var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id','global').eq('actif',true).order('categorie').order('nom');
+    if(ingRes.error)throw ingRes.error;
+    var seuilsRes=await db.from('ingredient_seuils').select('*').eq('restaurant_id',RESTAURANT_ID);
+    if(seuilsRes.error)throw seuilsRes.error;
+    var comptagesRes=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).order('compte_le',{ascending:false});
+    if(comptagesRes.error)throw comptagesRes.error;
+    var seuilsByCode={};
+    (seuilsRes.data||[]).forEach(function(s){seuilsByCode[s.ingredient_code]=s;});
+    var dernierByCode={};
+    (comptagesRes.data||[]).forEach(function(c){if(!dernierByCode[c.ingredient_code])dernierByCode[c.ingredient_code]=c;}); // déjà trié desc -> le 1er par code est le plus récent
+    cptIngredients=(ingRes.data||[]).map(function(i){
+      var s=seuilsByCode[i.code];
+      if(!s||s.actif===false)return null; // pas configuré / masqué pour ce restaurant (fiche ingrédient > Visible ici)
+      return {code:i.code,nom:i.nom,categorie:i.categorie||'Autre',type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null};
+    }).filter(Boolean);
+    renderComptageList();
+  }catch(e){
+    console.error('menuComptage',e);
+    box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur de chargement : '+escCpt(e.message)+'<br><span style="opacity:.6">(la table ingredient_comptages a-t-elle été créée en SQL ?)</span></div>';
+  }
+}
+
+function renderComptageList(){
+  var box=document.getElementById('cpt-list');
+  var q=(document.getElementById('cpt-search').value||'').trim().toLowerCase();
+  var filtered=cptIngredients.filter(function(i){return !q||i.nom.toLowerCase().indexOf(q)>=0;});
+  if(!filtered.length){
+    box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">'+(q?'Aucun ingrédient pour "'+escCpt(q)+'".':'Aucun ingrédient configuré pour le comptage sur ce restaurant.<br>Un manager doit les activer depuis Admin &gt; Recettes &gt; Ingrédients.')+'</div>';
+    return;
+  }
+  var byCat={};
+  filtered.forEach(function(i){(byCat[i.categorie]=byCat[i.categorie]||[]).push(i);});
+  var html='';
+  Object.keys(byCat).sort().forEach(function(cat){
+    html+='<div style="color:rgba(255,255,255,.6);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px">'+escCpt(cat)+'</div>';
+    html+=byCat[cat].map(comptageRowHtml).join('');
+  });
+  box.innerHTML=html;
+}
+
+function dernierLabelCpt(dernier,unite){
+  if(!dernier)return 'Jamais compté';
+  var d=new Date(dernier.compte_le);
+  var now=new Date();
+  var sameDay=d.toDateString()===now.toDateString();
+  var when=sameDay?('aujourd\'hui '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})):d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  return 'Dernier : '+escCpt(dernier.valeur)+(unite?(' '+escCpt(unite)):'')+' — '+when;
+}
+
+function comptageRowHtml(i){
+  var id='cpt-'+i.code;
+  var body='';
+  if(i.type_suivi==='qty'){
+    var val=i.dernier?i.dernier.valeur:'';
+    body='<div style="display:flex;gap:6px;align-items:center">'
+      +'<input type="number" inputmode="decimal" step="0.1" class="ainp" style="flex:1" id="'+id+'-val" value="'+escCpt(val)+'" placeholder="Quantité">'
+      +'<span style="color:rgba(255,255,255,.6);font-size:11px;min-width:26px">'+escCpt(i.unite_comptage)+'</span>'
+      +'<div class="nb" style="width:40px;padding:9px 0;font-size:16px;text-align:center" onclick="saveComptage(\''+i.code+'\')">&#10003;</div>'
+      +'</div>';
+  }else if(i.type_suivi==='two'){
+    body='<div class="np" style="grid-template-columns:1fr 1fr">'+cptChoiceBtn(i,'ok','&#9989; OK')+cptChoiceBtn(i,'commander','&#128230; À commander')+'</div>';
+  }else if(i.type_suivi==='yn'){
+    body='<div class="np" style="grid-template-columns:1fr 1fr">'+cptChoiceBtn(i,'oui','Oui')+cptChoiceBtn(i,'non','Non')+'</div>';
+  }else if(i.type_suivi==='rup'){
+    body='<div class="np" style="grid-template-columns:1fr 1fr 1fr">'+cptChoiceBtn(i,'ok','&#128994; OK')+cptChoiceBtn(i,'faible','&#128992; Faible')+cptChoiceBtn(i,'rupture','&#128308; Rupture')+'</div>';
+  }else if(i.type_suivi==='level'){
+    body='<div class="np" style="grid-template-columns:repeat(5,1fr)">'+[0,25,50,75,100].map(function(v){return cptChoiceBtn(i,String(v),v+'%');}).join('')+'</div>';
+  }else{
+    body='<div style="color:rgba(255,255,255,.6);font-size:11px">Mode de suivi inconnu ("'+escCpt(i.type_suivi)+'")</div>';
+  }
+  return '<div class="cbtn" style="cursor:default;text-align:left;margin-bottom:8px" id="'+id+'">'
+    +'<div class="cl" style="margin-bottom:2px">'+escCpt(i.nom)+'</div>'
+    +'<div class="cs" style="margin-bottom:8px" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+'</div>'
+    +body
+    +'</div>';
+}
+
+function cptChoiceBtn(i,val,lbl){
+  var active=!!(i.dernier&&String(i.dernier.valeur)===val);
+  return '<div class="nb'+(active?' rdy':'')+'" style="text-align:center" onclick="saveComptage(\''+i.code+'\',\''+val+'\')">'+lbl+'</div>';
+}
+
+async function saveComptage(code,choiceVal){
+  var i=cptIngredients.find(function(x){return x.code===code;});
+  if(!i||cptSaving[code])return;
+  var valeur=choiceVal;
+  if(i.type_suivi==='qty'){
+    var inp=document.getElementById('cpt-'+code+'-val');
+    valeur=inp?inp.value.trim():'';
+    if(valeur===''){alert('Indique une quantité.');return;}
+  }
+  cptSaving[code]=true;
+  try{
+    var payload={restaurant_id:RESTAURANT_ID,ingredient_code:code,type_suivi:i.type_suivi,valeur:String(valeur),compte_par_id:emp?emp.id:null,compte_par_nom:emp?(emp.prenom+' '+emp.nom):null,compte_le:new Date().toISOString()};
+    var ins=await db.from('ingredient_comptages').insert(payload).select().single();
+    if(ins.error){alert('Erreur : '+ins.error.message);return;}
+    i.dernier=ins.data;
+    renderComptageList();
+  }catch(e){console.error('saveComptage',e);alert('Erreur : '+e.message);}
+  finally{cptSaving[code]=false;}
 }
 function menuAcompte(){
   acoEmp=emp;
