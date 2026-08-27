@@ -8612,7 +8612,7 @@ function renderIngredientsList(){
       +'<button class="btn bs sm" onclick="deleteIngredient(\''+i.code+'\')" style="background:#FEE2E2;color:#991B1B;">✕</button>'
       +'</div>'
       +miseEnPlaceHtml(i)
-      +(hasBrutSource?'<div style="font-size:10px;color:var(--txm);">🔪 Pas de fournisseur séparé — cet article est préparé sur place à partir de "'+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code)+'", pas acheté tel quel.</div>'
+      +(hasBrutSource?'<div style="font-size:10px;color:var(--txm);">🔪 Prix calculé depuis "'+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code)+'" (pas de prix fournisseur direct) — configure quand même le suivi de stock par restaurant ci-dessous si besoin (Labo, Cuisine, comptage...).</div>'
         :statut.isComposed?('<div style="font-size:10px;color:var(--txm);">🧮 Prix calculé automatiquement depuis la composition ci-dessus (chaque ligne garde son propre fournisseur).</div>'
           +(statut.warning?'<div style="font-size:10px;color:#C0392B;margin-top:2px;">⚠️ '+esc(statut.warning)+' <button class="btn bs sm" onclick="openIngredientCompoModal(\''+i.code+'\')" style="padding:2px 7px;font-size:9px;margin-left:4px;">🔧 Voir le détail</button></div>':'')
           +'<div style="display:flex;gap:4px;align-items:center;font-size:10px;margin-top:4px;">'
@@ -8621,7 +8621,7 @@ function renderIngredientsList(){
           +'<span style="color:var(--txm);">g/L</span>'
           +'</div>')
         :priceInputsHtml(statut.cout,i.code,i.categorie))
-      +(hasBrutSource?'':stockSeuilHtml(i))
+      +stockSeuilHtml(i)
       +'</div>'
       +'</div>';
   }
