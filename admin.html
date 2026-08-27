@@ -5362,6 +5362,7 @@ let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons �
 let rctCategoriesOrdre={};       // {nom_categorie: {ordre, onglet, unite_defaut_mesure}} — commun à Produits&recettes ET Coûts
 let rctSousCategoriesOrdre={};   // {nom_categorie: {nom_sous_categorie: ordre}}
 let rctIngredientComposition={}; // {ingredient_code: [{sub_ingredient_code,quantite,unite}]} — composé d'autres ingrédients directement, propre au restaurant courant
+let rctPendingSeuilSaves=[]; // promesses updateIngredientSeuil en cours — permet à un rechargement (ex: changement de restaurant) d'attendre la fin des sauvegardes avant de re-fetcher, pour ne pas écraser un changement pas encore commité côté serveur
 let rctCurrentSub='list';
 let rctPendingImport=null;      // import ventes en attente de confirmation
 let rctPendingIngImport=null;   // import ingrédients en attente de confirmation
@@ -5375,6 +5376,15 @@ function slugify(str){
 function rctResto(){
   var sel=document.getElementById('global-resto-select');
   return sel?sel.value:'port';
+}
+// Aperçu en direct "= pack de Coca Can" sous le champ Unité de commande — purement visuel, ce qui est
+// stocké reste juste "pack" (le nom du produit est déjà dans ingredients.nom, pas besoin de le dupliquer en base).
+function ucmdPreview(el,code,restoId){
+  var prev=document.getElementById('ucmd-prev-'+code+'-'+restoId);
+  if(!prev)return;
+  var ing=rctIngredients.find(function(x){return x.code===code;});
+  var nom=ing?ing.nom:code;
+  prev.textContent=el.value?('= '+el.value+' de '+nom):'';
 }
 // Libellé humain d'un restaurant à partir de la table 'restaurants' (générique, marche pour
 // Port/Dabray/Labo et tout futur restaurant ajouté via le panneau "Gérer restaurants").
@@ -7199,6 +7209,7 @@ async function loadRecettesModule(){
     // côté Supabase, le reste du module continue à fonctionner.
     rctIngredientSeuilsAll={};
     try{
+      if(rctPendingSeuilSaves.length)await Promise.all(rctPendingSeuilSaves.slice()); // attend les sauvegardes en cours pour ne pas re-fetcher une valeur pas encore commitée côté serveur
       var seuilsRes=await db.from('ingredient_seuils').select('*');
       if(seuilsRes&&!seuilsRes.error)(seuilsRes.data||[]).forEach(function(s){
         rctIngredientSeuilsAll[s.restaurant_id]=rctIngredientSeuilsAll[s.restaurant_id]||{};
@@ -8546,7 +8557,10 @@ function renderIngredientsList(){
         +['piece','g','kg','ml','cl','l'].map(function(u){return '<option value="'+u+'"'+((s.unite_comptage||'piece')===u?' selected':'')+'>'+(u==='piece'?'pièce':u)+'</option>';}).join('')
         +'</select>':'')
       +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="1" placeholder="Colisage" title="Quantité par colis/carton commandé" value="'+(s.colisage!=null?s.colisage:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'colisage\',this.value,\''+r.id+'\')">'
-      +'<input type="text" class="fi" style="width:74px;font-size:10px;" placeholder="Unité cmd" title="Unité de commande (carton, bouteille, fût…)" value="'+esc(s.unite_commande||'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_commande\',this.value,\''+r.id+'\')">'
+      +'<div style="display:flex;flex-direction:column;">'
+      +'<input type="text" class="fi" style="width:74px;font-size:10px;" placeholder="Unité cmd" title="Unité de commande (carton, bouteille, fût…) — juste le type de colis, pas besoin de redonner le nom du produit" value="'+esc(s.unite_commande||'')+'" oninput="ucmdPreview(this,\''+i.code+'\',\''+r.id+'\')" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_commande\',this.value,\''+r.id+'\')">'
+      +'<span id="ucmd-prev-'+i.code+'-'+r.id+'" style="font-size:8px;color:var(--txm);white-space:nowrap;">'+(s.unite_commande?('= '+esc(s.unite_commande)+' de '+esc(i.nom)):'')+'</span>'
+      +'</div>'
       +'</div>'
       +(isCurrent?'<div style="margin-top:4px;"><button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+((rctIngredientRegles[i.code]&&rctIngredientRegles[i.code].length)?' ('+rctIngredientRegles[i.code].length+')':'')+'</button></div>'
         :'<div style="margin-top:4px;font-size:9px;color:var(--txm);">📅 Règles de commande avancées : change de restaurant en haut de page pour celles de '+esc(r.nom||r.id)+'.</div>')
@@ -9249,21 +9263,26 @@ async function handlePriceFieldChange(ingredientCode,field,value){
   }catch(e){console.error('handlePriceFieldChange',e);alert('Erreur : '+e.message);}
 }
 // ── Seuils de stock par ingrédient (table 'ingredient_seuils') — base du futur module Stock unifié ──
-async function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
+function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
   var resto=restoIdOverride||rctResto();
   var payload={restaurant_id:resto,ingredient_code:ingredientCode};
   if(field==='actif')payload[field]=!!value;
   else if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
   else payload[field]=(value===''?null:parseFloat(value));
-  try{
-    sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
-    rctIngredientSeuilsAll[resto]=rctIngredientSeuilsAll[resto]||{};
-    rctIngredientSeuilsAll[resto][ingredientCode]=Object.assign({},rctIngredientSeuilsAll[resto][ingredientCode]||{},payload);
-    if(field==='actif'||field==='type_suivi')renderIngredientsList(); // impacte l'affichage (grisé / champs qty) → rendu complet nécessaire
-  }catch(e){
-    console.error('updateIngredientSeuil',e);
-    alert('Erreur : '+e.message+'\n\nSi le message parle de la table "ingredient_seuils", la migration SQL n\'a probablement pas encore été exécutée dans Supabase.');
-  }
+  var p=(async function(){
+    try{
+      sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
+      rctIngredientSeuilsAll[resto]=rctIngredientSeuilsAll[resto]||{};
+      rctIngredientSeuilsAll[resto][ingredientCode]=Object.assign({},rctIngredientSeuilsAll[resto][ingredientCode]||{},payload);
+      if(field==='actif'||field==='type_suivi')renderIngredientsList(); // impacte l'affichage (grisé / champs qty) → rendu complet nécessaire
+    }catch(e){
+      console.error('updateIngredientSeuil',e);
+      alert('Erreur : '+e.message+'\n\nSi le message parle de la table "ingredient_seuils", la migration SQL n\'a probablement pas encore été exécutée dans Supabase.');
+    }
+  })();
+  rctPendingSeuilSaves.push(p);
+  p.finally(function(){var idx=rctPendingSeuilSaves.indexOf(p);if(idx>=0)rctPendingSeuilSaves.splice(idx,1);});
+  return p;
 }
 // ── Prix au contenant (ex: boîte de 800g à 13,94€) → recalcul auto du prix/kg, prix/L ou prix/unité ──
 // Gère aussi la conversion masse ↔ volume via une densité (g pour 1 litre), utile quand le produit est
