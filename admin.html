@@ -9282,7 +9282,13 @@ async function handlePriceFieldChange(ingredientCode,field,value){
 // ── Seuils de stock par ingrédient (table 'ingredient_seuils') — base du futur module Stock unifié ──
 function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
   var resto=restoIdOverride||rctResto();
-  var payload={restaurant_id:resto,ingredient_code:ingredientCode};
+  var existing=(rctIngredientSeuilsAll[resto]||{})[ingredientCode]||{};
+  // On inclut TOUJOURS type_suivi dans le payload (même quand ce n'est pas ce champ qu'on modifie).
+  // Sinon, la toute première sauvegarde d'un ingrédient jamais configuré sur ce restaurant (ex: on remplit
+  // juste Seuil/Cible sans toucher au menu Type, qui affiche déjà "Quantité" par défaut à l'écran) créait la
+  // ligne sans jamais écrire type_suivi → la valeur par défaut de la colonne SQL ('two') prenait le dessus
+  // silencieusement, malgré des seuils bien enregistrés. Bug corrigé ici + valeur par défaut de la colonne alignée en SQL.
+  var payload={restaurant_id:resto,ingredient_code:ingredientCode,type_suivi:existing.type_suivi||'qty'};
   if(field==='actif')payload[field]=!!value;
   else if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
   else payload[field]=(value===''?null:parseFloat(value));
