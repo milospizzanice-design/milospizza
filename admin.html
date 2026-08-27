@@ -1330,12 +1330,22 @@ function fmtD(ts){return new Date(ts).toLocaleDateString('fr-FR',{day:'2-digit',
 function fmtF(ts){return fmtD(ts)+' '+fmt(ts);}
 function toHM(m){var h=Math.floor(Math.abs(m)/60);var mn=Math.abs(m)%60;return(m<0?'-':'')+h+'h'+String(mn).padStart(2,'0');}
 function emp(id){return emps.find(function(e){return e.id===id;})||{prenom:'?',nom:'',restaurant_id:'?'};}
+var mScrollLockY=0;
 function closeM(id){
   document.getElementById(id).classList.remove('op');
-  // Si plus aucune modale ouverte, débloquer le scroll du body
-  if(!document.querySelector('.mb.op'))document.body.classList.remove('modal-open');
+  // Si plus aucune modale ouverte, débloquer le scroll du body ET restaurer la position d'avant l'ouverture
+  // (position:fixed pendant le verrouillage remettait sinon la page en haut à la fermeture)
+  if(!document.querySelector('.mb.op')){
+    document.body.classList.remove('modal-open');
+    document.body.style.top='';
+    window.scrollTo(0,mScrollLockY);
+  }
 }
 function openM(id){
+  if(!document.querySelector('.mb.op')){
+    mScrollLockY=window.scrollY||document.documentElement.scrollTop||0;
+    document.body.style.top=(-mScrollLockY)+'px';
+  }
   document.getElementById(id).classList.add('op');
   document.body.classList.add('modal-open');
 }
@@ -7161,7 +7171,7 @@ async function loadRecettesModule(){
     // comme ingredient_seuils : si la migration SQL n'a pas encore été exécutée, le reste continue de fonctionner.
     if(fourn&&!fourn.error){
       rctSuppliers=(fourn.data||[]).map(function(f){
-        return {id:f.id,nom:f.nom,jours_livraison:f.jours_livraison||[],delai_commande_jours:f.delai_commande_jours,heure_limite:f.heure_limite,is_labo_interne:!!f.is_labo_interne,actif:f.actif!==false};
+        return {id:f.id,nom:f.nom,jours_livraison:f.jours_livraison||[],delai_commande_jours:f.delai_commande_jours,heure_limite:f.heure_limite,is_labo_interne:!!f.is_labo_interne,is_cuisine_interne:!!f.is_cuisine_interne,actif:f.actif!==false};
       });
     }else{
       if(fourn&&fourn.error)console.warn('fournisseurs indisponible (migration SQL pas encore exécutée ?)',fourn.error);
@@ -8549,7 +8559,7 @@ function renderIngredientsList(){
       +'</select>'
       +'<select class="fi" style="font-size:10px;max-width:120px;" title="Fournisseur pour la commande" onchange="updateIngredientSeuil(\''+i.code+'\',\'fournisseur_id\',this.value,\''+r.id+'\')">'
         +'<option value="">🚚 Fournisseur…</option>'
-        +rctSuppliers.map(function(sup){return '<option value="'+esc(sup.id)+'"'+(s.fournisseur_id===sup.id?' selected':'')+'>'+esc(sup.nom)+'</option>';}).join('')
+        +rctSuppliers.map(function(sup){return '<option value="'+esc(sup.id)+'"'+(s.fournisseur_id===sup.id?' selected':'')+'>'+(sup.is_labo_interne?'🏭 ':sup.is_cuisine_interne?'🍳 ':'')+esc(sup.nom)+'</option>';}).join('')
       +'</select>'
       +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Seuil" title="Quantité en dessous de laquelle on repasse commande" value="'+(s.seuil_min!=null?s.seuil_min:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'seuil_min\',this.value,\''+r.id+'\')">'
       +(type==='qty'?'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Cible" title="Quantité à atteindre quand on commande (le système calcule combien commander pour y arriver)" value="'+(s.cible!=null?s.cible:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'cible\',this.value,\''+r.id+'\')">':'')
@@ -8725,7 +8735,7 @@ function openReglesCommandeModal(code){
 }
 function regleFournisseurOptionsHtml(selectedId){
   return '<option value="">Fournisseur…</option>'
-    +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(selectedId===s.id?' selected':'')+'>'+esc(s.nom)+'</option>';}).join('');
+    +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(selectedId===s.id?' selected':'')+'>'+(s.is_labo_interne?'🏭 ':s.is_cuisine_interne?'🍳 ':'')+esc(s.nom)+'</option>';}).join('');
 }
 function renderReglesCommandeList(){
   var box=document.getElementById('mregles-list');
@@ -9043,6 +9053,9 @@ function renderSuppliersList(){
       +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;">'
       +'<input type="checkbox" '+(s.is_labo_interne?'checked':'')+' onchange="updateSupplierField(\''+id+'\',\'is_labo_interne\',this.checked)"> 🏭 Interne (commande passée au Labo, pas un vrai fournisseur externe)'
       +'</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;">'
+      +'<input type="checkbox" '+(s.is_cuisine_interne?'checked':'')+' onchange="updateSupplierField(\''+id+'\',\'is_cuisine_interne\',this.checked)"> 🍳 Interne (préparé par la cuisine du restaurant, pas de commande à passer)'
+      +'</label>'
       +'<div style="display:flex;gap:8px;">'
       +'<div style="flex:1;"><label class="fl2" style="font-size:10px;">Délai de commande (jours avant livraison)</label>'
         +'<input type="number" class="fi" min="0" step="1" value="'+(s.delai_commande_jours!=null?s.delai_commande_jours:'')+'" onchange="updateSupplierField(\''+id+'\',\'delai_commande_jours\',this.value)"></div>'
@@ -9059,6 +9072,7 @@ async function updateSupplierField(id,field,value){
   var payload={};
   if(field==='delai_commande_jours')payload[field]=value===''?null:parseInt(value,10);
   else if(field==='is_labo_interne')payload[field]=!!value;
+  else if(field==='is_cuisine_interne')payload[field]=!!value;
   else if(field==='heure_limite')payload[field]=value||null;
   else payload[field]=value;
   s[field]=payload[field];
@@ -9074,7 +9088,7 @@ async function createSupplier(){
   var id='sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   try{
     sbCheck(await db.from('fournisseurs_stock').insert({id:id,nom:name,jours_livraison:[],actif:true}));
-    rctSuppliers.push({id:id,nom:name,jours_livraison:[],delai_commande_jours:null,heure_limite:null,is_labo_interne:false,actif:true});
+    rctSuppliers.push({id:id,nom:name,jours_livraison:[],delai_commande_jours:null,heure_limite:null,is_labo_interne:false,is_cuisine_interne:false,actif:true});
     rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
     document.getElementById('msup-new-name').value='';
     renderSuppliersList();
@@ -9133,19 +9147,22 @@ async function openBesoinsLaboModal(){
         var laboSeuil=laboSeuils[code];
         var realSupId=laboSeuil&&laboSeuil.fournisseur_id;
         var realSup=null;
+        var laboFabriqueMaison=false;
         if(realSupId){
           var rs=rctSuppliers.find(function(x){return x.id===realSupId;});
-          if(rs&&!rs.is_labo_interne)realSup=rs.nom;
+          if(rs&&rs.is_cuisine_interne)laboFabriqueMaison=true; // le Labo prépare lui-même cet ingrédient, pas de fournisseur externe à afficher
+          else if(rs&&!rs.is_labo_interne)realSup=rs.nom;
         }
-        if(!byIngredient[code])byIngredient[code]={nom:nom,restos:[],realSupName:realSup};
+        if(!byIngredient[code])byIngredient[code]={nom:nom,restos:[],realSupName:realSup,laboFabriqueMaison:laboFabriqueMaison};
         if(byIngredient[code].restos.indexOf(resto)<0)byIngredient[code].restos.push(resto);
         if(!byIngredient[code].realSupName&&realSup)byIngredient[code].realSupName=realSup;
+        if(laboFabriqueMaison)byIngredient[code].laboFabriqueMaison=true;
       });
     });
     var byRealSup={};
     Object.keys(byIngredient).forEach(function(code){
       var item=byIngredient[code];
-      var groupKey=item.realSupName||'⚠️ Fournisseur réel non précisé';
+      var groupKey=item.laboFabriqueMaison?'🍳 Fabriqué en interne (Labo)':(item.realSupName||'⚠️ Fournisseur réel non précisé');
       byRealSup[groupKey]=byRealSup[groupKey]||[];
       byRealSup[groupKey].push(item);
     });
