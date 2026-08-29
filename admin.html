@@ -1085,6 +1085,14 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:2px">- Retirer des cat&#233;gories (m&#234;me si le r&#244;le les donne)</div>
       <div id="sal-cats-remove-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
+    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
+      <label class="fl2">Personnalisation comptage rapide (optionnel)</label>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">Ajuste les cat&#233;gories visibles dans "Comptage rapide" en plus de ce que donnent ses r&#244;les.</div>
+      <div style="font-size:10px;font-weight:700;color:#166534;margin-bottom:2px">+ Ajouter des cat&#233;gories</div>
+      <div id="sal-comptage-cats-add-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:2px">- Retirer des cat&#233;gories (m&#234;me si le r&#244;le les donne)</div>
+      <div id="sal-comptage-cats-remove-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
     <div class="fr">
       <label class="fl2">Badge NFC (UID)</label>
       <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace" oninput="cleanBadgeUid(this)">
@@ -2657,9 +2665,10 @@ async function loadRoles(){
   var h='';
   rolesData.forEach(function(ro){
     var nCats=(ro.stock_categories||[]).length;
+    var nCptCats=(ro.comptage_categories||[]).length;
     h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">';
     h+='<span style="width:14px;height:14px;border-radius:50%;background:'+(ro.couleur||'#B91E26')+';flex-shrink:0"></span>';
-    h+='<span style="flex:1;font-size:13px;font-weight:600">'+ro.nom+'<div style="font-size:10px;font-weight:400;color:var(--txm)">'+(nCats?nCats+' cat\u00e9gorie(s) stocks':'aucun acc\u00e8s stocks')+'</div></span>';
+    h+='<span style="flex:1;font-size:13px;font-weight:600">'+ro.nom+'<div style="font-size:10px;font-weight:400;color:var(--txm)">'+(nCats?nCats+' cat\u00e9gorie(s) stocks':'aucun acc\u00e8s stocks')+' &middot; '+(nCptCats?nCptCats+' cat\u00e9gorie(s) comptage':'aucun acc\u00e8s comptage')+'</div></span>';
     h+='<button class="btn bs sm" onclick="openEditRole('+ro.id+')">\u270E</button>';
     h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="delRole('+ro.id+')">\u{1F5D1}</button>';
     h+='</div>';
@@ -2683,12 +2692,48 @@ function readRoleStockCatsCheckboxes(){
   if(!box)return[];
   return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:checked')).map(function(i){return i.value;});
 }
+// Catégories de comptage rapide : dérivées dynamiquement des catégories d'ingrédients réellement
+// utilisées (table 'ingredients', restaurant_id='global'), pas d'une liste figée comme STOCK_CATS_CANONICAL.
+// Mise en cache le temps de la session admin ; refreshComptageCatsCanonical() force un rechargement.
+window.COMPTAGE_CATS_CANONICAL=null;
+async function ensureComptageCatsCanonical(forceReload){
+  if(window.COMPTAGE_CATS_CANONICAL&&!forceReload)return window.COMPTAGE_CATS_CANONICAL;
+  try{
+    var r=await db.from('ingredients').select('categorie').eq('restaurant_id','global').eq('actif',true);
+    var set=new Set();
+    (r.data||[]).forEach(function(i){if(i.categorie)set.add(i.categorie);});
+    window.COMPTAGE_CATS_CANONICAL=Array.from(set).sort(function(a,b){return a.localeCompare(b,'fr');}).map(function(c){return {id:c,label:c};});
+  }catch(e){console.error('ensureComptageCatsCanonical',e);window.COMPTAGE_CATS_CANONICAL=window.COMPTAGE_CATS_CANONICAL||[];}
+  return window.COMPTAGE_CATS_CANONICAL;
+}
+function renderRoleComptageCatsCheckboxes(selected){
+  selected=selected||[];
+  var box=document.getElementById('role-comptage-cats');
+  if(!box)return;
+  box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement des cat\u00e9gories...</div>';
+  ensureComptageCatsCanonical().then(function(cats){
+    if(!box)return;
+    if(!cats.length){box.innerHTML='<div style="color:#aaa;font-size:11px;">Aucune cat\u00e9gorie d\u2019ingr\u00e9dient trouv\u00e9e (cr\u00e9e-les d\u2019abord dans Recettes &gt; Ingr\u00e9dients).</div>';return;}
+    box.innerHTML=cats.map(function(c){
+      var on=selected.indexOf(c.id)>=0;
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;background:'+(on?'#DCFCE7':'#FAF4EC')+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;cursor:pointer;">'
+        +'<input type="checkbox" value="'+esc(c.id)+'"'+(on?' checked':'')+' onchange="this.parentElement.style.background=this.checked?\'#DCFCE7\':\'#FAF4EC\'">'
+        +esc(c.label)+'</label>';
+    }).join('');
+  });
+}
+function readRoleComptageCatsCheckboxes(){
+  var box=document.getElementById('role-comptage-cats');
+  if(!box)return[];
+  return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:checked')).map(function(i){return i.value;});
+}
 function openAddRole(){
   roleEditId=null;
   document.getElementById('role-modal-title').textContent='Nouveau r\u00f4le';
   document.getElementById('role-nom').value='';
   document.getElementById('role-couleur').value='#B91E26';
   renderRoleStockCatsCheckboxes([]);
+  renderRoleComptageCatsCheckboxes([]);
   openM('modal-role');
 }
 function openEditRole(id){
@@ -2699,18 +2744,20 @@ function openEditRole(id){
   document.getElementById('role-nom').value=ro.nom;
   document.getElementById('role-couleur').value=ro.couleur||'#B91E26';
   renderRoleStockCatsCheckboxes(ro.stock_categories||[]);
+  renderRoleComptageCatsCheckboxes(ro.comptage_categories||[]);
   openM('modal-role');
 }
 async function saveRole(){
   var nom=document.getElementById('role-nom').value.trim();
   var couleur=document.getElementById('role-couleur').value;
   var stockCats=readRoleStockCatsCheckboxes();
+  var comptageCats=readRoleComptageCatsCheckboxes();
   if(!nom){alert('Indiquez un nom');return;}
   if(roleEditId){
-    var r=await db.from('roles').update({nom:nom,couleur:couleur,stock_categories:stockCats}).eq('id',roleEditId);
+    var r=await db.from('roles').update({nom:nom,couleur:couleur,stock_categories:stockCats,comptage_categories:comptageCats}).eq('id',roleEditId);
     if(r.error){alert('Erreur: '+r.error.message);return;}
   }else{
-    var r2=await db.from('roles').insert({nom:nom,couleur:couleur,stock_categories:stockCats});
+    var r2=await db.from('roles').insert({nom:nom,couleur:couleur,stock_categories:stockCats,comptage_categories:comptageCats});
     if(r2.error){alert('Erreur: '+r2.error.message);return;}
   }
   closeM('modal-role');loadRoles();
@@ -3865,7 +3912,7 @@ function exportIndivPDF(){
 }
 
 
-function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalCatsOverrides(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
+function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalCatsOverrides(null);renderSalComptageCatsOverrides(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
 
@@ -4032,6 +4079,46 @@ async function applyPlanningType(){
 var tmpSalRoles=[];
 var tmpSalCatsAdd=[];
 var tmpSalCatsRemove=[];
+var tmpSalComptageCatsAdd=[];
+var tmpSalComptageCatsRemove=[];
+function renderSalComptageCatsOverrides(salId){
+  if(salId){
+    var em3=emp(salId);
+    tmpSalComptageCatsAdd=(em3&&em3.comptage_cats_add)?(Array.isArray(em3.comptage_cats_add)?em3.comptage_cats_add.slice():[]):[];
+    tmpSalComptageCatsRemove=(em3&&em3.comptage_cats_remove)?(Array.isArray(em3.comptage_cats_remove)?em3.comptage_cats_remove.slice():[]):[];
+  }else{
+    tmpSalComptageCatsAdd=[];tmpSalComptageCatsRemove=[];
+  }
+  renderSalComptageCatsCheckboxes();
+}
+function renderSalComptageCatsCheckboxes(){
+  var addBox=document.getElementById('sal-comptage-cats-add-list');
+  var remBox=document.getElementById('sal-comptage-cats-remove-list');
+  if(!addBox||!remBox)return;
+  addBox.innerHTML=remBox.innerHTML='<span style="color:#aaa;font-size:11px">Chargement...</span>';
+  ensureComptageCatsCanonical().then(function(cats){
+    if(!addBox||!remBox)return;
+    if(!cats.length){addBox.innerHTML=remBox.innerHTML='<span style="color:#aaa;font-size:11px">Aucune cat\u00e9gorie d\u2019ingr\u00e9dient trouv\u00e9e.</span>';return;}
+    addBox.innerHTML=cats.map(function(c){
+      var on=tmpSalComptageCatsAdd.indexOf(c.id)>=0;
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:11px;background:'+(on?'#DCFCE7':'#fff')+';border:1px solid var(--bd);border-radius:8px;padding:4px 7px;cursor:pointer;">'
+        +'<input type="checkbox" value="'+esc(c.id)+'"'+(on?' checked':'')+' onchange="toggleSalComptageCat(\'add\',\''+esc(c.id)+'\',this.checked);this.parentElement.style.background=this.checked?\'#DCFCE7\':\'#fff\'"'
+        +esc(c.label)+'</label>';
+    }).join('');
+    remBox.innerHTML=cats.map(function(c){
+      var on=tmpSalComptageCatsRemove.indexOf(c.id)>=0;
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:11px;background:'+(on?'#FEE2E2':'#fff')+';border:1px solid var(--bd);border-radius:8px;padding:4px 7px;cursor:pointer;">'
+        +'<input type="checkbox" value="'+esc(c.id)+'"'+(on?' checked':'')+' onchange="toggleSalComptageCat(\'remove\',\''+esc(c.id)+'\',this.checked);this.parentElement.style.background=this.checked?\'#FEE2E2\':\'#fff\'"'
+        +esc(c.label)+'</label>';
+    }).join('');
+  });
+}
+function toggleSalComptageCat(kind,catId,checked){
+  var arr=kind==='add'?tmpSalComptageCatsAdd:tmpSalComptageCatsRemove;
+  var i=arr.indexOf(catId);
+  if(checked&&i<0)arr.push(catId);
+  else if(!checked&&i>=0)arr.splice(i,1);
+}
 function renderSalCatsOverrides(salId){
   if(salId){
     var em2=emp(salId);
@@ -4219,7 +4306,7 @@ function openEditSal(id){
   document.getElementById('sapin').value='';
   var bu=document.getElementById('sal-badge-uid');if(bu)bu.value=em.badge_uid||'';
   loadSalPinState(em);
-  renderSalPostesList(id);renderSalRolesList(id);renderSalCatsOverrides(id);
+  renderSalPostesList(id);renderSalRolesList(id);renderSalCatsOverrides(id);renderSalComptageCatsOverrides(id);
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
   if(ptStart){if(em&&em.date_debut){ptStart.value=em.date_debut;}else{var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}}
@@ -4239,7 +4326,7 @@ async function saveSal(){
     var mail=document.getElementById('samail').value||null;
     var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,badge_uid:badgeUid,pin_autorise:pinAut};
+  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,badge_uid:badgeUid,pin_autorise:pinAut};
     await db.from('employees').update(upd).eq('id',curSal);
   }else{
     var newSec=deduceSecteur('new');
@@ -4248,7 +4335,7 @@ async function saveSal(){
     var mail2=document.getElementById('samail').value||null;
     var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut2=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,badge_uid:badgeUid2,pin_autorise:pinAut2}).select();
+  var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,badge_uid:badgeUid2,pin_autorise:pinAut2}).select();
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
@@ -11217,6 +11304,10 @@ async function init(){
       <input type="color" class="fi" id="role-couleur" value="#B91E26" style="height:42px"></div>
     <div class="fr"><label class="fl2">Cat&#233;gories stocks accessibles</label>
       <div id="role-stock-cats" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+    </div>
+    <div class="fr"><label class="fl2">Cat&#233;gories comptage rapide accessibles</label>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:4px">Les salari&#233;s avec ce r&#244;le ne verront que ces cat&#233;gories dans "Comptage rapide". Aucune case coch&#233;e = aucun acc&#232;s tant que ce n'est pas configur&#233;.</div>
+      <div id="role-comptage-cats" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
     </div>
     <div class="ma">
       <button class="btn bp" onclick="saveRole()">Enregistrer</button>
