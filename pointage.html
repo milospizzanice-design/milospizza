@@ -104,6 +104,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-info{flex:1;min-width:0}
 .cpt-name{font-size:13px;font-weight:600;color:#1A1008;line-height:1.2}
 .cpt-meta{font-size:10px;color:#8a7f70;margin-top:1px}
+.cpt-del{margin-left:6px;cursor:pointer;opacity:.55;font-size:10px}
+.cpt-del:active{opacity:1}
 .cpt-ctrl{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
 .cpt-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
 .cpt-pill-ok{background:#E8F5E9;color:#1E8449}
@@ -1103,6 +1105,7 @@ async function menuStocks(){
 function escCpt(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 var cptIngredients=[]; // [{code,nom,categorie,type_suivi,unite_comptage,dernier:{valeur,compte_le}|null}]
 var cptSaving={}; // code -> true pendant l'enregistrement, anti double-tap
+var cptLaboInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "🏭 Interne"
 
 // Calcule les catégories de comptage effectives du salarié connecté (union des rôles + overrides),
 // même principe que le module Stocks (catsAdd/catsRemove) mais sur roles.comptage_categories.
@@ -1155,6 +1158,12 @@ async function menuComptage(){
     if(seuilsRes.error)throw seuilsRes.error;
     var comptagesRes=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).order('compte_le',{ascending:false});
     if(comptagesRes.error)throw comptagesRes.error;
+    // Fournisseurs marqués "🏭 Interne" (Labo) : sert à déclencher automatiquement la commande Labo au moment
+    // du comptage, sans passer par l'écran admin (cf. cptAutoCommandeLaboSiNecessaire).
+    try{
+      var fournRes=await db.from('fournisseurs_stock').select('id,is_labo_interne');
+      cptLaboInterneSupplierIds=new Set((fournRes.data||[]).filter(function(f){return f.is_labo_interne;}).map(function(f){return f.id;}));
+    }catch(e){console.warn('fournisseurs_stock indisponible',e);cptLaboInterneSupplierIds=new Set();}
     var seuilsByCode={};
     (seuilsRes.data||[]).forEach(function(s){seuilsByCode[s.ingredient_code]=s;});
     var dernierByCode={};
@@ -1166,7 +1175,7 @@ async function menuComptage(){
       if(!included)return null;
       var s=seuilsByCode[i.code];
       if(!s||s.actif===false)return null; // pas configuré / masqué pour ce restaurant (fiche ingrédient > Visible ici)
-      return {code:i.code,nom:i.nom,categorie:cat,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null};
+      return {code:i.code,nom:i.nom,categorie:cat,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null};
     }).filter(Boolean);
 
     // Bandeau "aujourd'hui" : catégories ayant une règle de commande "jours fixes" (ingredient_regles_commande,
@@ -1301,11 +1310,12 @@ function comptageRowHtml(i){
   var st=cptStatus(i);
   var pill=st?('<span class="cpt-pill cpt-pill-'+st.cls+'">'+escCpt(st.label)+'</span>'):'';
   var rowFlag=st&&st.cls==='bad'?' order':(st&&st.cls==='warn'?' warn':'');
+  var delBtn=i.dernier?('<span class="cpt-del" onclick="deleteComptageHistory(\''+i.code+'\')" title="Supprimer l\'historique de comptage de cet ingr\u00e9dient (pour tester)">&#128465;</span>'):'';
   return '<div class="cpt-row'+rowFlag+'" id="'+id+'">'
     +'<span class="cpt-dot" style="background:'+cptCatColor(i.categorie)+'"></span>'
     +'<div class="cpt-info">'
       +'<div class="cpt-name">'+escCpt(i.nom)+'</div>'
-      +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+'</div>'
+      +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+delBtn+'</div>'
     +'</div>'
     +'<div class="cpt-ctrl">'+pill+body+'</div>'
     +'</div>';
@@ -1326,6 +1336,22 @@ function cptAdjQty(code,delta){
   inp.value=next;
   saveComptage(code);
 }
+// Supprime TOUT l'historique de comptage de cet ingrédient sur ce restaurant (pas juste le dernier) — pensé
+// pour les tests : repart de "jamais compté". Sans confirmation ce serait dangereux en usage normal, donc
+// on demande toujours confirmation, et l'ingrédient redescend en "Jamais compté" après coup.
+async function deleteComptageHistory(code){
+  var i=cptIngredients.find(function(x){return x.code===code;});
+  if(!i||cptSaving[code])return;
+  if(!confirm('Supprimer tout l\'historique de comptage de "'+i.nom+'" sur ce restaurant ?\n\nIrréversible — utile pour repartir de zéro en test.'))return;
+  cptSaving[code]=true;
+  try{
+    var del=await db.from('ingredient_comptages').delete().eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code);
+    if(del.error){alert('Erreur : '+del.error.message);return;}
+    i.dernier=null;
+    renderComptageList();
+  }catch(e){console.error('deleteComptageHistory',e);alert('Erreur : '+e.message);}
+  finally{cptSaving[code]=false;}
+}
 
 async function saveComptage(code,choiceVal){
   var i=cptIngredients.find(function(x){return x.code===code;});
@@ -1343,8 +1369,43 @@ async function saveComptage(code,choiceVal){
     if(ins.error){alert('Erreur : '+ins.error.message);return;}
     i.dernier=ins.data;
     renderComptageList();
+    cptAutoCommandeLaboSiNecessaire(i); // pas de await : ne bloque jamais l'écran de comptage, juste en tâche de fond
   }catch(e){console.error('saveComptage',e);alert('Erreur : '+e.message);}
   finally{cptSaving[code]=false;}
+}
+// Déclenche/actualise automatiquement une commande Labo dès que le comptage fait passer un ingrédient sous
+// son seuil ET que son fournisseur est marqué "🏭 Interne" — pas besoin de repasser par Admin > Besoins.
+// Réutilise une commande déjà ouverte pour ce restaurant (en_attente/partiellement_envoyee) au lieu d'en créer
+// une par ingrédient, pour éviter de multiplier les commandes. Échoue silencieusement : le comptage lui-même
+// est déjà enregistré, on ne veut pas bloquer l'employé pour un souci sur cette étape annexe.
+async function cptAutoCommandeLaboSiNecessaire(i){
+  if(!i.fournisseur_id||!cptLaboInterneSupplierIds.has(i.fournisseur_id))return;
+  var st=cptStatus(i);
+  if(!st||st.cls==='ok')return;
+  var qte=1;
+  if(i.type_suivi==='qty'&&i.cible!=null&&i.dernier){
+    var val=parseFloat(i.dernier.valeur);
+    if(!isNaN(val)){
+      var manque=i.cible-val;
+      if(manque>0)qte=(i.colisage&&i.colisage>0)?Math.ceil(manque/i.colisage)*i.colisage:Math.round(manque*100)/100;
+    }
+  }
+  try{
+    var openRes=await db.from('labo_commandes').select('id').eq('restaurant_id',RESTAURANT_ID).in('statut',['en_attente','partiellement_envoyee']).order('created_at',{ascending:false}).limit(1).maybeSingle();
+    var commandeId=openRes.data?openRes.data.id:null;
+    if(!commandeId){
+      var creePar=(emp?(emp.prenom+' '+emp.nom):'Comptage')+' (auto)';
+      var cmd=await db.from('labo_commandes').insert({restaurant_id:RESTAURANT_ID,statut:'en_attente',created_by_nom:creePar}).select().single();
+      if(cmd.error)throw cmd.error;
+      commandeId=cmd.data.id;
+    }
+    var ligneRes=await db.from('labo_commandes_lignes').select('id,quantite_demandee').eq('commande_id',commandeId).eq('produit_code',i.code).limit(1).maybeSingle();
+    if(ligneRes.data){
+      if(qte!==ligneRes.data.quantite_demandee)await db.from('labo_commandes_lignes').update({quantite_demandee:qte}).eq('id',ligneRes.data.id);
+    }else{
+      await db.from('labo_commandes_lignes').insert({commande_id:commandeId,produit_code:i.code,produit_nom:i.nom,restaurant_produit_id:null,quantite_demandee:qte});
+    }
+  }catch(e){console.error('cptAutoCommandeLaboSiNecessaire',e);}
 }
 function menuAcompte(){
   acoEmp=emp;

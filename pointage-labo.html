@@ -104,6 +104,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-info{flex:1;min-width:0}
 .cpt-name{font-size:13px;font-weight:600;color:#1A1008;line-height:1.2}
 .cpt-meta{font-size:10px;color:#8a7f70;margin-top:1px}
+.cpt-del{margin-left:6px;cursor:pointer;opacity:.55;font-size:10px}
+.cpt-del:active{opacity:1}
 .cpt-ctrl{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
 .cpt-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
 .cpt-pill-ok{background:#E8F5E9;color:#1E8449}
@@ -218,9 +220,22 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cl">Comptage rapide</div>
         <div class="cs">Nouveau module de comptage (test)</div>
       </div>
+      <div class="cbtn" onclick="menuCommandesFournisseurs()" id="cbtn-commandes" style="position:relative">
+        <div class="ci">&#128228;</div>
+        <div class="cl">Commandes fournisseurs</div>
+        <div class="cs">Ce qu'il reste &agrave; envoyer aujourd'hui</div>
+        <div id="commandes-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
+      </div>
       <button class="canc" onclick="reset()" style="margin-top:8px">D&#233;connexion</button>
     </div>
     
+    <div class="screen" id="s-commandes">
+      <div class="panel-title" style="margin-bottom:10px">&#128228; Commandes fournisseurs</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Regroup&eacute; par fournisseur, d'apr&egrave;s les derniers comptages de ce restaurant. Un seul message par fournisseur &mdash; attends que tout le monde ait fini de compter avant d'envoyer.</div>
+      <div id="cmdf-list" style="max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
+    </div>
+
     <div class="screen" id="s-comptage">
       <div class="panel-title" style="margin-bottom:10px">&#129518; Comptage rapide</div>
       <div id="cpt-today-banner" style="display:none;margin-bottom:10px"></div>
@@ -431,7 +446,7 @@ tick();setInterval(tick,1000);
 function ss(name){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('s-'+name);if(el)el.classList.add('on');
-  if(name==='menu'&&emp)checkDemandesNouveautes();
+  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();}
 }
 
 
@@ -1103,6 +1118,7 @@ async function menuStocks(){
 function escCpt(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 var cptIngredients=[]; // [{code,nom,categorie,type_suivi,unite_comptage,dernier:{valeur,compte_le}|null}]
 var cptSaving={}; // code -> true pendant l'enregistrement, anti double-tap
+var cptLaboInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "🏭 Interne"
 
 // Calcule les catégories de comptage effectives du salarié connecté (union des rôles + overrides),
 // même principe que le module Stocks (catsAdd/catsRemove) mais sur roles.comptage_categories.
@@ -1126,6 +1142,163 @@ async function comptageCatsForEmployee(){
   }
   var finalCats=roleCats.concat(catsAdd).filter(function(c,idx,arr){return arr.indexOf(c)===idx;}).filter(function(c){return catsRemove.indexOf(c)<0;});
   return {cats:finalCats,ingInclude:ingInclude,ingExclude:ingExclude};
+}
+
+// ── COMMANDES FOURNISSEURS (accessible directement depuis pointage, sans passer par admin) ──
+// Même logique que "Besoins (comptage)" côté admin, mais restreinte à CE restaurant et aux vrais fournisseurs
+// externes (les fournisseurs "🏭 Interne" Labo sont exclus : ils sont déjà gérés automatiquement au comptage,
+// cf. cptAutoCommandeLaboSiNecessaire). Un ingrédient déjà marqué "commande_envoyee" n'apparaît plus tant
+// qu'il n'a pas été recompté — ça permet à plusieurs personnes de compter dans la journée pour un même
+// fournisseur sans fragmenter en plusieurs messages WhatsApp.
+var cmdfByFourn={};
+var cmdfWaUrls={};
+async function loadCommandesFournisseursData(){
+  var seuilsRes=await db.from('ingredient_seuils').select('*').eq('restaurant_id',RESTAURANT_ID);
+  if(seuilsRes.error)throw seuilsRes.error;
+  var comptagesRes=await db.from('ingredient_comptages').select('id,ingredient_code,valeur,compte_le,commande_envoyee').eq('restaurant_id',RESTAURANT_ID).order('compte_le',{ascending:false});
+  if(comptagesRes.error)throw comptagesRes.error;
+  var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,whatsapp_groupe,heure_limite');
+  var suppliersById={};(fournRes.data||[]).forEach(function(f){suppliersById[f.id]=f;});
+  var ingRes=await db.from('ingredients').select('code,nom').eq('restaurant_id','global').eq('actif',true);
+  var ingByCode={};(ingRes.data||[]).forEach(function(i){ingByCode[i.code]=i;});
+  var dernierByCode={};
+  (comptagesRes.data||[]).forEach(function(c){if(!dernierByCode[c.ingredient_code])dernierByCode[c.ingredient_code]=c;}); // déjà trié desc -> le 1er par code est le plus récent
+  function flaggedNonQty(typeSuivi,valeur){
+    if(typeSuivi==='two')return valeur==='commander';
+    if(typeSuivi==='rup')return valeur==='rupture'||valeur==='faible';
+    if(typeSuivi==='yn')return valeur==='non';
+    if(typeSuivi==='level'){var v=parseFloat(valeur);return !isNaN(v)&&v<=25;}
+    return false;
+  }
+  var items=[];
+  (seuilsRes.data||[]).forEach(function(s){
+    if(!s||s.actif===false)return;
+    if(!s.fournisseur_id)return; // sans fournisseur assigné : rien à envoyer, ignoré ici
+    var sup=suppliersById[s.fournisseur_id];
+    if(!sup||sup.is_labo_interne)return; // Labo interne : déjà géré automatiquement au comptage
+    var d=dernierByCode[s.ingredient_code];
+    if(!d)return;
+    if(d.commande_envoyee)return; // déjà signalé dans un message précédent
+    var flagged=false,suggestion='';
+    if(s.type_suivi==='qty'){
+      var val=parseFloat(d.valeur);
+      if(!isNaN(val)&&s.seuil_min!=null&&val<s.seuil_min){
+        flagged=true;
+        if(s.cible!=null){
+          var manque=s.cible-val;
+          if(manque>0){
+            if(s.colisage&&s.colisage>0){
+              var nbColis=Math.ceil(manque/s.colisage);
+              suggestion='~'+(nbColis*s.colisage)+(s.unite_comptage?(' '+s.unite_comptage):'')+' ('+nbColis+' × '+(s.unite_commande||'colis')+')';
+            }else{
+              suggestion='~'+(Math.round(manque*100)/100)+(s.unite_comptage?(' '+s.unite_comptage):'');
+            }
+          }
+        }
+      }
+    }else{
+      flagged=flaggedNonQty(s.type_suivi,d.valeur);
+    }
+    if(!flagged)return;
+    var ing=ingByCode[s.ingredient_code];
+    items.push({code:s.ingredient_code,nom:ing?ing.nom:s.ingredient_code,fournisseurId:sup.id,suggestion:suggestion,valeur:d.valeur,compteLe:d.compte_le,comptageId:d.id});
+  });
+  var byFourn={};
+  items.forEach(function(it){
+    byFourn[it.fournisseurId]=byFourn[it.fournisseurId]||{sup:suppliersById[it.fournisseurId],items:[]};
+    byFourn[it.fournisseurId].items.push(it);
+  });
+  cmdfByFourn=byFourn;
+  return byFourn;
+}
+async function checkCommandesFournisseursBadge(){
+  try{
+    var byFourn=await loadCommandesFournisseursData();
+    var total=0;Object.keys(byFourn).forEach(function(k){total+=byFourn[k].items.length;});
+    var badge=document.getElementById('commandes-badge');
+    if(badge){
+      if(total){badge.style.display='flex';badge.textContent=total;}
+      else badge.style.display='none';
+    }
+  }catch(e){console.error('checkCommandesFournisseursBadge',e);}
+}
+async function menuCommandesFournisseurs(){
+  ss('commandes');
+  var box=document.getElementById('cmdf-list');
+  box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
+  try{
+    var byFourn=await loadCommandesFournisseursData();
+    renderCommandesFournisseursList(byFourn);
+    var badge=document.getElementById('commandes-badge');
+    if(badge){
+      var total=0;Object.keys(byFourn).forEach(function(k){total+=byFourn[k].items.length;});
+      if(total){badge.style.display='flex';badge.textContent=total;}else badge.style.display='none';
+    }
+  }catch(e){
+    console.error('menuCommandesFournisseurs',e);
+    box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(e.message)+'</div>';
+  }
+}
+function renderCommandesFournisseursList(byFourn){
+  var box=document.getElementById('cmdf-list');
+  var keys=Object.keys(byFourn);
+  if(!keys.length){
+    box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Rien &agrave; envoyer pour l\'instant. &#128077;</div>';
+    return;
+  }
+  keys.sort(function(a,b){return (byFourn[a].sup?byFourn[a].sup.nom:'').localeCompare(byFourn[b].sup?byFourn[b].sup.nom:'','fr');});
+  cmdfWaUrls={};
+  box.innerHTML=keys.map(function(key){
+    var g=byFourn[key];
+    var groupName=g.sup?g.sup.nom:key;
+    var its=g.items.slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+    var msgLines=['📦 Commande '+groupName].concat(its.map(function(it){
+      return '- '+it.nom+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
+    }));
+    var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
+    cmdfWaUrls[key]=waUrl;
+    var heureLimiteHtml=(g.sup&&g.sup.heure_limite)?('<div style="font-size:10px;color:#FEF3C7;font-weight:700;margin-top:2px;">&#9200; Heure limite : '+escCpt(g.sup.heure_limite.slice(0,5))+'</div>'):'';
+    var groupeHtml=(g.sup&&g.sup.whatsapp_groupe)?('<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:2px;">&#128241; Groupe : '+escCpt(g.sup.whatsapp_groupe)+'</div>'):'';
+    var itemsHtml=its.map(function(it){
+      return '<div style="font-size:11px;color:rgba(255,255,255,.85);padding:2px 0;">&#8226; '+escCpt(it.nom)+(it.suggestion?(' — '+escCpt(it.suggestion)):(' — '+escCpt(String(it.valeur))))+'</div>';
+    }).join('');
+    return '<div class="cbtn" style="cursor:default;text-align:left;margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+        +'<div class="cl" style="margin-bottom:0">'+escCpt(groupName)+'</div>'
+        +'<button type="button" onclick="marquerEtOuvrirWhatsappPointage(\''+key+'\')" style="background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;border:none;cursor:pointer;white-space:nowrap;">&#128228; WhatsApp</button>'
+      +'</div>'
+      +heureLimiteHtml+groupeHtml
+      +'<div style="margin-top:6px;">'+itemsHtml+'</div>'
+      +'</div>';
+  }).join('');
+}
+async function marquerEtOuvrirWhatsappPointage(fournKey){
+  var waUrl=cmdfWaUrls[fournKey];
+  if(!waUrl)return;
+  var g=cmdfByFourn[fournKey];
+  // Même garde-fou que côté admin : évite d'envoyer un message partiel si d'autres personnes comptent
+  // peut-être encore aujourd'hui pour ce fournisseur.
+  if(g&&g.sup&&g.sup.heure_limite){
+    var now=new Date();
+    var parts=g.sup.heure_limite.split(':');
+    var limite=new Date(now);limite.setHours(parseInt(parts[0],10)||0,parseInt(parts[1],10)||0,0,0);
+    var heuresRestantes=(limite-now)/3600000;
+    if(heuresRestantes>2){
+      var ok=confirm('Il reste encore '+Math.round(heuresRestantes)+'h avant l\'heure limite de ce fournisseur ('+g.sup.heure_limite.slice(0,5)+').\nD\'autres personnes comptent peut-être encore aujourd\'hui pour lui — envoyer maintenant risque de fragmenter la commande en plusieurs messages.\n\nEnvoyer quand même maintenant ?');
+      if(!ok)return;
+    }
+  }
+  window.open(waUrl,'_blank');
+  if(!g||!g.items.length)return;
+  var ids=g.items.map(function(it){return it.comptageId;}).filter(Boolean);
+  if(!ids.length)return;
+  try{
+    await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids);
+  }catch(e){
+    console.error('marquerEtOuvrirWhatsappPointage',e);
+    alert('Le message WhatsApp a été ouvert, mais je n\'ai pas pu marquer les articles comme envoyés — ils risquent de réapparaître.');
+  }
+  menuCommandesFournisseurs(); // recharge : ces articles disparaissent de la liste
 }
 
 async function menuComptage(){
@@ -1155,6 +1328,12 @@ async function menuComptage(){
     if(seuilsRes.error)throw seuilsRes.error;
     var comptagesRes=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).order('compte_le',{ascending:false});
     if(comptagesRes.error)throw comptagesRes.error;
+    // Fournisseurs marqués "🏭 Interne" (Labo) : sert à déclencher automatiquement la commande Labo au moment
+    // du comptage, sans passer par l'écran admin (cf. cptAutoCommandeLaboSiNecessaire).
+    try{
+      var fournRes=await db.from('fournisseurs_stock').select('id,is_labo_interne');
+      cptLaboInterneSupplierIds=new Set((fournRes.data||[]).filter(function(f){return f.is_labo_interne;}).map(function(f){return f.id;}));
+    }catch(e){console.warn('fournisseurs_stock indisponible',e);cptLaboInterneSupplierIds=new Set();}
     var seuilsByCode={};
     (seuilsRes.data||[]).forEach(function(s){seuilsByCode[s.ingredient_code]=s;});
     var dernierByCode={};
@@ -1166,7 +1345,7 @@ async function menuComptage(){
       if(!included)return null;
       var s=seuilsByCode[i.code];
       if(!s||s.actif===false)return null; // pas configuré / masqué pour ce restaurant (fiche ingrédient > Visible ici)
-      return {code:i.code,nom:i.nom,categorie:cat,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null};
+      return {code:i.code,nom:i.nom,categorie:cat,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null};
     }).filter(Boolean);
 
     // Bandeau "aujourd'hui" : catégories ayant une règle de commande "jours fixes" (ingredient_regles_commande,
@@ -1301,11 +1480,12 @@ function comptageRowHtml(i){
   var st=cptStatus(i);
   var pill=st?('<span class="cpt-pill cpt-pill-'+st.cls+'">'+escCpt(st.label)+'</span>'):'';
   var rowFlag=st&&st.cls==='bad'?' order':(st&&st.cls==='warn'?' warn':'');
+  var delBtn=i.dernier?('<span class="cpt-del" onclick="deleteComptageHistory(\''+i.code+'\')" title="Supprimer l\'historique de comptage de cet ingr\u00e9dient (pour tester)">&#128465;</span>'):'';
   return '<div class="cpt-row'+rowFlag+'" id="'+id+'">'
     +'<span class="cpt-dot" style="background:'+cptCatColor(i.categorie)+'"></span>'
     +'<div class="cpt-info">'
       +'<div class="cpt-name">'+escCpt(i.nom)+'</div>'
-      +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+'</div>'
+      +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+delBtn+'</div>'
     +'</div>'
     +'<div class="cpt-ctrl">'+pill+body+'</div>'
     +'</div>';
@@ -1326,6 +1506,22 @@ function cptAdjQty(code,delta){
   inp.value=next;
   saveComptage(code);
 }
+// Supprime TOUT l'historique de comptage de cet ingrédient sur ce restaurant (pas juste le dernier) — pensé
+// pour les tests : repart de "jamais compté". Sans confirmation ce serait dangereux en usage normal, donc
+// on demande toujours confirmation, et l'ingrédient redescend en "Jamais compté" après coup.
+async function deleteComptageHistory(code){
+  var i=cptIngredients.find(function(x){return x.code===code;});
+  if(!i||cptSaving[code])return;
+  if(!confirm('Supprimer tout l\'historique de comptage de "'+i.nom+'" sur ce restaurant ?\n\nIrréversible — utile pour repartir de zéro en test.'))return;
+  cptSaving[code]=true;
+  try{
+    var del=await db.from('ingredient_comptages').delete().eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code);
+    if(del.error){alert('Erreur : '+del.error.message);return;}
+    i.dernier=null;
+    renderComptageList();
+  }catch(e){console.error('deleteComptageHistory',e);alert('Erreur : '+e.message);}
+  finally{cptSaving[code]=false;}
+}
 
 async function saveComptage(code,choiceVal){
   var i=cptIngredients.find(function(x){return x.code===code;});
@@ -1343,8 +1539,43 @@ async function saveComptage(code,choiceVal){
     if(ins.error){alert('Erreur : '+ins.error.message);return;}
     i.dernier=ins.data;
     renderComptageList();
+    cptAutoCommandeLaboSiNecessaire(i); // pas de await : ne bloque jamais l'écran de comptage, juste en tâche de fond
   }catch(e){console.error('saveComptage',e);alert('Erreur : '+e.message);}
   finally{cptSaving[code]=false;}
+}
+// Déclenche/actualise automatiquement une commande Labo dès que le comptage fait passer un ingrédient sous
+// son seuil ET que son fournisseur est marqué "🏭 Interne" — pas besoin de repasser par Admin > Besoins.
+// Réutilise une commande déjà ouverte pour ce restaurant (en_attente/partiellement_envoyee) au lieu d'en créer
+// une par ingrédient, pour éviter de multiplier les commandes. Échoue silencieusement : le comptage lui-même
+// est déjà enregistré, on ne veut pas bloquer l'employé pour un souci sur cette étape annexe.
+async function cptAutoCommandeLaboSiNecessaire(i){
+  if(!i.fournisseur_id||!cptLaboInterneSupplierIds.has(i.fournisseur_id))return;
+  var st=cptStatus(i);
+  if(!st||st.cls==='ok')return;
+  var qte=1;
+  if(i.type_suivi==='qty'&&i.cible!=null&&i.dernier){
+    var val=parseFloat(i.dernier.valeur);
+    if(!isNaN(val)){
+      var manque=i.cible-val;
+      if(manque>0)qte=(i.colisage&&i.colisage>0)?Math.ceil(manque/i.colisage)*i.colisage:Math.round(manque*100)/100;
+    }
+  }
+  try{
+    var openRes=await db.from('labo_commandes').select('id').eq('restaurant_id',RESTAURANT_ID).in('statut',['en_attente','partiellement_envoyee']).order('created_at',{ascending:false}).limit(1).maybeSingle();
+    var commandeId=openRes.data?openRes.data.id:null;
+    if(!commandeId){
+      var creePar=(emp?(emp.prenom+' '+emp.nom):'Comptage')+' (auto)';
+      var cmd=await db.from('labo_commandes').insert({restaurant_id:RESTAURANT_ID,statut:'en_attente',created_by_nom:creePar}).select().single();
+      if(cmd.error)throw cmd.error;
+      commandeId=cmd.data.id;
+    }
+    var ligneRes=await db.from('labo_commandes_lignes').select('id,quantite_demandee').eq('commande_id',commandeId).eq('produit_code',i.code).limit(1).maybeSingle();
+    if(ligneRes.data){
+      if(qte!==ligneRes.data.quantite_demandee)await db.from('labo_commandes_lignes').update({quantite_demandee:qte}).eq('id',ligneRes.data.id);
+    }else{
+      await db.from('labo_commandes_lignes').insert({commande_id:commandeId,produit_code:i.code,produit_nom:i.nom,restaurant_produit_id:null,quantite_demandee:qte});
+    }
+  }catch(e){console.error('cptAutoCommandeLaboSiNecessaire',e);}
 }
 function menuAcompte(){
   acoEmp=emp;
