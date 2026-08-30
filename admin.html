@@ -509,6 +509,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
         <button class="btn bs sm" onclick="mergeOldPerRestoPrices()" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;" title="Utile une seule fois : fusionne les anciens prix qui étaient enregistrés séparément par restaurant, en un seul prix commun">🔀 Fusionner les anciens prix par restaurant</button>
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
+        <button class="btn bs sm" onclick="openBesoinsComptageModal()">🛒 Besoins (comptage)</button>
         <button class="btn bp sm" id="ing-tree-toggle-btn" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
       </div>
       <div id="rct-ing-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
@@ -731,6 +732,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Tous les produits que Port et/ou Dabray sourcent en interne (fournisseur = 🏭 Interne), groupés par vrai fournisseur externe — déterminé par la fiche seuils du Labo lui-même sur ce même ingrédient. Liste informative pour l'instant — pas encore de suivi de rupture automatique.</div>
     <div id="mbesoinslabo-list"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mbesoinslabo')">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Modal Besoins (comptage) : dernier comptage rapide de chaque ingrédient comparé à son seuil, groupé par fournisseur -->
+<div class="mb" id="mbesoinscpt">
+  <div class="md" style="max-width:520px;">
+    <div class="mdt">🛒 Besoins (d'après les derniers comptages)</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Compare le dernier comptage rapide de chaque ingrédient (Port, Dabray, Labo) à son seuil configuré. Un ingrédient jamais compté n'apparaît pas ici — ce n'est pas encore une commande automatique, juste une liste à vérifier.</div>
+    <div id="mbesoinscpt-list"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('mbesoinscpt')">Fermer</button></div>
   </div>
 </div>
 
@@ -9401,6 +9412,95 @@ async function openBesoinsLaboModal(){
         +'</div>';
     }).join('');
   }catch(e){console.error('openBesoinsLaboModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+e.message+'</div>';}
+}
+// ── Besoins (comptage) : dernier comptage rapide de chaque ingrédient comparé à son seuil ──
+// Hypothèses par défaut (dis-le si ça ne correspond pas à ton usage, c'est ajustable en un point unique) :
+//  - type_suivi='yn' (oui/non) : "non" = besoin de commander
+//  - type_suivi='level' (0/25/50/75/100%) : ≤25% = besoin de commander
+//  - type_suivi='rup' : "faible" ou "rupture" = besoin de commander
+//  - type_suivi='two' : "commander" = besoin de commander
+//  - type_suivi='qty' : dernière valeur < seuil_min = besoin de commander (suggestion de quantité si "cible" renseignée, arrondie au colisage si présent)
+// Un ingrédient jamais compté sur ce restaurant n'apparaît pas (aucune donnée = pas d'affirmation possible).
+async function openBesoinsComptageModal(){
+  var box=document.getElementById('mbesoinscpt-list');
+  box.innerHTML='<div style="font-size:11px;color:var(--txm);">Chargement…</div>';
+  openM('mbesoinscpt');
+  try{
+    var restos=['port','dabray','labo'];
+    var comptagesRes=await db.from('ingredient_comptages').select('restaurant_id,ingredient_code,valeur,compte_le').in('restaurant_id',restos).order('compte_le',{ascending:false});
+    if(comptagesRes.error)throw comptagesRes.error;
+    var dernierByRestoCode={};
+    (comptagesRes.data||[]).forEach(function(c){
+      var k=c.restaurant_id+'|'+c.ingredient_code;
+      if(!dernierByRestoCode[k])dernierByRestoCode[k]=c; // déjà trié desc par compte_le -> le 1er par clé est le plus récent
+    });
+    function flaggedNonQty(typeSuivi,valeur){
+      if(typeSuivi==='two')return valeur==='commander';
+      if(typeSuivi==='rup')return valeur==='rupture'||valeur==='faible';
+      if(typeSuivi==='yn')return valeur==='non';
+      if(typeSuivi==='level'){var v=parseFloat(valeur);return !isNaN(v)&&v<=25;}
+      return false;
+    }
+    var items=[];
+    restos.forEach(function(resto){
+      var seuils=(rctIngredientSeuilsAll&&rctIngredientSeuilsAll[resto])||{};
+      Object.keys(seuils).forEach(function(code){
+        var s=seuils[code];
+        if(!s||s.actif===false)return;
+        var d=dernierByRestoCode[resto+'|'+code];
+        if(!d)return; // jamais compté sur ce restaurant
+        var flagged=false,suggestion='';
+        if(s.type_suivi==='qty'){
+          var val=parseFloat(d.valeur);
+          if(!isNaN(val)&&s.seuil_min!=null&&val<s.seuil_min){
+            flagged=true;
+            if(s.cible!=null){
+              var manque=s.cible-val;
+              if(manque>0){
+                if(s.colisage&&s.colisage>0){
+                  var nbColis=Math.ceil(manque/s.colisage);
+                  suggestion='~'+(nbColis*s.colisage)+(s.unite_comptage?(' '+s.unite_comptage):'')+' ('+nbColis+' × '+(s.unite_commande||'colis')+')';
+                }else{
+                  suggestion='~'+(Math.round(manque*100)/100)+(s.unite_comptage?(' '+s.unite_comptage):'');
+                }
+              }
+            }
+          }
+        }else{
+          flagged=flaggedNonQty(s.type_suivi,d.valeur);
+        }
+        if(!flagged)return;
+        var ing=rctIngredients.find(function(p){return p.code===code;});
+        var sup=s.fournisseur_id?rctSuppliers.find(function(x){return x.id===s.fournisseur_id;}):null;
+        items.push({resto:resto,nom:ing?ing.nom:code,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,compteLe:d.compte_le,valeur:d.valeur});
+      });
+    });
+    if(!items.length){
+      box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Rien à signaler pour l\'instant d\'après les derniers comptages. 👍</div>';
+      return;
+    }
+    var byFourn={};
+    items.forEach(function(it){
+      var g=it.fournisseurNom||'⚠️ Fournisseur non précisé';
+      byFourn[g]=byFourn[g]||[];
+      byFourn[g].push(it);
+    });
+    var restoLabels={port:'Port',dabray:'Dabray',labo:'Labo'};
+    var groupNames=Object.keys(byFourn).sort();
+    box.innerHTML=groupNames.map(function(g){
+      var its=byFourn[g].slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+      return '<div style="margin-bottom:12px;">'
+        +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;margin-bottom:4px;">'+esc(g)+'</div>'
+        +its.map(function(it){
+          var when=new Date(it.compteLe).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+          return '<div class="card" style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;gap:8px;">'
+            +'<span>'+esc(it.nom)+'<div style="font-size:10px;color:var(--txm);">'+restoLabels[it.resto]+' · compté le '+when+(it.suggestion?(' · '+esc(it.suggestion)):'')+'</div></span>'
+            +'<span style="color:#C0392B;font-weight:700;font-size:11px;white-space:nowrap;">⚠️ '+esc(String(it.valeur))+'</span>'
+            +'</div>';
+        }).join('')
+        +'</div>';
+    }).join('');
+  }catch(e){console.error('openBesoinsComptageModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+e.message+'</div>';}
 }
 async function linkProductPrice(ingredientCode,sourceCode){
   try{
