@@ -9825,26 +9825,41 @@ async function marquerBesoinsEnvoyesEtOuvrirWhatsapp(fournKey){
     }
   }
   window.open(waUrl,'_blank');
-  if(!g||!g.items.length)return;
-  var ids=g.items.map(function(it){return it.comptageId;}).filter(Boolean);
-  if(!ids.length)return;
-  try{
-    sbCheck(await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids));
-  }catch(e){
-    console.error('marquerBesoinsEnvoyesEtOuvrirWhatsapp',e);
-    alert('Le message WhatsApp a été ouvert, mais je n\'ai pas pu marquer les articles comme envoyés : '+e.message+'\nIls risquent de réapparaître dans un prochain message.');
+  // Ne marque RIEN tout de suite — impossible de savoir si le message a vraiment été envoyé dans WhatsApp
+  // (l'ouverture du lien ne le garantit pas). On attend que l'utilisateur revienne sur cet onglet, puis on
+  // demande confirmation explicite avant de marquer quoi que ce soit comme envoyé.
+  var handled=false;
+  function onReturn(){
+    if(document.hidden||handled)return;
+    handled=true;
+    document.removeEventListener('visibilitychange',onReturn);
+    setTimeout(async function(){
+      var sent=confirm('As-tu bien envoyé le message WhatsApp pour "'+(g&&g.sup?g.sup.nom:'ce fournisseur')+'" ?\n\nSi tu n\'as pas envoyé (ou pas encore), choisis "Annuler" — rien ne sera marqué et tu pourras réessayer plus tard.');
+      if(!sent)return;
+      if(!g||!g.items.length)return;
+      var ids=g.items.map(function(it){return it.comptageId;}).filter(Boolean);
+      if(ids.length){
+        try{
+          sbCheck(await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids));
+        }catch(e){
+          console.error('marquerBesoinsEnvoyesEtOuvrirWhatsapp',e);
+          alert('Erreur : je n\'ai pas pu marquer les articles comme envoyés : '+e.message);
+        }
+      }
+      // Trace pour l'historique (Suivi) — n'empêche jamais l'action ci-dessus si ça échoue.
+      try{
+        var creePar=await laboCurrentUserNom();
+        await db.from('commandes_fournisseurs_envois').insert({
+          fournisseur_id:g.sup?g.sup.id:null,
+          fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
+          items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.resto,valeur:it.valeur,suggestion:it.suggestion};}),
+          envoye_par_nom:creePar
+        });
+      }catch(e){console.error('log commandes_fournisseurs_envois',e);}
+      openBesoinsComptageModal(); // recharge : ces articles disparaissent de la liste seulement maintenant
+    },400); // petit délai pour laisser l'app WhatsApp/le focus se stabiliser avant d'afficher la confirmation
   }
-  // Trace pour l'historique (Suivi) — n'empêche jamais l'action ci-dessus si ça échoue.
-  try{
-    var creePar=await laboCurrentUserNom();
-    await db.from('commandes_fournisseurs_envois').insert({
-      fournisseur_id:g.sup?g.sup.id:null,
-      fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
-      items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.resto,valeur:it.valeur,suggestion:it.suggestion};}),
-      envoye_par_nom:creePar
-    });
-  }catch(e){console.error('log commandes_fournisseurs_envois',e);}
-  openBesoinsComptageModal(); // recharge : ces articles disparaissent de la liste
+  document.addEventListener('visibilitychange',onReturn);
 }
 async function creerCommandeLaboDepuisBesoins(fournKey){
   var g=besoinsComptageByFourn[fournKey];

@@ -1323,25 +1323,39 @@ async function marquerEtOuvrirWhatsappPointage(fournKey){
     }
   }
   window.open(waUrl,'_blank');
-  if(!g||!g.items.length)return;
-  var ids=g.items.map(function(it){return it.comptageId;}).filter(Boolean);
-  if(!ids.length)return;
-  try{
-    await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids);
-  }catch(e){
-    console.error('marquerEtOuvrirWhatsappPointage',e);
-    alert('Le message WhatsApp a été ouvert, mais je n\'ai pas pu marquer les articles comme envoyés — ils risquent de réapparaître.');
+  // Ne marque RIEN tout de suite — impossible de savoir si le message a vraiment été envoyé dans WhatsApp.
+  // On attend que l'utilisateur revienne sur cet onglet, puis on demande confirmation explicite.
+  var handled=false;
+  function onReturn(){
+    if(document.hidden||handled)return;
+    handled=true;
+    document.removeEventListener('visibilitychange',onReturn);
+    setTimeout(async function(){
+      var sent=confirm('As-tu bien envoyé le message WhatsApp pour "'+(g&&g.sup?g.sup.nom:'ce fournisseur')+'" ?\n\nSi tu n\'as pas envoyé (ou pas encore), choisis "Annuler" — rien ne sera marqué et tu pourras réessayer plus tard.');
+      if(!sent)return;
+      if(!g||!g.items.length)return;
+      var ids=g.items.map(function(it){return it.comptageId;}).filter(Boolean);
+      if(ids.length){
+        try{
+          await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids);
+        }catch(e){
+          console.error('marquerEtOuvrirWhatsappPointage',e);
+          alert('Erreur : je n\'ai pas pu marquer les articles comme envoyés — ils risquent de réapparaître.');
+        }
+      }
+      // Trace pour l'historique (Suivi côté admin) — n'empêche jamais l'action ci-dessus si ça échoue.
+      try{
+        await db.from('commandes_fournisseurs_envois').insert({
+          fournisseur_id:g.sup?g.sup.id:null,
+          fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
+          items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:RESTAURANT_ID,valeur:it.valeur,suggestion:it.suggestion};}),
+          envoye_par_nom:emp?(emp.prenom+' '+emp.nom):'?'
+        });
+      }catch(e){console.error('log commandes_fournisseurs_envois',e);}
+      menuCommandesFournisseurs(); // recharge : ces articles disparaissent de la liste seulement maintenant
+    },400);
   }
-  // Trace pour l'historique (Suivi côté admin) — n'empêche jamais l'action ci-dessus si ça échoue.
-  try{
-    await db.from('commandes_fournisseurs_envois').insert({
-      fournisseur_id:g.sup?g.sup.id:null,
-      fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
-      items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:RESTAURANT_ID,valeur:it.valeur,suggestion:it.suggestion};}),
-      envoye_par_nom:emp?(emp.prenom+' '+emp.nom):'?'
-    });
-  }catch(e){console.error('log commandes_fournisseurs_envois',e);}
-  menuCommandesFournisseurs(); // recharge : ces articles disparaissent de la liste
+  document.addEventListener('visibilitychange',onReturn);
 }
 
 // ── À PRÉPARER / EXPÉDIER (Labo) — porté depuis Admin > Labo pour que toute l'équipe Labo y accède sans
@@ -1691,7 +1705,7 @@ function comptageRowHtml(i){
     var val=i.dernier?i.dernier.valeur:'';
     body='<div class="cpt-qty-ctrl">'
       +'<button type="button" class="cpt-qbtn" onclick="cptAdjQty(\''+i.code+'\',-1)">&minus;</button>'
-      +'<input type="number" inputmode="decimal" step="0.1" class="cpt-qin" id="'+id+'-val" value="'+escCpt(val)+'" placeholder="0">'
+      +'<input type="number" inputmode="decimal" step="0.1" class="cpt-qin" id="'+id+'-val" value="'+escCpt(val)+'" placeholder="0" onchange="saveComptage(\''+i.code+'\')">'
       +'<button type="button" class="cpt-qbtn" onclick="cptAdjQty(\''+i.code+'\',1)">+</button>'
       +'</div>';
   }else if(i.type_suivi==='two'){
@@ -1832,11 +1846,17 @@ function backToMenu(){
 }
 function resetInactivity(){
   if(inactivityTimer)clearTimeout(inactivityTimer);
-  inactivityTimer=setTimeout(function(){reset();},30000); // 30s
+  inactivityTimer=setTimeout(function(){reset();},90000); // 90s d'inactivité RÉELLE (voir listeners globaux ci-dessous)
 }
 function clearInactivity(){
   if(inactivityTimer){clearTimeout(inactivityTimer);inactivityTimer=null;}
 }
+// Toute interaction réelle (taper, cocher, faire défiler) relance le minuteur — avant, seuls le login et
+// "retour au menu" le faisaient, donc quelqu'un en plein comptage (coche des cases, tape des quantités,
+// lit une liste) se faisait déconnecter au bout de 30s pile, même en pleine activité.
+['click','touchstart','input','scroll'].forEach(function(evt){
+  document.addEventListener(evt,function(){if(emp)resetInactivity();},{passive:true,capture:true});
+});
 
 
 function takePhoto(){}
