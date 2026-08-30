@@ -2704,11 +2704,20 @@ async function ensureComptageCatsCanonical(forceReload){
       db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('sous_categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('onglets_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
-      db.from('ingredients').select('categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true)
+      db.from('ingredients').select('code,nom,categorie,sous_categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true)
     ]);
     var catOrd=res[0],subOrd=res[1],ongOrd=res[2],ingRes=res[3];
-    var nbByCat={};
-    (ingRes.data||[]).forEach(function(i){if(i.categorie)nbByCat[i.categorie]=(nbByCat[i.categorie]||0)+1;});
+    // ingByCat[categorie] = {direct:[{code,nom}], bySub:{sous_categorie:[{code,nom}]}}
+    var ingByCat={};
+    (ingRes.data||[]).forEach(function(i){
+      if(!i.categorie)return;
+      ingByCat[i.categorie]=ingByCat[i.categorie]||{direct:[],bySub:{}};
+      if(i.sous_categorie){
+        (ingByCat[i.categorie].bySub[i.sous_categorie]=ingByCat[i.categorie].bySub[i.sous_categorie]||[]).push({code:i.code,nom:i.nom});
+      }else{
+        ingByCat[i.categorie].direct.push({code:i.code,nom:i.nom});
+      }
+    });
     var subsByCat={};
     (subOrd.data||[]).forEach(function(s){(subsByCat[s.categorie]=subsByCat[s.categorie]||[]).push(s.nom);});
     var ongOrdreByNom={};
@@ -2717,7 +2726,17 @@ async function ensureComptageCatsCanonical(forceReload){
     (catOrd.data||[]).forEach(function(c){
       var ong=c.onglet||'Sans onglet';
       byOng[ong]=byOng[ong]||[];
-      byOng[ong].push({nom:c.nom,ordre:c.ordre||0,sousCats:(subsByCat[c.nom]||[]).slice().sort(function(a,b){return a.localeCompare(b,'fr');}),nbIngredients:nbByCat[c.nom]||0});
+      var catIng=ingByCat[c.nom]||{direct:[],bySub:{}};
+      var sousCatNames=(subsByCat[c.nom]||[]).slice();
+      // Sécurité : inclure aussi une sous-catégorie utilisée par un ingrédient mais absente de sous_categories_ordre
+      Object.keys(catIng.bySub).forEach(function(sn){if(sousCatNames.indexOf(sn)<0)sousCatNames.push(sn);});
+      sousCatNames.sort(function(a,b){return a.localeCompare(b,'fr');});
+      var sousCats=sousCatNames.map(function(sn){
+        return {nom:sn,ingredients:(catIng.bySub[sn]||[]).slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');})};
+      });
+      var directIngredients=catIng.direct.slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+      var nb=directIngredients.length+sousCats.reduce(function(s,sc){return s+sc.ingredients.length;},0);
+      byOng[ong].push({nom:c.nom,ordre:c.ordre||0,sousCats:sousCats,directIngredients:directIngredients,nbIngredients:nb});
     });
     var ongNames=Object.keys(byOng).sort(function(a,b){
       var oa=ongOrdreByNom[a]!=null?ongOrdreByNom[a]:9999;
@@ -2730,23 +2749,59 @@ async function ensureComptageCatsCanonical(forceReload){
   }catch(e){console.error('ensureComptageCatsCanonical',e);window.COMPTAGE_CATS_TREE=window.COMPTAGE_CATS_TREE||[];}
   return window.COMPTAGE_CATS_TREE;
 }
-// Rendu HTML partagé de l'arborescence Onglet > Catégorie (avec sous-catégories affichées à titre indicatif
-// et nombre d'ingrédients). toggleJsFn(nomCategorie) retourne un bout de JS à exécuter au clic (ou '' si le
-// rôle se contente de relire les cases cochées au moment d'enregistrer, sans état JS intermédiaire).
-function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff){
+// Ouvre/ferme un panneau de détail (sous-catégories ou liste d'ingrédients) et fait pivoter sa flèche.
+// Utilisé par les arborescences catégories comptage rapide (rôle + fiche salarié).
+function cptTreeToggle(id){
+  var el=document.getElementById(id);
+  if(!el)return;
+  var willOpen=el.style.display==='none';
+  el.style.display=willOpen?'block':'none';
+  var arrow=document.getElementById(id+'-arrow');
+  if(arrow)arrow.innerHTML=willOpen?'&#9662;':'&#9656;';
+}
+// Rendu HTML partagé de l'arborescence Onglet > Catégorie > Sous-catégorie > Ingrédients, repliable au clic.
+// toggleJsFn(nomCategorie) retourne un bout de JS à exécuter au clic sur la case (ou '' si le rôle se
+// contente de relire les cases cochées au moment d'enregistrer, sans état JS intermédiaire).
+// scope sert à préfixer les id DOM pour que plusieurs arbres (rôle / ajout salarié / retrait salarié)
+// puissent coexister sur la même page sans collision d'id.
+function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scope){
   colorOn=colorOn||'#DCFCE7';colorOff=colorOff||'#FAF4EC';
+  scope=scope||'x';
   if(!tree||!tree.length)return '<div style="color:#aaa;font-size:11px;">Aucune cat\u00e9gorie trouv\u00e9e. Cr\u00e9e-les d\u2019abord dans Admin &gt; Recettes &gt; Ingr\u00e9dients.</div>';
-  return tree.map(function(grp){
+  return tree.map(function(grp,gi){
     var head=(grp.onglet&&grp.onglet!=='Sans onglet')?'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--txm);margin:10px 0 4px;">'+esc(grp.onglet)+'</div>':'';
-    var rows=grp.categories.map(function(c){
+    var rows=grp.categories.map(function(c,ci){
       var on=isSelectedFn(c.nom);
       var toggleJs=toggleJsFn(c.nom);
       var onchange=(toggleJs?toggleJs+';':'')+'this.parentElement.style.background=this.checked?\''+colorOn+'\':\''+colorOff+'\'';
-      var sub=c.sousCats.length?'<div style="font-size:10px;color:var(--txm);margin:2px 0 8px 4px;">'+c.sousCats.map(esc).join(' \u00b7 ')+'</div>':'<div style="margin-bottom:6px"></div>';
-      return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;background:'+(on?colorOn:colorOff)+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;cursor:pointer;width:100%;box-sizing:border-box;">'
+      var detailId='cpttree-'+scope+'-'+gi+'-'+ci;
+      var hasDetail=c.sousCats.length>0||c.directIngredients.length>0;
+      var arrowHtml=hasDetail
+        ?'<span id="'+detailId+'-arrow" onclick="event.preventDefault();cptTreeToggle(\''+detailId+'\')" style="cursor:pointer;padding:2px 5px;color:var(--txm);font-size:11px;user-select:none;">&#9656;</span>'
+        :'<span style="width:20px;display:inline-block"></span>';
+      var label='<label style="display:flex;align-items:center;gap:4px;font-size:12px;background:'+(on?colorOn:colorOff)+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;cursor:pointer;width:100%;box-sizing:border-box;">'
+        +arrowHtml
         +'<input type="checkbox" value="'+esc(c.nom)+'"'+(on?' checked':'')+' onchange="'+onchange+'">'
         +'<span style="flex:1">'+esc(c.nom)+'</span><span style="color:var(--txm);font-weight:400;font-size:10px">'+c.nbIngredients+' ingr.</span>'
-        +'</label>'+sub;
+        +'</label>';
+      var detail='';
+      if(hasDetail){
+        var subHtml=c.sousCats.map(function(sc,si){
+          var subId=detailId+'-s'+si;
+          var subArrow=sc.ingredients.length
+            ?'<span id="'+subId+'-arrow" onclick="event.preventDefault();cptTreeToggle(\''+subId+'\')" style="cursor:pointer;padding:1px 5px;color:var(--txm);font-size:10px;user-select:none;">&#9656;</span>'
+            :'<span style="width:16px;display:inline-block"></span>';
+          var ingHtml=sc.ingredients.length
+            ?('<div id="'+subId+'" style="display:none;margin:2px 0 6px 32px;font-size:10px;color:var(--txm);line-height:1.6;">'+sc.ingredients.map(function(ig){return esc(ig.nom);}).join(' \u00b7 ')+'</div>')
+            :'';
+          return '<div style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--tx);margin:2px 0 0 16px;">'+subArrow+'<span style="font-weight:600">'+esc(sc.nom)+'</span><span style="color:var(--txm);font-size:9px">('+sc.ingredients.length+')</span></div>'+ingHtml;
+        }).join('');
+        var directHtml=c.directIngredients.length
+          ?('<div style="font-size:10px;color:var(--txm);margin:6px 0 0 16px;line-height:1.6;">'+(c.sousCats.length?'<span style="font-weight:600;color:var(--tx)">Sans sous-cat\u00e9gorie&nbsp;: </span>':'')+c.directIngredients.map(function(ig){return esc(ig.nom);}).join(' \u00b7 ')+'</div>')
+          :'';
+        detail='<div id="'+detailId+'" style="display:none;margin:4px 0 8px 4px;padding:4px 0 4px 10px;border-left:2px solid var(--bd);">'+subHtml+directHtml+'</div>';
+      }
+      return label+detail;
     }).join('');
     return head+'<div style="display:flex;flex-direction:column;gap:4px;">'+rows+'</div>';
   }).join('');
@@ -2758,7 +2813,7 @@ function renderRoleComptageCatsCheckboxes(selected){
   box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement des cat\u00e9gories...</div>';
   ensureComptageCatsCanonical().then(function(tree){
     if(!box)return;
-    box.innerHTML=comptageCatsTreeHtml(tree,function(nom){return selected.indexOf(nom)>=0;},function(){return '';});
+    box.innerHTML=comptageCatsTreeHtml(tree,function(nom){return selected.indexOf(nom)>=0;},function(){return '';},'#DCFCE7','#FAF4EC','role');
   });
 }
 function readRoleComptageCatsCheckboxes(){
@@ -4137,8 +4192,8 @@ function renderSalComptageCatsCheckboxes(){
   addBox.innerHTML=remBox.innerHTML='<span style="color:#aaa;font-size:11px">Chargement...</span>';
   ensureComptageCatsCanonical().then(function(tree){
     if(!addBox||!remBox)return;
-    addBox.innerHTML=comptageCatsTreeHtml(tree,function(nom){return tmpSalComptageCatsAdd.indexOf(nom)>=0;},function(nom){return "toggleSalComptageCat('add','"+esc(nom)+"',this.checked)";},'#DCFCE7','#fff');
-    remBox.innerHTML=comptageCatsTreeHtml(tree,function(nom){return tmpSalComptageCatsRemove.indexOf(nom)>=0;},function(nom){return "toggleSalComptageCat('remove','"+esc(nom)+"',this.checked)";},'#FEE2E2','#fff');
+    addBox.innerHTML=comptageCatsTreeHtml(tree,function(nom){return tmpSalComptageCatsAdd.indexOf(nom)>=0;},function(nom){return "toggleSalComptageCat('add','"+esc(nom)+"',this.checked)";},'#DCFCE7','#fff','saladd');
+    remBox.innerHTML=comptageCatsTreeHtml(tree,function(nom){return tmpSalComptageCatsRemove.indexOf(nom)>=0;},function(nom){return "toggleSalComptageCat('remove','"+esc(nom)+"',this.checked)";},'#FEE2E2','#fff','salrem');
   });
 }
 function toggleSalComptageCat(kind,catId,checked){
