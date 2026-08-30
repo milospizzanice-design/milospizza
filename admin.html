@@ -8958,6 +8958,7 @@ function renderIngredientsList(){
   var container=document.getElementById('rct-ing-list-container');
   var navEl=document.getElementById('rct-ing-nav');
   if(!searchEl||!unlinkedEl||!container)return;
+  var scrollYBefore=window.scrollY; // cet écran reconstruit TOUTE la liste à chaque changement (case, seuil, type...) — sans ça, la page saute en haut à chaque clic, ce qui fait "rater" les clics suivants quand on enchaîne plusieurs réglages
   var search=(searchEl.value||'').toLowerCase();
   var onlyUnlinked=unlinkedEl.checked;
   function statutIngredient(i){return ingStatutIngredient(i);}
@@ -9269,6 +9270,7 @@ function renderIngredientsList(){
   }
   container.innerHTML=html;
   void container.offsetHeight; // force Safari iOS à terminer sa passe de mise en page avant le 1er tap sur un <select> fraîchement injecté (sinon le picker se referme tout seul au premier essai)
+  window.scrollTo(0,scrollYBefore);
   var treeEl=document.getElementById('ing-tree-content');
   if(treeEl)treeEl.innerHTML=treeHtml||'<div style="color:var(--txm);">Aucune catégorie pour l\'instant.</div>';
 }
