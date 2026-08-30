@@ -182,6 +182,11 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div id="nfc-status" style="font-size:14px;padding:10px 16px;border-radius:10px;min-height:20px;text-align:center;max-width:320px"></div>
       <button onclick="nfcUsePin()" style="margin-top:36px;background:transparent;border:none;color:rgba(255,255,255,.65);font-size:13px;text-decoration:underline;cursor:pointer;padding:8px">Passer au code PIN</button>
     </div>
+    <div class="screen" id="s-restopicker">
+      <div class="panel-title" style="font-size:16px;color:#fff;margin-bottom:6px">&#128075; Salut <span id="resto-picker-prenom"></span> !</div>
+      <div style="color:rgba(255,255,255,.75);font-size:14px;margin-bottom:18px">Tu travailles o&#249; aujourd'hui ?</div>
+      <div id="resto-picker-list"></div>
+    </div>
     <div class="screen" id="s-menu">
       <div class="panel-title" id="menu-welcome" style="font-size:16px;color:#fff;margin-bottom:14px">Bienvenue</div>
       <div class="cbtn" onclick="menuPointer()">
@@ -427,6 +432,43 @@ window.rgFeatureFlags=null;
 // pour ne jamais bloquer par erreur si Supabase répond mal.
 // Une seule URL pour toute l'entreprise : le bouton "À préparer / expédier" (Labo) n'a de sens que pour
 // les salariés dont le restaurant est 'labo' — masqué pour tout le monde d'autre, affiché sinon.
+// Après identification (badge ou PIN) : si le salarié a un ou plusieurs restaurants secondaires en plus de
+// son restaurant principal, demande "tu travailles où aujourd'hui ?" avant d'entrer — sinon entre directement
+// (comportement inchangé pour l'immense majorité des salariés qui n'ont qu'un seul restaurant).
+async function proceedLoginWithRestaurantChoice(){
+  var restos=[emp.restaurant_id].concat(Array.isArray(emp.restaurants_secondaires)?emp.restaurants_secondaires:[]).filter(Boolean);
+  restos=restos.filter(function(r,idx){return restos.indexOf(r)===idx;}); // dédoublonne
+  if(restos.length<=1){
+    RESTAURANT_ID=emp.restaurant_id||RESTAURANT_ID;
+    finishEmployeeLogin();
+    return;
+  }
+  var namesById={port:'Port',dabray:'Dabray',labo:'Labo'};
+  try{
+    var r=await db.from('restaurants').select('id,nom').in('id',restos);
+    (r.data||[]).forEach(function(x){namesById[x.id]=x.nom;});
+  }catch(e){console.warn('restaurants (noms) indisponible',e);}
+  var box=document.getElementById('resto-picker-list');
+  var prenomEl=document.getElementById('resto-picker-prenom');
+  if(prenomEl)prenomEl.textContent=emp.prenom||'';
+  if(box){
+    box.innerHTML=restos.map(function(rid){
+      return '<button type="button" class="nb" style="width:100%;margin-bottom:8px;text-align:center;" onclick="chooseLoginRestaurant(\''+rid+'\')">'+escCpt(namesById[rid]||rid)+'</button>';
+    }).join('');
+  }
+  ss('restopicker');
+}
+function chooseLoginRestaurant(rid){
+  RESTAURANT_ID=rid;
+  finishEmployeeLogin();
+}
+function finishEmployeeLogin(){
+  document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
+  applyFeatureFlags();
+  applyRestaurantMenuVisibility();
+  ss('menu');
+  resetInactivity();
+}
 function applyRestaurantMenuVisibility(){
   var btn=document.getElementById('cbtn-laboprep');
   if(!btn)return;
@@ -825,13 +867,7 @@ async function onBadgeScanned(uid){
     if(s)s.innerHTML='<span style="color:#FCA5A5">Compte d\u00e9sactiv\u00e9. Contactez un manager.</span>';
     emp=null;return;
   }
-  RESTAURANT_ID=emp.restaurant_id||RESTAURANT_ID; // une seule URL pour tout le monde : le restaurant vient du salarié, pas du fichier
-  // Identifié -> menu
-  document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
-  applyFeatureFlags();
-  applyRestaurantMenuVisibility();
-  ss('menu');
-  resetInactivity();
+  proceedLoginWithRestaurantChoice();
 }
 
 function retourBadge(){
@@ -956,12 +992,8 @@ async function ccodeNext(){
       pinSelEmp.pin_hash=hr.data;
       // Connexion directe après création
       emp=pinSelEmp;
-      RESTAURANT_ID=emp.restaurant_id||RESTAURANT_ID; // une seule URL pour tout le monde : le restaurant vient du salarié
-      document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
-  applyFeatureFlags();
-      applyRestaurantMenuVisibility();
-      ss('menu');resetInactivity();
       loadPinEmployes(); // recharger pour la suite
+      proceedLoginWithRestaurantChoice();
     }catch(e){
       var t=document.getElementById('pincreate-title');
       t.textContent='Erreur, r\u00e9essayez';t.style.color='#FCA5A5';
@@ -1021,12 +1053,7 @@ async function confirmPin(){
     return;
   }
   emp=pinSelEmp;
-  RESTAURANT_ID=emp.restaurant_id||RESTAURANT_ID; // une seule URL pour tout le monde : le restaurant vient du salarié
-  document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
-  applyFeatureFlags();
-  applyRestaurantMenuVisibility();
-  ss('menu');
-  resetInactivity();
+  proceedLoginWithRestaurantChoice();
 }
 
 
