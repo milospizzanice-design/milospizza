@@ -6691,8 +6691,9 @@ function openLaboStockAdmin(){
 var laboLotsCache=[];
 var laboCommandesCache=[]; // commandes en_attente / partiellement_envoyee, avec .lignes[]
 var laboPrepSelections={}; // {commandeId: {ligneId: [lotId,...]}}
-var laboCatCache=[]; // catalogue partagé : catégories
-var laboProdCache=[]; // catalogue partagé : produits
+var laboCatCache=[]; // catalogue partagé : catégories (ancien système, gardé pour l'écran "Gérer le catalogue Labo")
+var laboProdCache=[]; // catalogue partagé : produits (ancien système, idem)
+var laboIngredientsCache=[]; // ingrédients (table 'ingredients', restaurant_id='global') — SOURCE désormais utilisée pour la création de lots et le matching des commandes Labo. Chargée indépendamment de l'onglet Recettes (Labo est un onglet séparé, rctIngredients peut être vide si Recettes n'a jamais été ouvert).
 var LABO_RESTO_LABELS={port:'Port',dabray:'Dabray'};
 async function loadLaboModule(){
   try{
@@ -6710,6 +6711,13 @@ async function loadLaboModule(){
   }catch(e){
     console.error('Erreur chargement catalogue Labo',e);
     laboCatCache=[];laboProdCache=[];
+  }
+  try{
+    var ring=sbCheck(await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).order('categorie').order('nom'));
+    laboIngredientsCache=ring.data||[];
+  }catch(e){
+    console.error('Erreur chargement ingrédients (Labo)',e);
+    laboIngredientsCache=[];
   }
   try{
     var rc=sbCheck(await db.from('labo_commandes').select('*').in('statut',['en_attente','partiellement_envoyee']).order('created_at',{ascending:true}));
@@ -6859,32 +6867,21 @@ async function envoyerLaboCommande(commandeId){
 function renderLaboProduitsList(){
   var sel=document.getElementById('labo-new-produit');
   if(!sel)return;
-  var actifs=laboProdCache.filter(function(p){return p.actif!==false;});
-  if(!actifs.length){
-    sel.innerHTML='<option value="">Aucun produit Labo créé — utilise "Gérer" ci-dessus</option>';
+  if(!laboIngredientsCache.length){
+    sel.innerHTML='<option value="">Aucun ingrédient trouvé — crée-les dans Admin &gt; Recettes &gt; Ingrédients</option>';
     return;
   }
   var byCat={};
-  actifs.forEach(function(p){
-    var k=p.categorie_code||'__none__';
-    if(!byCat[k])byCat[k]=[];
-    byCat[k].push(p);
+  laboIngredientsCache.forEach(function(i){
+    var k=i.categorie||'Autre';
+    (byCat[k]=byCat[k]||[]).push(i);
   });
-  var html='';
-  laboCatCache.forEach(function(cat){
-    var prods=byCat[cat.code];
-    if(!prods||!prods.length)return;
-    html+='<optgroup label="'+esc(cat.label)+'">'+prods.map(function(p){
-      return '<option value="'+esc(p.code)+'">'+esc(p.nom)+'</option>';
+  var catNames=Object.keys(byCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+  sel.innerHTML=catNames.map(function(cat){
+    return '<optgroup label="'+esc(cat)+'">'+byCat[cat].map(function(i){
+      return '<option value="'+esc(i.code)+'">'+esc(i.nom)+'</option>';
     }).join('')+'</optgroup>';
-    delete byCat[cat.code];
-  });
-  if(byCat.__none__&&byCat.__none__.length){
-    html+='<optgroup label="Non classé">'+byCat.__none__.map(function(p){
-      return '<option value="'+esc(p.code)+'">'+esc(p.nom)+'</option>';
-    }).join('')+'</optgroup>';
-  }
-  sel.innerHTML=html;
+  }).join('');
 }
 async function laboCurrentUserNom(){
   try{
@@ -6899,9 +6896,9 @@ async function createLaboLot(){
   var srcEl=document.getElementById('labo-new-source');
   var code=selEl.value;
   var poidsKg=parseFloat(poidsEl.value);
-  if(!code){alert('Choisis un produit (crée-le d\'abord via "Gérer" si besoin).');return;}
+  if(!code){alert('Choisis un ingrédient (crée-le d\'abord dans Recettes &gt; Ingrédients si besoin).');return;}
   if(!poidsKg||poidsKg<=0){alert('Indiquez un poids réel valide (en kg).');return;}
-  var prod=laboProdCache.find(function(p){return p.code===code;});
+  var prod=laboIngredientsCache.find(function(p){return p.code===code;});
   var creePar=await laboCurrentUserNom();
   try{
     sbCheck(await db.from('labo_lots').insert({
@@ -9424,6 +9421,7 @@ async function openBesoinsLaboModal(){
 //  - type_suivi='two' : "commander" = besoin de commander
 //  - type_suivi='qty' : dernière valeur < seuil_min = besoin de commander (suggestion de quantité si "cible" renseignée, arrondie au colisage si présent)
 // Un ingrédient jamais compté sur ce restaurant n'apparaît pas (aucune donnée = pas d'affirmation possible).
+var besoinsComptageByFourn={}; // rempli par openBesoinsComptageModal, lu par creerCommandeLaboDepuisBesoins au clic
 async function openBesoinsComptageModal(){
   var box=document.getElementById('mbesoinscpt-list');
   box.innerHTML='<div style="font-size:11px;color:var(--txm);">Chargement…</div>';
@@ -9452,7 +9450,7 @@ async function openBesoinsComptageModal(){
         if(!s||s.actif===false)return;
         var d=dernierByRestoCode[resto+'|'+code];
         if(!d)return; // jamais compté sur ce restaurant
-        var flagged=false,suggestion='';
+        var flagged=false,suggestion='',qteACommander=1;
         if(s.type_suivi==='qty'){
           var val=parseFloat(d.valeur);
           if(!isNaN(val)&&s.seuil_min!=null&&val<s.seuil_min){
@@ -9462,9 +9460,11 @@ async function openBesoinsComptageModal(){
               if(manque>0){
                 if(s.colisage&&s.colisage>0){
                   var nbColis=Math.ceil(manque/s.colisage);
-                  suggestion='~'+(nbColis*s.colisage)+(s.unite_comptage?(' '+s.unite_comptage):'')+' ('+nbColis+' × '+(s.unite_commande||'colis')+')';
+                  qteACommander=nbColis*s.colisage;
+                  suggestion='~'+qteACommander+(s.unite_comptage?(' '+s.unite_comptage):'')+' ('+nbColis+' × '+(s.unite_commande||'colis')+')';
                 }else{
-                  suggestion='~'+(Math.round(manque*100)/100)+(s.unite_comptage?(' '+s.unite_comptage):'');
+                  qteACommander=Math.round(manque*100)/100;
+                  suggestion='~'+qteACommander+(s.unite_comptage?(' '+s.unite_comptage):'');
                 }
               }
             }
@@ -9475,7 +9475,7 @@ async function openBesoinsComptageModal(){
         if(!flagged)return;
         var ing=rctIngredients.find(function(p){return p.code===code;});
         var sup=s.fournisseur_id?rctSuppliers.find(function(x){return x.id===s.fournisseur_id;}):null;
-        items.push({resto:resto,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi});
+        items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,qteACommander:qteACommander,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi});
       });
     });
     if(!items.length){
@@ -9489,6 +9489,7 @@ async function openBesoinsComptageModal(){
       byFourn[key]=byFourn[key]||{sup:it.fournisseurId?rctSuppliers.find(function(x){return x.id===it.fournisseurId;}):null,items:[]};
       byFourn[key].items.push(it);
     });
+    besoinsComptageByFourn=byFourn; // conservé pour le bouton "Créer la commande Labo", cliqué après ce rendu
     var groupKeys=Object.keys(byFourn).sort(function(a,b){
       var na=(byFourn[a].sup?byFourn[a].sup.nom:'⚠️ Fournisseur non précisé');
       var nb=(byFourn[b].sup?byFourn[b].sup.nom:'⚠️ Fournisseur non précisé');
@@ -9505,8 +9506,11 @@ async function openBesoinsComptageModal(){
         return '- '+it.nom+' ('+restoLabels[it.resto]+')'+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
       }));
       var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
-      var waBtn='<a href="'+waUrl+'" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;text-decoration:none;">📤 Ouvrir WhatsApp</a>';
-      var waGroupHint=g.sup&&g.sup.whatsapp_groupe?('<div style="font-size:10px;color:var(--txm);margin-top:2px;">📱 Groupe : '+esc(g.sup.whatsapp_groupe)+'</div>'):'';
+      var isLaboInterne=!!(g.sup&&g.sup.is_labo_interne);
+      var waBtn=isLaboInterne
+        ?'<button type="button" class="btn bp sm" onclick="creerCommandeLaboDepuisBesoins(\''+key+'\')">🏭 Créer la commande Labo</button>'
+        :'<a href="'+waUrl+'" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;text-decoration:none;">📤 Ouvrir WhatsApp</a>';
+      var waGroupHint=(!isLaboInterne&&g.sup&&g.sup.whatsapp_groupe)?('<div style="font-size:10px;color:var(--txm);margin-top:2px;">📱 Groupe : '+esc(g.sup.whatsapp_groupe)+'</div>'):'';
       return '<div style="margin-bottom:14px;">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px;">'
           +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;">'+esc(groupName)+'</div>'
@@ -9524,6 +9528,38 @@ async function openBesoinsComptageModal(){
         +'</div></div>';
     }).join('');
   }catch(e){console.error('openBesoinsComptageModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+e.message+'</div>';}
+}
+// Crée une vraie commande numérique vers le Labo (labo_commandes + labo_commandes_lignes) à partir des
+// ingrédients signalés pour un fournisseur marqué "🏭 Interne". Une commande par restaurant concerné (le
+// Labo distingue les commandes par restaurant_id). Utilise directement les codes 'ingredients' — plus besoin
+// du catalogue labo_produits, le Labo peut préparer et matcher ses lots avec ces mêmes codes.
+async function creerCommandeLaboDepuisBesoins(fournKey){
+  var g=besoinsComptageByFourn[fournKey];
+  if(!g||!g.items.length){alert('Rien à commander pour ce fournisseur.');return;}
+  var byResto={};
+  g.items.forEach(function(it){(byResto[it.resto]=byResto[it.resto]||[]).push(it);});
+  var restos=Object.keys(byResto);
+  var restoLabels={port:'Port',dabray:'Dabray',labo:'Labo'};
+  if(!confirm('Créer '+(restos.length>1?(restos.length+' commandes Labo'):'la commande Labo')+' pour : '+restos.map(function(r){return restoLabels[r]+' ('+byResto[r].length+' ingrédient(s))';}).join(', ')+' ?\n\nElle apparaîtra dans Admin > Labo, prête à préparer.'))return;
+  try{
+    var creePar=await laboCurrentUserNom();
+    var numeroCommandes=[];
+    for(var i=0;i<restos.length;i++){
+      var resto=restos[i];
+      var cmd=sbCheck(await db.from('labo_commandes').insert({restaurant_id:resto,statut:'en_attente',created_by_nom:creePar}).select().single());
+      var commandeId=cmd.data.id;
+      numeroCommandes.push(cmd.data.numero||commandeId);
+      var rows=byResto[resto].map(function(it){
+        return {commande_id:commandeId,produit_code:it.code,produit_nom:it.nom,restaurant_produit_id:null,quantite_demandee:it.qteACommander||1};
+      });
+      sbCheck(await db.from('labo_commandes_lignes').insert(rows));
+    }
+    alert('✅ Commande(s) Labo créée(s) : #'+numeroCommandes.join(', #')+'.\nÀ retrouver dans Admin > Labo.');
+    openBesoinsComptageModal(); // recharge la liste (les ingrédients commandés restent affichés tant qu'un nouveau comptage ne repasse pas au-dessus du seuil — c'est juste informatif, ça n'empêche pas la recréation d'une commande)
+  }catch(e){
+    console.error('creerCommandeLaboDepuisBesoins',e);
+    alert('Erreur lors de la création de la commande Labo : '+e.message+'\n\n(Vérifie que restaurant_produit_id accepte NULL dans labo_commandes_lignes — sinon dis-le moi, il faudra ajuster.)');
+  }
 }
 async function linkProductPrice(ingredientCode,sourceCode){
   try{
