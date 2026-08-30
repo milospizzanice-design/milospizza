@@ -230,8 +230,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
         <select class="fs" id="fr" onchange="loadPt()">
           <option value="all">Tous restaurants</option>
-          <option value="port">Port</option>
-          <option value="dabray">Dabray</option>
         </select>
         <select class="fs" id="fe" onchange="loadPt()"><option value="all">Tous salari&#233;s</option></select>
         <select class="fs" id="fd" onchange="loadPt()">
@@ -257,7 +255,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <!-- Sous-onglet Récap -->
     <div id="rc-pane-recap" style="display:none">
       <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
-        <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
+        <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option></select>
         <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option></select>
         <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
       </div>
@@ -279,7 +277,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <!-- Sous-onglet Absences -->
       <div id="ab-pane-abs" style="display:none">
         <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <select class="fs" id="abr" onchange="loadAb()"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select>
+          <select class="fs" id="abr" onchange="loadAb()"><option value="all">Tous</option></select>
           <div style="display:flex;gap:6px">
             <button class="btn bs sm" onclick="toggleAbsArchive()" id="abs-arch-btn">&#128230; Archives</button>
             <button class="btn bp sm" onclick="openAb()">+ Absence</button>
@@ -400,9 +398,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <label class="fl2" style="margin:0;">Filtrer par restaurant</label>
         <select class="fi" id="stk-cat-filter" style="flex:1;" onchange="renderStocksCatalogue()">
           <option value="">— Tous les produits —</option>
-          <option value="port">Port</option>
-          <option value="dabray">Dabray</option>
-          <option value="labo">Labo</option>
         </select>
       </div>
 
@@ -755,8 +750,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="flex:1;min-width:120px;"><label class="fl2" style="font-size:10px;">Restaurant</label>
         <select class="fi" id="lsuivi-resto">
           <option value="all">Tous</option>
-          <option value="port">Port</option>
-          <option value="dabray">Dabray</option>
         </select>
       </div>
     </div>
@@ -1110,7 +1103,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt" id="msat">Nouveau salari&#233;</div>
     <div class="fr"><label class="fl2">Pr&#233;nom</label><input type="text" class="fi" id="sap"></div>
     <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="san"></div>
-    <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="sar"><option value="port">Port</option><option value="dabray">Dabray</option></select></div>
+    <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="sar"></select></div>
     <div class="fr"><label class="fl2">Heures contrat / semaine</label><input type="number" class="fi" id="saheures" step="0.5" min="0" placeholder="Ex: 16.5"></div>
     <div class="fr"><label class="fl2">Date d'entr&#233;e en poste</label><input type="date" class="fi" id="sadebut"></div>
     <div class="fr"><label class="fl2">Email (pour validation des heures)</label><input type="email" class="fi" id="samail" placeholder="salarie@email.com"></div>
@@ -1187,8 +1180,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr">
       <label class="fl2">Restaurant de ce cr&#233;neau</label>
       <select class="fi" id="pedit-resto">
-        <option value="port">Port (Bavastro)</option>
-        <option value="dabray">Dabray</option>
       </select>
     </div>
     <div class="fr">
@@ -1221,8 +1212,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr" id="pcr-resto-row">
       <label class="fl2">Restaurant de ce cr&#233;neau</label>
       <select class="fi" id="pcr-resto">
-        <option value="port">Port (Bavastro)</option>
-        <option value="dabray">Dabray</option>
       </select>
     </div>
     <div class="fr">
@@ -1330,7 +1319,48 @@ async function startApp(){
   // Lance le chargement des données une seule fois
   if(appStarted)return;
   appStarted=true;
+  await loadRestaurantsCache();
+  fillAllRestaurantSelects();
   init();
+}
+// ── Restaurants dynamiques : source unique (table 'restaurants') pour tous les menus déroulants
+// "Restaurant" de l'admin. Ajouter un restaurant = une ligne dans cette table, tout se met à jour tout seul
+// (plus besoin de chercher chaque <option> figée en dur dans le HTML). ──
+var RESTAURANTS_CACHE=[];
+async function loadRestaurantsCache(){
+  try{
+    var r=await db.from('restaurants').select('*').eq('actif',true).order('ordre',{ascending:true});
+    RESTAURANTS_CACHE=r.data||[];
+    if(!RESTAURANTS_CACHE.length)throw new Error('vide');
+  }catch(e){
+    console.warn('Table restaurants indisponible ou vide, secours sur la liste par défaut (migration SQL pas encore exécutée ?)',e);
+    RESTAURANTS_CACHE=[{id:'port',nom:'Port'},{id:'dabray',nom:'Dabray'},{id:'labo',nom:'Labo'}];
+  }
+}
+// Remplit un <select> avec un <option> par restaurant actif. opts.allLabel (string) ajoute une option "Tous"
+// en tête avec value="all" ; opts.emptyLabel ajoute une option value="" en tête à la place.
+function fillRestaurantSelect(selectId,opts){
+  var sel=document.getElementById(selectId);
+  if(!sel)return;
+  opts=opts||{};
+  var current=sel.value; // préserve la sélection si l'appel se refait après un premier remplissage
+  var html='';
+  if(opts.allLabel)html+='<option value="all">'+esc(opts.allLabel)+'</option>';
+  if(opts.emptyLabel!=null)html+='<option value="">'+esc(opts.emptyLabel)+'</option>';
+  html+=RESTAURANTS_CACHE.map(function(r){return '<option value="'+esc(r.id)+'">'+esc(r.nom)+'</option>';}).join('');
+  sel.innerHTML=html;
+  if(current&&sel.querySelector('option[value="'+current.replace(/"/g,'')+'"]'))sel.value=current;
+}
+function fillAllRestaurantSelects(){
+  fillRestaurantSelect('fr',{allLabel:'Tous restaurants'});
+  fillRestaurantSelect('rcr',{allLabel:'Tous'});
+  fillRestaurantSelect('abr',{allLabel:'Tous'});
+  fillRestaurantSelect('stk-cat-filter',{emptyLabel:'— Tous les produits —'});
+  fillRestaurantSelect('sar',{});
+  fillRestaurantSelect('pedit-resto',{});
+  fillRestaurantSelect('pcr-resto',{});
+  fillRestaurantSelect('lsuivi-resto',{allLabel:'Tous'});
+  fillRestaurantSelect('drh-resto',{allLabel:'Tous'});
 }
 async function checkAuth(){
   try{
@@ -11752,7 +11782,7 @@ async function init(){
   <div class="md">
     <div class="mdt">&#128203; Export Paie (DRH)</div>
     <div style="font-size:11px;color:var(--txm);margin-bottom:10px">Génère un récap détaillé par salarié (jour par jour, entrées/sorties, coupures, repas, absences, totaux semaine et mois) pour les bulletins de paie.</div>
-    <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="drh-resto"><option value="all">Tous</option><option value="port">Port</option><option value="dabray">Dabray</option></select></div>
+    <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="drh-resto"><option value="all">Tous</option></select></div>
     <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="drh-from"></div>
     <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="drh-to"></div>
     <div class="ma" style="flex-wrap:wrap;gap:6px">
