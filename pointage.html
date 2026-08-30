@@ -1298,6 +1298,15 @@ async function marquerEtOuvrirWhatsappPointage(fournKey){
     console.error('marquerEtOuvrirWhatsappPointage',e);
     alert('Le message WhatsApp a été ouvert, mais je n\'ai pas pu marquer les articles comme envoyés — ils risquent de réapparaître.');
   }
+  // Trace pour l'historique (Suivi côté admin) — n'empêche jamais l'action ci-dessus si ça échoue.
+  try{
+    await db.from('commandes_fournisseurs_envois').insert({
+      fournisseur_id:g.sup?g.sup.id:null,
+      fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
+      items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:RESTAURANT_ID,valeur:it.valeur,suggestion:it.suggestion};}),
+      envoye_par_nom:emp?(emp.prenom+' '+emp.nom):'?'
+    });
+  }catch(e){console.error('log commandes_fournisseurs_envois',e);}
   menuCommandesFournisseurs(); // recharge : ces articles disparaissent de la liste
 }
 

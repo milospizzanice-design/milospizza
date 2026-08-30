@@ -748,7 +748,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <!-- Modal Suivi des commandes Labo (historique complet toutes commandes, toutes statuts, avec commentaires + export PDF) -->
 <div class="mb" id="mlabosuivi">
   <div class="md" style="max-width:560px;">
-    <div class="mdt">🕓 Suivi des commandes Labo</div>
+    <div class="mdt">🕓 Suivi des commandes</div>
     <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
       <div style="flex:1;min-width:120px;"><label class="fl2" style="font-size:10px;">Du</label><input type="date" class="fi" id="lsuivi-from"></div>
       <div style="flex:1;min-width:120px;"><label class="fl2" style="font-size:10px;">Au</label><input type="date" class="fi" id="lsuivi-to"></div>
@@ -6910,9 +6910,10 @@ async function envoyerLaboCommande(commandeId){
   loadLaboModule();
 }
 
-// ── Suivi des commandes Labo : historique complet (toutes commandes, tous statuts) sur une période, avec
-// les commentaires de reliquat (envoi partiel) et de réception (accepté/rejeté) — + export PDF. ──
+// ── Suivi des commandes : historique complet Labo (toutes commandes/statuts) ET fournisseurs externes
+// (envois WhatsApp), sur une période, groupé par jour — + export PDF. ──
 var laboSuiviCache=[]; // [{commande, lignes:[], envois:[{envoi, lignes:[{ligne, lot, reception}]}]}]
+var fournSuiviCache=[]; // [{envoi, items:[...]}] — table commandes_fournisseurs_envois
 function openLaboSuiviModal(){
   var today=new Date().toISOString().slice(0,10);
   var fromEl=document.getElementById('lsuivi-from');
@@ -6935,11 +6936,10 @@ async function loadLaboSuivi(){
     if(resto!=='all')q=q.eq('restaurant_id',resto);
     var cmdRes=sbCheck(await q);
     var commandes=cmdRes.data||[];
-    if(!commandes.length){laboSuiviCache=[];box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucune commande sur cette période.</div>';return;}
     var cmdIds=commandes.map(function(c){return c.id;});
-    var lignesRes=sbCheck(await db.from('labo_commandes_lignes').select('*').in('commande_id',cmdIds));
+    var lignesRes=cmdIds.length?sbCheck(await db.from('labo_commandes_lignes').select('*').in('commande_id',cmdIds)):{data:[]};
     var lignes=lignesRes.data||[];
-    var envoisRes=sbCheck(await db.from('labo_envois').select('*').in('commande_id',cmdIds));
+    var envoisRes=cmdIds.length?sbCheck(await db.from('labo_envois').select('*').in('commande_id',cmdIds)):{data:[]};
     var envois=envoisRes.data||[];
     var envoiIds=envois.map(function(e){return e.id;});
     var envoiLignesRes=envoiIds.length?sbCheck(await db.from('labo_envois_lignes').select('*').in('envoi_id',envoiIds)):{data:[]};
@@ -6962,50 +6962,99 @@ async function loadLaboSuivi(){
       });
       return {commande:c,lignes:cLignes,envois:cEnvois};
     });
+    // Envois fournisseurs externes (WhatsApp)
+    var fournRes=sbCheck(await db.from('commandes_fournisseurs_envois').select('*').gte('envoye_le',from+'T00:00:00').lte('envoye_le',to+'T23:59:59').order('envoye_le',{ascending:false}));
+    fournSuiviCache=(fournRes.data||[]).map(function(f){
+      var items=f.items||[];
+      if(resto!=='all')items=items.filter(function(it){return it.resto===resto;});
+      return {envoi:f,items:items};
+    }).filter(function(f){return resto==='all'||f.items.length>0;});
+    if(!laboSuiviCache.length&&!fournSuiviCache.length){
+      box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucune commande sur cette période.</div>';
+      return;
+    }
     renderLaboSuiviList();
   }catch(e){console.error('loadLaboSuivi',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur : '+e.message+'</div>';}
 }
 var LABO_SUIVI_STATUT_LABELS={en_attente:'⏳ En attente',partiellement_envoyee:'🟡 Partiellement envoyée',envoyee:'📤 Envoyée',cloturee:'✅ Clôturée'};
 var LABO_SUIVI_RESTO_LABELS={port:'Port',dabray:'Dabray',labo:'Labo'};
+function suiviGroupByDay(){
+  var days={};
+  laboSuiviCache.forEach(function(item){
+    var day=(item.commande.created_at||'').slice(0,10);
+    days[day]=days[day]||{labo:[],fourn:[]};
+    days[day].labo.push(item);
+  });
+  fournSuiviCache.forEach(function(f){
+    var day=(f.envoi.envoye_le||'').slice(0,10);
+    days[day]=days[day]||{labo:[],fourn:[]};
+    days[day].fourn.push(f);
+  });
+  return days;
+}
+function laboSuiviCommandeCardHtml(item){
+  var c=item.commande;
+  var statutLbl=LABO_SUIVI_STATUT_LABELS[c.statut]||c.statut;
+  var lignesHtml=item.lignes.map(function(l){
+    var restant=l.quantite_demandee-(l.quantite_couverte||0);
+    return '<div style="font-size:11px;padding:2px 0;">• '+esc(l.produit_nom||l.produit_code)+' — '+(l.quantite_couverte||0)+'/'+l.quantite_demandee+(restant>0?' <span style="color:#C0392B;">(reste '+restant+')</span>':' ✓')+'</div>';
+  }).join('');
+  var envoisHtml=item.envois.map(function(ev){
+    var e=ev.envoi;
+    var when=fmtD(e.created_at);
+    var comEnvoi=e.commentaire?('<div style="font-size:10px;color:#92400E;background:#FEF3C7;border-radius:6px;padding:3px 6px;margin-top:2px;">💬 '+esc(e.commentaire)+'</div>'):'';
+    var lignesEnvoiHtml=ev.lignes.map(function(el){
+      var poids=el.lot?(Number(el.lot.poids_reel_g)/1000).toFixed(3)+' kg':'';
+      var rec=el.reception;
+      var recBadge=rec?(rec.statut==='accepte'?'<span style="color:#1E8449;font-weight:700;">✓ Accepté</span>':'<span style="color:#C0392B;font-weight:700;">✗ Rejeté</span>'):'<span style="color:var(--txm);">En attente de réception</span>';
+      var recCom=rec&&rec.commentaire?('<div style="font-size:10px;color:var(--txm);margin-top:1px;">💬 '+esc(rec.commentaire)+'</div>'):'';
+      return '<div style="font-size:10px;padding:2px 0 2px 10px;border-left:2px solid var(--bd);margin:2px 0;">'+esc(el.ligne?el.ligne.produit_nom:'?')+' — '+poids+' — '+recBadge+(rec?(' ('+esc(rec.recu_par_nom||'')+')'):'')+recCom+'</div>';
+    }).join('');
+    return '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--bd);">'
+      +'<div style="font-size:10px;color:var(--txm);">📤 Envoi du '+when+' par '+esc(e.envoye_par_nom||'?')+'</div>'
+      +comEnvoi+lignesEnvoiHtml
+      +'</div>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:10px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+      +'<div style="font-weight:700;font-size:13px;">🏭 Commande #'+(c.numero||c.id)+' — '+(LABO_SUIVI_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+'</div>'
+      +'<div style="font-size:11px;font-weight:700;">'+statutLbl+'</div>'
+    +'</div>'
+    +'<div style="font-size:10px;color:var(--txm);margin-bottom:4px;">'+fmtD(c.created_at)+' · par '+esc(c.created_by_nom||'?')+'</div>'
+    +lignesHtml+envoisHtml
+    +'</div>';
+}
+function fournSuiviCardHtml(f){
+  var e=f.envoi;
+  var when=new Date(e.envoye_le).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  var itemsHtml=f.items.map(function(it){
+    return '<div style="font-size:11px;padding:2px 0;">• '+esc(it.nom)+(it.resto?(' <span style="color:var(--txm);">('+(LABO_SUIVI_RESTO_LABELS[it.resto]||it.resto)+')</span>'):'')+' — '+esc(it.suggestion||String(it.valeur))+'</div>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:10px;">'
+    +'<div style="font-weight:700;font-size:13px;">📦 '+esc(e.fournisseur_nom||'Fournisseur')+'</div>'
+    +'<div style="font-size:10px;color:var(--txm);margin-bottom:4px;">'+when+' · par '+esc(e.envoye_par_nom||'?')+' · '+f.items.length+' article(s)</div>'
+    +itemsHtml
+    +'</div>';
+}
 function renderLaboSuiviList(){
   var box=document.getElementById('lsuivi-list');
-  if(!laboSuiviCache.length){box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucune commande sur cette période.</div>';return;}
-  box.innerHTML=laboSuiviCache.map(function(item){
-    var c=item.commande;
-    var statutLbl=LABO_SUIVI_STATUT_LABELS[c.statut]||c.statut;
-    var lignesHtml=item.lignes.map(function(l){
-      var restant=l.quantite_demandee-(l.quantite_couverte||0);
-      return '<div style="font-size:11px;padding:2px 0;">• '+esc(l.produit_nom||l.produit_code)+' — '+(l.quantite_couverte||0)+'/'+l.quantite_demandee+(restant>0?' <span style="color:#C0392B;">(reste '+restant+')</span>':' ✓')+'</div>';
-    }).join('');
-    var envoisHtml=item.envois.map(function(ev){
-      var e=ev.envoi;
-      var when=fmtD(e.created_at);
-      var comEnvoi=e.commentaire?('<div style="font-size:10px;color:#92400E;background:#FEF3C7;border-radius:6px;padding:3px 6px;margin-top:2px;">💬 '+esc(e.commentaire)+'</div>'):'';
-      var lignesEnvoiHtml=ev.lignes.map(function(el){
-        var poids=el.lot?(Number(el.lot.poids_reel_g)/1000).toFixed(3)+' kg':'';
-        var rec=el.reception;
-        var recBadge=rec?(rec.statut==='accepte'?'<span style="color:#1E8449;font-weight:700;">✓ Accepté</span>':'<span style="color:#C0392B;font-weight:700;">✗ Rejeté</span>'):'<span style="color:var(--txm);">En attente de réception</span>';
-        var recCom=rec&&rec.commentaire?('<div style="font-size:10px;color:var(--txm);margin-top:1px;">💬 '+esc(rec.commentaire)+'</div>'):'';
-        return '<div style="font-size:10px;padding:2px 0 2px 10px;border-left:2px solid var(--bd);margin:2px 0;">'+esc(el.ligne?el.ligne.produit_nom:'?')+' — '+poids+' — '+recBadge+(rec?(' ('+esc(rec.recu_par_nom||'')+')'):'')+recCom+'</div>';
-      }).join('');
-      return '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--bd);">'
-        +'<div style="font-size:10px;color:var(--txm);">📤 Envoi du '+when+' par '+esc(e.envoye_par_nom||'?')+'</div>'
-        +comEnvoi+lignesEnvoiHtml
-        +'</div>';
-    }).join('');
-    return '<div class="card" style="margin-bottom:10px;">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;">'
-        +'<div style="font-weight:700;font-size:13px;">Commande #'+(c.numero||c.id)+' — '+(LABO_SUIVI_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+'</div>'
-        +'<div style="font-size:11px;font-weight:700;">'+statutLbl+'</div>'
-      +'</div>'
-      +'<div style="font-size:10px;color:var(--txm);margin-bottom:4px;">'+fmtD(c.created_at)+' · par '+esc(c.created_by_nom||'?')+'</div>'
-      +lignesHtml+envoisHtml
+  var days=suiviGroupByDay();
+  var dayKeys=Object.keys(days).sort().reverse();
+  if(!dayKeys.length){box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucune commande sur cette période.</div>';return;}
+  box.innerHTML=dayKeys.map(function(day){
+    var d=days[day];
+    var dateLbl=new Date(day+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    var laboHtml=d.labo.map(laboSuiviCommandeCardHtml).join('');
+    var fournHtml=d.fourn.map(fournSuiviCardHtml).join('');
+    return '<div style="margin-bottom:16px;">'
+      +'<div style="font-size:13px;font-weight:800;text-transform:capitalize;color:var(--bx);border-bottom:2px solid var(--bx);padding-bottom:4px;margin-bottom:8px;">'+dateLbl+'</div>'
+      +fournHtml+laboHtml
       +'</div>';
   }).join('');
 }
 async function exportLaboSuiviPDF(){
   if(!window.jspdf){alert('PDF en cours de chargement, réessayez');return;}
-  if(!laboSuiviCache.length){alert('Charge d\'abord une période (bouton 🔍 Charger).');return;}
+  if(!laboSuiviCache.length&&!fournSuiviCache.length){alert('Charge d\'abord une période (bouton 🔍 Charger).');return;}
   var jsPDF=window.jspdf.jsPDF;
   var from=document.getElementById('lsuivi-from').value;
   var to=document.getElementById('lsuivi-to').value;
@@ -7014,45 +7063,71 @@ async function exportLaboSuiviPDF(){
   var PW=210,PH=297,MG=12,y=20;
   doc.setFillColor(185,30,38);doc.rect(0,0,PW,20,'F');
   doc.setTextColor(242,224,192);doc.setFontSize(13);doc.setFont('helvetica','bold');
-  doc.text('Suivi des commandes Labo',PW/2,9,{align:'center'});
+  doc.text('Suivi des commandes',PW/2,9,{align:'center'});
   doc.setFontSize(8);doc.setFont('helvetica','normal');
   doc.text('Du '+from+' au '+to+'  -  '+(resto==='all'?'Tous restaurants':(LABO_SUIVI_RESTO_LABELS[resto]||resto)),PW/2,15,{align:'center'});
   function checkPageBreak(needed){if(y+needed>PH-15){doc.addPage();y=15;}}
-  laboSuiviCache.forEach(function(item){
-    var c=item.commande;
-    checkPageBreak(20);
-    doc.setFillColor(242,224,192);doc.rect(MG,y,PW-MG*2,7,'F');
-    doc.setTextColor(120,40,30);doc.setFontSize(9);doc.setFont('helvetica','bold');
-    doc.text('Commande #'+(c.numero||c.id)+' - '+(LABO_SUIVI_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' - '+(LABO_SUIVI_STATUT_LABELS[c.statut]||c.statut).replace(/[^\x00-\x7F]/g,''),MG+2,y+4.8);
+  var days=suiviGroupByDay();
+  var dayKeys=Object.keys(days).sort().reverse();
+  dayKeys.forEach(function(day){
+    var d=days[day];
+    checkPageBreak(10);
+    doc.setFillColor(120,40,30);doc.rect(MG,y,PW-MG*2,6,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text(day,MG+2,y+4.3);
     y+=9;
-    doc.setTextColor(40,40,40);doc.setFontSize(7.5);doc.setFont('helvetica','normal');
-    doc.text(fmtD(c.created_at)+' - par '+(c.created_by_nom||'?'),MG+2,y);
-    y+=5;
-    item.lignes.forEach(function(l){
-      checkPageBreak(6);
-      var restant=l.quantite_demandee-(l.quantite_couverte||0);
-      doc.text('- '+(l.produit_nom||l.produit_code)+' : '+(l.quantite_couverte||0)+'/'+l.quantite_demandee+(restant>0?' (reste '+restant+')':' OK'),MG+3,y);
-      y+=4.5;
-    });
-    item.envois.forEach(function(ev){
-      checkPageBreak(6);
-      var e=ev.envoi;
-      doc.setFont('helvetica','italic');
-      doc.text('Envoi du '+fmtD(e.created_at)+' par '+(e.envoye_par_nom||'?')+(e.commentaire?(' - Commentaire: '+e.commentaire):''),MG+3,y);
-      doc.setFont('helvetica','normal');
-      y+=4.5;
-      ev.lignes.forEach(function(el){
-        checkPageBreak(6);
-        var poids=el.lot?(Number(el.lot.poids_reel_g)/1000).toFixed(3)+' kg':'';
-        var rec=el.reception;
-        var recTxt=rec?(rec.statut==='accepte'?'Accepte':'Rejete')+' par '+(rec.recu_par_nom||'?')+(rec.commentaire?(' - '+rec.commentaire):''):'En attente de reception';
-        doc.text('  * '+(el.ligne?el.ligne.produit_nom:'?')+' - '+poids+' - '+recTxt,MG+4,y);
-        y+=4.5;
+    d.fourn.forEach(function(f){
+      checkPageBreak(8);
+      var e=f.envoi;
+      doc.setTextColor(40,40,40);doc.setFontSize(8);doc.setFont('helvetica','bold');
+      doc.text('Fournisseur : '+(e.fournisseur_nom||'?').replace(/[^\x00-\x7F]/g,''),MG+2,y);
+      y+=4;
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+      doc.text(new Date(e.envoye_le).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+' - par '+(e.envoye_par_nom||'?'),MG+3,y);
+      y+=4;
+      f.items.forEach(function(it){
+        checkPageBreak(5);
+        doc.text('- '+it.nom+' : '+(it.suggestion||String(it.valeur)),MG+4,y);
+        y+=4;
       });
+      y+=2;
+    });
+    d.labo.forEach(function(item){
+      var c=item.commande;
+      checkPageBreak(10);
+      doc.setTextColor(40,40,40);doc.setFontSize(8);doc.setFont('helvetica','bold');
+      doc.text('Labo - Commande #'+(c.numero||c.id)+' - '+(LABO_SUIVI_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' - '+(LABO_SUIVI_STATUT_LABELS[c.statut]||c.statut).replace(/[^\x00-\x7F]/g,''),MG+2,y);
+      y+=4.5;
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+      doc.text('par '+(c.created_by_nom||'?'),MG+3,y);
+      y+=4;
+      item.lignes.forEach(function(l){
+        checkPageBreak(5);
+        var restant=l.quantite_demandee-(l.quantite_couverte||0);
+        doc.text('- '+(l.produit_nom||l.produit_code)+' : '+(l.quantite_couverte||0)+'/'+l.quantite_demandee+(restant>0?' (reste '+restant+')':' OK'),MG+4,y);
+        y+=4;
+      });
+      item.envois.forEach(function(ev){
+        checkPageBreak(5);
+        var e=ev.envoi;
+        doc.setFont('helvetica','italic');
+        doc.text('Envoi du '+fmtD(e.created_at)+' par '+(e.envoye_par_nom||'?')+(e.commentaire?(' - '+e.commentaire):''),MG+4,y);
+        doc.setFont('helvetica','normal');
+        y+=4;
+        ev.lignes.forEach(function(el){
+          checkPageBreak(5);
+          var poids=el.lot?(Number(el.lot.poids_reel_g)/1000).toFixed(3)+' kg':'';
+          var rec=el.reception;
+          var recTxt=rec?(rec.statut==='accepte'?'Accepte':'Rejete')+' par '+(rec.recu_par_nom||'?')+(rec.commentaire?(' - '+rec.commentaire):''):'En attente';
+          doc.text('  * '+(el.ligne?el.ligne.produit_nom:'?')+' - '+poids+' - '+recTxt,MG+5,y);
+          y+=4;
+        });
+      });
+      y+=2;
     });
     y+=3;
   });
-  doc.save('Suivi_Labo_'+from+'_'+to+(resto!=='all'?('_'+resto):'')+'.pdf');
+  doc.save('Suivi_'+from+'_'+to+(resto!=='all'?('_'+resto):'')+'.pdf');
 }
 
 function renderLaboProduitsList(){
@@ -9759,6 +9834,16 @@ async function marquerBesoinsEnvoyesEtOuvrirWhatsapp(fournKey){
     console.error('marquerBesoinsEnvoyesEtOuvrirWhatsapp',e);
     alert('Le message WhatsApp a été ouvert, mais je n\'ai pas pu marquer les articles comme envoyés : '+e.message+'\nIls risquent de réapparaître dans un prochain message.');
   }
+  // Trace pour l'historique (Suivi) — n'empêche jamais l'action ci-dessus si ça échoue.
+  try{
+    var creePar=await laboCurrentUserNom();
+    await db.from('commandes_fournisseurs_envois').insert({
+      fournisseur_id:g.sup?g.sup.id:null,
+      fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
+      items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.resto,valeur:it.valeur,suggestion:it.suggestion};}),
+      envoye_par_nom:creePar
+    });
+  }catch(e){console.error('log commandes_fournisseurs_envois',e);}
   openBesoinsComptageModal(); // recharge : ces articles disparaissent de la liste
 }
 async function creerCommandeLaboDepuisBesoins(fournKey){

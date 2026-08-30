@@ -226,6 +226,12 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cs">Ce qu'il reste &agrave; envoyer aujourd'hui</div>
         <div id="commandes-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
       </div>
+      <div class="cbtn" onclick="menuLaboPrep()" id="cbtn-laboprep" style="position:relative">
+        <div class="ci">&#127859;</div>
+        <div class="cl">&Agrave; pr&eacute;parer / exp&eacute;dier</div>
+        <div class="cs">Commandes Port + Dabray en attente</div>
+        <div id="laboprep-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
+      </div>
       <button class="canc" onclick="reset()" style="margin-top:8px">D&#233;connexion</button>
     </div>
     
@@ -234,6 +240,20 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Regroup&eacute; par fournisseur, d'apr&egrave;s les derniers comptages de ce restaurant. Un seul message par fournisseur &mdash; attends que tout le monde ait fini de compter avant d'envoyer.</div>
       <div id="cmdf-list" style="max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
       <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
+    </div>
+
+    <div class="screen" id="s-laboprep">
+      <div class="panel-title" style="margin-bottom:10px">&#127859; &Agrave; pr&eacute;parer / exp&eacute;dier</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Visible par toute l'&eacute;quipe Labo tant qu'une commande n'est pas enti&egrave;rement exp&eacute;di&eacute;e.</div>
+      <div id="laboprep-list" style="max-height:42vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px"></div>
+      <div style="background:rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:10px">
+        <div style="font-weight:700;color:#fff;margin-bottom:8px;font-size:13px">&#10133; Nouveau lot</div>
+        <div class="af"><span class="albl">Produit</span><select class="ainp" id="lp-new-produit"></select></div>
+        <div class="af"><span class="albl">Poids r&eacute;el (kg)</span><input type="number" class="ainp" id="lp-new-poids" placeholder="Ex: 0.405" min="0" step="0.001"></div>
+        <div class="af"><span class="albl">Mati&egrave;re premi&egrave;re utilis&eacute;e (optionnel)</span><input type="text" class="ainp" id="lp-new-source" placeholder="Ex: bloc jambon #12"></div>
+        <button class="nb" style="width:100%;padding:11px;font-size:14px" onclick="createLaboLotPointage()">Cr&eacute;er le lot</button>
+      </div>
+      <button class="canc" onclick="backToMenu()">Retour au menu</button>
     </div>
 
     <div class="screen" id="s-comptage">
@@ -446,7 +466,7 @@ tick();setInterval(tick,1000);
 function ss(name){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('s-'+name);if(el)el.classList.add('on');
-  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();}
+  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();checkLaboPrepBadge();}
 }
 
 
@@ -1298,7 +1318,201 @@ async function marquerEtOuvrirWhatsappPointage(fournKey){
     console.error('marquerEtOuvrirWhatsappPointage',e);
     alert('Le message WhatsApp a été ouvert, mais je n\'ai pas pu marquer les articles comme envoyés — ils risquent de réapparaître.');
   }
+  // Trace pour l'historique (Suivi côté admin) — n'empêche jamais l'action ci-dessus si ça échoue.
+  try{
+    await db.from('commandes_fournisseurs_envois').insert({
+      fournisseur_id:g.sup?g.sup.id:null,
+      fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
+      items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:RESTAURANT_ID,valeur:it.valeur,suggestion:it.suggestion};}),
+      envoye_par_nom:emp?(emp.prenom+' '+emp.nom):'?'
+    });
+  }catch(e){console.error('log commandes_fournisseurs_envois',e);}
   menuCommandesFournisseurs(); // recharge : ces articles disparaissent de la liste
+}
+
+// ── À PRÉPARER / EXPÉDIER (Labo) — porté depuis Admin > Labo pour que toute l'équipe Labo y accède sans
+// besoin d'un compte admin, tant qu'une commande n'est pas entièrement expédiée. ──
+var lpCommandesCache=[]; // commandes en_attente/partiellement_envoyee avec .lignes[]
+var lpLotsCache=[]; // lots en_stock (candidats à cocher)
+var lpIngredientsCache=[]; // pour le menu déroulant "Nouveau lot"
+var lpSelections={}; // {commandeId:{ligneId:[lotId,...]}}
+var LP_RESTO_LABELS={port:'Port',dabray:'Dabray'};
+async function lpCurrentUserNom(){return emp?(emp.prenom+' '+emp.nom):'Labo';}
+async function loadLaboPrepData(){
+  var lotsRes=await db.from('labo_lots').select('*').eq('statut','en_stock');
+  if(lotsRes.error)throw lotsRes.error;
+  lpLotsCache=lotsRes.data||[];
+  var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id','global').eq('actif',true).order('categorie').order('nom');
+  if(ingRes.error)throw ingRes.error;
+  lpIngredientsCache=ingRes.data||[];
+  var cmdRes=await db.from('labo_commandes').select('*').in('statut',['en_attente','partiellement_envoyee']).order('created_at',{ascending:true});
+  if(cmdRes.error)throw cmdRes.error;
+  var commandes=cmdRes.data||[];
+  if(commandes.length){
+    var ids=commandes.map(function(c){return c.id;});
+    var lignesRes=await db.from('labo_commandes_lignes').select('*').in('commande_id',ids);
+    if(lignesRes.error)throw lignesRes.error;
+    var lignes=lignesRes.data||[];
+    commandes.forEach(function(c){c.lignes=lignes.filter(function(l){return l.commande_id===c.id;});});
+  }
+  lpCommandesCache=commandes;
+  return commandes;
+}
+async function checkLaboPrepBadge(){
+  try{
+    var commandes=await loadLaboPrepData();
+    var badge=document.getElementById('laboprep-badge');
+    if(badge){
+      if(commandes.length){badge.style.display='flex';badge.textContent=commandes.length;}
+      else badge.style.display='none';
+    }
+  }catch(e){console.error('checkLaboPrepBadge',e);}
+}
+async function menuLaboPrep(){
+  ss('laboprep');
+  var box=document.getElementById('laboprep-list');
+  box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
+  try{
+    await loadLaboPrepData();
+    renderLaboPrepListPointage();
+    renderLaboProduitsListPointage();
+    var badge=document.getElementById('laboprep-badge');
+    if(badge){
+      if(lpCommandesCache.length){badge.style.display='flex';badge.textContent=lpCommandesCache.length;}
+      else badge.style.display='none';
+    }
+  }catch(e){
+    console.error('menuLaboPrep',e);
+    box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(e.message)+'</div>';
+  }
+}
+function renderLaboProduitsListPointage(){
+  var sel=document.getElementById('lp-new-produit');
+  if(!sel)return;
+  if(!lpIngredientsCache.length){
+    sel.innerHTML='<option value="">Aucun ingrédient trouvé</option>';
+    return;
+  }
+  var byCat={};
+  lpIngredientsCache.forEach(function(i){(byCat[i.categorie||'Autre']=byCat[i.categorie||'Autre']||[]).push(i);});
+  var catNames=Object.keys(byCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+  sel.innerHTML=catNames.map(function(cat){
+    return '<optgroup label="'+escCpt(cat)+'">'+byCat[cat].map(function(i){
+      return '<option value="'+escCpt(i.code)+'">'+escCpt(i.nom)+'</option>';
+    }).join('')+'</optgroup>';
+  }).join('');
+}
+function renderLaboPrepListPointage(){
+  var box=document.getElementById('laboprep-list');
+  if(!box)return;
+  if(!lpCommandesCache.length){
+    box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:16px;font-size:12px;">Aucune commande en attente. &#128077;</div>';
+    return;
+  }
+  box.innerHTML=lpCommandesCache.map(function(c){
+    if(!lpSelections[c.id])lpSelections[c.id]={};
+    var lignesHtml=(c.lignes||[]).map(function(l){
+      var restant=l.quantite_demandee-(l.quantite_couverte||0);
+      var candidats=lpLotsCache.filter(function(lot){return lot.produit_code===l.produit_code;});
+      var selected=lpSelections[c.id][l.id]||[];
+      var lotsHtml=candidats.length?candidats.map(function(lot){
+        var checked=selected.indexOf(lot.id)>=0?' checked':'';
+        return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:rgba(255,255,255,.85);">'
+          +'<input type="checkbox"'+checked+' onchange="toggleLpLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
+          +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg'
+          +'</label>';
+      }).join(''):'<div style="font-size:10px;color:rgba(255,255,255,.5);">Aucun lot en stock pour ce produit — cr&eacute;e-le ci-dessous.</div>';
+      return '<div style="margin:6px 0;padding:8px;background:rgba(255,255,255,.08);border-radius:8px;">'
+        +'<div style="font-weight:600;font-size:12px;color:#fff;">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+l.quantite_demandee+', couvert '+(l.quantite_couverte||0)+(selected.length?' <span style="color:#6EE7B7;">+ '+selected.length+' coch&eacute;(s)</span>':'')+(restant>0?' <span style="color:#FCA5A5;">(reste '+restant+')</span>':' ✓')+'</div>'
+        +lotsHtml
+        +'</div>';
+    }).join('');
+    return '<div style="border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;margin-bottom:10px;">'
+      +'<div style="font-weight:700;color:#fff;margin-bottom:4px;font-size:13px;">Commande #'+(c.numero||c.id)+' — '+(LP_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,.6);">('+new Date(c.created_at).toLocaleDateString('fr-FR')+')</span></div>'
+      +lignesHtml
+      +'<button class="nb" style="width:100%;margin-top:6px;padding:10px;font-size:13px;" onclick="envoyerLaboCommandePointage(\''+c.id+'\')">&#128228; Envoyer les lots coch&eacute;s</button>'
+      +'</div>';
+  }).join('');
+}
+function toggleLpLotSel(commandeId,ligneId,lotId,checked){
+  if(!lpSelections[commandeId])lpSelections[commandeId]={};
+  if(!lpSelections[commandeId][ligneId])lpSelections[commandeId][ligneId]=[];
+  var arr=lpSelections[commandeId][ligneId];
+  var idx=arr.indexOf(lotId);
+  if(checked&&idx<0)arr.push(lotId);
+  if(!checked&&idx>=0)arr.splice(idx,1);
+  renderLaboPrepListPointage();
+}
+async function createLaboLotPointage(){
+  var selEl=document.getElementById('lp-new-produit');
+  var poidsEl=document.getElementById('lp-new-poids');
+  var srcEl=document.getElementById('lp-new-source');
+  var code=selEl.value;
+  var poidsKg=parseFloat(poidsEl.value);
+  if(!code){alert('Choisis un produit.');return;}
+  if(!poidsKg||poidsKg<=0){alert('Indique un poids réel valide (en kg).');return;}
+  var prod=lpIngredientsCache.find(function(p){return p.code===code;});
+  var creePar=await lpCurrentUserNom();
+  try{
+    var ins=await db.from('labo_lots').insert({produit_code:code,produit_nom:prod?prod.nom:code,poids_reel_g:Math.round(poidsKg*1000),statut:'en_stock',cree_par_nom:creePar,source_bloc_ref:srcEl.value.trim()||null});
+    if(ins.error){alert('Erreur : '+ins.error.message);return;}
+  }catch(e){alert('Erreur lors de la création du lot : '+e.message);return;}
+  poidsEl.value='';srcEl.value='';
+  await loadLaboPrepData();
+  renderLaboPrepListPointage();
+}
+async function envoyerLaboCommandePointage(commandeId){
+  var sel=lpSelections[commandeId]||{};
+  var pairs=[];
+  Object.keys(sel).forEach(function(ligneId){(sel[ligneId]||[]).forEach(function(lotId){pairs.push({ligneId:ligneId,lotId:lotId});});});
+  if(!pairs.length){alert('Coche au moins un lot avant d\'envoyer.');return;}
+  var commande=lpCommandesCache.find(function(c){return c.id===commandeId;});
+  if(!commande)return;
+  var countByLigneProj={};
+  pairs.forEach(function(p){countByLigneProj[p.ligneId]=(countByLigneProj[p.ligneId]||0)+1;});
+  var toutesCouvertesProj=(commande.lignes||[]).every(function(l){return (l.quantite_couverte||0)+(countByLigneProj[l.id]||0)>=l.quantite_demandee;});
+  var commentaire='';
+  if(!toutesCouvertesProj){
+    commentaire=prompt('Cet envoi ne couvre pas toute la commande — un reliquat restera en attente.\nCommentaire (optionnel) :')||'';
+  }
+  var toutesCouvertes=false;
+  try{
+    var creePar=await lpCurrentUserNom();
+    var envoiIns=await db.from('labo_envois').insert({commande_id:commandeId,envoye_par_nom:creePar,commentaire:commentaire.trim()||null}).select().single();
+    if(envoiIns.error)throw envoiIns.error;
+    var envoiId=envoiIns.data.id;
+    var rows=pairs.map(function(p){return{envoi_id:envoiId,lot_id:p.lotId,commande_ligne_id:p.ligneId};});
+    var elIns=await db.from('labo_envois_lignes').insert(rows);
+    if(elIns.error)throw elIns.error;
+    var lotIds=pairs.map(function(p){return p.lotId;});
+    var lotUpd=await db.from('labo_lots').update({statut:'envoye'}).in('id',lotIds);
+    if(lotUpd.error)throw lotUpd.error;
+    var countByLigne={};
+    pairs.forEach(function(p){countByLigne[p.ligneId]=(countByLigne[p.ligneId]||0)+1;});
+    for(var ligneId in countByLigne){
+      var ligne=(commande.lignes||[]).find(function(l){return l.id===ligneId;});
+      if(!ligne)continue;
+      var nouvelleCouverture=(ligne.quantite_couverte||0)+countByLigne[ligneId];
+      var lUpd=await db.from('labo_commandes_lignes').update({quantite_couverte:nouvelleCouverture}).eq('id',ligneId);
+      if(lUpd.error)throw lUpd.error;
+      ligne.quantite_couverte=nouvelleCouverture;
+    }
+    toutesCouvertes=(commande.lignes||[]).every(function(l){return (l.quantite_couverte||0)>=l.quantite_demandee;});
+    var cUpd=await db.from('labo_commandes').update({statut:toutesCouvertes?'envoyee':'partiellement_envoyee'}).eq('id',commandeId);
+    if(cUpd.error)throw cUpd.error;
+  }catch(e){
+    alert('Erreur lors de l\'envoi : '+e.message);
+    return;
+  }
+  delete lpSelections[commandeId];
+  alert('✅ '+pairs.length+' lot(s) envoyé(s).\nStatut : '+(toutesCouvertes?'commande complète':'commande partiellement couverte, il en reste à envoyer'));
+  await loadLaboPrepData();
+  renderLaboPrepListPointage();
+  var badge=document.getElementById('laboprep-badge');
+  if(badge){
+    if(lpCommandesCache.length){badge.style.display='flex';badge.textContent=lpCommandesCache.length;}
+    else badge.style.display='none';
+  }
 }
 
 async function menuComptage(){
