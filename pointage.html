@@ -231,6 +231,12 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cs">Ce qu'il reste &agrave; envoyer aujourd'hui</div>
         <div id="commandes-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
       </div>
+      <div class="cbtn" onclick="menuCuisineTaches()" id="cbtn-cuisine" style="position:relative">
+        <div class="ci">&#127859;</div>
+        <div class="cl">&Agrave; pr&eacute;parer (cuisine)</div>
+        <div class="cs">Ce que la cuisine doit pr&eacute;parer aujourd'hui</div>
+        <div id="cuisine-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
+      </div>
       <div class="cbtn" onclick="menuLaboPrep()" id="cbtn-laboprep" style="position:relative;display:none">
         <div class="ci">&#127859;</div>
         <div class="cl">&Agrave; pr&eacute;parer / exp&eacute;dier</div>
@@ -240,6 +246,13 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <button class="canc" onclick="reset()" style="margin-top:8px">D&#233;connexion</button>
     </div>
     
+    <div class="screen" id="s-cuisine">
+      <div class="panel-title" style="margin-bottom:10px">&#127859; &Agrave; pr&eacute;parer (cuisine)</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Produits pr&eacute;par&eacute;s en interne par la cuisine de ce restaurant, signal&eacute;s bas lors d'un comptage. Coche une fois pr&eacute;par&eacute;.</div>
+      <div id="cuisine-list" style="max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
+    </div>
+
     <div class="screen" id="s-commandes">
       <div class="panel-title" style="margin-bottom:10px">&#128228; Commandes fournisseurs</div>
       <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Regroup&eacute; par fournisseur, d'apr&egrave;s les derniers comptages de ce restaurant. Un seul message par fournisseur &mdash; attends que tout le monde ait fini de compter avant d'envoyer.</div>
@@ -515,7 +528,7 @@ tick();setInterval(tick,1000);
 function ss(name){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('s-'+name);if(el)el.classList.add('on');
-  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();if(RESTAURANT_ID==='labo')checkLaboPrepBadge();}
+  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();checkCuisineTachesBadge();if(RESTAURANT_ID==='labo')checkLaboPrepBadge();}
 }
 
 
@@ -1180,6 +1193,7 @@ function escCpt(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){
 var cptIngredients=[]; // [{code,nom,categorie,type_suivi,unite_comptage,dernier:{valeur,compte_le}|null}]
 var cptSaving={}; // code -> true pendant l'enregistrement, anti double-tap
 var cptLaboInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "🏭 Interne"
+var cptCuisineInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "🍳 Interne"
 
 // Calcule les catégories de comptage effectives du salarié connecté (union des rôles + overrides),
 // même principe que le module Stocks (catsAdd/catsRemove) mais sur roles.comptage_categories.
@@ -1218,7 +1232,7 @@ async function loadCommandesFournisseursData(){
   if(seuilsRes.error)throw seuilsRes.error;
   var comptagesRes=await db.from('ingredient_comptages').select('id,ingredient_code,valeur,compte_le,commande_envoyee').eq('restaurant_id',RESTAURANT_ID).order('compte_le',{ascending:false});
   if(comptagesRes.error)throw comptagesRes.error;
-  var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,whatsapp_groupe,heure_limite');
+  var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,is_cuisine_interne,whatsapp_groupe,heure_limite');
   var suppliersById={};(fournRes.data||[]).forEach(function(f){suppliersById[f.id]=f;});
   var ingRes=await db.from('ingredients').select('code,nom').eq('restaurant_id','global').eq('actif',true);
   var ingByCode={};(ingRes.data||[]).forEach(function(i){ingByCode[i.code]=i;});
@@ -1236,7 +1250,7 @@ async function loadCommandesFournisseursData(){
     if(!s||s.actif===false)return;
     if(!s.fournisseur_id)return; // sans fournisseur assigné : rien à envoyer, ignoré ici
     var sup=suppliersById[s.fournisseur_id];
-    if(!sup||sup.is_labo_interne)return; // Labo interne : déjà géré automatiquement au comptage
+    if(!sup||sup.is_labo_interne||sup.is_cuisine_interne)return; // Labo/Cuisine interne : déjà gérés automatiquement au comptage
     var d=dernierByCode[s.ingredient_code];
     if(!d)return;
     if(d.commande_envoyee)return; // déjà signalé dans un message précédent
@@ -1597,12 +1611,13 @@ async function menuComptage(){
     if(seuilsRes.error)throw seuilsRes.error;
     var comptagesRes=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).order('compte_le',{ascending:false});
     if(comptagesRes.error)throw comptagesRes.error;
-    // Fournisseurs marqués "🏭 Interne" (Labo) : sert à déclencher automatiquement la commande Labo au moment
-    // du comptage, sans passer par l'écran admin (cf. cptAutoCommandeLaboSiNecessaire).
+    // Fournisseurs marqués "🏭 Interne" (Labo) ou "🍳 Interne" (Cuisine) : sert à déclencher automatiquement
+    // la commande Labo / la tâche cuisine au moment du comptage, sans passer par l'écran admin.
     try{
-      var fournRes=await db.from('fournisseurs_stock').select('id,is_labo_interne');
+      var fournRes=await db.from('fournisseurs_stock').select('id,is_labo_interne,is_cuisine_interne');
       cptLaboInterneSupplierIds=new Set((fournRes.data||[]).filter(function(f){return f.is_labo_interne;}).map(function(f){return f.id;}));
-    }catch(e){console.warn('fournisseurs_stock indisponible',e);cptLaboInterneSupplierIds=new Set();}
+      cptCuisineInterneSupplierIds=new Set((fournRes.data||[]).filter(function(f){return f.is_cuisine_interne;}).map(function(f){return f.id;}));
+    }catch(e){console.warn('fournisseurs_stock indisponible',e);cptLaboInterneSupplierIds=new Set();cptCuisineInterneSupplierIds=new Set();}
     var seuilsByCode={};
     (seuilsRes.data||[]).forEach(function(s){seuilsByCode[s.ingredient_code]=s;});
     var dernierByCode={};
@@ -1809,6 +1824,7 @@ async function saveComptage(code,choiceVal){
     i.dernier=ins.data;
     renderComptageList();
     cptAutoCommandeLaboSiNecessaire(i); // pas de await : ne bloque jamais l'écran de comptage, juste en tâche de fond
+    cptAutoCommandeCuisineSiNecessaire(i);
   }catch(e){console.error('saveComptage',e);alert('Erreur : '+e.message);}
   finally{cptSaving[code]=false;}
 }
@@ -1844,7 +1860,138 @@ async function cptAutoCommandeLaboSiNecessaire(i){
     }else{
       await db.from('labo_commandes_lignes').insert({commande_id:commandeId,produit_code:i.code,produit_nom:i.nom,restaurant_produit_id:null,quantite_demandee:qte});
     }
+    cptToast('🏭 Ajouté à la commande Labo : '+i.nom);
   }catch(e){console.error('cptAutoCommandeLaboSiNecessaire',e);}
+}
+// Petit message flottant en bas d'écran, pour rendre visible ce qui se passe en silence (auto-commande Labo
+// ou tâche cuisine) — avant, rien ne le montrait à l'écran et ça donnait l'impression que rien ne se passait.
+function cptToast(msg){
+  var t=document.getElementById('cpt-toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='cpt-toast';
+    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1A1008;color:#fff;padding:10px 16px;border-radius:20px;font-size:12px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;max-width:85vw;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:none;';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(t._hideTimer);
+  t._hideTimer=setTimeout(function(){t.style.opacity='0';},2500);
+}
+// ── CUISINE INTERNE : même principe que le Labo mais sans expédition entre deux endroits (le comptage et la
+// préparation se font dans le même restaurant) — juste une liste "à préparer" que l'équipe coche au fur et à
+// mesure. Une seule tâche ouverte par restaurant à la fois, réutilisée/complétée au fil des comptages. ──
+async function cptAutoCommandeCuisineSiNecessaire(i){
+  if(!i.fournisseur_id||!cptCuisineInterneSupplierIds.has(i.fournisseur_id))return;
+  var st=cptStatus(i);
+  if(!st||st.cls==='ok')return;
+  var qte=1;
+  if(i.type_suivi==='qty'&&i.cible!=null&&i.dernier){
+    var val=parseFloat(i.dernier.valeur);
+    if(!isNaN(val)){
+      var manque=i.cible-val;
+      if(manque>0)qte=(i.colisage&&i.colisage>0)?Math.ceil(manque/i.colisage)*i.colisage:Math.round(manque*100)/100;
+    }
+  }
+  try{
+    var openRes=await db.from('cuisine_commandes').select('id').eq('restaurant_id',RESTAURANT_ID).eq('statut','a_faire').order('created_at',{ascending:false}).limit(1).maybeSingle();
+    var commandeId=openRes.data?openRes.data.id:null;
+    if(!commandeId){
+      var creePar=(emp?(emp.prenom+' '+emp.nom):'Comptage')+' (auto)';
+      var cmd=await db.from('cuisine_commandes').insert({restaurant_id:RESTAURANT_ID,statut:'a_faire',created_by_nom:creePar}).select().single();
+      if(cmd.error)throw cmd.error;
+      commandeId=cmd.data.id;
+    }
+    var ligneRes=await db.from('cuisine_commandes_lignes').select('id,quantite_demandee,termine').eq('commande_id',commandeId).eq('produit_code',i.code).limit(1).maybeSingle();
+    if(ligneRes.data){
+      if(ligneRes.data.termine){
+        // déjà fait plus tôt, mais le besoin est revenu : réactive la ligne
+        await db.from('cuisine_commandes_lignes').update({quantite_demandee:qte,termine:false,termine_par_nom:null,termine_le:null}).eq('id',ligneRes.data.id);
+      }else if(qte!==ligneRes.data.quantite_demandee){
+        await db.from('cuisine_commandes_lignes').update({quantite_demandee:qte}).eq('id',ligneRes.data.id);
+      }
+    }else{
+      await db.from('cuisine_commandes_lignes').insert({commande_id:commandeId,produit_code:i.code,produit_nom:i.nom,quantite_demandee:qte});
+    }
+    cptToast('🍳 Ajouté à préparer en cuisine : '+i.nom);
+    checkCuisineTachesBadge();
+  }catch(e){console.error('cptAutoCommandeCuisineSiNecessaire',e);}
+}
+var cuisineCommandesCache=[];
+async function loadCuisineTaches(){
+  var cmdRes=await db.from('cuisine_commandes').select('*').eq('restaurant_id',RESTAURANT_ID).eq('statut','a_faire').order('created_at',{ascending:true});
+  if(cmdRes.error)throw cmdRes.error;
+  var commandes=cmdRes.data||[];
+  if(commandes.length){
+    var ids=commandes.map(function(c){return c.id;});
+    var lignesRes=await db.from('cuisine_commandes_lignes').select('*').in('commande_id',ids).eq('termine',false).order('id',{ascending:true});
+    if(lignesRes.error)throw lignesRes.error;
+    var lignes=lignesRes.data||[];
+    commandes.forEach(function(c){c.lignes=lignes.filter(function(l){return l.commande_id===c.id;});});
+    commandes=commandes.filter(function(c){return c.lignes.length>0;}); // ignore une commande dont toutes les lignes sont déjà faites (sera clôturée sous peu)
+  }
+  cuisineCommandesCache=commandes;
+  return commandes;
+}
+async function checkCuisineTachesBadge(){
+  try{
+    var commandes=await loadCuisineTaches();
+    var total=0;commandes.forEach(function(c){total+=c.lignes.length;});
+    var badge=document.getElementById('cuisine-badge');
+    if(badge){
+      if(total){badge.style.display='flex';badge.textContent=total;}
+      else badge.style.display='none';
+    }
+  }catch(e){console.error('checkCuisineTachesBadge',e);}
+}
+async function menuCuisineTaches(){
+  ss('cuisine');
+  var box=document.getElementById('cuisine-list');
+  box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
+  try{
+    await loadCuisineTaches();
+    renderCuisineTachesList();
+    var total=0;cuisineCommandesCache.forEach(function(c){total+=c.lignes.length;});
+    var badge=document.getElementById('cuisine-badge');
+    if(badge){if(total){badge.style.display='flex';badge.textContent=total;}else badge.style.display='none';}
+  }catch(e){
+    console.error('menuCuisineTaches',e);
+    box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(e.message)+'</div>';
+  }
+}
+function renderCuisineTachesList(){
+  var box=document.getElementById('cuisine-list');
+  var allLignes=[];
+  cuisineCommandesCache.forEach(function(c){c.lignes.forEach(function(l){allLignes.push({commandeId:c.id,ligne:l});});});
+  if(!allLignes.length){
+    box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Rien &agrave; pr&eacute;parer pour l\'instant. &#128077;</div>';
+    return;
+  }
+  box.innerHTML=allLignes.map(function(x){
+    var l=x.ligne;
+    return '<div class="cbtn" style="cursor:default;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">'
+      +'<div><div class="cl" style="margin-bottom:0">'+escCpt(l.produit_nom||l.produit_code)+'</div>'
+      +'<div class="cs">Quantit&eacute; : '+escCpt(String(l.quantite_demandee))+'</div></div>'
+      +'<button type="button" class="nb" style="padding:8px 14px;font-size:12px;" onclick="marquerCuisineLigneFaite('+x.commandeId+','+l.id+')">&#10003; Fait</button>'
+      +'</div>';
+  }).join('');
+}
+async function marquerCuisineLigneFaite(commandeId,ligneId){
+  try{
+    var nom=emp?(emp.prenom+' '+emp.nom):'?';
+    var upd=await db.from('cuisine_commandes_lignes').update({termine:true,termine_par_nom:nom,termine_le:new Date().toISOString()}).eq('id',ligneId);
+    if(upd.error){alert('Erreur : '+upd.error.message);return;}
+    var restantRes=await db.from('cuisine_commandes_lignes').select('termine').eq('commande_id',commandeId);
+    var lignes=restantRes.data||[];
+    if(lignes.length&&lignes.every(function(l){return l.termine;})){
+      await db.from('cuisine_commandes').update({statut:'termine'}).eq('id',commandeId);
+    }
+    await loadCuisineTaches();
+    renderCuisineTachesList();
+    var total=0;cuisineCommandesCache.forEach(function(c){total+=c.lignes.length;});
+    var badge=document.getElementById('cuisine-badge');
+    if(badge){if(total){badge.style.display='flex';badge.textContent=total;}else badge.style.display='none';}
+  }catch(e){console.error('marquerCuisineLigneFaite',e);alert('Erreur : '+e.message);}
 }
 function menuAcompte(){
   acoEmp=emp;
