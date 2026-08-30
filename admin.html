@@ -7401,7 +7401,7 @@ async function loadRecettesModule(){
     // comme ingredient_seuils : si la migration SQL n'a pas encore été exécutée, le reste continue de fonctionner.
     if(fourn&&!fourn.error){
       rctSuppliers=(fourn.data||[]).map(function(f){
-        return {id:f.id,nom:f.nom,jours_livraison:f.jours_livraison||[],delai_commande_jours:f.delai_commande_jours,heure_limite:f.heure_limite,is_labo_interne:!!f.is_labo_interne,is_cuisine_interne:!!f.is_cuisine_interne,actif:f.actif!==false};
+        return {id:f.id,nom:f.nom,jours_livraison:f.jours_livraison||[],delai_commande_jours:f.delai_commande_jours,heure_limite:f.heure_limite,is_labo_interne:!!f.is_labo_interne,is_cuisine_interne:!!f.is_cuisine_interne,whatsapp_groupe:f.whatsapp_groupe||null,actif:f.actif!==false};
       });
     }else{
       if(fourn&&fourn.error)console.warn('fournisseurs indisponible (migration SQL pas encore exécutée ?)',fourn.error);
@@ -9292,6 +9292,8 @@ function renderSuppliersList(){
       +'<div style="flex:1;"><label class="fl2" style="font-size:10px;">Heure limite</label>'
         +'<input type="time" class="fi" value="'+(s.heure_limite||'')+'" onchange="updateSupplierField(\''+id+'\',\'heure_limite\',this.value)"></div>'
       +'</div>'
+      +'<div><label class="fl2" style="font-size:10px;">📱 Groupe WhatsApp (nom exact, pour te rappeler où envoyer)</label>'
+        +'<input type="text" class="fi" placeholder="Ex: 📦 Commandes Labo" value="'+esc(s.whatsapp_groupe||'')+'" onchange="updateSupplierField(\''+id+'\',\'whatsapp_groupe\',this.value)"></div>'
       +supplierDeliveryDaysHtml(id,s)
       +'</div>';
   }).join('');
@@ -9304,6 +9306,7 @@ async function updateSupplierField(id,field,value){
   else if(field==='is_labo_interne')payload[field]=!!value;
   else if(field==='is_cuisine_interne')payload[field]=!!value;
   else if(field==='heure_limite')payload[field]=value||null;
+  else if(field==='whatsapp_groupe')payload[field]=value?value.trim():null;
   else payload[field]=value;
   s[field]=payload[field];
   try{
@@ -9318,7 +9321,7 @@ async function createSupplier(){
   var id='sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   try{
     sbCheck(await db.from('fournisseurs_stock').insert({id:id,nom:name,jours_livraison:[],actif:true}));
-    rctSuppliers.push({id:id,nom:name,jours_livraison:[],delai_commande_jours:null,heure_limite:null,is_labo_interne:false,is_cuisine_interne:false,actif:true});
+    rctSuppliers.push({id:id,nom:name,jours_livraison:[],delai_commande_jours:null,heure_limite:null,is_labo_interne:false,is_cuisine_interne:false,whatsapp_groupe:null,actif:true});
     rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
     document.getElementById('msup-new-name').value='';
     renderSuppliersList();
@@ -9472,25 +9475,45 @@ async function openBesoinsComptageModal(){
         if(!flagged)return;
         var ing=rctIngredients.find(function(p){return p.code===code;});
         var sup=s.fournisseur_id?rctSuppliers.find(function(x){return x.id===s.fournisseur_id;}):null;
-        items.push({resto:resto,nom:ing?ing.nom:code,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,compteLe:d.compte_le,valeur:d.valeur});
+        items.push({resto:resto,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi});
       });
     });
     if(!items.length){
       box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Rien à signaler pour l\'instant d\'après les derniers comptages. 👍</div>';
       return;
     }
-    var byFourn={};
-    items.forEach(function(it){
-      var g=it.fournisseurNom||'⚠️ Fournisseur non précisé';
-      byFourn[g]=byFourn[g]||[];
-      byFourn[g].push(it);
-    });
     var restoLabels={port:'Port',dabray:'Dabray',labo:'Labo'};
-    var groupNames=Object.keys(byFourn).sort();
-    box.innerHTML=groupNames.map(function(g){
-      var its=byFourn[g].slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
-      return '<div style="margin-bottom:12px;">'
-        +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;margin-bottom:4px;">'+esc(g)+'</div>'
+    var byFourn={}; // clé = fournisseur_id (ou '_sans_fournisseur') -> {sup, items}
+    items.forEach(function(it){
+      var key=it.fournisseurId||'_sans_fournisseur';
+      byFourn[key]=byFourn[key]||{sup:it.fournisseurId?rctSuppliers.find(function(x){return x.id===it.fournisseurId;}):null,items:[]};
+      byFourn[key].items.push(it);
+    });
+    var groupKeys=Object.keys(byFourn).sort(function(a,b){
+      var na=(byFourn[a].sup?byFourn[a].sup.nom:'⚠️ Fournisseur non précisé');
+      var nb=(byFourn[b].sup?byFourn[b].sup.nom:'⚠️ Fournisseur non précisé');
+      return na.localeCompare(nb,'fr');
+    });
+    box.innerHTML=groupKeys.map(function(key){
+      var g=byFourn[key];
+      var groupName=g.sup?g.sup.nom:'⚠️ Fournisseur non précisé';
+      var its=g.items.slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+      // Message WhatsApp pré-rempli : même principe que le bouton "Ouvrir WhatsApp" de l'écran Stocks
+      // (lien wa.me/?text=... — l'utilisateur choisit lui-même le contact/groupe et appuie sur envoyer,
+      // rien n'est envoyé automatiquement et rien ne touche la table 'fournisseurs').
+      var msgLines=['📦 Commande '+groupName].concat(its.map(function(it){
+        return '- '+it.nom+' ('+restoLabels[it.resto]+')'+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
+      }));
+      var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
+      var waBtn='<a href="'+waUrl+'" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;text-decoration:none;">📤 Ouvrir WhatsApp</a>';
+      var waGroupHint=g.sup&&g.sup.whatsapp_groupe?('<div style="font-size:10px;color:var(--txm);margin-top:2px;">📱 Groupe : '+esc(g.sup.whatsapp_groupe)+'</div>'):'';
+      return '<div style="margin-bottom:14px;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px;">'
+          +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;">'+esc(groupName)+'</div>'
+          +waBtn
+        +'</div>'
+        +waGroupHint
+        +'<div style="margin-top:4px;">'
         +its.map(function(it){
           var when=new Date(it.compteLe).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
           return '<div class="card" style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;gap:8px;">'
@@ -9498,7 +9521,7 @@ async function openBesoinsComptageModal(){
             +'<span style="color:#C0392B;font-weight:700;font-size:11px;white-space:nowrap;">⚠️ '+esc(String(it.valeur))+'</span>'
             +'</div>';
         }).join('')
-        +'</div>';
+        +'</div></div>';
     }).join('');
   }catch(e){console.error('openBesoinsComptageModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+e.message+'</div>';}
 }
