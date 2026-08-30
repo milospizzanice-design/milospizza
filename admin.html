@@ -9613,13 +9613,14 @@ async function openBesoinsLaboModal(){
 //  - type_suivi='qty' : dernière valeur < seuil_min = besoin de commander (suggestion de quantité si "cible" renseignée, arrondie au colisage si présent)
 // Un ingrédient jamais compté sur ce restaurant n'apparaît pas (aucune donnée = pas d'affirmation possible).
 var besoinsComptageByFourn={}; // rempli par openBesoinsComptageModal, lu par creerCommandeLaboDepuisBesoins au clic
+var besoinsComptageWaUrls={}; // idem, lu par marquerBesoinsEnvoyesEtOuvrirWhatsapp
 async function openBesoinsComptageModal(){
   var box=document.getElementById('mbesoinscpt-list');
   box.innerHTML='<div style="font-size:11px;color:var(--txm);">Chargement…</div>';
   openM('mbesoinscpt');
   try{
     var restos=['port','dabray','labo'];
-    var comptagesRes=await db.from('ingredient_comptages').select('restaurant_id,ingredient_code,valeur,compte_le').in('restaurant_id',restos).order('compte_le',{ascending:false});
+    var comptagesRes=await db.from('ingredient_comptages').select('id,restaurant_id,ingredient_code,valeur,compte_le,commande_envoyee').in('restaurant_id',restos).order('compte_le',{ascending:false});
     if(comptagesRes.error)throw comptagesRes.error;
     var dernierByRestoCode={};
     (comptagesRes.data||[]).forEach(function(c){
@@ -9641,6 +9642,7 @@ async function openBesoinsComptageModal(){
         if(!s||s.actif===false)return;
         var d=dernierByRestoCode[resto+'|'+code];
         if(!d)return; // jamais compté sur ce restaurant
+        if(d.commande_envoyee)return; // déjà signalé dans un message précédent — attend un nouveau comptage pour revenir
         var flagged=false,suggestion='',qteACommander=1;
         if(s.type_suivi==='qty'){
           var val=parseFloat(d.valeur);
@@ -9666,7 +9668,7 @@ async function openBesoinsComptageModal(){
         if(!flagged)return;
         var ing=rctIngredients.find(function(p){return p.code===code;});
         var sup=s.fournisseur_id?rctSuppliers.find(function(x){return x.id===s.fournisseur_id;}):null;
-        items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,qteACommander:qteACommander,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi});
+        items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,qteACommander:qteACommander,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi,comptageId:d.id});
       });
     });
     if(!items.length){
@@ -9697,17 +9699,19 @@ async function openBesoinsComptageModal(){
         return '- '+it.nom+' ('+restoLabels[it.resto]+')'+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
       }));
       var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
+      besoinsComptageWaUrls[key]=waUrl; // lu par marquerBesoinsEnvoyesEtOuvrirWhatsapp au clic
       var isLaboInterne=!!(g.sup&&g.sup.is_labo_interne);
       var waBtn=isLaboInterne
         ?'<button type="button" class="btn bp sm" onclick="creerCommandeLaboDepuisBesoins(\''+key+'\')">🏭 Créer la commande Labo</button>'
-        :'<a href="'+waUrl+'" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;text-decoration:none;">📤 Ouvrir WhatsApp</a>';
+        :'<button type="button" onclick="marquerBesoinsEnvoyesEtOuvrirWhatsapp(\''+key+'\')" style="display:inline-block;background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;border:none;cursor:pointer;">📤 Ouvrir WhatsApp</button>';
       var waGroupHint=(!isLaboInterne&&g.sup&&g.sup.whatsapp_groupe)?('<div style="font-size:10px;color:var(--txm);margin-top:2px;">📱 Groupe : '+esc(g.sup.whatsapp_groupe)+'</div>'):'';
+      var heureLimiteHint=(!isLaboInterne&&g.sup&&g.sup.heure_limite)?('<div style="font-size:10px;color:#92400E;font-weight:700;margin-top:2px;">⏰ Heure limite commande : '+esc(g.sup.heure_limite.slice(0,5))+' — attends que tout le monde ait compté avant d\'envoyer</div>'):'';
       return '<div style="margin-bottom:14px;">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px;">'
           +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;">'+esc(groupName)+'</div>'
           +waBtn
         +'</div>'
-        +waGroupHint
+        +waGroupHint+heureLimiteHint
         +'<div style="margin-top:4px;">'
         +its.map(function(it){
           var when=new Date(it.compteLe).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
@@ -9724,6 +9728,39 @@ async function openBesoinsComptageModal(){
 // ingrédients signalés pour un fournisseur marqué "🏭 Interne". Une commande par restaurant concerné (le
 // Labo distingue les commandes par restaurant_id). Utilise directement les codes 'ingredients' — plus besoin
 // du catalogue labo_produits, le Labo peut préparer et matcher ses lots avec ces mêmes codes.
+// Ouvre WhatsApp avec le message consolidé, puis marque tous les comptages inclus comme "déjà signalés"
+// (commande_envoyee=true) — ainsi, peu importe qui recompte quoi dans la journée pour ce même fournisseur,
+// un article déjà envoyé ne réapparaît pas dans un message suivant tant qu'il n'a pas été recompté. Ça permet
+// à plusieurs personnes de contribuer au même fournisseur dans la journée sans dupliquer les messages.
+async function marquerBesoinsEnvoyesEtOuvrirWhatsapp(fournKey){
+  var waUrl=besoinsComptageWaUrls[fournKey];
+  if(!waUrl)return;
+  var g=besoinsComptageByFourn[fournKey];
+  // Garde-fou : si ce fournisseur a une heure limite et qu'il reste plus de 2h avant, on prévient — d'autres
+  // personnes comptent peut-être encore aujourd'hui pour ce même fournisseur (ex: Carrefour/Métro, plusieurs
+  // intervenants), et envoyer trop tôt fragmente en plusieurs messages au lieu d'un seul récap consolidé.
+  if(g&&g.sup&&g.sup.heure_limite){
+    var now=new Date();
+    var parts=g.sup.heure_limite.split(':');
+    var limite=new Date(now);limite.setHours(parseInt(parts[0],10)||0,parseInt(parts[1],10)||0,0,0);
+    var heuresRestantes=(limite-now)/3600000;
+    if(heuresRestantes>2){
+      var ok=confirm('Il reste encore '+Math.round(heuresRestantes)+'h avant l\'heure limite de ce fournisseur ('+g.sup.heure_limite.slice(0,5)+').\nD\'autres personnes comptent peut-être encore aujourd\'hui pour lui — envoyer maintenant risque de fragmenter la commande en plusieurs messages.\n\nEnvoyer quand même maintenant ?');
+      if(!ok)return;
+    }
+  }
+  window.open(waUrl,'_blank');
+  if(!g||!g.items.length)return;
+  var ids=g.items.map(function(it){return it.comptageId;}).filter(Boolean);
+  if(!ids.length)return;
+  try{
+    sbCheck(await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids));
+  }catch(e){
+    console.error('marquerBesoinsEnvoyesEtOuvrirWhatsapp',e);
+    alert('Le message WhatsApp a été ouvert, mais je n\'ai pas pu marquer les articles comme envoyés : '+e.message+'\nIls risquent de réapparaître dans un prochain message.');
+  }
+  openBesoinsComptageModal(); // recharge : ces articles disparaissent de la liste
+}
 async function creerCommandeLaboDepuisBesoins(fournKey){
   var g=besoinsComptageByFourn[fournKey];
   if(!g||!g.items.length){alert('Rien à commander pour ce fournisseur.');return;}
