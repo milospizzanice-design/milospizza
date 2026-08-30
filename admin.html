@@ -2759,6 +2759,16 @@ function cptTreeToggle(id){
   var arrow=document.getElementById(id+'-arrow');
   if(arrow)arrow.innerHTML=willOpen?'&#9662;':'&#9656;';
 }
+// Coche/décoche en masse toutes les cases ingrédients (.cpting-chk) contenues dans un conteneur donné
+// (une catégorie entière, ou juste une sous-catégorie). Utilisé quand on coche/décoche la case du dessus.
+function cptToggleAllIn(containerId,checked){
+  var root=document.getElementById(containerId);
+  if(!root)return;
+  Array.prototype.slice.call(root.querySelectorAll('input.cpting-chk')).forEach(function(inp){
+    inp.checked=checked;
+    inp.parentElement.style.background=checked?'#EFF6FF':'transparent';
+  });
+}
 // Rendu HTML partagé de l'arborescence Onglet > Catégorie > Sous-catégorie > Ingrédients, repliable au clic.
 // toggleJsFn(nomCategorie) retourne un bout de JS à exécuter au clic sur la case (ou '' si le rôle se
 // contente de relire les cases cochées au moment d'enregistrer, sans état JS intermédiaire).
@@ -2787,15 +2797,16 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
     var rows=grp.categories.map(function(c,ci){
       var on=isSelectedFn(c.nom);
       var toggleJs=toggleJsFn(c.nom);
-      var onchange=(toggleJs?toggleJs+';':'')+'this.parentElement.style.background=this.checked?\''+colorOn+'\':\''+colorOff+'\'';
       var detailId='cpttree-'+scope+'-'+gi+'-'+ci;
       var hasDetail=c.sousCats.length>0||c.directIngredients.length>0;
+      var toggleAllJs=(includeSet&&hasDetail)?"cptToggleAllIn('"+detailId+"',this.checked);":'';
+      var onchange=toggleAllJs+(toggleJs?toggleJs+';':'')+'this.parentElement.style.background=this.checked?\''+colorOn+'\':\''+colorOff+'\'';
       var arrowHtml=hasDetail
         ?'<span id="'+detailId+'-arrow" onclick="event.preventDefault();cptTreeToggle(\''+detailId+'\')" style="cursor:pointer;padding:2px 5px;color:var(--txm);font-size:11px;user-select:none;">&#9656;</span>'
         :'<span style="width:20px;display:inline-block"></span>';
       var label='<label style="display:flex;align-items:center;gap:4px;font-size:12px;background:'+(on?colorOn:colorOff)+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;cursor:pointer;width:100%;box-sizing:border-box;">'
         +arrowHtml
-        +'<input type="checkbox" value="'+esc(c.nom)+'"'+(on?' checked':'')+' onchange="'+onchange+'">'
+        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+' onchange="'+onchange+'">'
         +'<span style="flex:1">'+esc(c.nom)+'</span><span style="color:var(--txm);font-weight:400;font-size:10px">'+c.nbIngredients+' ingr.</span>'
         +'</label>';
       var detail='';
@@ -2805,10 +2816,13 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
           var subArrow=sc.ingredients.length
             ?'<span id="'+subId+'-arrow" onclick="event.preventDefault();cptTreeToggle(\''+subId+'\')" style="cursor:pointer;padding:1px 5px;color:var(--txm);font-size:10px;user-select:none;">&#9656;</span>'
             :'<span style="width:16px;display:inline-block"></span>';
+          var subAllChk=(includeSet&&sc.ingredients.length)
+            ?('<input type="checkbox" class="cptsuball-chk" title="Tout cocher/d\u00e9cocher cette sous-cat\u00e9gorie"'+(sc.ingredients.every(function(ig){return includeSet.has(ig.code)?true:(excludeSet.has(ig.code)?false:on);})?' checked':'')+' onchange="cptToggleAllIn(\''+subId+'\',this.checked)" style="margin-right:2px">')
+            :'';
           var ingHtml=sc.ingredients.length
             ?('<div id="'+subId+'" style="display:none;margin:2px 0 6px 32px;">'+sc.ingredients.map(function(ig){return ingredientChip(ig,c.nom,on);}).join('')+'</div>')
             :'';
-          return '<div style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--tx);margin:2px 0 0 16px;">'+subArrow+'<span style="font-weight:600">'+esc(sc.nom)+'</span><span style="color:var(--txm);font-size:9px">('+sc.ingredients.length+')</span></div>'+ingHtml;
+          return '<div style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--tx);margin:2px 0 0 16px;">'+subArrow+subAllChk+'<span style="font-weight:600">'+esc(sc.nom)+'</span><span style="color:var(--txm);font-size:9px">('+sc.ingredients.length+')</span></div>'+ingHtml;
         }).join('');
         var directHtml=c.directIngredients.length
           ?('<div style="margin:6px 0 0 16px;">'+(c.sousCats.length?'<div style="font-size:9px;font-weight:600;color:var(--txm);margin-bottom:2px;">Sans sous-cat\u00e9gorie</div>':'')+c.directIngredients.map(function(ig){return ingredientChip(ig,c.nom,on);}).join('')+'</div>')
@@ -2835,7 +2849,7 @@ function renderRoleComptageCatsCheckboxes(selected,ingInclude,ingExclude){
 function readRoleComptageCatsCheckboxes(){
   var box=document.getElementById('role-comptage-cats');
   if(!box)return[];
-  return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:not(.cpting-chk):checked')).map(function(i){return i.value;});
+  return Array.prototype.slice.call(box.querySelectorAll('input.cptcat-chk:checked')).map(function(i){return i.value;});
 }
 // Compare l'état de chaque case ingrédient à l'état de sa case catégorie (déjà lue dans comptageCats) pour
 // n'enregistrer QUE les exceptions : coché alors que la catégorie est décochée → include ; décoché alors
