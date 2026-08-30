@@ -1596,9 +1596,10 @@ function renderLaboRecepList(){
 async function accepterLotLabo(envoiLigneId){
   var r=laboPendingReceptions.find(function(x){return x.envoi_ligne_id===envoiLigneId;});
   if(!r)return;
+  var commentaire=prompt('Commentaire (optionnel) :')||'';
   var empNom=(currentUser&&currentUser.name)?currentUser.name:'—';
   try{
-    var ins=await sb.from('labo_receptions_lignes').insert({envoi_ligne_id:envoiLigneId,statut:'accepte',recu_par_nom:empNom});
+    var ins=await sb.from('labo_receptions_lignes').insert({envoi_ligne_id:envoiLigneId,statut:'accepte',commentaire:commentaire.trim()||null,recu_par_nom:empNom});
     if(ins.error)throw new Error(ins.error.message);
     var upl=await sb.from('labo_lots').update({statut:'recu'}).eq('id',r.lot.id);
     if(upl.error)throw new Error(upl.error.message);
@@ -1611,12 +1612,41 @@ async function accepterLotLabo(envoiLigneId){
     if(upd.error)throw new Error(upd.error.message);
     var p=DB.products.find(function(pp){return pp.id===produitId;});
     if(p)STATE[p.id]=nouvelleValeur;
+    // Boucle la réception dans le nouveau système de comptage (ingredient_comptages), en plus de l'ancien
+    // stock_etat ci-dessus (gardé pour ne pas casser l'ancien écran Stocks). N'empêche pas la réception si ça échoue.
+    await enregistrerComptageDepuisReceptionLabo(r.commande_ligne.produit_code,Number(r.lot.poids_reel_g)/1000,empNom);
   }catch(e){
     alert('Erreur lors de l\'acceptation : '+e.message);
     return;
   }
   await checkAndCloseLaboCommande(r.commande_ligne.commande_id);
   await afterLaboRecepAction();
+}
+// Ferme la boucle avec le nouveau système de comptage (ingredient_comptages) quand un lot Labo est accepté :
+// ajoute le poids reçu à la dernière quantité connue (mode 'qty'), ou repasse simplement en "OK" pour les
+// autres modes de suivi (two/rup/yn/level) — une réception veut dire "le stock vient d'être renfloué".
+// N'échoue jamais bruyamment : la réception elle-même (ci-dessus) est déjà validée, on ne veut pas la
+// remettre en cause si ce complément de log échoue (ex: ingrédient pas encore configuré en seuils).
+async function enregistrerComptageDepuisReceptionLabo(ingredientCode,poidsKg,empNom){
+  try{
+    var seuilRes=await sb.from('ingredient_seuils').select('type_suivi').eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',ingredientCode).maybeSingle();
+    var typeSuivi=(seuilRes.data&&seuilRes.data.type_suivi)||'qty';
+    var valeur;
+    if(typeSuivi==='qty'){
+      var dernierRes=await sb.from('ingredient_comptages').select('valeur').eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',ingredientCode).order('compte_le',{ascending:false}).limit(1).maybeSingle();
+      var base=dernierRes.data?(parseFloat(dernierRes.data.valeur)||0):0;
+      valeur=String(Math.round((base+poidsKg)*100)/100);
+    }else if(typeSuivi==='yn'){
+      valeur='oui';
+    }else if(typeSuivi==='level'){
+      valeur='100';
+    }else{ // 'two' ou 'rup'
+      valeur='ok';
+    }
+    await sb.from('ingredient_comptages').insert({restaurant_id:RESTAURANT_ID,ingredient_code:ingredientCode,type_suivi:typeSuivi,valeur:valeur,compte_par_nom:empNom+' (réception Labo)',compte_le:new Date().toISOString()});
+  }catch(e){
+    console.error('enregistrerComptageDepuisReceptionLabo',e);
+  }
 }
 async function rejeterLotLabo(envoiLigneId){
   var r=laboPendingReceptions.find(function(x){return x.envoi_ligne_id===envoiLigneId;});
