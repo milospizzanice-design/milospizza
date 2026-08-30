@@ -2764,10 +2764,24 @@ function cptTreeToggle(id){
 // contente de relire les cases cochées au moment d'enregistrer, sans état JS intermédiaire).
 // scope sert à préfixer les id DOM pour que plusieurs arbres (rôle / ajout salarié / retrait salarié)
 // puissent coexister sur la même page sans collision d'id.
-function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scope){
+// ingOpts (optionnel) : {includeSet, excludeSet} — active des cases à cocher sur CHAQUE ingrédient en plus
+// de la case catégorie, pour gérer des exceptions ("toute la catégorie sauf ces 2 ingrédients-là", ou
+// l'inverse "rien de la catégorie sauf ceux-là"). Coché par défaut = suit l'état de sa catégorie, sauf
+// override stocké dans includeSet/excludeSet. La lecture se fait à la sauvegarde (readRoleIngredientOverrides),
+// pas via un état JS live — pas besoin de re-render quand on coche/décoche.
+function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scope,ingOpts){
   colorOn=colorOn||'#DCFCE7';colorOff=colorOff||'#FAF4EC';
   scope=scope||'x';
+  var includeSet=(ingOpts&&ingOpts.includeSet)||null;
+  var excludeSet=(ingOpts&&ingOpts.excludeSet)||null;
   if(!tree||!tree.length)return '<div style="color:#aaa;font-size:11px;">Aucune cat\u00e9gorie trouv\u00e9e. Cr\u00e9e-les d\u2019abord dans Admin &gt; Recettes &gt; Ingr\u00e9dients.</div>';
+  function ingredientChip(ig,catNom,catOn){
+    if(!includeSet){return '<span style="display:inline-block;margin:0 8px 4px 0;">'+esc(ig.nom)+'</span>';}
+    var checked=includeSet.has(ig.code)?true:(excludeSet.has(ig.code)?false:catOn);
+    return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--tx);margin:0 8px 4px 0;cursor:pointer;background:'+(checked?'#EFF6FF':'transparent')+';border-radius:5px;padding:1px 4px;">'
+      +'<input type="checkbox" class="cpting-chk" data-ing-code="'+esc(ig.code)+'" data-ing-cat="'+esc(catNom)+'"'+(checked?' checked':'')+' onchange="this.parentElement.style.background=this.checked?\'#EFF6FF\':\'transparent\'">'
+      +esc(ig.nom)+'</label>';
+  }
   return tree.map(function(grp,gi){
     var head=(grp.onglet&&grp.onglet!=='Sans onglet')?'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--txm);margin:10px 0 4px;">'+esc(grp.onglet)+'</div>':'';
     var rows=grp.categories.map(function(c,ci){
@@ -2792,12 +2806,12 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
             ?'<span id="'+subId+'-arrow" onclick="event.preventDefault();cptTreeToggle(\''+subId+'\')" style="cursor:pointer;padding:1px 5px;color:var(--txm);font-size:10px;user-select:none;">&#9656;</span>'
             :'<span style="width:16px;display:inline-block"></span>';
           var ingHtml=sc.ingredients.length
-            ?('<div id="'+subId+'" style="display:none;margin:2px 0 6px 32px;font-size:10px;color:var(--txm);line-height:1.6;">'+sc.ingredients.map(function(ig){return esc(ig.nom);}).join(' \u00b7 ')+'</div>')
+            ?('<div id="'+subId+'" style="display:none;margin:2px 0 6px 32px;">'+sc.ingredients.map(function(ig){return ingredientChip(ig,c.nom,on);}).join('')+'</div>')
             :'';
           return '<div style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--tx);margin:2px 0 0 16px;">'+subArrow+'<span style="font-weight:600">'+esc(sc.nom)+'</span><span style="color:var(--txm);font-size:9px">('+sc.ingredients.length+')</span></div>'+ingHtml;
         }).join('');
         var directHtml=c.directIngredients.length
-          ?('<div style="font-size:10px;color:var(--txm);margin:6px 0 0 16px;line-height:1.6;">'+(c.sousCats.length?'<span style="font-weight:600;color:var(--tx)">Sans sous-cat\u00e9gorie&nbsp;: </span>':'')+c.directIngredients.map(function(ig){return esc(ig.nom);}).join(' \u00b7 ')+'</div>')
+          ?('<div style="margin:6px 0 0 16px;">'+(c.sousCats.length?'<div style="font-size:9px;font-weight:600;color:var(--txm);margin-bottom:2px;">Sans sous-cat\u00e9gorie</div>':'')+c.directIngredients.map(function(ig){return ingredientChip(ig,c.nom,on);}).join('')+'</div>')
           :'';
         detail='<div id="'+detailId+'" style="display:none;margin:4px 0 8px 4px;padding:4px 0 4px 10px;border-left:2px solid var(--bd);">'+subHtml+directHtml+'</div>';
       }
@@ -2806,20 +2820,39 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
     return head+'<div style="display:flex;flex-direction:column;gap:4px;">'+rows+'</div>';
   }).join('');
 }
-function renderRoleComptageCatsCheckboxes(selected){
+function renderRoleComptageCatsCheckboxes(selected,ingInclude,ingExclude){
   selected=selected||[];
+  var includeSet=new Set(ingInclude||[]);
+  var excludeSet=new Set(ingExclude||[]);
   var box=document.getElementById('role-comptage-cats');
   if(!box)return;
   box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement des cat\u00e9gories...</div>';
   ensureComptageCatsCanonical().then(function(tree){
     if(!box)return;
-    box.innerHTML=comptageCatsTreeHtml(tree,function(nom){return selected.indexOf(nom)>=0;},function(){return '';},'#DCFCE7','#FAF4EC','role');
+    box.innerHTML=comptageCatsTreeHtml(tree,function(nom){return selected.indexOf(nom)>=0;},function(){return '';},'#DCFCE7','#FAF4EC','role',{includeSet:includeSet,excludeSet:excludeSet});
   });
 }
 function readRoleComptageCatsCheckboxes(){
   var box=document.getElementById('role-comptage-cats');
   if(!box)return[];
-  return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:checked')).map(function(i){return i.value;});
+  return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:not(.cpting-chk):checked')).map(function(i){return i.value;});
+}
+// Compare l'état de chaque case ingrédient à l'état de sa case catégorie (déjà lue dans comptageCats) pour
+// n'enregistrer QUE les exceptions : coché alors que la catégorie est décochée → include ; décoché alors
+// que la catégorie est cochée → exclude. Si l'état correspond à la catégorie, rien à stocker (comportement
+// par défaut hérité).
+function readRoleIngredientOverrides(comptageCats){
+  var box=document.getElementById('role-comptage-cats');
+  var include=[],exclude=[];
+  if(!box)return{include:include,exclude:exclude};
+  Array.prototype.slice.call(box.querySelectorAll('input.cpting-chk')).forEach(function(inp){
+    var code=inp.getAttribute('data-ing-code');
+    var cat=inp.getAttribute('data-ing-cat');
+    var catOn=comptageCats.indexOf(cat)>=0;
+    if(inp.checked&&!catOn)include.push(code);
+    else if(!inp.checked&&catOn)exclude.push(code);
+  });
+  return{include:include,exclude:exclude};
 }
 function openAddRole(){
   roleEditId=null;
@@ -2827,7 +2860,7 @@ function openAddRole(){
   document.getElementById('role-nom').value='';
   document.getElementById('role-couleur').value='#B91E26';
   renderRoleStockCatsCheckboxes([]);
-  renderRoleComptageCatsCheckboxes([]);
+  renderRoleComptageCatsCheckboxes([],[],[]);
   openM('modal-role');
 }
 function openEditRole(id){
@@ -2838,7 +2871,7 @@ function openEditRole(id){
   document.getElementById('role-nom').value=ro.nom;
   document.getElementById('role-couleur').value=ro.couleur||'#B91E26';
   renderRoleStockCatsCheckboxes(ro.stock_categories||[]);
-  renderRoleComptageCatsCheckboxes(ro.comptage_categories||[]);
+  renderRoleComptageCatsCheckboxes(ro.comptage_categories||[],ro.comptage_ingredients_include||[],ro.comptage_ingredients_exclude||[]);
   openM('modal-role');
 }
 async function saveRole(){
@@ -2846,12 +2879,14 @@ async function saveRole(){
   var couleur=document.getElementById('role-couleur').value;
   var stockCats=readRoleStockCatsCheckboxes();
   var comptageCats=readRoleComptageCatsCheckboxes();
+  var ingOverrides=readRoleIngredientOverrides(comptageCats);
   if(!nom){alert('Indiquez un nom');return;}
+  var payload={nom:nom,couleur:couleur,stock_categories:stockCats,comptage_categories:comptageCats,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude};
   if(roleEditId){
-    var r=await db.from('roles').update({nom:nom,couleur:couleur,stock_categories:stockCats,comptage_categories:comptageCats}).eq('id',roleEditId);
+    var r=await db.from('roles').update(payload).eq('id',roleEditId);
     if(r.error){alert('Erreur: '+r.error.message);return;}
   }else{
-    var r2=await db.from('roles').insert({nom:nom,couleur:couleur,stock_categories:stockCats,comptage_categories:comptageCats});
+    var r2=await db.from('roles').insert(payload);
     if(r2.error){alert('Erreur: '+r2.error.message);return;}
   }
   closeM('modal-role');loadRoles();

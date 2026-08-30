@@ -1080,14 +1080,20 @@ async function comptageCatsForEmployee(){
   var catsAdd=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_add))?fresh.data.comptage_cats_add:[];
   var catsRemove=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_remove))?fresh.data.comptage_cats_remove:[];
   var roleCats=[];
+  var ingInclude=new Set(),ingExclude=new Set();
   if(roles.length){
-    var rolesRes=await db.from('roles').select('id,comptage_categories').in('id',roles);
+    var rolesRes=await db.from('roles').select('id,comptage_categories,comptage_ingredients_include,comptage_ingredients_exclude').in('id',roles);
     if(rolesRes.error)throw rolesRes.error;
     var set=new Set();
-    (rolesRes.data||[]).forEach(function(ro){(ro.comptage_categories||[]).forEach(function(c){set.add(c);});});
+    (rolesRes.data||[]).forEach(function(ro){
+      (ro.comptage_categories||[]).forEach(function(c){set.add(c);});
+      (ro.comptage_ingredients_include||[]).forEach(function(code){ingInclude.add(code);});
+      (ro.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude.add(code);});
+    });
     roleCats=Array.from(set);
   }
-  return roleCats.concat(catsAdd).filter(function(c,idx,arr){return arr.indexOf(c)===idx;}).filter(function(c){return catsRemove.indexOf(c)<0;});
+  var finalCats=roleCats.concat(catsAdd).filter(function(c,idx,arr){return arr.indexOf(c)===idx;}).filter(function(c){return catsRemove.indexOf(c)<0;});
+  return {cats:finalCats,ingInclude:ingInclude,ingExclude:ingExclude};
 }
 
 async function menuComptage(){
@@ -1104,8 +1110,9 @@ async function menuComptage(){
   try{
     // Recharge les rôles/overrides depuis la base à chaque ouverture : évite d'utiliser des catégories
     // périmées si l'admin a modifié les accès comptage pendant que ce salarié était déjà connecté au pointage.
-    var finalCats=await comptageCatsForEmployee();
-    if(!finalCats.length){
+    var cce=await comptageCatsForEmployee();
+    var finalCats=cce.cats,ingInclude=cce.ingInclude,ingExclude=cce.ingExclude;
+    if(!finalCats.length&&!ingInclude.size){
       box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Aucune cat&eacute;gorie de comptage configur&eacute;e pour toi.<br>Demande &agrave; un manager de configurer ton r&ocirc;le dans Admin &gt; Param&egrave;tres &gt; R&ocirc;les.</div>';
       return;
     }
@@ -1122,7 +1129,9 @@ async function menuComptage(){
     (comptagesRes.data||[]).forEach(function(c){if(!dernierByCode[c.ingredient_code])dernierByCode[c.ingredient_code]=c;}); // déjà trié desc -> le 1er par code est le plus récent
     cptIngredients=(ingRes.data||[]).map(function(i){
       var cat=i.categorie||'Autre';
-      if(finalCats.indexOf(cat)<0)return null; // hors des catégories de comptage du salarié connecté
+      var inCat=finalCats.indexOf(cat)>=0;
+      var included=(inCat||ingInclude.has(i.code))&&!ingExclude.has(i.code); // catégorie accordée (ou ingrédient ajouté à part), sauf exception explicite
+      if(!included)return null;
       var s=seuilsByCode[i.code];
       if(!s||s.actif===false)return null; // pas configuré / masqué pour ce restaurant (fiche ingrédient > Visible ici)
       return {code:i.code,nom:i.nom,categorie:cat,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null};
