@@ -71,6 +71,11 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   .wrap{padding:10px !important}
   #s-abs-form textarea,#s-aco-form textarea{rows:1}
   #abs-file-lbl{font-size:11px}
+  .cpt-topbar{margin:-13px -13px 8px !important;padding:11px 13px 9px !important}
+  .cpt-sec-hdr{padding:6px 9px !important}
+  .cpt-row{padding:9px 10px !important}
+  .cpt-qbtn{width:30px !important;height:30px !important;font-size:16px !important}
+  .cpt-tbtn{padding:6px 8px !important;font-size:10px !important}
 }
 @media (max-height:700px){
   .clock{font-size:30px}
@@ -87,38 +92,54 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   .ainp{padding:5px 7px;font-size:12px}
   .canc{padding:7px;font-size:11px}
   #camstatus{font-size:11px !important;padding:5px 8px !important}
+  .cpt-topbar{margin:-10px -10px 6px !important;padding:9px 10px 7px !important}
+  .cpt-sec-hdr{padding:5px 8px !important}
+  .cpt-row{padding:7px 9px !important}
+  .cpt-qbtn{width:28px !important;height:28px !important;font-size:15px !important}
+  .cpt-tbtn{padding:5px 7px !important;font-size:9px !important}
 }
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.08)}}
-/* ── Comptage rapide : mise en page reprise de l'écran Stocks (milos-pizza-*.html), adaptée au thème rouge ── */
+/* ── Comptage rapide : mise en page reprise de l'écran Stocks (milos-pizza-*.html), adaptée au thème rouge ──
+   Barre du haut + en-têtes de catégorie collants (comme le <header> et les .sec-hdr de l'écran Stocks), plus
+   d'infos par ligne (seuil/cible/colisage, fournisseur), boutons/pastilles agrandis. La liste ne défile plus
+   dans une boîte à part : c'est toute la page (.wrap) qui défile, comme sur l'écran Stocks. */
+.cpt-topbar{position:sticky;top:0;z-index:30;background:var(--bx);margin:-18px -18px 10px;padding:14px 18px 12px;box-shadow:0 4px 10px rgba(0,0,0,.18)}
+.cpt-topbar-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.cpt-topbar-title span:first-child{color:rgba(255,255,255,.65);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.cpt-topbar-count{font-size:10px;background:#fff;color:#C0392B;border-radius:20px;padding:2px 8px;font-weight:700;display:none}
+.cpt-topbar-count.vis{display:inline-block}
 .cpt-sec{margin-bottom:4px}
-.cpt-sec-hdr{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;cursor:pointer;user-select:none;margin-bottom:6px}
+.cpt-sec-hdr{display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:10px;cursor:pointer;user-select:none;margin-bottom:6px;position:sticky;top:var(--cpt-bar-h,64px);z-index:15;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .cpt-sec-hdr h3{font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;flex:1}
 .cpt-sec-count{font-size:10px;background:rgba(255,255,255,.3);color:#fff;border-radius:20px;padding:2px 7px;font-weight:700;display:none}
 .cpt-sec-count.vis{display:inline-block;background:#fff;color:#C0392B}
 .cpt-chev{font-size:10px;color:rgba(255,255,255,.8);transition:transform .2s}
 .cpt-sec-hdr.coll .cpt-chev{transform:rotate(-90deg)}
-.cpt-row{background:#fff;border-radius:12px;padding:9px 11px;display:flex;align-items:center;gap:9px;margin-bottom:6px}
+.cpt-row{background:#fff;border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .cpt-row.warn{outline:2px solid #F39C12;outline-offset:-2px}
 .cpt-row.order{outline:2px solid #C0392B;outline-offset:-2px}
 .cpt-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .cpt-info{flex:1;min-width:0}
-.cpt-name{font-size:13px;font-weight:600;color:#1A1008;line-height:1.2}
-.cpt-meta{font-size:10px;color:#8a7f70;margin-top:1px}
-.cpt-del{margin-left:6px;cursor:pointer;opacity:.55;font-size:10px}
+.cpt-name{font-size:13px;font-weight:600;color:#1A1008;line-height:1.25}
+.cpt-meta2{font-size:10px;color:#8a7f70;margin-top:2px}
+.cpt-meta{font-size:10px;color:#8a7f70;margin-top:2px}
+.cpt-del{margin-left:6px;cursor:pointer;opacity:.55;font-size:11px;padding:2px 4px}
 .cpt-del:active{opacity:1}
-.cpt-ctrl{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
-.cpt-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.cpt-suptag-wrap{margin-top:4px}
+.cpt-suptag{display:inline-block;font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;color:#fff;line-height:1.3}
+.cpt-ctrl{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.cpt-pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;min-width:52px;text-align:center}
 .cpt-pill-ok{background:#E8F5E9;color:#1E8449}
 .cpt-pill-warn{background:#FEF9E7;color:#D68910}
 .cpt-pill-bad{background:#FDEDEC;color:#C0392B}
 .cpt-qty-ctrl{display:flex;align-items:center;background:#F5F1EA;border:1.5px solid #E5DDCE;border-radius:9px;overflow:hidden}
-.cpt-qbtn{width:28px;height:30px;background:none;border:none;font-size:16px;color:#B91E26;cursor:pointer;line-height:1}
+.cpt-qbtn{width:34px;height:34px;background:none;border:none;font-size:18px;color:#B91E26;cursor:pointer;line-height:1}
 .cpt-qbtn:active{background:#EDE0CC}
 .cpt-qin{width:42px;text-align:center;border:none;background:none;font-size:14px;font-weight:700;color:#1A1008;padding:0;-moz-appearance:textfield}
 .cpt-qin::-webkit-outer-spin-button,.cpt-qin::-webkit-inner-spin-button{-webkit-appearance:none}
 .cpt-qin:focus{outline:none}
 .cpt-tog{display:flex;border:1.5px solid #E5DDCE;border-radius:9px;overflow:hidden}
-.cpt-tbtn{padding:6px 8px;background:#F5F1EA;border:none;font-size:10px;font-weight:700;cursor:pointer;color:#8a7f70;border-right:1px solid #E5DDCE}
+.cpt-tbtn{padding:8px 10px;background:#F5F1EA;border:none;font-size:11px;font-weight:700;cursor:pointer;color:#8a7f70;border-right:1px solid #E5DDCE}
 .cpt-tbtn:last-child{border-right:none}
 .cpt-tbtn.ok{background:#E8F5E9;color:#1E8449}
 .cpt-tbtn.warn{background:#FEF9E7;color:#D68910}
@@ -275,10 +296,15 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     </div>
 
     <div class="screen" id="s-comptage">
-      <div class="panel-title" style="margin-bottom:10px">&#129518; Comptage rapide</div>
+      <div class="cpt-topbar" id="cpt-topbar">
+        <div class="cpt-topbar-title">
+          <span>&#129518; Comptage rapide</span>
+          <span class="cpt-topbar-count" id="cpt-alert-count">0</span>
+        </div>
+        <input type="text" id="cpt-search" class="ainp" placeholder="Rechercher un ingr&eacute;dient..." oninput="renderComptageList()">
+      </div>
       <div id="cpt-today-banner" style="display:none;margin-bottom:10px"></div>
-      <input type="text" id="cpt-search" class="ainp" placeholder="Rechercher un ingr&eacute;dient..." oninput="renderComptageList()" style="margin-bottom:10px">
-      <div id="cpt-list" style="max-height:58vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <div id="cpt-list"></div>
       <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
     </div>
 
@@ -1194,6 +1220,7 @@ var cptIngredients=[]; // [{code,nom,categorie,type_suivi,unite_comptage,dernier
 var cptSaving={}; // code -> true pendant l'enregistrement, anti double-tap
 var cptLaboInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "🏭 Interne"
 var cptCuisineInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "🍳 Interne"
+var cptSuppliersById={}; // id -> {nom,is_labo_interne,is_cuisine_interne} — pour afficher le nom du fournisseur sur le tag de routage
 
 // Calcule les catégories de comptage effectives du salarié connecté (union des rôles + overrides),
 // même principe que le module Stocks (catsAdd/catsRemove) mais sur roles.comptage_categories.
@@ -1590,6 +1617,8 @@ async function menuComptage(){
     return;
   }
   ss('comptage');
+  var wrapEl0=document.querySelector('.wrap');if(wrapEl0)wrapEl0.scrollTop=0; // toute la page défile désormais (plus de boîte à part) : repart du haut à chaque ouverture
+  cptSyncBarHeight();
   var box=document.getElementById('cpt-list');
   var banner=document.getElementById('cpt-today-banner');
   if(banner){banner.style.cssText='display:none;margin-bottom:10px';banner.innerHTML='';}
@@ -1614,10 +1643,12 @@ async function menuComptage(){
     // Fournisseurs marqués "🏭 Interne" (Labo) ou "🍳 Interne" (Cuisine) : sert à déclencher automatiquement
     // la commande Labo / la tâche cuisine au moment du comptage, sans passer par l'écran admin.
     try{
-      var fournRes=await db.from('fournisseurs_stock').select('id,is_labo_interne,is_cuisine_interne');
+      var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,is_cuisine_interne');
       cptLaboInterneSupplierIds=new Set((fournRes.data||[]).filter(function(f){return f.is_labo_interne;}).map(function(f){return f.id;}));
       cptCuisineInterneSupplierIds=new Set((fournRes.data||[]).filter(function(f){return f.is_cuisine_interne;}).map(function(f){return f.id;}));
-    }catch(e){console.warn('fournisseurs_stock indisponible',e);cptLaboInterneSupplierIds=new Set();cptCuisineInterneSupplierIds=new Set();}
+      cptSuppliersById={};
+      (fournRes.data||[]).forEach(function(f){cptSuppliersById[f.id]=f;});
+    }catch(e){console.warn('fournisseurs_stock indisponible',e);cptLaboInterneSupplierIds=new Set();cptCuisineInterneSupplierIds=new Set();cptSuppliersById={};}
     var seuilsByCode={};
     (seuilsRes.data||[]).forEach(function(s){seuilsByCode[s.ingredient_code]=s;});
     var dernierByCode={};
@@ -1663,14 +1694,38 @@ function cptCatColor(cat){
   var h=0;for(var k=0;k<cat.length;k++){h=(h*31+cat.charCodeAt(k))%360;}
   return 'hsl('+h+',60%,55%)';
 }
-function cptSecId(idx){return 'cpt-sec-'+idx;}
-function cptSecToggle(idx){
-  var body=document.getElementById(cptSecId(idx)+'-body');
-  var hdr=document.getElementById(cptSecId(idx)+'-hdr');
+function cptCatSlug(cat){return cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');}
+function cptSecId(cat){return 'cpt-sec-'+cptCatSlug(cat);}
+// Mesure la hauteur réelle de la barre du haut (titre + recherche) et la pose en variable CSS, pour que les
+// en-têtes de catégorie collants (.cpt-sec-hdr) se collent juste en dessous, quelle que soit la taille d'écran
+// (les tailles de police/paddings changent avec les media queries, donc un chiffre fixe en CSS serait fragile).
+function cptSyncBarHeight(){
+  var bar=document.getElementById('cpt-topbar');
+  if(!bar)return;
+  document.documentElement.style.setProperty('--cpt-bar-h',bar.offsetHeight+'px');
+}
+if(!window._cptResizeBound){
+  window._cptResizeBound=true;
+  window.addEventListener('resize',function(){
+    var s=document.getElementById('s-comptage');
+    if(s&&s.classList.contains('on'))cptSyncBarHeight();
+  });
+}
+// Couleur déterministe par nom de fournisseur (hash), pour les tags de routage — même principe que
+// cptCatColor mais teinte/luminosité différentes pour ne pas se confondre avec les pastilles de catégorie.
+function cptSupColor(name){
+  var h=0;for(var k=0;k<name.length;k++){h=(h*31+name.charCodeAt(k))%360;}
+  return 'hsl('+h+',45%,42%)';
+}
+var cptCollapsedCats=new Set(); // catégories actuellement repliées — mémorisé ici (pas juste dans le DOM) pour survivre aux rafraîchissements de la liste
+function cptSecToggle(cat){
+  var body=document.getElementById(cptSecId(cat)+'-body');
+  var hdr=document.getElementById(cptSecId(cat)+'-hdr');
   if(!body||!hdr)return;
   var coll=body.style.display!=='none';
   body.style.display=coll?'none':'block';
   hdr.classList.toggle('coll',coll);
+  if(coll)cptCollapsedCats.add(cat);else cptCollapsedCats.delete(cat);
 }
 // Statut synthétique affiché en badge à droite de chaque ligne, à partir du dernier comptage — mêmes règles
 // que le calcul utilisé dans "🛒 Besoins (comptage)" côté admin, pour que ce que voit le salarié pendant le
@@ -1702,33 +1757,64 @@ function cptStatus(i){
   }
   return null;
 }
+// Étiquette de routage permanente sur chaque ligne (🏭 Labo / 🍳 Cuisine / 📦 fournisseur / ⚠️ aucun), pour
+// qu'on sache TOUJOURS où va un article sans avoir à deviner ni changer d'écran — reprise sous forme de
+// pastille colorée façon "sup-tag" de l'ancien écran Stocks (au lieu d'un simple texte), avec le vrai nom
+// du fournisseur plutôt qu'un renvoi générique vers "Commandes fournisseurs".
+function cptRoutingTag(i){
+  if(!i.fournisseur_id)return '<span class="cpt-suptag" style="background:#C0392B">&#9888; Aucun fournisseur assign\u00e9</span>';
+  if(cptLaboInterneSupplierIds.has(i.fournisseur_id))return '<span class="cpt-suptag" style="background:#7D3C98">&#127859; Labo &mdash; \u00e0 pr\u00e9parer/exp\u00e9dier</span>';
+  if(cptCuisineInterneSupplierIds.has(i.fournisseur_id))return '<span class="cpt-suptag" style="background:#CA6F1E">&#127859; Cuisine de ce restaurant</span>';
+  var f=cptSuppliersById[i.fournisseur_id];
+  var nom=f&&f.nom?f.nom:i.fournisseur_id;
+  return '<span class="cpt-suptag" style="background:'+cptSupColor(nom)+'">&#128230; '+escCpt(nom)+'</span>';
+}
+// Ligne d'infos courtes (seuil/cible/colisage), reprise de l'ancien écran Stocks — n'affiche que ce qui est
+// réellement configuré pour cet ingrédient sur ce restaurant, pour ne pas surcharger visuellement.
+function cptMetaLine(i){
+  var parts=[];
+  if(i.seuil_min!=null)parts.push('Seuil:'+i.seuil_min+(i.type_suivi==='qty'&&i.unite_comptage?(' '+i.unite_comptage):''));
+  if(i.cible!=null)parts.push('Cible:'+i.cible);
+  if(i.colisage!=null&&i.colisage>1)parts.push('Colis\u00d7'+i.colisage);
+  if(!parts.length)return '';
+  return '<div class="cpt-meta2">'+parts.map(escCpt).join(' &middot; ')+'</div>';
+}
 function renderComptageList(){
   var box=document.getElementById('cpt-list');
+  var wrapEl=document.querySelector('.wrap');
+  var scrollBefore=wrapEl?wrapEl.scrollTop:0; // conserve la position de défilement globale (toute la page défile désormais), sinon ça "saute" en haut à chaque comptage
+  // Compteur global d'alertes (toutes catégories confondues, indépendant de la recherche), affiché dans la barre du haut collante.
+  var totalAlert=cptIngredients.filter(function(i){var st=cptStatus(i);return st&&st.cls!=='ok';}).length;
+  var countEl=document.getElementById('cpt-alert-count');
+  if(countEl){countEl.textContent=totalAlert;countEl.classList.toggle('vis',totalAlert>0);}
   var q=(document.getElementById('cpt-search').value||'').trim().toLowerCase();
   var filtered=cptIngredients.filter(function(i){return !q||i.nom.toLowerCase().indexOf(q)>=0;});
   if(!filtered.length){
     box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">'+(q?'Aucun ingrédient pour "'+escCpt(q)+'".':'Aucun ingrédient configuré pour le comptage sur ce restaurant.<br>Un manager doit les activer depuis Admin &gt; Recettes &gt; Ingrédients.')+'</div>';
+    if(wrapEl)wrapEl.scrollTop=scrollBefore;
     return;
   }
   var byCat={};
   filtered.forEach(function(i){(byCat[i.categorie]=byCat[i.categorie]||[]).push(i);});
   var catNames=Object.keys(byCat).sort(function(a,b){return a.localeCompare(b,'fr');});
   var html='';
-  catNames.forEach(function(cat,idx){
+  catNames.forEach(function(cat){
     var items=byCat[cat];
     var nAlert=items.filter(function(i){var st=cptStatus(i);return st&&st.cls!=='ok';}).length;
     var color=cptCatColor(cat);
-    var secId=cptSecId(idx);
+    var secId=cptSecId(cat);
+    var collapsed=cptCollapsedCats.has(cat);
     html+='<div class="cpt-sec">'
-      +'<div class="cpt-sec-hdr" id="'+secId+'-hdr" style="background:'+color+'" onclick="cptSecToggle('+idx+')">'
+      +'<div class="cpt-sec-hdr'+(collapsed?' coll':'')+'" id="'+secId+'-hdr" style="background:'+color+'" onclick="cptSecToggle(\''+cat.replace(/'/g,"\\'")+'\')">'
         +'<h3>'+escCpt(cat)+'</h3>'
         +'<span class="cpt-sec-count'+(nAlert?' vis':'')+'">'+nAlert+'</span>'
         +'<span class="cpt-chev">&#9660;</span>'
       +'</div>'
-      +'<div class="cpt-sec-body" id="'+secId+'-body">'+items.map(comptageRowHtml).join('')+'</div>'
+      +'<div class="cpt-sec-body" id="'+secId+'-body" style="display:'+(collapsed?'none':'block')+'">'+items.map(comptageRowHtml).join('')+'</div>'
       +'</div>';
   });
   box.innerHTML=html;
+  if(wrapEl)wrapEl.scrollTop=scrollBefore;
 }
 
 function dernierLabelCpt(dernier,unite){
@@ -1769,7 +1855,9 @@ function comptageRowHtml(i){
     +'<span class="cpt-dot" style="background:'+cptCatColor(i.categorie)+'"></span>'
     +'<div class="cpt-info">'
       +'<div class="cpt-name">'+escCpt(i.nom)+'</div>'
+      +cptMetaLine(i)
       +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+delBtn+'</div>'
+      +'<div class="cpt-suptag-wrap">'+cptRoutingTag(i)+'</div>'
     +'</div>'
     +'<div class="cpt-ctrl">'+pill+body+'</div>'
     +'</div>';
