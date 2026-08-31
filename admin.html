@@ -259,6 +259,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option></select>
         <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
       </div>
+      <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <select class="fs" id="rc-arch-emp" onchange="rcOpenArchiveFiche()" style="flex:1;min-width:200px">
+          <option value="">&#128193; Salari&#233; archiv&#233; (r&#233;cap / solde de tout compte)&#8230;</option>
+        </select>
+      </div>
       <div id="rcb"></div>
     </div>
 
@@ -1527,10 +1532,19 @@ function phrs(str){
 }
 
 function calcW(entries){
-  var ins=entries.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
-  var outs=entries.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+  // Appariement entrée/sortie JOUR PAR JOUR (et non sur toute la période d'un coup) :
+  // si un badgeage manque un jour donné (oubli de sortie/entrée), seul ce jour est
+  // affecté, au lieu de décaler l'appariement de tous les jours suivants de la période
+  // (ce qui faisait "disparaître" des heures réellement travaillées plus loin dans le mois).
+  var byDay={};
+  entries.forEach(function(e){var d=e.timestamp.slice(0,10);(byDay[d]=byDay[d]||[]).push(e);});
   var t=0;
-  ins.forEach(function(inn,i){if(outs[i])t+=(new Date(outs[i].timestamp)-new Date(inn.timestamp))/60000;});
+  Object.keys(byDay).forEach(function(d){
+    var day=byDay[d];
+    var ins=day.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+    var outs=day.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+    ins.forEach(function(inn,i){if(outs[i])t+=(new Date(outs[i].timestamp)-new Date(inn.timestamp))/60000;});
+  });
   return Math.round(t);
 }
 
@@ -4633,6 +4647,28 @@ async function loadRc(){
   document.getElementById('rcb').innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
   // Acomptes validés sur la période
   loadRcAcomptes(dr);
+  fillRcArchiveSelect();
+}
+
+// Liste déroulante des salariés archivés dans l'onglet Récap : permet de rouvrir
+// la fiche d'un salarié archivé (avec pointages, absences, et export récap
+// PDF/Excel sur n'importe quelle période) pour établir un solde de tout compte.
+function fillRcArchiveSelect(){
+  var sel=document.getElementById('rc-arch-emp');if(!sel)return;
+  var archived=emps.filter(function(e){return e.archive;}).sort(function(a,b){return (a.nom+a.prenom).localeCompare(b.nom+b.prenom);});
+  var h='<option value="">&#128193; Salari&#233; archiv&#233; (r&#233;cap / solde de tout compte)&#8230;</option>';
+  archived.forEach(function(e){
+    h+='<option value="'+e.id+'">'+e.prenom+' '+e.nom+' &#8212; fin: '+(e.date_fin||'?')+'</option>';
+  });
+  sel.innerHTML=h;
+}
+
+function rcOpenArchiveFiche(){
+  var sel=document.getElementById('rc-arch-emp');if(!sel)return;
+  var id=parseInt(sel.value);
+  sel.value='';
+  if(!id)return;
+  openAbsEmpFiche(id);
 }
 
 async function loadRcAcomptes(dr){
