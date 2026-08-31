@@ -108,6 +108,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-topbar-title span:first-child{color:rgba(255,255,255,.65);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .cpt-topbar-count{font-size:10px;background:#fff;color:#C0392B;border-radius:20px;padding:2px 8px;font-weight:700;display:none}
 .cpt-topbar-count.vis{display:inline-block}
+.cpt-resto-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;cursor:pointer;margin-bottom:9px}
+.cpt-resto-chip:active{background:rgba(255,255,255,.28)}
 .cpt-sec{margin-bottom:4px}
 .cpt-sec-hdr{display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:10px;cursor:pointer;user-select:none;margin-bottom:6px;position:sticky;top:var(--cpt-bar-h,64px);z-index:15;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .cpt-sec-hdr h3{font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;flex:1}
@@ -207,6 +209,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="panel-title" style="font-size:16px;color:#fff;margin-bottom:6px">&#128075; Salut <span id="resto-picker-prenom"></span> !</div>
       <div style="color:rgba(255,255,255,.75);font-size:14px;margin-bottom:18px">Tu travailles o&#249; aujourd'hui ?</div>
       <div id="resto-picker-list"></div>
+      <button id="resto-picker-cancel" class="canc" style="margin-top:6px;display:none" onclick="_restoPickerCancel()">Annuler</button>
     </div>
     <div class="screen" id="s-menu">
       <div class="panel-title" id="menu-welcome" style="font-size:16px;color:#fff;margin-bottom:14px">Bienvenue</div>
@@ -301,6 +304,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
           <span>&#129518; Comptage rapide</span>
           <span class="cpt-topbar-count" id="cpt-alert-count">0</span>
         </div>
+        <div id="cpt-resto-chip-wrap"></div>
         <input type="text" id="cpt-search" class="ainp" placeholder="Rechercher un ingr&eacute;dient..." oninput="renderComptageList()">
       </div>
       <div id="cpt-today-banner" style="display:none;margin-bottom:10px"></div>
@@ -474,6 +478,7 @@ window.rgFeatureFlags=null;
 // Après identification (badge ou PIN) : si le salarié a un ou plusieurs restaurants secondaires en plus de
 // son restaurant principal, demande "tu travailles où aujourd'hui ?" avant d'entrer — sinon entre directement
 // (comportement inchangé pour l'immense majorité des salariés qui n'ont qu'un seul restaurant).
+var restoNamesById={port:'Port',dabray:'Dabray',labo:'Labo'}; // rempli/complété depuis la table restaurants dès qu'on connaît la liste des restos d'un salarié multi-restaurants — réutilisé ensuite par le chip de sélection dans Comptage rapide
 async function proceedLoginWithRestaurantChoice(){
   var restos=[emp.restaurant_id].concat(Array.isArray(emp.restaurants_secondaires)?emp.restaurants_secondaires:[]).filter(Boolean);
   restos=restos.filter(function(r,idx){return restos.indexOf(r)===idx;}); // dédoublonne
@@ -482,24 +487,44 @@ async function proceedLoginWithRestaurantChoice(){
     finishEmployeeLogin();
     return;
   }
-  var namesById={port:'Port',dabray:'Dabray',labo:'Labo'};
+  await renderRestoPicker(restos,function(rid){
+    RESTAURANT_ID=rid;
+    finishEmployeeLogin();
+  },null); // pas d'annulation possible à la connexion : le choix est obligatoire
+}
+// Écran de sélection de restaurant partagé entre la connexion ("tu travailles où aujourd'hui ?") et le
+// changement à la volée depuis Comptage rapide (voir openComptageRestaurantSwitcher plus bas) — même liste,
+// mêmes noms, juste un callback différent selon d'où on l'appelle. onCancel==null -> pas de bouton Annuler
+// (cas de la connexion, où le choix est obligatoire).
+async function renderRestoPicker(restos,onChoose,onCancel){
   try{
     var r=await db.from('restaurants').select('id,nom').in('id',restos);
-    (r.data||[]).forEach(function(x){namesById[x.id]=x.nom;});
+    (r.data||[]).forEach(function(x){restoNamesById[x.id]=x.nom;});
   }catch(e){console.warn('restaurants (noms) indisponible',e);}
   var box=document.getElementById('resto-picker-list');
   var prenomEl=document.getElementById('resto-picker-prenom');
-  if(prenomEl)prenomEl.textContent=emp.prenom||'';
+  if(prenomEl)prenomEl.textContent=emp?(emp.prenom||''):'';
   if(box){
     box.innerHTML=restos.map(function(rid){
-      return '<button type="button" class="nb" style="width:100%;margin-bottom:8px;text-align:center;" onclick="chooseLoginRestaurant(\''+rid+'\')">'+escCpt(namesById[rid]||rid)+'</button>';
+      var active=rid===RESTAURANT_ID;
+      return '<button type="button" class="nb" style="width:100%;margin-bottom:8px;text-align:center;'+(active?'background:#fff;color:var(--bx);':'')+'" onclick="_restoPickerChoose(\''+rid+'\')">'+escCpt(restoNamesById[rid]||rid)+(active?' &#10003;':'')+'</button>';
     }).join('');
   }
+  var cancelBtn=document.getElementById('resto-picker-cancel');
+  if(cancelBtn)cancelBtn.style.display=onCancel?'block':'none';
+  _restoPickerCallback=onChoose;
+  _restoPickerCancelCb=onCancel;
   ss('restopicker');
 }
-function chooseLoginRestaurant(rid){
-  RESTAURANT_ID=rid;
-  finishEmployeeLogin();
+var _restoPickerCallback=null;
+var _restoPickerCancelCb=null;
+function _restoPickerChoose(rid){
+  var cb=_restoPickerCallback;_restoPickerCallback=null;_restoPickerCancelCb=null;
+  if(cb)cb(rid);
+}
+function _restoPickerCancel(){
+  var cb=_restoPickerCancelCb;_restoPickerCallback=null;_restoPickerCancelCb=null;
+  if(cb)cb();else backToMenu();
 }
 function finishEmployeeLogin(){
   document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
@@ -1618,7 +1643,9 @@ async function menuComptage(){
   }
   ss('comptage');
   var wrapEl0=document.querySelector('.wrap');if(wrapEl0)wrapEl0.scrollTop=0; // toute la page défile désormais (plus de boîte à part) : repart du haut à chaque ouverture
-  cptSyncBarHeight();
+  var chipWrap=document.getElementById('cpt-resto-chip-wrap');
+  if(chipWrap)chipWrap.innerHTML=cptRestaurantChipHtml(); // affiché seulement si le salarié a plusieurs restaurants
+  cptSyncBarHeight(); // après le chip : sa présence/absence change la hauteur de la barre
   var box=document.getElementById('cpt-list');
   var banner=document.getElementById('cpt-today-banner');
   if(banner){banner.style.cssText='display:none;margin-bottom:10px';banner.innerHTML='';}
@@ -1716,6 +1743,36 @@ if(!window._cptResizeBound){
 function cptSupColor(name){
   var h=0;for(var k=0;k<name.length;k++){h=(h*31+name.charCodeAt(k))%360;}
   return 'hsl('+h+',45%,42%)';
+}
+// Chip "📍 Nom du restaurant" en haut du comptage, uniquement pour les salariés qui ont un restaurant
+// principal + au moins un restaurant secondaire (employees.restaurants_secondaires) — pour la grande majorité
+// des salariés (un seul restaurant), ce chip ne s'affiche pas du tout.
+function cptRestaurantChipHtml(){
+  if(!emp)return '';
+  var restos=[emp.restaurant_id].concat(Array.isArray(emp.restaurants_secondaires)?emp.restaurants_secondaires:[]).filter(Boolean);
+  restos=restos.filter(function(r,idx){return restos.indexOf(r)===idx;});
+  if(restos.length<=1)return '';
+  var label=restoNamesById[RESTAURANT_ID]||RESTAURANT_ID;
+  return '<button type="button" class="cpt-resto-chip" onclick="openComptageRestaurantSwitcher()">&#128205; '+escCpt(label)+' &#9662;</button>';
+}
+// Rouvre l'écran "tu travailles où" (partagé avec la connexion) pour changer le restaurant sur lequel on
+// compte, sans se déconnecter — utile pour ceux qui doivent compter successivement pour plusieurs
+// restaurants dans la même session. Change RESTAURANT_ID pour toute la session (comme à la connexion) :
+// commandes fournisseurs / cuisine / labo prep basculent aussi sur le nouveau restaurant, cohérent avec le
+// fait que ce sont tous des écrans du même appareil/session déjà authentifié.
+function openComptageRestaurantSwitcher(){
+  if(!emp)return;
+  var restos=[emp.restaurant_id].concat(Array.isArray(emp.restaurants_secondaires)?emp.restaurants_secondaires:[]).filter(Boolean);
+  restos=restos.filter(function(r,idx){return restos.indexOf(r)===idx;});
+  if(restos.length<=1)return; // rien à choisir
+  renderRestoPicker(restos,function(rid){
+    RESTAURANT_ID=rid;
+    applyRestaurantMenuVisibility();
+    try{checkCommandesFournisseursBadge();checkCuisineTachesBadge();if(RESTAURANT_ID==='labo')checkLaboPrepBadge();}catch(e){}
+    menuComptage(); // rouvre directement le comptage, déjà rechargé pour le nouveau restaurant
+  },function(){
+    ss('comptage'); // Annuler : retour au comptage tel quel, rien n'a changé
+  });
 }
 var cptCollapsedCats=new Set(); // catégories actuellement repliées — mémorisé ici (pas juste dans le DOM) pour survivre aux rafraîchissements de la liste
 function cptSecToggle(cat){
