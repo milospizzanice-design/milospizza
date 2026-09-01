@@ -10085,18 +10085,31 @@ async function handlePriceFieldChange(ingredientCode,field,value){
 // ── Seuils de stock par ingrédient (table 'ingredient_seuils') — base du futur module Stock unifié ──
 function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
   var resto=restoIdOverride||rctResto();
-  var existing=(rctIngredientSeuilsAll[resto]||{})[ingredientCode]||{};
-  // On inclut TOUJOURS type_suivi dans le payload (même quand ce n'est pas ce champ qu'on modifie).
-  // Sinon, la toute première sauvegarde d'un ingrédient jamais configuré sur ce restaurant (ex: on remplit
-  // juste Seuil/Cible sans toucher au menu Type, qui affiche déjà "Quantité" par défaut à l'écran) créait la
-  // ligne sans jamais écrire type_suivi → la valeur par défaut de la colonne SQL ('two') prenait le dessus
-  // silencieusement, malgré des seuils bien enregistrés. Bug corrigé ici + valeur par défaut de la colonne alignée en SQL.
-  var payload={restaurant_id:resto,ingredient_code:ingredientCode,type_suivi:existing.type_suivi||'qty'};
-  if(field==='actif')payload[field]=!!value;
-  else if(field==='type_suivi'||field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
-  else payload[field]=(value===''?null:parseFloat(value));
   var p=(async function(){
     try{
+      var cached=(rctIngredientSeuilsAll[resto]||{})[ingredientCode]||{};
+      var payload={restaurant_id:resto,ingredient_code:ingredientCode};
+      if(field==='type_suivi'){
+        payload.type_suivi=value||'qty';
+      }else{
+        // On inclut TOUJOURS type_suivi dans le payload (même quand ce n'est pas ce champ qu'on modifie) :
+        // sinon la toute première sauvegarde d'un ingrédient jamais configuré sur ce restaurant créait la
+        // ligne sans jamais écrire type_suivi → la valeur par défaut de la colonne SQL prenait le dessus.
+        // MAIS on ne fait plus confiance au cache local (rctIngredientSeuilsAll) pour connaître sa valeur
+        // actuelle : un onglet Admin resté ouvert un moment, ou une modif faite depuis un autre poste entre
+        // temps, ferait écraser un type_suivi correct par une valeur périmée (régression observée : une
+        // "Quantité" bien configurée repassait toute seule à "OK / à commander" après avoir juste modifié le
+        // Seuil ou le Fournisseur). On revérifie donc la valeur réelle en base juste avant d'écrire.
+        var freshType=cached.type_suivi;
+        try{
+          var freshRes=await db.from('ingredient_seuils').select('type_suivi').eq('restaurant_id',resto).eq('ingredient_code',ingredientCode).maybeSingle();
+          if(freshRes&&freshRes.data&&freshRes.data.type_suivi)freshType=freshRes.data.type_suivi;
+        }catch(e){/* vérif indisponible (offline, etc.) : on retombe sur le cache local plutôt que de bloquer la sauvegarde du champ demandé */}
+        payload.type_suivi=freshType||'qty';
+      }
+      if(field==='actif')payload.actif=!!value;
+      else if(field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
+      else if(field!=='type_suivi')payload[field]=(value===''?null:parseFloat(value));
       sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
       rctIngredientSeuilsAll[resto]=rctIngredientSeuilsAll[resto]||{};
       rctIngredientSeuilsAll[resto][ingredientCode]=Object.assign({},rctIngredientSeuilsAll[resto][ingredientCode]||{},payload);
