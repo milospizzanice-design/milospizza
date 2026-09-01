@@ -721,7 +721,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt">📅 Règles de commande — <span id="mregles-ing-nom"></span></div>
     <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">La règle qui correspond au jour du jour l'emporte sur le seuil/cible par défaut ci-dessus. "Veille de livraison" recalcule automatiquement le jour concerné selon les jours de livraison du fournisseur (à régler dans Gérer les fournisseurs). L'heure limite est optionnelle : elle surcharge celle du fournisseur pour cette référence précise.</div>
     <div id="mregles-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
-    <div class="ma"><button class="btn bs" onclick="closeM('mregles')">Fermer</button><button class="btn bp" onclick="addRegleCommande()">+ Ajouter une règle</button></div>
+    <div class="ma"><button class="btn bs" onclick="closeReglesModal()">Fermer</button><button class="btn bp" id="mregles-add-btn" onclick="addRegleCommande()">+ Ajouter une règle</button></div>
   </div>
 </div>
 
@@ -2688,8 +2688,9 @@ function fillGlobalRestoSelect(){
   var sel=document.getElementById('global-resto-select');
   if(!sel)return;
   var cur=sel.value;
-  sel.innerHTML=restosData.map(function(r){return '<option value="'+r.id+'">'+(r.nom||r.id)+'</option>';}).join('');
-  if(cur&&restosData.some(function(r){return r.id===cur;}))sel.value=cur;
+  sel.innerHTML=restosData.map(function(r){return '<option value="'+r.id+'">'+(r.nom||r.id)+'</option>';}).join('')
+    +'<option value="tous">🌍 Tous les restaurants</option>';
+  if(cur&&(restosData.some(function(r){return r.id===cur;})||cur==='tous'))sel.value=cur;
   else if(restosData.length)sel.value=restosData[0].id;
   onGlobalRestoChange();
 }
@@ -2697,23 +2698,35 @@ function onGlobalRestoChange(){
   var sel=document.getElementById('global-resto-select');
   if(!sel||!sel.value)return;
   var id=sel.value;
-  var file=RESTAURANT_FILES[id];
   var iframe=document.getElementById('stock-iframe');
   var warn=document.getElementById('stock-nofile-warning');
-  if(file){
-    try{localStorage.setItem('rg_admin_session',JSON.stringify({at:new Date().toISOString()}));}catch(e){}
-    if(iframe){iframe.style.display='block';iframe.src=file;}
-    if(warn)warn.style.display='none';
-  }else{
+  if(id==='tous'){
+    // L'onglet Stocks (iframe milos-pizza-*.html) est propre à un seul restaurant à la fois et obsolète de
+    // toute façon (remplacé par le comptage rapide unifié) — pas de sens à l'afficher en mode "Tous".
     if(iframe)iframe.style.display='none';
-    if(warn)warn.style.display='block';
+    if(warn){warn.style.display='block';warn.innerHTML='&#127760; Sélectionne un restaurant précis pour l\'ancien onglet Stocks (obsolète, remplacé par le comptage rapide unifié).';}
+  }else{
+    var file=RESTAURANT_FILES[id];
+    if(file){
+      try{localStorage.setItem('rg_admin_session',JSON.stringify({at:new Date().toISOString()}));}catch(e){}
+      if(iframe){iframe.style.display='block';iframe.src=file;}
+      if(warn)warn.style.display='none';
+    }else{
+      if(iframe)iframe.style.display='none';
+      if(warn){warn.style.display='block';warn.innerHTML='&#9888;&#65039; Aucun fichier de gestion des stocks n\'existe encore pour ce restaurant. Demandez-en la création avant de pouvoir l\'utiliser ici.';}
+    }
   }
   applyGlobalRestoDefault(id);
   // Le module Recettes (prix des ingrédients, recettes, prix de revient) est propre à chaque restaurant
   // mais n'était rechargé qu'à l'ouverture initiale — recharger explicitement s'il est affiché, sinon
   // les prix/coûts affichés restent ceux de l'ancien restaurant sélectionné (silencieusement obsolètes).
   var pageRecettes=document.getElementById('page-recettes');
-  if(pageRecettes&&pageRecettes.style.display!=='none')loadRecettesModule();
+  if(pageRecettes&&pageRecettes.style.display!=='none'){
+    // Repère la carte ingrédient en haut d'écran avant de tout recharger, pour y revenir après coup — sinon
+    // la liste change de hauteur/ordre en se rechargeant et la page "saute" à un endroit sans rapport.
+    var anchor=rctCaptureScrollAnchor();
+    loadRecettesModule().then(function(){rctRestoreScrollAnchor(anchor);});
+  }
 }
 // Pré-sélectionne le restaurant du sélecteur global dans les modules RH (Planning, Salariés,
 // Récap, Absences, Export PDF). Chaque module garde son propre contrôle local et peut être
@@ -5742,9 +5755,43 @@ function slugify(str){
   return (str||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 }
-function rctResto(){
+var rctLastRealResto=null; // dernier restaurant réel sélectionné (hors "Tous") — sert de repli pour tout ce qui n'est pas (encore) adapté au mode "Tous" (coûts, composition de recette, etc. — restent scopés à un seul restaurant)
+function rctRestoSelRaw(){
   var sel=document.getElementById('global-resto-select');
   return sel?sel.value:'port';
+}
+function rctResto(){
+  var raw=rctRestoSelRaw();
+  if(raw==='tous')return rctLastRealResto||(typeof restosData!=='undefined'&&restosData.length?restosData[0].id:'port');
+  rctLastRealResto=raw;
+  return raw;
+}
+// Repère/restaure la position de défilement via un élément réel (carte ingrédient) plutôt que via un chiffre
+// de pixels : après un rechargement de liste qui change la hauteur de certaines cartes (badge de règle qui
+// apparaît/disparaît, etc.), un chiffre de pixels ne pointe plus vers le même endroit visuellement, alors
+// qu'un élément retrouvé par son id reste correct quelle que soit la nouvelle mise en page.
+function rctScrollToIngredient(code){
+  if(!code)return;
+  var el=document.getElementById('ing-card-'+code);
+  if(el)el.scrollIntoView({block:'center'});
+}
+// Retrouve la carte ingrédient actuellement la plus proche du haut de l'écran, pour pouvoir y revenir après
+// un rechargement complet de la liste (ex: changement de restaurant) qui, sinon, fait sauter le défilement à
+// un endroit sans rapport avec ce qu'on regardait.
+function rctCaptureScrollAnchor(){
+  var cards=document.querySelectorAll('#rct-ing-list-container [id^="ing-card-"]');
+  for(var k=0;k<cards.length;k++){
+    var rect=cards[k].getBoundingClientRect();
+    if(rect.bottom>0)return {code:cards[k].id.replace('ing-card-',''),offsetTop:rect.top};
+  }
+  return null;
+}
+function rctRestoreScrollAnchor(anchor){
+  if(!anchor)return;
+  var el=document.getElementById('ing-card-'+anchor.code);
+  if(!el)return;
+  var rect=el.getBoundingClientRect();
+  window.scrollBy(0,rect.top-anchor.offsetTop);
 }
 // Aperçu en direct "= pack de Coca Can" sous le champ Unité de commande — purement visuel, ce qui est
 // stocké reste juste "pack" (le nom du produit est déjà dans ingredients.nom, pas besoin de le dupliquer en base).
@@ -7815,14 +7862,16 @@ async function loadRecettesModule(){
       });
       else if(seuilsRes&&seuilsRes.error)console.warn('ingredient_seuils indisponible (migration SQL pas encore exécutée ?)',seuilsRes.error);
     }catch(e){console.warn('ingredient_seuils indisponible (migration SQL pas encore exécutée ?)',e);}
-    // Règles de commande (table 'ingredient_regles_commande') — chargée à part et de façon tolérante,
-    // comme ingredient_seuils : si la migration SQL n'a pas encore été exécutée, le reste continue de fonctionner.
+    // Règles de commande (table 'ingredient_regles_commande') — chargée pour TOUS les restaurants d'un coup
+    // (comme ingredient_seuils juste au-dessus), pas seulement celui sélectionné en haut : nécessaire pour le
+    // mode "🌍 Tous les restaurants" du popup Règles de commande, qui affiche/édite les 3 côte à côte.
     rctIngredientRegles={};
     try{
-      var reglesRes=await db.from('ingredient_regles_commande').select('*').eq('restaurant_id',resto);
+      var reglesRes=await db.from('ingredient_regles_commande').select('*');
       if(reglesRes&&!reglesRes.error)(reglesRes.data||[]).forEach(function(r){
-        rctIngredientRegles[r.ingredient_code]=rctIngredientRegles[r.ingredient_code]||[];
-        rctIngredientRegles[r.ingredient_code].push(r);
+        rctIngredientRegles[r.restaurant_id]=rctIngredientRegles[r.restaurant_id]||{};
+        rctIngredientRegles[r.restaurant_id][r.ingredient_code]=rctIngredientRegles[r.restaurant_id][r.ingredient_code]||[];
+        rctIngredientRegles[r.restaurant_id][r.ingredient_code].push(r);
       });
       else if(reglesRes&&reglesRes.error)console.warn('ingredient_regles_commande indisponible (migration SQL pas encore exécutée ?)',reglesRes.error);
     }catch(e){console.warn('ingredient_regles_commande indisponible (migration SQL pas encore exécutée ?)',e);}
@@ -9122,13 +9171,13 @@ function renderIngredientsList(){
   }
   function stockSeuilHtml(i){
     var restos=(typeof restosData!=='undefined'&&restosData.length)?restosData:[{id:rctResto(),nom:rctRestoLabel()}];
-    var curResto=rctResto();
+    var curResto=rctRestoSelRaw();
     return '<div style="border-top:1px dashed var(--bd);margin-top:6px;padding-top:6px;">'
       +'<div style="font-size:10px;font-weight:700;color:var(--txm);margin-bottom:4px;">📦 Stock — seuils par restaurant (édite les 3 directement ici, plus besoin de changer de restaurant en haut)</div>'
-      +restos.map(function(r){return oneRestoSeuilHtml(i,r,r.id===curResto);}).join('')
+      +restos.map(function(r){return oneRestoSeuilHtml(i,r,r.id===curResto,curResto==='tous');}).join('')
       +'</div>';
   }
-  function oneRestoSeuilHtml(i,r,isCurrent){
+  function oneRestoSeuilHtml(i,r,isCurrent,tousMode){
     var s=(rctIngredientSeuilsAll[r.id]||{})[i.code]||{};
     var type=s.type_suivi||'qty';
     return '<div style="background:'+(isCurrent?'#FFF7ED':'var(--cream,#FAFAFA)')+';border:1px solid var(--bd);border-radius:8px;padding:6px 8px;margin-bottom:6px;">'
@@ -9161,8 +9210,8 @@ function renderIngredientsList(){
       +'<span id="ucmd-prev-'+i.code+'-'+r.id+'" style="font-size:8px;color:var(--txm);white-space:nowrap;">'+(s.unite_commande?('= '+esc(s.unite_commande)+' de '+esc(i.nom)):'')+'</span>'
       +'</div>'
       +'</div>'
-      +(isCurrent?'<div style="margin-top:4px;"><button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+((rctIngredientRegles[i.code]&&rctIngredientRegles[i.code].length)?' ('+rctIngredientRegles[i.code].length+')':'')+'</button></div>'
-        :'<div style="margin-top:4px;font-size:9px;color:var(--txm);">📅 Règles de commande avancées : change de restaurant en haut de page pour celles de '+esc(r.nom||r.id)+'.</div>')
+      +((isCurrent||tousMode)?'<div style="margin-top:4px;"><button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+(((rctIngredientRegles[r.id]||{})[i.code]&&(rctIngredientRegles[r.id]||{})[i.code].length)?' ('+(rctIngredientRegles[r.id]||{})[i.code].length+')':'')+'</button></div>'
+        :'<div style="margin-top:4px;font-size:9px;color:var(--txm);">📅 Règles de commande avancées : change de restaurant en haut de page (ou choisis "🌍 Tous les restaurants") pour celles de '+esc(r.nom||r.id)+'.</div>')
       +'</div>';
   }
   function renderIngredientCard(i){
@@ -9172,7 +9221,7 @@ function renderIngredientsList(){
     var expanded=!!rctIngExpanded[i.code];
     var statusHtml=hasBrutSource?'🔪 Préparé à partir de '+esc(brutSourceIng?brutSourceIng.nom:i.source_brut_code):statut.label;
     var maskedHere=!!((rctIngredientSeuilsAll[rctResto()]||{})[i.code]&&(rctIngredientSeuilsAll[rctResto()]||{})[i.code].actif===false);
-    return '<div class="card" style="padding:0;overflow:hidden;'+(maskedHere?'opacity:.5;':'')+'">'
+    return '<div class="card" id="ing-card-'+i.code+'" style="padding:0;overflow:hidden;'+(maskedHere?'opacity:.5;':'')+'">'
       +'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;" onclick="toggleIngCard(\''+i.code+'\')">'
       +'<div style="flex:1;min-width:0;">'
       +'<div style="font-weight:700;font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(i.nom)+(maskedHere?' <span style="font-size:9px;font-weight:600;color:var(--txm);">(masqué sur '+esc(rctRestoLabel())+')</span>':'')+'</div>'
@@ -9323,58 +9372,99 @@ function openReglesCommandeModal(code){
   renderReglesCommandeList();
   openM('mregles');
 }
+// Fermeture dédiée (au lieu d'un simple closeM('mregles')) : valider une règle recharge la liste
+// d'ingrédients en arrière-plan pendant que le popup est encore ouvert (badge "règle" qui apparaît, etc.),
+// ce qui change la hauteur de certaines cartes. Le chiffre de pixel mémorisé par closeM() à l'ouverture ne
+// correspond alors plus au même endroit visuellement une fois la modale fermée (symptôme : "l'écran se
+// déplace"). On recadre donc explicitement sur la carte de l'ingrédient qu'on vient d'éditer.
+function closeReglesModal(){
+  var code=mreglesIngCode;
+  closeM('mregles');
+  setTimeout(function(){rctScrollToIngredient(code);},0);
+}
 function regleFournisseurOptionsHtml(selectedId){
   return '<option value="">Fournisseur…</option>'
     +rctSuppliers.map(function(s){return '<option value="'+esc(s.id)+'"'+(selectedId===s.id?' selected':'')+'>'+(s.is_labo_interne?'🏭 ':s.is_cuisine_interne?'🍳 ':'')+esc(s.nom)+'</option>';}).join('');
 }
+// Carte d'une règle individuelle — factorisée pour être utilisée aussi bien en mode normal (une seule liste,
+// restaurant du sélecteur du haut) qu'en mode "🌍 Tous les restaurants" (une section par restaurant) : chaque
+// bouton embarque le restaurant concerné (restoId) pour que l'édition sache où écrire, quel que soit le mode.
+function regleCardHtml(r,restoId){
+  var mode=r.mode||'jours_fixes';
+  var days=r.jours||[];
+  return '<div class="card" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;">'
+    +(r.categorie_source?'<div style="font-size:9px;color:var(--bx);font-weight:700;">🏷 Issue de la catégorie "'+esc(r.categorie_source)+'"</div>':'')
+    +'<div style="display:flex;gap:6px;align-items:center;">'
+    +'<select class="fi" style="flex:1;font-size:11px;" onchange="updateRegleCommande(\''+r.id+'\',\'mode\',this.value,\''+restoId+'\')">'
+      +'<option value="jours_fixes"'+(mode==='jours_fixes'?' selected':'')+'>📆 Jours fixes</option>'
+      +'<option value="veille_livraison"'+(mode==='veille_livraison'?' selected':'')+'>🚚 Veille de livraison</option>'
+    +'</select>'
+    +'<button class="btn bs sm" onclick="deleteRegleCommande(\''+r.id+'\',\''+restoId+'\')" style="background:#FEE2E2;color:#991B1B;">🗑</button>'
+    +'</div>'
+    +(mode==='jours_fixes'?
+      ('<div style="display:flex;gap:4px;flex-wrap:wrap;">'
+        +SUP_DAY_LABELS.map(function(lbl,idx){
+          var on=days.indexOf(idx)>=0;
+          return '<span onclick="toggleRegleDay(\''+r.id+'\','+idx+',\''+restoId+'\')" style="cursor:pointer;font-size:10px;padding:3px 7px;border-radius:6px;border:1px solid '+(on?'var(--bx)':'var(--bd)')+';background:'+(on?'var(--bx)':'transparent')+';color:'+(on?'#fff':'var(--txm)')+';">'+lbl+'</span>';
+        }).join('')
+        +'</div>')
+      :('<select class="fi" style="font-size:11px;" onchange="updateRegleCommande(\''+r.id+'\',\'fournisseur_id\',this.value,\''+restoId+'\')">'
+        +regleFournisseurOptionsHtml(r.fournisseur_id)
+        +'</select>'
+        +'<div style="font-size:9px;color:var(--txm);">S\'applique automatiquement la veille de chaque jour de livraison de ce fournisseur.</div>'))
+    +'<div style="display:flex;gap:8px;">'
+    +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Seuil</div>'
+      +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="0.1" value="'+(r.seuil_min!=null?r.seuil_min:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'seuil_min\',this.value,\''+restoId+'\')"></div>'
+    +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Cible</div>'
+      +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="0.1" value="'+(r.cible!=null?r.cible:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'cible\',this.value,\''+restoId+'\')"></div>'
+    +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Colisage</div>'
+      +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="1" value="'+(r.colisage!=null?r.colisage:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'colisage\',this.value,\''+restoId+'\')"></div>'
+    +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Heure limite</div>'
+      +'<input type="time" class="fi" style="width:76px;font-size:11px;text-align:center;" value="'+(r.heure_limite||'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'heure_limite\',this.value,\''+restoId+'\')"></div>'
+    +'</div>'
+    +'<button class="btn bs sm" onclick="applyRegleToCategorie(\''+r.id+'\',\''+restoId+'\')" style="font-size:10px;">📋 Appliquer à toute la catégorie</button>'
+    +'</div>';
+}
+// Mode normal : une seule liste, celle du restaurant sélectionné en haut (comportement inchangé).
+// Mode "🌍 Tous les restaurants" (sélecteur du haut réglé sur "tous") : une section par restaurant, chacune
+// avec ses propres règles et son propre bouton "+ Ajouter", pour tout régler d'un coup sans changer de
+// restaurant en haut de page entre chaque. Le bouton "+ Ajouter une règle" du pied de la modale (unique,
+// pour un seul restaurant) est masqué dans ce mode au profit des boutons "+ Ajouter" de chaque section.
 function renderReglesCommandeList(){
   var box=document.getElementById('mregles-list');
-  var rules=rctIngredientRegles[mreglesIngCode]||[];
-  if(!rules.length){box.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucune règle pour l\'instant — le seuil/cible par défaut s\'applique tous les jours.</div>';return;}
-  box.innerHTML=rules.map(function(r){
-    var mode=r.mode||'jours_fixes';
-    var days=r.jours||[];
-    return '<div class="card" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;">'
-      +(r.categorie_source?'<div style="font-size:9px;color:var(--bx);font-weight:700;">🏷 Issue de la catégorie "'+esc(r.categorie_source)+'"</div>':'')
-      +'<div style="display:flex;gap:6px;align-items:center;">'
-      +'<select class="fi" style="flex:1;font-size:11px;" onchange="updateRegleCommande(\''+r.id+'\',\'mode\',this.value)">'
-        +'<option value="jours_fixes"'+(mode==='jours_fixes'?' selected':'')+'>📆 Jours fixes</option>'
-        +'<option value="veille_livraison"'+(mode==='veille_livraison'?' selected':'')+'>🚚 Veille de livraison</option>'
-      +'</select>'
-      +'<button class="btn bs sm" onclick="deleteRegleCommande(\''+r.id+'\')" style="background:#FEE2E2;color:#991B1B;">🗑</button>'
-      +'</div>'
-      +(mode==='jours_fixes'?
-        ('<div style="display:flex;gap:4px;flex-wrap:wrap;">'
-          +SUP_DAY_LABELS.map(function(lbl,idx){
-            var on=days.indexOf(idx)>=0;
-            return '<span onclick="toggleRegleDay(\''+r.id+'\','+idx+')" style="cursor:pointer;font-size:10px;padding:3px 7px;border-radius:6px;border:1px solid '+(on?'var(--bx)':'var(--bd)')+';background:'+(on?'var(--bx)':'transparent')+';color:'+(on?'#fff':'var(--txm)')+';">'+lbl+'</span>';
-          }).join('')
-          +'</div>')
-        :('<select class="fi" style="font-size:11px;" onchange="updateRegleCommande(\''+r.id+'\',\'fournisseur_id\',this.value)">'
-          +regleFournisseurOptionsHtml(r.fournisseur_id)
-          +'</select>'
-          +'<div style="font-size:9px;color:var(--txm);">S\'applique automatiquement la veille de chaque jour de livraison de ce fournisseur.</div>'))
-      +'<div style="display:flex;gap:8px;">'
-      +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Seuil</div>'
-        +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="0.1" value="'+(r.seuil_min!=null?r.seuil_min:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'seuil_min\',this.value)"></div>'
-      +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Cible</div>'
-        +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="0.1" value="'+(r.cible!=null?r.cible:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'cible\',this.value)"></div>'
-      +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Colisage</div>'
-        +'<input type="number" class="fi" style="width:56px;font-size:11px;text-align:center;" step="1" value="'+(r.colisage!=null?r.colisage:'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'colisage\',this.value)"></div>'
-      +'<div style="text-align:center;"><div style="font-size:9px;color:var(--txm);">Heure limite</div>'
-        +'<input type="time" class="fi" style="width:76px;font-size:11px;text-align:center;" value="'+(r.heure_limite||'')+'" onchange="updateRegleCommande(\''+r.id+'\',\'heure_limite\',this.value)"></div>'
-      +'</div>'
-      +'<button class="btn bs sm" onclick="applyRegleToCategorie(\''+r.id+'\')" style="font-size:10px;">📋 Appliquer à toute la catégorie</button>'
-      +'</div>';
-  }).join('');
+  var addBtn=document.getElementById('mregles-add-btn');
+  var tousMode=rctRestoSelRaw()==='tous';
+  if(addBtn)addBtn.style.display=tousMode?'none':'';
+  if(!tousMode){
+    var resto=rctResto();
+    var rules=(rctIngredientRegles[resto]||{})[mreglesIngCode]||[];
+    box.innerHTML=rules.length?rules.map(function(r){return regleCardHtml(r,resto);}).join(''):'<div style="font-size:11px;color:var(--txm);">Aucune règle pour l\'instant — le seuil/cible par défaut s\'applique tous les jours.</div>';
+    return;
+  }
+  var restos=(typeof restosData!=='undefined'&&restosData.length)?restosData:[{id:'port',nom:'Port'},{id:'dabray',nom:'Dabray'},{id:'labo',nom:'Labo'}];
+  box.innerHTML='<div style="font-size:10px;color:var(--txm);margin-bottom:8px;">🌍 Mode "Tous les restaurants" — règles propres à chaque restaurant, réglées côte à côte ci-dessous.</div>'
+    +restos.map(function(r){
+      var rules=(rctIngredientRegles[r.id]||{})[mreglesIngCode]||[];
+      return '<div style="border:1px solid var(--bd);border-radius:10px;padding:8px;margin-bottom:8px;">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+        +'<div style="font-size:11px;font-weight:800;color:var(--bx);">'+esc(r.nom||r.id)+'</div>'
+        +'<button class="btn bs sm" onclick="addRegleCommande(\''+r.id+'\')" style="font-size:10px;">+ Ajouter</button>'
+        +'</div>'
+        +(rules.length?('<div style="display:flex;flex-direction:column;gap:6px;">'+rules.map(function(rg){return regleCardHtml(rg,r.id);}).join('')+'</div>')
+          :'<div style="font-size:10px;color:var(--txm);">Aucune règle — le seuil/cible par défaut s\'applique tous les jours.</div>')
+        +'</div>';
+    }).join('');
 }
 // Duplique une règle (jours/fournisseur/seuils/heure limite) vers tous les autres ingrédients de la même
-// catégorie, sur le restaurant courant. Trace la provenance via categorie_source : une règle déjà issue de
-// cette catégorie (créée par un appel précédent) est mise à jour à la place d'être dupliquée. Une règle
-// individuelle (categorie_source vide, créée/éditée à la main) déclenche une confirmation séparée pour choisir
-// entre l'écraser (elle devient une règle de catégorie) ou la conserver telle quelle (ingrédient non touché).
-async function applyRegleToCategorie(ruleId){
-  var rules=rctIngredientRegles[mreglesIngCode]||[];
+// catégorie, sur le restaurant restoId (celui de la section d'où le bouton a été cliqué — le restaurant du
+// haut de page en mode normal, celui de la section concernée en mode "Tous"). Trace la provenance via
+// categorie_source : une règle déjà issue de cette catégorie (créée par un appel précédent) est mise à jour
+// à la place d'être dupliquée. Une règle individuelle (categorie_source vide, créée/éditée à la main)
+// déclenche une confirmation séparée pour choisir entre l'écraser (elle devient une règle de catégorie) ou
+// la conserver telle quelle (ingrédient non touché).
+async function applyRegleToCategorie(ruleId,restoId){
+  var resto=restoId||rctResto();
+  var rules=(rctIngredientRegles[resto]||{})[mreglesIngCode]||[];
   var rule=rules.find(function(r){return r.id===ruleId;});
   if(!rule)return;
   var ing=rctIngredients.find(function(x){return x.code===mreglesIngCode;});
@@ -9385,7 +9475,7 @@ async function applyRegleToCategorie(ruleId){
 
   var toUpdate=[],toCreate=[],withManual=[];
   targets.forEach(function(t){
-    var tRules=rctIngredientRegles[t.code]||[];
+    var tRules=(rctIngredientRegles[resto]||{})[t.code]||[];
     var fromCat=tRules.find(function(r){return r.categorie_source===categorie;});
     if(fromCat){toUpdate.push({code:t.code,ruleId:fromCat.id});return;}
     var manual=tRules.find(function(r){return !r.categorie_source;});
@@ -9400,48 +9490,50 @@ async function applyRegleToCategorie(ruleId){
   }
   var totalCount=toCreate.length+toUpdate.length;
   if(!totalCount){alert('Rien à appliquer — tous les ingrédients concernés ont une règle individuelle conservée.');return;}
-  if(!confirm('Appliquer cette règle à '+totalCount+' ingrédient(s) de la catégorie "'+categorie+'" ?'))return;
+  if(!confirm('Appliquer cette règle à '+totalCount+' ingrédient(s) de la catégorie "'+categorie+'" sur '+esc(rctRestoLabel(resto))+' ?'))return;
 
-  var resto=rctResto();
   var basePayload={mode:rule.mode||'jours_fixes',jours:rule.jours||[],fournisseur_id:rule.fournisseur_id||null,seuil_min:rule.seuil_min!=null?rule.seuil_min:null,cible:rule.cible!=null?rule.cible:null,colisage:rule.colisage!=null?rule.colisage:null,heure_limite:rule.heure_limite||null,categorie_source:categorie};
   try{
     if(!rule.categorie_source){
       sbCheck(await db.from('ingredient_regles_commande').update({categorie_source:categorie}).eq('id',rule.id));
       rule.categorie_source=categorie;
     }
+    rctIngredientRegles[resto]=rctIngredientRegles[resto]||{};
     if(toCreate.length){
       var insertPayloads=toCreate.map(function(code){return Object.assign({restaurant_id:resto,ingredient_code:code},basePayload);});
       var rIns=sbCheck(await db.from('ingredient_regles_commande').insert(insertPayloads).select());
       (rIns.data||[]).forEach(function(row){
-        rctIngredientRegles[row.ingredient_code]=rctIngredientRegles[row.ingredient_code]||[];
-        rctIngredientRegles[row.ingredient_code].push(row);
+        rctIngredientRegles[resto][row.ingredient_code]=rctIngredientRegles[resto][row.ingredient_code]||[];
+        rctIngredientRegles[resto][row.ingredient_code].push(row);
       });
     }
     for(var i=0;i<toUpdate.length;i++){
       var u=toUpdate[i];
       sbCheck(await db.from('ingredient_regles_commande').update(basePayload).eq('id',u.ruleId));
-      var tRules=rctIngredientRegles[u.code]||[];
+      var tRules=rctIngredientRegles[resto][u.code]||[];
       var existing=tRules.find(function(r){return r.id===u.ruleId;});
       if(existing)Object.assign(existing,basePayload);
     }
     var skipped=withManual.length&&!overwriteManual?withManual.length:0;
-    alert('✅ Règle appliquée à '+totalCount+' ingrédient(s).'+(skipped?' ('+skipped+' ingrédient(s) avec règle individuelle conservée(s) intacte(s), non touché(s).)':''));
+    alert('✅ Règle appliquée à '+totalCount+' ingrédient(s) sur '+esc(rctRestoLabel(resto))+'.'+(skipped?' ('+skipped+' ingrédient(s) avec règle individuelle conservée(s) intacte(s), non touché(s).)':''));
     renderIngredientsList();
   }catch(e){console.error('applyRegleToCategorie',e);alert('Erreur : '+e.message+'\n\n(La colonne categorie_source de ingredient_regles_commande a-t-elle été ajoutée ?)');}
 }
-async function addRegleCommande(){
-  var resto=rctResto();
+async function addRegleCommande(restoId){
+  var resto=restoId||rctResto();
   var payload={restaurant_id:resto,ingredient_code:mreglesIngCode,mode:'jours_fixes',jours:[]};
   try{
     var r=sbCheck(await db.from('ingredient_regles_commande').insert(payload).select().single());
-    rctIngredientRegles[mreglesIngCode]=rctIngredientRegles[mreglesIngCode]||[];
-    rctIngredientRegles[mreglesIngCode].push(r.data);
+    rctIngredientRegles[resto]=rctIngredientRegles[resto]||{};
+    rctIngredientRegles[resto][mreglesIngCode]=rctIngredientRegles[resto][mreglesIngCode]||[];
+    rctIngredientRegles[resto][mreglesIngCode].push(r.data);
     renderReglesCommandeList();
     renderIngredientsList();
   }catch(e){console.error('addRegleCommande',e);alert('Erreur : '+e.message+'\n\n(La migration SQL ingredient_regles_commande a-t-elle été exécutée ?)');}
 }
-async function updateRegleCommande(id,field,value){
-  var rules=rctIngredientRegles[mreglesIngCode]||[];
+async function updateRegleCommande(id,field,value,restoId){
+  var resto=restoId||rctResto();
+  var rules=(rctIngredientRegles[resto]||{})[mreglesIngCode]||[];
   var rule=rules.find(function(r){return r.id===id;});
   if(!rule)return;
   var payload={};
@@ -9453,8 +9545,9 @@ async function updateRegleCommande(id,field,value){
     if(field==='mode')renderReglesCommandeList();
   }catch(e){console.error('updateRegleCommande',e);alert('Erreur : '+e.message);}
 }
-async function toggleRegleDay(id,day){
-  var rules=rctIngredientRegles[mreglesIngCode]||[];
+async function toggleRegleDay(id,day,restoId){
+  var resto=restoId||rctResto();
+  var rules=(rctIngredientRegles[resto]||{})[mreglesIngCode]||[];
   var rule=rules.find(function(r){return r.id===id;});
   if(!rule)return;
   var days=(rule.jours||[]).slice();
@@ -9466,11 +9559,13 @@ async function toggleRegleDay(id,day){
     renderReglesCommandeList();
   }catch(e){console.error('toggleRegleDay',e);alert('Erreur : '+e.message);}
 }
-async function deleteRegleCommande(id){
+async function deleteRegleCommande(id,restoId){
   if(!confirm('Supprimer cette règle ?'))return;
+  var resto=restoId||rctResto();
   try{
     sbCheck(await db.from('ingredient_regles_commande').delete().eq('id',id));
-    rctIngredientRegles[mreglesIngCode]=(rctIngredientRegles[mreglesIngCode]||[]).filter(function(r){return r.id!==id;});
+    rctIngredientRegles[resto]=rctIngredientRegles[resto]||{};
+    rctIngredientRegles[resto][mreglesIngCode]=(rctIngredientRegles[resto][mreglesIngCode]||[]).filter(function(r){return r.id!==id;});
     renderReglesCommandeList();
     renderIngredientsList();
   }catch(e){console.error('deleteRegleCommande',e);alert('Erreur : '+e.message);}
@@ -9695,8 +9790,10 @@ async function deleteSupplier(id){
     Object.keys(m).forEach(function(code){if(m[code].fournisseur_id===id)affectedSeuils.push({resto:resto,code:code});});
   });
   var affectedRegles=[];
-  Object.keys(rctIngredientRegles||{}).forEach(function(code){
-    (rctIngredientRegles[code]||[]).forEach(function(r){if(r.fournisseur_id===id)affectedRegles.push(r.id);});
+  Object.keys(rctIngredientRegles||{}).forEach(function(resto){
+    Object.keys(rctIngredientRegles[resto]||{}).forEach(function(code){
+      (rctIngredientRegles[resto][code]||[]).forEach(function(r){if(r.fournisseur_id===id)affectedRegles.push(r.id);});
+    });
   });
   var inUse=affectedSeuils.length||affectedRegles.length;
   var msg=inUse?('Ce fournisseur est utilisé par '+affectedSeuils.length+' ingrédient(s) (seuils) et '+affectedRegles.length+' règle(s) de commande — le champ fournisseur repassera à vide pour ces éléments. Continuer ?'):'Supprimer ce fournisseur ?';
