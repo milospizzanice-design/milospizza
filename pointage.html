@@ -104,8 +104,10 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
    d'infos par ligne (seuil/cible/colisage, fournisseur), boutons/pastilles agrandis. La liste ne défile plus
    dans une boîte à part : c'est toute la page (.wrap) qui défile, comme sur l'écran Stocks. */
 .cpt-topbar{position:sticky;top:0;z-index:30;background:var(--bx);margin:-18px -18px 10px;padding:14px 18px 12px;box-shadow:0 4px 10px rgba(0,0,0,.18)}
-.cpt-topbar-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
-.cpt-topbar-title span:first-child{color:rgba(255,255,255,.65);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.cpt-topbar-title{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.cpt-topbar-title-text{flex:1;color:rgba(255,255,255,.65);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.cpt-back-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:28px;height:28px;border-radius:50%;font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0}
+.cpt-back-btn:active{background:rgba(255,255,255,.3)}
 .cpt-topbar-count{font-size:10px;background:#fff;color:#C0392B;border-radius:20px;padding:2px 8px;font-weight:700;display:none}
 .cpt-topbar-count.vis{display:inline-block}
 .cpt-resto-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;cursor:pointer;margin-bottom:9px}
@@ -301,7 +303,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div class="screen" id="s-comptage">
       <div class="cpt-topbar" id="cpt-topbar">
         <div class="cpt-topbar-title">
-          <span>&#129518; Comptage rapide</span>
+          <button type="button" class="cpt-back-btn" onclick="backToMenu()" aria-label="Retour au menu">&#8592;</button>
+          <span class="cpt-topbar-title-text">&#129518; Comptage rapide</span>
           <span class="cpt-topbar-count" id="cpt-alert-count">0</span>
         </div>
         <div id="cpt-resto-chip-wrap"></div>
@@ -967,7 +970,7 @@ var ccodeFirst='';        // 1ère saisie à confirmer
 
 async function loadPinEmployes(){
   try{
-    var r=await db.from('employees').select('id,prenom,nom,pin_hash,pin_autorise,restaurant_id,actif,archive').eq('pin_autorise',true);
+    var r=await db.from('employees').select('id,prenom,nom,pin_hash,pin_autorise,restaurant_id,restaurants_secondaires,actif,archive').eq('pin_autorise',true);
     PIN_EMPLOYES=(r.data||[]).filter(function(e){return e.actif!==false && !e.archive;});
   }catch(e){PIN_EMPLOYES=[];}
 }
