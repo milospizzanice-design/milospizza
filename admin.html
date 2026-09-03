@@ -2895,13 +2895,26 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
   scope=scope||'x';
   var includeSet=(ingOpts&&ingOpts.includeSet)||null;
   var excludeSet=(ingOpts&&ingOpts.excludeSet)||null;
+  var coverage=(ingOpts&&ingOpts.coverage)||null;
+  var coverageRestos=(ingOpts&&ingOpts.restos)||[];
   if(!tree||!tree.length)return '<div style="color:#aaa;font-size:11px;">Aucune cat\u00e9gorie trouv\u00e9e. Cr\u00e9e-les d\u2019abord dans Admin &gt; Recettes &gt; Ingr\u00e9dients.</div>';
+  function coverageDots(code){
+    if(!coverage||!coverage[code])return '';
+    var m=coverage[code];
+    return coverageRestos.map(function(r){
+      if(!(r.id in m))return '';
+      var covered=m[r.id],col=r.couleur||'#999';
+      var title=esc(r.nom||r.id)+(covered?' \u2014 compt\u00e9 par un r\u00f4le':' \u2014 pas encore attribu\u00e9 sur ce restaurant');
+      return '<span title="'+title+'" style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:2px;flex-shrink:0;'+(covered?'background:'+col+';border:1px solid '+col:'background:transparent;border:1.5px solid '+col)+'"></span>';
+    }).join('');
+  }
   function ingredientChip(ig,catNom,catOn){
-    if(!includeSet){return '<span style="display:inline-block;margin:0 8px 4px 0;">'+esc(ig.nom)+'</span>';}
+    var dots=coverageDots(ig.code);
+    if(!includeSet){return '<span style="display:inline-flex;align-items:center;margin:0 8px 4px 0;">'+esc(ig.nom)+dots+'</span>';}
     var checked=includeSet.has(ig.code)?true:(excludeSet.has(ig.code)?false:catOn);
     return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--tx);margin:0 8px 4px 0;cursor:pointer;background:'+(checked?'#EFF6FF':'transparent')+';border-radius:5px;padding:1px 4px;">'
       +'<input type="checkbox" class="cpting-chk" data-ing-code="'+esc(ig.code)+'" data-ing-cat="'+esc(catNom)+'"'+(checked?' checked':'')+' onchange="this.parentElement.style.background=this.checked?\'#EFF6FF\':\'transparent\'">'
-      +esc(ig.nom)+'</label>';
+      +esc(ig.nom)+dots+'</label>';
   }
   return tree.map(function(grp,gi){
     var head=(grp.onglet&&grp.onglet!=='Sans onglet')?'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--txm);margin:10px 0 4px;">'+esc(grp.onglet)+'</div>':'';
@@ -2991,6 +3004,86 @@ async function roleComptageAutofillFromResto(restoId){
   renderRoleComptageCatsCheckboxes(newCats,include,[]);
   alert('✅ Sélection mise à jour d\'après '+Object.keys(activeCodes).length+' ingrédient(s) visible(s) sur '+restoLabel+'. Vérifie la liste puis clique sur Enregistrer pour confirmer.');
 }
+var roleComptageFilterRestos=[]; // ids restaurants cochés pour filtrer l'AFFICHAGE de l'arbre du rôle — n'affecte jamais ce qui est enregistré, juste ce qui est montré à l'écran
+// Ne garde, dans l'arbre, que les catégories/sous-catégories/ingrédients configurés (actifs) sur au moins un
+// des restaurants filtrés — sauf ce qui est déjà sélectionné/en exception, qui reste toujours visible pour
+// ne jamais faire "disparaître" une case cochée sous les yeux de l'admin à cause du filtre.
+function filterComptageTreeForRestos(tree,activeCodes,selectedCats,includeSet,excludeSet){
+  function keepIng(ig,catOn){
+    return !!activeCodes[ig.code]||catOn||(includeSet&&includeSet.has(ig.code))||(excludeSet&&excludeSet.has(ig.code));
+  }
+  return tree.map(function(grp){
+    var cats=grp.categories.map(function(c){
+      var catOn=selectedCats.indexOf(c.nom)>=0;
+      var directIngredients=c.directIngredients.filter(function(ig){return keepIng(ig,catOn);});
+      var sousCats=c.sousCats.map(function(sc){
+        return {nom:sc.nom,ingredients:sc.ingredients.filter(function(ig){return keepIng(ig,catOn);})};
+      }).filter(function(sc){return sc.ingredients.length>0;});
+      var nb=directIngredients.length+sousCats.reduce(function(s,sc){return s+sc.ingredients.length;},0);
+      if(!nb&&!catOn)return null; // catégorie sans rapport avec le filtre et pas sélectionnée : masquée
+      return {nom:c.nom,ordre:c.ordre,sousCats:sousCats,directIngredients:directIngredients,nbIngredients:nb||c.nbIngredients};
+    }).filter(Boolean);
+    return {onglet:grp.onglet,categories:cats};
+  }).filter(function(grp){return grp.categories.length>0;});
+}
+// Cases "Filtrer par restaurant" au-dessus de l'arbre du rôle — génération dynamique depuis restosData.
+function renderRoleComptageRestoFilter(){
+  var box=document.getElementById('role-comptage-resto-filter');
+  if(!box)return;
+  var restos=(typeof restosData!=='undefined'&&restosData.length)?restosData:[];
+  if(!restos.length){box.innerHTML='';return;}
+  box.innerHTML='<div style="width:100%;color:var(--txm);font-size:10px;margin-bottom:2px;">&#128269; Filtrer l\'affichage par restaurant (masque les produits absents des restaurants coch\u00e9s ci-dessous \u2014 sans toucher \u00e0 ce qui est d\u00e9j\u00e0 s\u00e9lectionn\u00e9) :</div>'
+    +restos.map(function(r){
+      var on=roleComptageFilterRestos.indexOf(r.id)>=0;
+      return '<label style="display:inline-flex;align-items:center;gap:4px;background:'+(on?'#DBEAFE':'#F3F4F6')+';border:1px solid var(--bd);border-radius:20px;padding:3px 9px;cursor:pointer;font-size:11px;margin:0 4px 4px 0;">'
+        +'<input type="checkbox" '+(on?'checked':'')+' onchange="toggleRoleComptageFilterResto(\''+r.id+'\',this.checked)">'+esc(r.nom||r.id)+'</label>';
+    }).join('');
+}
+function toggleRoleComptageFilterResto(id,checked){
+  // Lit l'état actuellement affiché AVANT de changer le filtre, pour ne pas perdre des cases cochées à la
+  // main mais pas encore cliquées sur Enregistrer quand l'arbre se redessine filtré.
+  var comptageCats=readRoleComptageCatsCheckboxes();
+  var ingOverrides=readRoleIngredientOverrides(comptageCats);
+  var i=roleComptageFilterRestos.indexOf(id);
+  if(checked&&i<0)roleComptageFilterRestos.push(id);
+  else if(!checked&&i>=0)roleComptageFilterRestos.splice(i,1);
+  renderRoleComptageRestoFilter();
+  renderRoleComptageCatsCheckboxes(comptageCats,ingOverrides.include,ingOverrides.exclude);
+}
+// Pour chaque ingrédient, regarde sur quels restaurants il est actif (ingredient_seuils) ET si AU MOINS UN
+// rôle (parmi tous les rôles enregistrés, pas juste celui en cours d'édition) le couvre déjà — pour repérer
+// les ingrédients configurés sur un restaurant mais qu'aucun rôle ne compte encore là-bas.
+// Renvoie {code:{restaurant_id:true|false}} — une entrée par restaurant où l'ingrédient est actif seulement.
+function computeIngredientRoleCoverage(tree,actifMap){
+  var codeToCategory={};
+  tree.forEach(function(grp){
+    grp.categories.forEach(function(c){
+      c.directIngredients.forEach(function(ig){codeToCategory[ig.code]=c.nom;});
+      c.sousCats.forEach(function(sc){sc.ingredients.forEach(function(ig){codeToCategory[ig.code]=c.nom;});});
+    });
+  });
+  var coveredByCode={};
+  (rolesData||[]).forEach(function(r){
+    var cats=r.comptage_categories||[];
+    var inc=new Set(r.comptage_ingredients_include||[]);
+    var exc=new Set(r.comptage_ingredients_exclude||[]);
+    Object.keys(codeToCategory).forEach(function(code){
+      if(coveredByCode[code])return;
+      var byCat=cats.indexOf(codeToCategory[code])>=0&&!exc.has(code);
+      var byInc=inc.has(code);
+      if(byCat||byInc)coveredByCode[code]=true;
+    });
+  });
+  var byCode={};
+  Object.keys(codeToCategory).forEach(function(code){
+    var m={};
+    Object.keys(actifMap).forEach(function(restoId){
+      if(actifMap[restoId][code])m[restoId]=!!coveredByCode[code];
+    });
+    if(Object.keys(m).length)byCode[code]=m;
+  });
+  return byCode;
+}
 function renderRoleComptageCatsCheckboxes(selected,ingInclude,ingExclude){
   selected=selected||[];
   var includeSet=new Set(ingInclude||[]);
@@ -2998,9 +3091,34 @@ function renderRoleComptageCatsCheckboxes(selected,ingInclude,ingExclude){
   var box=document.getElementById('role-comptage-cats');
   if(!box)return;
   box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement des cat\u00e9gories...</div>';
-  ensureComptageCatsCanonical().then(function(tree){
+  var filterRestos=(roleComptageFilterRestos||[]).slice();
+  Promise.all([
+    ensureComptageCatsCanonical(),
+    db.from('ingredient_seuils').select('restaurant_id,ingredient_code,actif')
+  ]).then(function(res){
     if(!box)return;
-    box.innerHTML=comptageCatsTreeHtml(tree,function(nom){return selected.indexOf(nom)>=0;},function(){return '';},'#DCFCE7','#FAF4EC','role',{includeSet:includeSet,excludeSet:excludeSet});
+    var tree=res[0];
+    var actifMap={}; // {restaurant_id:{code:true}} — uniquement les couples actifs
+    (res[1].data||[]).forEach(function(s){
+      if(s.actif===false)return;
+      actifMap[s.restaurant_id]=actifMap[s.restaurant_id]||{};
+      actifMap[s.restaurant_id][s.ingredient_code]=true;
+    });
+    var restos=(typeof restosData!=='undefined'?restosData:[]);
+    var coverage=computeIngredientRoleCoverage(tree,actifMap);
+    if(filterRestos.length){
+      var activeCodes={};
+      filterRestos.forEach(function(rid){
+        Object.keys(actifMap[rid]||{}).forEach(function(code){activeCodes[code]=true;});
+      });
+      tree=filterComptageTreeForRestos(tree,activeCodes,selected,includeSet,excludeSet);
+    }
+    var legend=restos.length?('<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:9px;color:var(--txm);margin-bottom:6px;">'
+      +'<span>Point color\u00e9 = ingr\u00e9dient d\u00e9j\u00e0 compt\u00e9 par un r\u00f4le\u00a0:</span>'
+      +restos.map(function(r){return '<span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+(r.couleur||'#999')+';border:1px solid '+(r.couleur||'#999')+'"></span>'+esc(r.nom||r.id)+'</span>';}).join('')
+      +'<span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;border:1.5px solid #999;"></span>pas encore attribu\u00e9</span>'
+      +'</div>'):'';
+    box.innerHTML=legend+comptageCatsTreeHtml(tree,function(nom){return selected.indexOf(nom)>=0;},function(){return '';},'#DCFCE7','#FAF4EC','role',{includeSet:includeSet,excludeSet:excludeSet,coverage:coverage,restos:restos});
   });
 }
 function readRoleComptageCatsCheckboxes(){
@@ -3031,6 +3149,8 @@ function openAddRole(){
   document.getElementById('role-nom').value='';
   document.getElementById('role-couleur').value='#B91E26';
   renderRoleStockCatsCheckboxes([]);
+  roleComptageFilterRestos=[];
+  renderRoleComptageRestoFilter();
   renderRoleComptageCatsCheckboxes([],[],[]);
   renderRoleComptageAutofillButtons();
   openM('modal-role');
@@ -3043,6 +3163,8 @@ function openEditRole(id){
   document.getElementById('role-nom').value=ro.nom;
   document.getElementById('role-couleur').value=ro.couleur||'#B91E26';
   renderRoleStockCatsCheckboxes(ro.stock_categories||[]);
+  roleComptageFilterRestos=[];
+  renderRoleComptageRestoFilter();
   renderRoleComptageCatsCheckboxes(ro.comptage_categories||[],ro.comptage_ingredients_include||[],ro.comptage_ingredients_exclude||[]);
   renderRoleComptageAutofillButtons();
   openM('modal-role');
@@ -12253,6 +12375,7 @@ async function init(){
     </div>
     <div class="fr"><label class="fl2">Cat&#233;gories comptage rapide accessibles</label>
       <div style="font-size:10px;color:var(--txm);margin-bottom:4px">Les salari&#233;s avec ce r&#244;le ne verront que ces cat&#233;gories dans "Comptage rapide". Aucune case coch&#233;e = aucun acc&#232;s tant que ce n'est pas configur&#233;.</div>
+      <div id="role-comptage-resto-filter" style="display:flex;flex-wrap:wrap;margin:2px 0 6px"></div>
       <div id="role-comptage-autofill-row" style="display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 6px"></div>
       <div id="role-comptage-cats" style="display:block;margin-top:6px;max-height:280px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:8px"></div>
       <div style="margin-top:4px"><a href="#" onclick="event.preventDefault();ensureComptageCatsCanonical(true).then(function(){renderRoleComptageCatsCheckboxes(readRoleComptageCatsCheckboxes());});" style="font-size:10px;color:var(--txm)">&#8635; Rafra&#238;chir la liste (si tu viens de cr&#233;er une cat&#233;gorie dans Recettes)</a></div>
