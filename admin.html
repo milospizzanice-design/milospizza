@@ -1140,6 +1140,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:2px">- Retirer des cat&#233;gories (m&#234;me si le r&#244;le les donne)</div>
       <div id="sal-comptage-cats-remove-list" style="display:block;max-height:220px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
     </div>
+    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
+      <label class="fl2">Exceptions fines par ingr&#233;dient (optionnel)</label>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">Coche/d&#233;coche des sous-cat&#233;gories ou ingr&#233;dients pr&#233;cis pour ce salari&#233;, en plus des catégories ci-dessus. Les cases de cat&#233;gorie ci-dessous refl&#232;tent juste l'&#233;tat d&#233;j&#224; r&#233;gl&#233; plus haut (r&#244;le + ajustements) &#8212; utilise les sous-cat&#233;gories/ingr&#233;dients pour affiner.</div>
+      <div id="sal-comptage-ing-list" style="display:block;max-height:260px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
+    </div>
     <div class="fr">
       <label class="fl2">Badge NFC (UID)</label>
       <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace" oninput="cleanBadgeUid(this)">
@@ -2885,7 +2890,7 @@ function cptToggleAllIn(containerId,checked){
 // l'inverse "rien de la catégorie sauf ceux-là"). Coché par défaut = suit l'état de sa catégorie, sauf
 // override stocké dans includeSet/excludeSet. La lecture se fait à la sauvegarde (readRoleIngredientOverrides),
 // pas via un état JS live — pas besoin de re-render quand on coche/décoche.
-function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scope,ingOpts){
+function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scope,ingOpts,catReadOnly){
   colorOn=colorOn||'#DCFCE7';colorOff=colorOff||'#FAF4EC';
   scope=scope||'x';
   var includeSet=(ingOpts&&ingOpts.includeSet)||null;
@@ -2912,7 +2917,7 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
         :'<span style="width:20px;display:inline-block"></span>';
       var label='<label style="display:flex;align-items:center;gap:4px;font-size:12px;background:'+(on?colorOn:colorOff)+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;cursor:pointer;width:100%;box-sizing:border-box;">'
         +arrowHtml
-        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+' onchange="'+onchange+'">'
+        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+(catReadOnly?' disabled title="D\u00e9j\u00e0 r\u00e9gl\u00e9 plus haut \u2014 utilise les sous-cat\u00e9gories/ingr\u00e9dients ci-dessous pour affiner"':' onchange="'+onchange+'"')+'>'
         +'<span style="flex:1">'+esc(c.nom)+'</span><span style="color:var(--txm);font-weight:400;font-size:10px">'+c.nbIngredients+' ingr.</span>'
         +'</label>';
       var detail='';
@@ -2939,6 +2944,44 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
     }).join('');
     return head+'<div style="display:flex;flex-direction:column;gap:4px;">'+rows+'</div>';
   }).join('');
+}
+// Boutons "Ingrédients visibles sur X" au-dessus de l'arbre du rôle — un par restaurant, généré
+// dynamiquement depuis restosData (pas de nom de restaurant codé en dur, discipline marque blanche).
+function renderRoleComptageAutofillButtons(){
+  var box=document.getElementById('role-comptage-autofill-row');
+  if(!box)return;
+  var restos=(typeof restosData!=='undefined'&&restosData.length)?restosData:[];
+  if(!restos.length){box.innerHTML='';return;}
+  box.innerHTML='<span style="font-size:9px;color:var(--txm);width:100%;">Remplissage automatique :</span>'
+    +restos.map(function(r){return '<button type="button" class="btn bs sm" style="font-size:10px;" onclick="roleComptageAutofillFromResto(\''+r.id+'\')">&#9745; Ingr\u00e9dients visibles sur '+esc(r.nom||r.id)+'</button>';}).join('');
+}
+// Coche automatiquement, dans l'arbre du rôle, exactement les ingrédients actuellement visibles (actifs)
+// sur le restaurant restoId — pratique pour un rôle dédié à un seul restaurant (ex: "Labo"), pour ne pas
+// avoir à tout cocher un par un. Une catégorie n'est cochée en entier que si TOUS ses ingrédients sont
+// actifs sur ce restaurant ; sinon elle reste décochée et seuls les ingrédients actifs sont ajoutés en
+// exception individuelle, pour ne cocher exactement que ce qui est demandé — ni plus, ni moins.
+async function roleComptageAutofillFromResto(restoId){
+  var restoLabel=rctRestoLabel(restoId);
+  if(!confirm('Cocher automatiquement, dans la liste ci-dessous, tous les ingrédients actuellement visibles sur '+restoLabel+' ?\n\nÇa remplace la sélection actuelle (catégories + exceptions) — à Enregistrer ensuite pour confirmer.'))return;
+  var activeCodes={};
+  try{
+    var seuilsRes=await db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId);
+    (seuilsRes.data||[]).forEach(function(s){if(s.actif!==false)activeCodes[s.ingredient_code]=true;});
+  }catch(e){console.error('roleComptageAutofillFromResto',e);alert('Erreur : '+e.message);return;}
+  var tree=await ensureComptageCatsCanonical();
+  var newCats=[],include=[];
+  tree.forEach(function(grp){
+    grp.categories.forEach(function(c){
+      var allIngs=c.directIngredients.concat(c.sousCats.reduce(function(a,sc){return a.concat(sc.ingredients);},[]));
+      if(!allIngs.length)return;
+      var allActive=allIngs.every(function(ig){return activeCodes[ig.code];});
+      var anyActive=allIngs.some(function(ig){return activeCodes[ig.code];});
+      if(allActive)newCats.push(c.nom);
+      else if(anyActive)allIngs.forEach(function(ig){if(activeCodes[ig.code])include.push(ig.code);});
+    });
+  });
+  renderRoleComptageCatsCheckboxes(newCats,include,[]);
+  alert('✅ Sélection mise à jour d\'après '+Object.keys(activeCodes).length+' ingrédient(s) visible(s) sur '+restoLabel+'. Vérifie la liste puis clique sur Enregistrer pour confirmer.');
 }
 function renderRoleComptageCatsCheckboxes(selected,ingInclude,ingExclude){
   selected=selected||[];
@@ -2981,6 +3024,7 @@ function openAddRole(){
   document.getElementById('role-couleur').value='#B91E26';
   renderRoleStockCatsCheckboxes([]);
   renderRoleComptageCatsCheckboxes([],[],[]);
+  renderRoleComptageAutofillButtons();
   openM('modal-role');
 }
 function openEditRole(id){
@@ -2992,6 +3036,7 @@ function openEditRole(id){
   document.getElementById('role-couleur').value=ro.couleur||'#B91E26';
   renderRoleStockCatsCheckboxes(ro.stock_categories||[]);
   renderRoleComptageCatsCheckboxes(ro.comptage_categories||[],ro.comptage_ingredients_include||[],ro.comptage_ingredients_exclude||[]);
+  renderRoleComptageAutofillButtons();
   openM('modal-role');
 }
 async function saveRole(){
@@ -4355,15 +4400,21 @@ var tmpSalCatsAdd=[];
 var tmpSalCatsRemove=[];
 var tmpSalComptageCatsAdd=[];
 var tmpSalComptageCatsRemove=[];
+var tmpSalComptageIngInclude=[]; // exceptions fines par ingrédient (comptage_ingredients_include) — symétrique à roles.comptage_ingredients_include
+var tmpSalComptageIngExclude=[]; // comptage_ingredients_exclude
 function renderSalComptageCatsOverrides(salId){
   if(salId){
     var em3=emp(salId);
     tmpSalComptageCatsAdd=(em3&&em3.comptage_cats_add)?(Array.isArray(em3.comptage_cats_add)?em3.comptage_cats_add.slice():[]):[];
     tmpSalComptageCatsRemove=(em3&&em3.comptage_cats_remove)?(Array.isArray(em3.comptage_cats_remove)?em3.comptage_cats_remove.slice():[]):[];
+    tmpSalComptageIngInclude=(em3&&em3.comptage_ingredients_include)?(Array.isArray(em3.comptage_ingredients_include)?em3.comptage_ingredients_include.slice():[]):[];
+    tmpSalComptageIngExclude=(em3&&em3.comptage_ingredients_exclude)?(Array.isArray(em3.comptage_ingredients_exclude)?em3.comptage_ingredients_exclude.slice():[]):[];
   }else{
     tmpSalComptageCatsAdd=[];tmpSalComptageCatsRemove=[];
+    tmpSalComptageIngInclude=[];tmpSalComptageIngExclude=[];
   }
   renderSalComptageCatsCheckboxes();
+  renderSalIngExceptions();
 }
 function renderSalComptageCatsCheckboxes(){
   var addBox=document.getElementById('sal-comptage-cats-add-list');
@@ -4381,6 +4432,50 @@ function toggleSalComptageCat(kind,catId,checked){
   var i=arr.indexOf(catId);
   if(checked&&i<0)arr.push(catId);
   else if(!checked&&i>=0)arr.splice(i,1);
+}
+// Catégories effectivement visibles pour ce salarié : celles de son/ses rôle(s), plus les ajouts, moins les
+// retraits — c'est cet ensemble qui sert de référence ("coché par défaut") pour les cases Sous-catégorie et
+// Ingrédient de la section "Exceptions fines par ingrédient" juste en dessous.
+function salEffectiveComptageCats(){
+  var set={};
+  (tmpSalRoles||[]).forEach(function(rid){
+    var ro=(typeof rolesData!=='undefined'?rolesData:[]).find(function(r){return r.id===rid;});
+    ((ro&&ro.comptage_categories)||[]).forEach(function(c){set[c]=true;});
+  });
+  (tmpSalComptageCatsAdd||[]).forEach(function(c){set[c]=true;});
+  (tmpSalComptageCatsRemove||[]).forEach(function(c){delete set[c];});
+  return Object.keys(set);
+}
+// Section "Exceptions fines par ingrédient" de la fiche salarié — même mécanique que pour les rôles
+// (comptageCatsTreeHtml avec includeSet/excludeSet), mais la case Catégorie y est en lecture seule
+// (catReadOnly=true) puisqu'elle est déjà réglée par les deux sections + et - au-dessus ; seules les
+// sous-catégories ("tout cocher") et les ingrédients un par un restent éditables ici.
+function renderSalIngExceptions(){
+  var box=document.getElementById('sal-comptage-ing-list');
+  if(!box)return;
+  box.innerHTML='<span style="color:#aaa;font-size:11px">Chargement...</span>';
+  var effective=salEffectiveComptageCats();
+  var includeSet=new Set(tmpSalComptageIngInclude||[]);
+  var excludeSet=new Set(tmpSalComptageIngExclude||[]);
+  ensureComptageCatsCanonical().then(function(tree){
+    if(!box)return;
+    box.innerHTML=comptageCatsTreeHtml(tree,function(nom){return effective.indexOf(nom)>=0;},function(){return '';},'#DCFCE7','#FAF4EC','salingex',{includeSet:includeSet,excludeSet:excludeSet},true);
+  });
+}
+// Lit les cases ingrédient de la section "Exceptions fines par ingrédient" et ne garde que les exceptions
+// réelles par rapport à l'état effectif (rôle + ajustements) — même logique que readRoleIngredientOverrides.
+function readSalIngredientOverrides(effectiveCats){
+  var box=document.getElementById('sal-comptage-ing-list');
+  var include=[],exclude=[];
+  if(!box)return{include:include,exclude:exclude};
+  Array.prototype.slice.call(box.querySelectorAll('input.cpting-chk')).forEach(function(inp){
+    var code=inp.getAttribute('data-ing-code');
+    var cat=inp.getAttribute('data-ing-cat');
+    var catOn=effectiveCats.indexOf(cat)>=0;
+    if(inp.checked&&!catOn)include.push(code);
+    else if(!inp.checked&&catOn)exclude.push(code);
+  });
+  return{include:include,exclude:exclude};
 }
 function renderSalCatsOverrides(salId){
   if(salId){
@@ -4583,14 +4678,24 @@ async function saveSal(){
   var resto=document.getElementById('sar').value;
   var pin=document.getElementById('sapin').value.trim();
   if(!p||!n){alert('Prénom et nom requis');return;}
+  var effectiveCats=salEffectiveComptageCats();
+  var ingOverrides=readSalIngredientOverrides(effectiveCats);
   if(curSal){
     var hc=parseFloat(document.getElementById('saheures').value)||null;
     var dd=document.getElementById('sadebut').value||null;
     var mail=document.getElementById('samail').value||null;
     var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
-    await db.from('employees').update(upd).eq('id',curSal);
+  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
+    var r1=await db.from('employees').update(upd).eq('id',curSal);
+    if(r1&&r1.error){
+      // Repli tolérant : si comptage_ingredients_include/exclude n'existent pas encore côté Supabase (migration
+      // SQL pas exécutée), on retente sans ces deux champs plutôt que de perdre TOUTE la sauvegarde de la fiche.
+      delete upd.comptage_ingredients_include;delete upd.comptage_ingredients_exclude;
+      var r1b=await db.from('employees').update(upd).eq('id',curSal);
+      if(r1b&&r1b.error){alert('Erreur : '+r1b.error.message);return;}
+      alert('Fiche enregistrée, mais les exceptions fines par ingrédient n\'ont pas pu l\'être : la migration SQL (colonnes comptage_ingredients_include/exclude sur employees) doit être exécutée dans Supabase.');
+    }
   }else{
     var newSec=deduceSecteur('new');
     var hc2=parseFloat(document.getElementById('saheures').value)||null;
@@ -4598,7 +4703,14 @@ async function saveSal(){
     var mail2=document.getElementById('samail').value||null;
     var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut2=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var insR=await db.from('employees').insert({prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2}).select();
+  var insPayload={prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2};
+  var insR=await db.from('employees').insert(insPayload).select();
+  if(insR&&insR.error){
+    delete insPayload.comptage_ingredients_include;delete insPayload.comptage_ingredients_exclude;
+    insR=await db.from('employees').insert(insPayload).select();
+    if(insR&&insR.error){alert('Erreur : '+insR.error.message);return;}
+    alert('Salarié créé, mais les exceptions fines par ingrédient n\'ont pas pu l\'être : la migration SQL (colonnes comptage_ingredients_include/exclude sur employees) doit être exécutée dans Supabase.');
+  }
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
@@ -12133,6 +12245,7 @@ async function init(){
     </div>
     <div class="fr"><label class="fl2">Cat&#233;gories comptage rapide accessibles</label>
       <div style="font-size:10px;color:var(--txm);margin-bottom:4px">Les salari&#233;s avec ce r&#244;le ne verront que ces cat&#233;gories dans "Comptage rapide". Aucune case coch&#233;e = aucun acc&#232;s tant que ce n'est pas configur&#233;.</div>
+      <div id="role-comptage-autofill-row" style="display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 6px"></div>
       <div id="role-comptage-cats" style="display:block;margin-top:6px;max-height:280px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:8px"></div>
       <div style="margin-top:4px"><a href="#" onclick="event.preventDefault();ensureComptageCatsCanonical(true).then(function(){renderRoleComptageCatsCheckboxes(readRoleComptageCatsCheckboxes());});" style="font-size:10px;color:var(--txm)">&#8635; Rafra&#238;chir la liste (si tu viens de cr&#233;er une cat&#233;gorie dans Recettes)</a></div>
     </div>
