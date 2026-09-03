@@ -2912,28 +2912,36 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
       var hasDetail=c.sousCats.length>0||c.directIngredients.length>0;
       var toggleAllJs=(includeSet&&hasDetail)?"cptToggleAllIn('"+detailId+"',this.checked);":'';
       var onchange=toggleAllJs+(toggleJs?toggleJs+';':'')+'this.parentElement.style.background=this.checked?\''+colorOn+'\':\''+colorOff+'\'';
+      // Taper sur le nom (grande cible) déplie/replie — plus besoin de viser la petite flèche. La case à
+      // cocher reste un contrôle séparé (pas de bouton "label" englobant), donc les deux gestes ne se
+      // marchent plus dessus : cocher ne déplie pas, déplier ne coche pas.
+      var expandJs=hasDetail?"event.stopPropagation();cptTreeToggle('"+detailId+"')":'';
       var arrowHtml=hasDetail
-        ?'<span id="'+detailId+'-arrow" onclick="event.preventDefault();cptTreeToggle(\''+detailId+'\')" style="cursor:pointer;padding:2px 5px;color:var(--txm);font-size:11px;user-select:none;">&#9656;</span>'
+        ?'<span id="'+detailId+'-arrow" onclick="'+expandJs+'" style="cursor:pointer;padding:2px 5px;color:var(--txm);font-size:11px;user-select:none;">&#9656;</span>'
         :'<span style="width:20px;display:inline-block"></span>';
-      var label='<label style="display:flex;align-items:center;gap:4px;font-size:12px;background:'+(on?colorOn:colorOff)+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;cursor:pointer;width:100%;box-sizing:border-box;">'
+      var nameHtml='<span style="flex:1;'+(hasDetail?'cursor:pointer;':'')+'" onclick="'+expandJs+'">'+esc(c.nom)+'</span>';
+      var countHtml='<span style="color:var(--txm);font-weight:400;font-size:10px;'+(hasDetail?'cursor:pointer;':'')+'" onclick="'+expandJs+'">'+c.nbIngredients+' ingr.</span>';
+      var label='<div style="display:flex;align-items:center;gap:4px;font-size:12px;background:'+(on?colorOn:colorOff)+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;width:100%;box-sizing:border-box;">'
         +arrowHtml
-        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+(catReadOnly?' disabled title="D\u00e9j\u00e0 r\u00e9gl\u00e9 plus haut \u2014 utilise les sous-cat\u00e9gories/ingr\u00e9dients ci-dessous pour affiner"':' onchange="'+onchange+'"')+'>'
-        +'<span style="flex:1">'+esc(c.nom)+'</span><span style="color:var(--txm);font-weight:400;font-size:10px">'+c.nbIngredients+' ingr.</span>'
-        +'</label>';
+        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+(catReadOnly?' disabled title="D\u00e9j\u00e0 r\u00e9gl\u00e9 plus haut \u2014 utilise les sous-cat\u00e9gories/ingr\u00e9dients ci-dessous pour affiner"':' onchange="'+onchange+'"')+' style="width:20px;height:20px;flex-shrink:0;cursor:pointer;">'
+        +nameHtml+countHtml
+        +'</div>';
       var detail='';
       if(hasDetail){
         var subHtml=c.sousCats.map(function(sc,si){
           var subId=detailId+'-s'+si;
-          var subArrow=sc.ingredients.length
-            ?'<span id="'+subId+'-arrow" onclick="event.preventDefault();cptTreeToggle(\''+subId+'\')" style="cursor:pointer;padding:1px 5px;color:var(--txm);font-size:10px;user-select:none;">&#9656;</span>'
+          var subHasIng=sc.ingredients.length>0;
+          var subExpandJs=subHasIng?"event.stopPropagation();cptTreeToggle('"+subId+"')":'';
+          var subArrow=subHasIng
+            ?'<span id="'+subId+'-arrow" onclick="'+subExpandJs+'" style="cursor:pointer;padding:1px 5px;color:var(--txm);font-size:10px;user-select:none;">&#9656;</span>'
             :'<span style="width:16px;display:inline-block"></span>';
           var subAllChk=(includeSet&&sc.ingredients.length)
-            ?('<input type="checkbox" class="cptsuball-chk" title="Tout cocher/d\u00e9cocher cette sous-cat\u00e9gorie"'+(sc.ingredients.every(function(ig){return includeSet.has(ig.code)?true:(excludeSet.has(ig.code)?false:on);})?' checked':'')+' onchange="cptToggleAllIn(\''+subId+'\',this.checked)" style="margin-right:2px">')
+            ?('<input type="checkbox" class="cptsuball-chk" title="Tout cocher/d\u00e9cocher cette sous-cat\u00e9gorie"'+(sc.ingredients.every(function(ig){return includeSet.has(ig.code)?true:(excludeSet.has(ig.code)?false:on);})?' checked':'')+' onchange="event.stopPropagation();cptToggleAllIn(\''+subId+'\',this.checked)" style="margin-right:2px;width:16px;height:16px;cursor:pointer;">')
             :'';
           var ingHtml=sc.ingredients.length
             ?('<div id="'+subId+'" style="display:none;margin:2px 0 6px 32px;">'+sc.ingredients.map(function(ig){return ingredientChip(ig,c.nom,on);}).join('')+'</div>')
             :'';
-          return '<div style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--tx);margin:2px 0 0 16px;">'+subArrow+subAllChk+'<span style="font-weight:600">'+esc(sc.nom)+'</span><span style="color:var(--txm);font-size:9px">('+sc.ingredients.length+')</span></div>'+ingHtml;
+          return '<div style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--tx);margin:2px 0 0 16px;">'+subArrow+subAllChk+'<span style="font-weight:600;'+(subHasIng?'cursor:pointer;':'')+'" onclick="'+subExpandJs+'">'+esc(sc.nom)+'</span><span style="color:var(--txm);font-size:9px;'+(subHasIng?'cursor:pointer;':'')+'" onclick="'+subExpandJs+'">('+sc.ingredients.length+')</span></div>'+ingHtml;
         }).join('');
         var directHtml=c.directIngredients.length
           ?('<div style="margin:6px 0 0 16px;">'+(c.sousCats.length?'<div style="font-size:9px;font-weight:600;color:var(--txm);margin-bottom:2px;">Sans sous-cat\u00e9gorie</div>':'')+c.directIngredients.map(function(ig){return ingredientChip(ig,c.nom,on);}).join('')+'</div>')
