@@ -329,7 +329,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
   <div id="sa" style="display:none">
     <div class="plan-rtabs" id="sa-resto-tabs"></div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <button class="btn bs" onclick="openComptageApercu()">&#128065; Aper&#231;u comptage</button>
       <button class="btn bp" onclick="openAddSal()">+ Ajouter</button>
     </div>
     <div id="sab"></div>
@@ -4384,7 +4385,93 @@ function toggleSalRestoSec(restoId,checked){
   if(checked&&i<0)tmpSalRestosSec.push(restoId);
   else if(!checked&&i>=0)tmpSalRestosSec.splice(i,1);
 }
-function openAddSal(){curSal=null;var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalCatsOverrides(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
+// ── APERÇU COMPTAGE (lecture seule, pour contrôle admin) ────────────────────
+// Pour un restaurant donné : parmi les ingrédients configurés/actifs là-bas, lesquels sont réellement
+// couverts par un rôle ET ce rôle est détenu par au moins un salarié actif de ce restaurant (poste
+// principal ou secondaire) — c'est la vraie question "qui va compter ça", pas juste "un rôle existe quelque
+// part" (cf. les points colorés de l'éditeur de rôle, qui eux ne regardent pas les salariés).
+var caFilterResto=null;
+async function openComptageApercu(){
+  var restos=(restosData||[]).slice();
+  if(!restos.length){alert('Aucun restaurant configur\u00e9.');return;}
+  caFilterResto=restos[0].id;
+  openM('modal-comptage-apercu');
+  document.getElementById('ca-list').innerHTML='<div style="color:#aaa;font-size:11px;">Chargement...</div>';
+  await Promise.all([loadRoles(),loadEmps()]);
+  renderComptageApercuTabs();
+  await renderComptageApercuList();
+}
+function renderComptageApercuTabs(){
+  var box=document.getElementById('ca-resto-tabs');
+  if(!box)return;
+  var restos=(restosData||[]).slice();
+  box.innerHTML=restos.map(function(r){
+    var on=caFilterResto===r.id;
+    return '<button type="button" class="btn '+(on?'bp':'bs')+' sm" onclick="caSwitchResto(\''+r.id+'\')">'+esc(r.nom||r.id)+'</button>';
+  }).join('');
+}
+function caSwitchResto(id){
+  caFilterResto=id;
+  renderComptageApercuTabs();
+  renderComptageApercuList();
+}
+async function renderComptageApercuList(){
+  var box=document.getElementById('ca-list');
+  var legend=document.getElementById('ca-legend');
+  if(!box)return;
+  box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement...</div>';
+  var restoId=caFilterResto;
+  var tree=await ensureComptageCatsCanonical();
+  var seuilsRes=await db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId);
+  var activeCodes={};
+  (seuilsRes.data||[]).forEach(function(s){if(s.actif!==false)activeCodes[s.ingredient_code]=true;});
+  var empsAtResto=(emps||[]).filter(function(e){
+    return e.actif!==false&&!e.archive&&(e.restaurant_id===restoId||(e.restaurants_secondaires||[]).indexOf(restoId)>=0);
+  });
+  var rolesAtResto={};
+  empsAtResto.forEach(function(e){(e.roles||[]).forEach(function(rid){rolesAtResto[rid]=true;});});
+  var rolesById={};
+  (rolesData||[]).forEach(function(r){rolesById[r.id]=r;});
+  if(legend){
+    legend.innerHTML=Object.keys(rolesAtResto).length
+      ?('R\u00f4les pr\u00e9sents ici\u00a0: '+Object.keys(rolesAtResto).map(function(rid){var r=rolesById[rid];return r?esc(r.nom):rid;}).join(', ')+' &#8226; '+empsAtResto.length+' salari\u00e9(s) actif(s)')
+      :'<span style="color:#B91E26">&#9888;&#65039; Aucun salari\u00e9 actif rattach\u00e9 \u00e0 ce restaurant \u2014 rien ne sera compt\u00e9 ici quel que soit le param\u00e9trage des r\u00f4les.</span>';
+  }
+  var h='';var totalActive=0,totalCovered=0;
+  tree.forEach(function(grp){
+    grp.categories.forEach(function(c){
+      var allIngs=c.directIngredients.concat(c.sousCats.reduce(function(a,sc){return a.concat(sc.ingredients);},[]));
+      var relevant=allIngs.filter(function(ig){return activeCodes[ig.code];});
+      if(!relevant.length)return;
+      var rows=relevant.map(function(ig){
+        totalActive++;
+        var coveringRoles=(rolesData||[]).filter(function(r){
+          var cats=r.comptage_categories||[];
+          var inc=(r.comptage_ingredients_include||[]).indexOf(ig.code)>=0;
+          var exc=(r.comptage_ingredients_exclude||[]).indexOf(ig.code)>=0;
+          return (cats.indexOf(c.nom)>=0&&!exc)||inc;
+        });
+        var coveringHere=coveringRoles.filter(function(r){return rolesAtResto[r.id];});
+        var tag;
+        if(coveringHere.length){
+          totalCovered++;
+          tag='<span style="color:#16A34A;font-size:10px;white-space:nowrap;">&#9679; '+coveringHere.map(function(r){return esc(r.nom);}).join(', ')+'</span>';
+        }else if(coveringRoles.length){
+          tag='<span style="color:#D97706;font-size:10px;white-space:nowrap;" title="Un r\u00f4le couvre cet ingr\u00e9dient mais aucun salari\u00e9 actif ici ne l\'a">&#9675; '+coveringRoles.map(function(r){return esc(r.nom);}).join(', ')+' (personne ici)</span>';
+        }else{
+          tag='<span style="color:#DC2626;font-size:10px;white-space:nowrap;">&#10007; aucun r\u00f4le ne le couvre</span>';
+        }
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid #f2f2f2;font-size:11px;"><span>'+esc(ig.nom)+'</span>'+tag+'</div>';
+      }).join('');
+      h+='<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--txm);text-transform:uppercase;margin-bottom:2px;">'+esc(c.nom)+'</div>'+rows+'</div>';
+    });
+  });
+  if(!h){h='<div style="color:#aaa;font-size:11px;">Aucun ingr\u00e9dient configur\u00e9/actif sur ce restaurant.</div>';}
+  else{h='<div style="font-size:12px;font-weight:700;margin-bottom:8px;">'+totalCovered+' / '+totalActive+' ingr\u00e9dients effectivement compt\u00e9s ici</div>'+h;}
+  box.innerHTML=h;
+}
+
+function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalCatsOverrides(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
 
@@ -4446,10 +4533,15 @@ function deduceSecteur(salId){
 
 // ── PLANNING TYPE HEBDOMADAIRE ──────────────────────────────────────────────
 var PT_DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+// Planning par défaut (modèle hebdomadaire de créneaux) — en mémoire le temps de l'édition de la fiche,
+// comme tmpSalRoles/tmpSalCatsAdd juste plus bas, PUIS écrit dans employees.planning_type à l'enregistrement.
+// Avant : stocké uniquement dans localStorage (jamais envoyé à Supabase), donc invisible sur un autre appareil
+// et perdu si le cache du navigateur était vidé — d'où "ça ne se sauvegarde pas".
+var tmpSalPlanningType=[];
 
 function renderPlanningType(salId){
   var div=document.getElementById('sal-planning-type');if(!div)return;
-  var pt=getSalPlanningType(salId);
+  var pt=tmpSalPlanningType;
   var h='<div style="display:flex;flex-direction:column;gap:6px">';
   PT_DAYS.forEach(function(day,i){
     var slots=pt[i]||[];
@@ -4473,45 +4565,31 @@ function renderPlanningType(salId){
 }
 
 function ptAddSlot(day){
-  var salId=curSal||'new';
-  var pt=getSalPlanningType(salId);
+  var pt=tmpSalPlanningType;
   if(!pt[day])pt[day]=[];
   var lastSlot=null;
   if(pt[day].length){lastSlot=pt[day][pt[day].length-1];}
   else{for(var d=6;d>=0;d--){if(pt[d]&&pt[d].length){lastSlot=pt[d][pt[d].length-1];break;}}}
   if(lastSlot)pt[day].push({start:lastSlot.start,end:lastSlot.end});
   else pt[day].push({start:'17:00',end:'23:30'});
-  setSalPlanningType(salId,pt);
   renderPlanningType(curSal);
 }
 
 function ptRemoveSlot(day,si){
-  var salId=curSal||'new';
-  var pt=getSalPlanningType(salId);
-  if(pt[day])pt[day].splice(si,1);
-  setSalPlanningType(salId,pt);
+  if(tmpSalPlanningType[day])tmpSalPlanningType[day].splice(si,1);
   renderPlanningType(curSal);
 }
 
 function ptSlotTime(inp){
   var day=parseInt(inp.dataset.day);var si=parseInt(inp.dataset.slot);var f=inp.dataset.f;
-  var salId=curSal||'new';
-  var pt=getSalPlanningType(salId);
-  if(pt[day]&&pt[day][si])pt[day][si][f]=inp.value;
-  setSalPlanningType(salId,pt);
+  if(tmpSalPlanningType[day]&&tmpSalPlanningType[day][si])tmpSalPlanningType[day][si][f]=inp.value;
 }
-
-function getSalPlanningType(salId){
-  var key=salId||'new';
-  try{return JSON.parse(localStorage.getItem('sal_pt_'+key)||'[]');}catch(e){return [];}
-}
-function setSalPlanningType(salId,arr){localStorage.setItem('sal_pt_'+(salId||'new'),JSON.stringify(arr));}
 
 async function applyPlanningType(){
   if(!curSal){alert('Enregistrez d\'abord le salari\u00e9, puis rouvrez sa fiche pour g\u00e9n\u00e9rer le planning.');return;}
   var startVal=document.getElementById('sal-pt-start').value;
   if(!startVal){alert('Choisissez la date de d\u00e9but');return;}
-  var pt=getSalPlanningType(curSal);
+  var pt=tmpSalPlanningType;
   var hasSlots=pt.some(function(d){return d&&d.length;});
   if(!hasSlots){alert('Ajoutez au moins un cr\u00e9neau');return;}
   if(!confirm('G\u00e9n\u00e9rer le planning sur 12 semaines \u00e0 partir du '+startVal+' ?\n\nCela remplacera les cr\u00e9neaux existants sur cette p\u00e9riode.'))return;
@@ -4818,6 +4896,7 @@ function openEditSal(id){
   var bu=document.getElementById('sal-badge-uid');if(bu)bu.value=em.badge_uid||'';
   loadSalPinState(em);
   renderSalPostesList(id);renderSalRolesList(id);renderSalCatsOverrides(id);renderSalComptageCatsOverrides(id);renderSalRestosSecList(id);
+  tmpSalPlanningType=(em&&Array.isArray(em.planning_type))?JSON.parse(JSON.stringify(em.planning_type)):[];
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
   if(ptStart){if(em&&em.date_debut){ptStart.value=em.date_debut;}else{var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}}
@@ -4839,15 +4918,16 @@ async function saveSal(){
     var mail=document.getElementById('samail').value||null;
     var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
+  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
     var r1=await db.from('employees').update(upd).eq('id',curSal);
     if(r1&&r1.error){
-      // Repli tolérant : si comptage_ingredients_include/exclude n'existent pas encore côté Supabase (migration
-      // SQL pas exécutée), on retente sans ces deux champs plutôt que de perdre TOUTE la sauvegarde de la fiche.
-      delete upd.comptage_ingredients_include;delete upd.comptage_ingredients_exclude;
+      // Repli tolérant : si comptage_ingredients_include/exclude ou planning_type n'existent pas encore côté
+      // Supabase (migration SQL pas exécutée), on retente sans ces champs plutôt que de perdre TOUTE la
+      // sauvegarde de la fiche.
+      delete upd.comptage_ingredients_include;delete upd.comptage_ingredients_exclude;delete upd.planning_type;
       var r1b=await db.from('employees').update(upd).eq('id',curSal);
       if(r1b&&r1b.error){alert('Erreur : '+r1b.error.message);return;}
-      alert('Fiche enregistrée, mais les exceptions fines par ingrédient n\'ont pas pu l\'être : la migration SQL (colonnes comptage_ingredients_include/exclude sur employees) doit être exécutée dans Supabase.');
+      alert('Fiche enregistrée, mais les exceptions fines par ingrédient et/ou le planning par défaut n\'ont pas pu l\'être : la migration SQL (colonnes comptage_ingredients_include/exclude/planning_type sur employees) doit être exécutée dans Supabase.');
     }
   }else{
     var newSec=deduceSecteur('new');
@@ -4856,23 +4936,19 @@ async function saveSal(){
     var mail2=document.getElementById('samail').value||null;
     var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut2=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var insPayload={prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2};
+  var insPayload={prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2};
   var insR=await db.from('employees').insert(insPayload).select();
   if(insR&&insR.error){
-    delete insPayload.comptage_ingredients_include;delete insPayload.comptage_ingredients_exclude;
+    delete insPayload.comptage_ingredients_include;delete insPayload.comptage_ingredients_exclude;delete insPayload.planning_type;
     insR=await db.from('employees').insert(insPayload).select();
     if(insR&&insR.error){alert('Erreur : '+insR.error.message);return;}
-    alert('Salarié créé, mais les exceptions fines par ingrédient n\'ont pas pu l\'être : la migration SQL (colonnes comptage_ingredients_include/exclude sur employees) doit être exécutée dans Supabase.');
+    alert('Salarié créé, mais les exceptions fines par ingrédient et/ou le planning par défaut n\'ont pas pu l\'être : la migration SQL (colonnes comptage_ingredients_include/exclude/planning_type sur employees) doit être exécutée dans Supabase.');
   }
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
       var newPostes=getSalPostes('new');
       if(newPostes.length)setSalPostes(newId,newPostes);
       localStorage.removeItem('sal_postes_new');
-      // Transférer aussi le planning type
-      var newPt=getSalPlanningType('new');
-      if(newPt.length)setSalPlanningType(newId,newPt);
-      localStorage.removeItem('sal_pt_new');
     }
   }
   closeM('msa');
@@ -12413,6 +12489,19 @@ async function init(){
     <div class="ma">
       <button class="btn bp" onclick="saveRole()">Enregistrer</button>
       <button class="btn bs" onclick="closeM('modal-role')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="modal-comptage-apercu">
+  <div class="md" style="max-width:640px">
+    <div class="mdt">&#128065; Aper&#231;u comptage</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Pour chaque restaurant : ce qui est configur&#233; ici, et qui va r&#233;ellement le compter (au moins un salari&#233; actif de ce restaurant avec un r&#244;le qui couvre l'ingr&#233;dient).</div>
+    <div id="ca-resto-tabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <div id="ca-legend" style="font-size:10px;color:var(--txm);margin-bottom:8px"></div>
+    <div id="ca-list" style="max-height:60vh;overflow-y:auto"></div>
+    <div class="ma">
+      <button class="btn bs" onclick="closeM('modal-comptage-apercu')" style="width:100%">Fermer</button>
     </div>
   </div>
 </div>
