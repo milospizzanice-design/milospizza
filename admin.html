@@ -40,6 +40,7 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .bg.sortie{background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5}
 .bg.port{background:#DBEAFE;color:#1E40AF;border:1px solid #93C5FD}
 .bg.dabray{background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7}
+.bg.labo{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
 .bg.present{background:#DCFCE7;color:#166534;border:1px solid #86EFAC}
 .bg.sorti{background:#F3F4F6;color:#374151;border:1px solid #D1D5DB}
 .bg.absent{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
@@ -307,10 +308,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
   </div>
   <div id="pl">
-    <div class="plan-rtabs">
-      <div class="plan-rtab on" id="plr-port" onclick="switchPlanResto('port',this)">Port</div>
-      <div class="plan-rtab" id="plr-dabray" onclick="switchPlanResto('dabray',this)">Dabray</div>
-    </div>
+    <div class="plan-rtabs" id="pl-resto-tabs"></div>
     <div class="plan-wnav">
       <button class="btn bs sm" onclick="pvW()">&#8592;</button>
       <span class="plan-wlbl" id="plwl"></span>
@@ -330,10 +328,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="plan-emp-list"></div>
   </div>
   <div id="sa" style="display:none">
-    <div class="plan-rtabs">
-      <div class="plan-rtab on" id="salr-port" onclick="switchSalResto('port',this)">Port</div>
-      <div class="plan-rtab" id="salr-dabray" onclick="switchSalResto('dabray',this)">Dabray</div>
-    </div>
+    <div class="plan-rtabs" id="sa-resto-tabs"></div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
       <button class="btn bp" onclick="openAddSal()">+ Ajouter</button>
     </div>
@@ -1611,7 +1606,7 @@ function renderPt(){
   var h='';
   pts.forEach(function(e){
     var em=emp(e.employee_id);
-    var rl=e.restaurant_id==='port'?'Port':'Dabray';
+    var rl=rctRestoLabel(e.restaurant_id);
     var tl=e.type==='entree'?'↗ Entrée':'↙ Sortie';
     var iph=e.ip_ok?'<span class="iok">✓ '+e.ip_address+'</span>':'<span class="iba">⚠ '+e.ip_address+'</span>';
     var md=e.manuel?'<span class="bg sup">Manuel</span>'+(e.motif?'<div style="font-size:9px;color:var(--txm);margin-top:2px">'+e.motif+'</div>':''):'<span style="color:#aaa;font-size:11px">Auto</span>';
@@ -1729,8 +1724,7 @@ async function loadPr(){
     var ip=li&&(!lo||new Date(li.timestamp)>new Date(lo.timestamp));
     var w=calcW(ee);
     var sb=ip?'<span class="bg present">● Présent</span>':lo?'<span class="bg sorti">Sorti</span>':'<span class="bg absent">Absent</span>';
-    var rl=em.restaurant_id==='port'?'Port':'Dabray';
-    h+='<div class="card" style="margin-bottom:9px"><div style="display:flex;align-items:center;gap:10px">';
+    var rl=rctRestoLabel(em.restaurant_id);
     h+='<div style="width:38px;height:38px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
     h+='<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</div>';
     h+='<div style="font-size:11px;margin-top:2px"><span class="bg '+em.restaurant_id+'">'+rl+'</span></div></div>';
@@ -1848,7 +1842,7 @@ function renderPlan(){
   // Titre
   var tblTitle=document.getElementById('plan-tbl-title');
   if(tblTitle){
-    var rl=planResto==='port'?'Port — Bavastro':'Dabray';
+    var rl=planResto==='port'?'Port — Bavastro':rctRestoLabel(planResto);
     tblTitle.textContent=rl+' — Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   }
 
@@ -1871,9 +1865,10 @@ function renderPlan(){
       th+='<tr style="background:'+rowBg+'">';
       var restoTagTbl='';
       if(em.multi_site){
-        var rtbg=em.restaurant_id==='port'?'#DBEAFE':'#D1FAE5';
-        var rttx=em.restaurant_id==='port'?'#1E40AF':'#065F46';
-        var rtnm=em.restaurant_id==='port'?'Port':'Dabray';
+        var rtc=restoTagColors(em.restaurant_id);
+        var rtbg=rtc.bg;
+        var rttx=rtc.tx;
+        var rtnm=rctRestoLabel(em.restaurant_id);
         restoTagTbl='<span style="background:'+rtbg+';color:'+rttx+';font-size:8px;font-weight:700;padding:1px 5px;border-radius:10px;margin-left:4px">'+rtnm+'</span>';
       }
       th+='<td><span style="color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</span>'+restoTagTbl+'</td>';
@@ -1888,9 +1883,10 @@ function renderPlan(){
           crs.forEach(function(cr){
             var tag='';
             if(cr.restaurant_id){
-              var ctbg=cr.restaurant_id==='port'?'#DBEAFE':'#D1FAE5';
-              var cttx=cr.restaurant_id==='port'?'#1E40AF':'#065F46';
-              tag='<span style="background:'+ctbg+';color:'+cttx+';font-size:7px;font-weight:700;padding:0 3px;border-radius:3px;margin-left:2px">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>';
+              var ctc=restoTagColors(cr.restaurant_id);
+              var ctbg=ctc.bg;
+              var cttx=ctc.tx;
+              tag='<span style="background:'+ctbg+';color:'+cttx+';font-size:7px;font-weight:700;padding:0 3px;border-radius:3px;margin-left:2px">'+rctRestoLabel(cr.restaurant_id)+'</span>';
             }
             var crIdx=(planData[em.id]&&planData[em.id][dstr])?planData[em.id][dstr].indexOf(cr):crs.indexOf(cr);
             var absTag='';var crStyle='cursor:pointer;display:block;padding:1px 2px;border-radius:3px';
@@ -1924,7 +1920,7 @@ function renderPlan(){
       h+='<div style="font-size:10px;font-weight:700;color:'+(SECCOLORS[sec]||'#7A4A35')+';text-transform:uppercase;letter-spacing:1px;margin:10px 0 5px">'+(SECLABELS[sec]||sec)+'</div>';
       lastSec2=sec;
     }
-    var rl=emp.restaurant_id==='port'?'Port':'Dabray';
+    var rl=rctRestoLabel(emp.restaurant_id);
     var meta=[rl,emp.heures_contrat?emp.heures_contrat+'h/sem':''].filter(Boolean).join(' • ');
     h+='<div class="emp-card"><div class="emp-hd" onclick="planTogEmp('+emp.id+')">';
     h+='<div class="emp-av">'+emp.prenom[0]+'</div>';
@@ -1945,7 +1941,7 @@ function renderPlan(){
       h+='<div class="dcd">'+date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</div>';
       if(!crs.length&&!absCode)h+='<div style="font-size:8px;color:var(--txf);text-align:center;padding:2px 0">Off</div>';
       crs.forEach(function(cr,ci){
-        var restoTag=(emp.multi_site&&cr.restaurant_id&&cr.restaurant_id!==emp.restaurant_id)?'<span style="font-size:7px;background:rgba(185,30,38,.15);color:var(--bx);border-radius:3px;padding:1px 3px;display:block;text-align:center">'+(cr.restaurant_id==='port'?'Port':'Dabray')+'</span>':'';
+        var restoTag=(emp.multi_site&&cr.restaurant_id&&cr.restaurant_id!==emp.restaurant_id)?'<span style="font-size:7px;background:rgba(185,30,38,.15);color:var(--bx);border-radius:3px;padding:1px 3px;display:block;text-align:center">'+rctRestoLabel(cr.restaurant_id)+'</span>':'';
         var posteNoms=getCrPosteNoms(cr);
         h+='<div class="cr" style="cursor:pointer" data-eid="'+emp.id+'" data-d="'+dstr+'" data-i="'+((planData[emp.id]&&planData[emp.id][dstr])?planData[emp.id][dstr].indexOf(cr):ci)+'" onclick="planOpenEdit(this)">';
         h+='<div class="cr-t">'+cr.start+'<br>'+cr.end+restoTag+'</div>';
@@ -2632,6 +2628,34 @@ async function loadRestaurants(){
   restosData=r.data||[];
   renderRestosList();
   fillGlobalRestoSelect();
+  renderPlanSalRestoTabs();
+}
+// Onglets restaurant de Planning et Salariés — générés depuis restosData (avant : Port/Dabray codés en
+// dur dans le HTML, ce qui faisait disparaître tout salarié affilié à un autre restaurant, ex. Labo).
+function renderPlanSalRestoTabs(){
+  var restos=(restosData||[]).slice();
+  var plBox=document.getElementById('pl-resto-tabs');
+  if(plBox){
+    plBox.innerHTML=restos.map(function(r){
+      return '<div class="plan-rtab'+(planResto===r.id?' on':'')+'" id="plr-'+r.id+'" onclick="switchPlanResto(\''+r.id+'\',this)">'+esc(r.nom||r.id)+'</div>';
+    }).join('');
+  }
+  var saBox=document.getElementById('sa-resto-tabs');
+  if(saBox){
+    saBox.innerHTML=restos.map(function(r){
+      return '<div class="plan-rtab'+(salResto===r.id?' on':'')+'" id="salr-'+r.id+'" onclick="switchSalResto(\''+r.id+'\',this)">'+esc(r.nom||r.id)+'</div>';
+    }).join('');
+  }
+  // Ces 3 menus déroulants n'affichaient jusqu'ici que "Tous" (aucune <option> par restaurant n'était
+  // générée) — le filtre resto==='all'||e.restaurant_id===resto derrière gérait déjà n'importe quel id,
+  // il manquait juste les options pour pouvoir choisir un restaurant précis (dont Labo).
+  ['rcr','abr','drh-resto'].forEach(function(selId){
+    var sel=document.getElementById(selId);
+    if(!sel)return;
+    var cur=sel.value;
+    sel.innerHTML='<option value="all">Tous</option>'+restos.map(function(r){return '<option value="'+r.id+'">'+esc(r.nom||r.id)+'</option>';}).join('');
+    if(cur&&(cur==='all'||restos.some(function(r){return r.id===cur;})))sel.value=cur;
+  });
 }
 function renderRestosList(){
   var box=document.getElementById('pm-restos');
@@ -2736,10 +2760,9 @@ function onGlobalRestoChange(){
 // Pré-sélectionne le restaurant du sélecteur global dans les modules RH (Planning, Salariés,
 // Récap, Absences, Export PDF). Chaque module garde son propre contrôle local et peut être
 // changé indépendamment ensuite — le global ne fait que fixer la valeur par défaut au moment
-// où il change. Les onglets RH ne connaissant que 'port'/'dabray' pour l'instant, on ignore
-// les autres restaurants (limite connue, cf. résumé projet).
+// où il change.
 function applyGlobalRestoDefault(id){
-  if(id!=='port'&&id!=='dabray')return;
+  if(id==='tous')return; // "Tous les restaurants" n'a pas d'équivalent en RH (Planning/Salariés restent sur leur dernier choix)
 
   planResto=id;
   document.querySelectorAll('#pl .plan-rtab').forEach(function(t){t.classList.remove('on');});
@@ -4885,7 +4908,7 @@ async function loadRc(){
     var diff=w-pl;
     var sa=diff>=180;
     var dc=sa?'#991B1B':diff>=0?'#166534':'#991B1B';
-    var rl=em.restaurant_id==='port'?'Port':'Dabray';
+    var rl=rctRestoLabel(em.restaurant_id);
     var ats=[];ea.forEach(function(a){if(ats.indexOf(a.type)<0)ats.push(a.type);});
     h+='<div class="card"><div style="display:flex;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
     h+='<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</div>';
@@ -5052,7 +5075,7 @@ function openAbsEmpFiche(empId){
   var em=emp(empId);if(!em)return;
   ficheCurEmp=empId;
   document.getElementById('absfiche-name').textContent=em.prenom+' '+em.nom;
-  document.getElementById('absfiche-sub').textContent=(em.restaurant_id==='port'?'Port':'Dabray')+' \u2022 '+(em.secteur||'salle')+(em.heures_contrat?' \u2022 '+em.heures_contrat+'h/sem':'');
+  document.getElementById('absfiche-sub').textContent=rctRestoLabel(em.restaurant_id)+' \u2022 '+(em.secteur||'salle')+(em.heures_contrat?' \u2022 '+em.heures_contrat+'h/sem':'');
   document.getElementById('absfiche-edit').setAttribute('data-id',empId);
   ficheTab('abs');
   openM('modal-absfiche');
@@ -5470,7 +5493,7 @@ async function renderSal(){
     les.forEach(function(em){
       var info=indic[em.id]||{};
       var bg=em.actif!==false?'var(--bx)':'#ccc';
-      var rl=em.restaurant_id==='port'?'Port':'Dabray';
+      var rl=rctRestoLabel(em.restaurant_id);
       h+='<div class="card" style="margin-bottom:7px;cursor:pointer" onclick="openAbsEmpFiche('+em.id+')"><div style="display:flex;align-items:center;gap:10px">';
       // Avatar avec pastille verte si en poste
       h+='<div style="position:relative;flex-shrink:0">';
@@ -5589,7 +5612,7 @@ function renderArchivesList(query){
     h+='<div style="display:flex;align-items:center;gap:10px">';
     h+='<div style="width:34px;height:34px;border-radius:50%;background:#999;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
     h+='<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</div>';
-    h+='<div style="font-size:11px;color:var(--txm)">'+(em.restaurant_id==='port'?'Port':'Dabray')+' - Fin: '+(em.date_fin||'?')+'</div></div>';
+    h+='<div style="font-size:11px;color:var(--txm)">'+rctRestoLabel(em.restaurant_id)+' - Fin: '+(em.date_fin||'?')+'</div></div>';
     h+='<span style="font-size:18px;color:#ccc">&#8250;</span></div></div>';
   });
   div.innerHTML=h;
@@ -5598,7 +5621,7 @@ function renderArchivesList(query){
 async function openArchiveDetail(id){
   var em=emp(id);if(!em)return;
   document.getElementById('arch-detail-name').textContent=em.prenom+' '+em.nom;
-  document.getElementById('arch-detail-info').textContent=(em.restaurant_id==='port'?'Port - Bavastro':'Dabray')+' - Dernier jour: '+(em.date_fin||'?');
+  document.getElementById('arch-detail-info').textContent=(em.restaurant_id==='port'?'Port - Bavastro':rctRestoLabel(em.restaurant_id))+' - Dernier jour: '+(em.date_fin||'?');
   var body=document.getElementById('arch-detail-body');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
   openM('modal-archive-detail');
@@ -6050,6 +6073,13 @@ function rctRestoLabel(id){
   id=id||rctResto();
   var r=(typeof restosData!=='undefined'?restosData:[]).find(function(x){return x.id===id;});
   return r?(r.nom||r.id):id;
+}
+// Couleurs de badge par restaurant (avant : Port=bleu/Dabray=vert codés en dur partout). Les 3 restaurants
+// connus gardent leurs couleurs actuelles ; tout restaurant futur non répertorié reçoit un gris neutre
+// plutôt que planter ou être mal étiqueté "Dabray" par défaut.
+function restoTagColors(id){
+  var map={port:{bg:'#DBEAFE',tx:'#1E40AF'},dabray:{bg:'#D1FAE5',tx:'#065F46'},labo:{bg:'#FEF3C7',tx:'#92400E'}};
+  return map[id]||{bg:'#E5E7EB',tx:'#374151'};
 }
 function sbCheck(result){
   if(result&&result.error){
