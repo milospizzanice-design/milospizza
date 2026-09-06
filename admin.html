@@ -4408,7 +4408,7 @@ async function caAddIngredientToRole(code,roleId){
   var r=await db.from('roles').update({comptage_ingredients_include:inc,comptage_ingredients_exclude:exc}).eq('id',roleId);
   if(r&&r.error){alert('Erreur : '+r.error.message);return;}
   await loadRoles();
-  renderComptageApercuList();
+  renderComptageApercuList(true);
 }
 // Retire l'ingrédient `code` de la couverture du rôle donné (que ce soit une inclusion individuelle ou
 // via sa catégorie) — exclusion explicite systématique, qui l'emporte toujours sur la catégorie cochée.
@@ -4425,7 +4425,7 @@ async function caRemoveIngredientFromRole(code,roleId){
   var r=await db.from('roles').update({comptage_ingredients_include:inc,comptage_ingredients_exclude:exc}).eq('id',roleId);
   if(r&&r.error){alert('Erreur : '+r.error.message);return;}
   await loadRoles();
-  renderComptageApercuList();
+  renderComptageApercuList(true);
 }
 async function openComptageApercu(){
   var restos=(restosData||[]).slice();
@@ -4449,12 +4449,16 @@ function renderComptageApercuTabs(){
 function caSwitchResto(id){
   caFilterResto=id;
   renderComptageApercuTabs();
-  renderComptageApercuList();
+  renderComptageApercuList(); // changement de restaurant : on repart en haut de la liste, logique
 }
-async function renderComptageApercuList(){
+// preserveScroll : quand on vient d'ajouter/retirer un rôle sur une ligne, on reste où on était au lieu de
+// remonter en haut (l'écran entier ne devrait pas sauter à chaque petite modification). Faux par défaut
+// (ouverture initiale, changement de restaurant), vrai quand appelé après une action sur une ligne.
+async function renderComptageApercuList(preserveScroll){
   var box=document.getElementById('ca-list');
   var legend=document.getElementById('ca-legend');
   if(!box)return;
+  var savedScroll=preserveScroll?box.scrollTop:0;
   box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement...</div>';
   var restoId=caFilterResto;
   var tree=await ensureComptageCatsCanonical();
@@ -4517,6 +4521,7 @@ async function renderComptageApercuList(){
   if(!h){h='<div style="color:#aaa;font-size:11px;">Aucun ingr\u00e9dient configur\u00e9/actif sur ce restaurant.</div>';}
   else{h='<div style="font-size:12px;font-weight:700;margin-bottom:8px;">'+totalCovered+' / '+totalActive+' ingr\u00e9dients effectivement compt\u00e9s ici</div>'+h;}
   box.innerHTML=h;
+  if(savedScroll)box.scrollTop=savedScroll;
 }
 
 function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalCatsOverrides(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
