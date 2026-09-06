@@ -4391,6 +4391,21 @@ function toggleSalRestoSec(restoId,checked){
 // principal ou secondaire) — c'est la vraie question "qui va compter ça", pas juste "un rôle existe quelque
 // part" (cf. les points colorés de l'éditeur de rôle, qui eux ne regardent pas les salariés).
 var caFilterResto=null;
+// Ajoute l'ingrédient `code` en exception individuelle (comptage_ingredients_include) sur le rôle choisi,
+// sans passer par l'éditeur de rôle — utilisé par le sélecteur "+ ajouter rôle" de l'Aperçu comptage.
+async function caAddIngredientToRole(code,roleId){
+  var role=(rolesData||[]).find(function(r){return r.id===roleId;});
+  if(!role)return;
+  var inc=(role.comptage_ingredients_include||[]).slice();
+  var exc=(role.comptage_ingredients_exclude||[]).slice();
+  if(inc.indexOf(code)<0)inc.push(code);
+  var excIdx=exc.indexOf(code);
+  if(excIdx>=0)exc.splice(excIdx,1);
+  var r=await db.from('roles').update({comptage_ingredients_include:inc,comptage_ingredients_exclude:exc}).eq('id',roleId);
+  if(r&&r.error){alert('Erreur : '+r.error.message);return;}
+  await loadRoles();
+  renderComptageApercuList();
+}
 async function openComptageApercu(){
   var restos=(restosData||[]).slice();
   if(!restos.length){alert('Aucun restaurant configur\u00e9.');return;}
@@ -4461,7 +4476,16 @@ async function renderComptageApercuList(){
         }else{
           tag='<span style="color:#DC2626;font-size:10px;white-space:nowrap;">&#10007; aucun r\u00f4le ne le couvre</span>';
         }
-        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid #f2f2f2;font-size:11px;"><span>'+esc(ig.nom)+'</span>'+tag+'</div>';
+        // Sélecteur pour ajouter directement une couverture de rôle supplémentaire sur cet ingrédient,
+        // sans repasser par l'éditeur de rôle — n'affiche que les rôles qui ne le couvrent pas déjà.
+        var remainingRoles=(rolesData||[]).filter(function(r){return coveringRoles.indexOf(r)<0;});
+        var addCtrl=remainingRoles.length
+          ?('<select onchange="if(this.value)caAddIngredientToRole(\''+esc(ig.code)+'\',this.value);this.value=\'\';" style="font-size:9px;padding:2px 3px;border:1px solid var(--bd);border-radius:4px;max-width:120px;color:var(--txm);">'
+            +'<option value="">+ ajouter r\u00f4le</option>'
+            +remainingRoles.map(function(r){return '<option value="'+r.id+'">'+esc(r.nom)+'</option>';}).join('')
+            +'</select>')
+          :'';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #f2f2f2;font-size:11px;flex-wrap:wrap;"><span style="flex:1;min-width:80px;">'+esc(ig.nom)+'</span>'+tag+addCtrl+'</div>';
       }).join('');
       h+='<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--txm);text-transform:uppercase;margin-bottom:2px;">'+esc(c.nom)+'</div>'+rows+'</div>';
     });
