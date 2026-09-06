@@ -4393,7 +4393,11 @@ function toggleSalRestoSec(restoId,checked){
 var caFilterResto=null;
 // Ajoute l'ingrédient `code` en exception individuelle (comptage_ingredients_include) sur le rôle choisi,
 // sans passer par l'éditeur de rôle — utilisé par le sélecteur "+ ajouter rôle" de l'Aperçu comptage.
+// roleId arrive en chaîne (valeur d'un <select> HTML) alors que roles.id est numérique — on le convertit
+// avant comparaison, sinon rolesData.find() ne matchait jamais rien (=== échouait silencieusement, d'où
+// l'impression que "ça ne se sauvegarde pas").
 async function caAddIngredientToRole(code,roleId){
+  roleId=parseInt(roleId,10);
   var role=(rolesData||[]).find(function(r){return r.id===roleId;});
   if(!role)return;
   var inc=(role.comptage_ingredients_include||[]).slice();
@@ -4401,6 +4405,23 @@ async function caAddIngredientToRole(code,roleId){
   if(inc.indexOf(code)<0)inc.push(code);
   var excIdx=exc.indexOf(code);
   if(excIdx>=0)exc.splice(excIdx,1);
+  var r=await db.from('roles').update({comptage_ingredients_include:inc,comptage_ingredients_exclude:exc}).eq('id',roleId);
+  if(r&&r.error){alert('Erreur : '+r.error.message);return;}
+  await loadRoles();
+  renderComptageApercuList();
+}
+// Retire l'ingrédient `code` de la couverture du rôle donné (que ce soit une inclusion individuelle ou
+// via sa catégorie) — exclusion explicite systématique, qui l'emporte toujours sur la catégorie cochée.
+// Permet de modifier/retirer un rôle déjà établi directement depuis l'Aperçu comptage.
+async function caRemoveIngredientFromRole(code,roleId){
+  roleId=parseInt(roleId,10);
+  var role=(rolesData||[]).find(function(r){return r.id===roleId;});
+  if(!role)return;
+  var inc=(role.comptage_ingredients_include||[]).slice();
+  var exc=(role.comptage_ingredients_exclude||[]).slice();
+  var incIdx=inc.indexOf(code);
+  if(incIdx>=0)inc.splice(incIdx,1);
+  if(exc.indexOf(code)<0)exc.push(code);
   var r=await db.from('roles').update({comptage_ingredients_include:inc,comptage_ingredients_exclude:exc}).eq('id',roleId);
   if(r&&r.error){alert('Erreur : '+r.error.message);return;}
   await loadRoles();
@@ -4467,12 +4488,15 @@ async function renderComptageApercuList(){
           return (cats.indexOf(c.nom)>=0&&!exc)||inc;
         });
         var coveringHere=coveringRoles.filter(function(r){return rolesAtResto[r.id];});
+        function roleNameWithRemove(r){
+          return esc(r.nom)+'<span onclick="caRemoveIngredientFromRole(\''+esc(ig.code)+'\','+r.id+')" title="Retirer ce r\u00f4le de cet ingr\u00e9dient" style="cursor:pointer;padding:0 2px;font-weight:700;">&times;</span>';
+        }
         var tag;
         if(coveringHere.length){
           totalCovered++;
-          tag='<span style="color:#16A34A;font-size:10px;white-space:nowrap;">&#9679; '+coveringHere.map(function(r){return esc(r.nom);}).join(', ')+'</span>';
+          tag='<span style="color:#16A34A;font-size:10px;white-space:nowrap;">&#9679; '+coveringHere.map(roleNameWithRemove).join(', ')+'</span>';
         }else if(coveringRoles.length){
-          tag='<span style="color:#D97706;font-size:10px;white-space:nowrap;" title="Un r\u00f4le couvre cet ingr\u00e9dient mais aucun salari\u00e9 actif ici ne l\'a">&#9675; '+coveringRoles.map(function(r){return esc(r.nom);}).join(', ')+' (personne ici)</span>';
+          tag='<span style="color:#D97706;font-size:10px;white-space:nowrap;" title="Un r\u00f4le couvre cet ingr\u00e9dient mais aucun salari\u00e9 actif ici ne l\'a">&#9675; '+coveringRoles.map(roleNameWithRemove).join(', ')+' (personne ici)</span>';
         }else{
           tag='<span style="color:#DC2626;font-size:10px;white-space:nowrap;">&#10007; aucun r\u00f4le ne le couvre</span>';
         }
