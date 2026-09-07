@@ -6282,6 +6282,33 @@ let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT 
 let rctIngredientCouts={}; // {ingredient_code: {mode_prix,prix_unitaire,prix_kilo,prix_litre,poids_net_g,fournisseur_id,prix_source_code}} — prix commun à tous les restaurants (achat au même prix partout), stocké avec restaurant_id=RCT_GLOBAL. Remplace l'ancien système par restaurant.
 let rctIngredientSeuilsAll={}; // {restaurant_id: {ingredient_code: {fournisseur_id,type_suivi,seuil_min,colisage,unite_commande,actif}}} — table 'ingredient_seuils', chargée pour tous les restaurants pour édition côte à côte. Remplacera le catalogue codé en dur de milos-pizza-port/dabray.html.
 let rctIngredientRegles={}; // {ingredient_code: [regle,...]} — table 'ingredient_regles_commande' : variations de seuil/cible par jour fixe ou par veille de livraison fournisseur, prioritaires sur le seuil par défaut d'ingredient_seuils.
+// Un ingrédient avec au moins une règle "jours fixes"/"veille de livraison" (pour UN restaurant donné) ne
+// doit être signalé comme "à commander" QUE les jours qui correspondent à une de ses règles — sinon il
+// remonterait tous les jours malgré une production/livraison qui n'a lieu que 1 ou 2 fois par semaine
+// (ex: poulet rôti fait au Labo 2x/semaine). Un ingrédient SANS règle n'est jamais verrouillé.
+function reglesGateStatus(rules,suppliersById,refDate){
+  if(!rules||!rules.length)return{gated:false,matches:true};
+  var d=refDate||new Date();
+  var todayIdx=d.getDay(),demainIdx=(todayIdx+1)%7;
+  var matches=rules.some(function(r){
+    if(r.mode==='jours_fixes')return Array.isArray(r.jours)&&r.jours.indexOf(todayIdx)>=0;
+    if(r.mode==='veille_livraison'){
+      var sup=r.fournisseur_id?(suppliersById||{})[r.fournisseur_id]:null;
+      return !!(sup&&Array.isArray(sup.jours_livraison)&&sup.jours_livraison.indexOf(demainIdx)>=0);
+    }
+    return false;
+  });
+  return{gated:true,matches:matches};
+}
+// Garde-fou d'urgence : même verrouillé par une règle jour fixe, un ingrédient en RUPTURE TOTALE (pas juste
+// bas) reste signalé — pour 'yn'/'two' (binaires, pas de granularité) le signal "à commander" EST déjà le
+// signal le plus grave possible, donc toujours considéré comme urgence.
+function isRuptureTotale(typeSuivi,valeur){
+  if(typeSuivi==='qty'){var v=parseFloat(valeur);return !isNaN(v)&&v<=0;}
+  if(typeSuivi==='rup')return valeur==='rupture';
+  if(typeSuivi==='level'){var lv=parseFloat(valeur);return !isNaN(lv)&&lv<=0;}
+  return true;
+}
 let rctSuppliers=[]; // fournisseurs du restaurant courant (depuis stock_catalogue.suppliers)
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
 let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons — niveau au-dessus des catégories, commun
@@ -10495,6 +10522,7 @@ async function openBesoinsComptageModal(){
       if(typeSuivi==='level'){var v=parseFloat(valeur);return !isNaN(v)&&v<=25;}
       return false;
     }
+    var suppliersById={};rctSuppliers.forEach(function(s){suppliersById[s.id]=s;});
     var items=[];
     restos.forEach(function(resto){
       var seuils=(rctIngredientSeuilsAll&&rctIngredientSeuilsAll[resto])||{};
@@ -10527,6 +10555,11 @@ async function openBesoinsComptageModal(){
           flagged=flaggedNonQty(s.type_suivi,d.valeur);
         }
         if(!flagged)return;
+        // Verrouillage jour fixe / veille de livraison (ex: poulet rôti produit 2x/semaine au Labo) — sauf
+        // rupture totale, qui reste toujours signalée quel que soit le jour.
+        var rules=(rctIngredientRegles[resto]||{})[code]||[];
+        var gate=reglesGateStatus(rules,suppliersById);
+        if(gate.gated&&!gate.matches&&!isRuptureTotale(s.type_suivi,d.valeur))return;
         var ing=rctIngredients.find(function(p){return p.code===code;});
         var sup=s.fournisseur_id?rctSuppliers.find(function(x){return x.id===s.fournisseur_id;}):null;
         items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,qteACommander:qteACommander,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi,comptageId:d.id});
