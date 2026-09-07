@@ -2984,7 +2984,12 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
         var directHtml=c.directIngredients.length
           ?('<div style="margin:6px 0 0 16px;">'+(c.sousCats.length?'<div style="font-size:9px;font-weight:600;color:var(--txm);margin-bottom:2px;">Sans sous-cat\u00e9gorie</div>':'')+c.directIngredients.map(function(ig){return ingredientChip(ig,c.nom,on);}).join('')+'</div>')
           :'';
-        detail='<div id="'+detailId+'" style="display:none;margin:4px 0 8px 4px;padding:4px 0 4px 10px;border-left:2px solid var(--bd);">'+subHtml+directHtml+'</div>';
+        // Ici, includeSet est absent : cette arborescence sert juste à ajouter/retirer des catégories
+        // ENTIÈRES (sections "+ Ajouter"/"- Retirer" de la fiche) — les sous-catégories/ingrédients ne sont
+        // qu'un aperçu de ce que contient la catégorie, pas cochables ici. Sans ce message, ça ressemble à
+        // des cases à cocher cassées une fois déplié : on précise où aller pour du réglage fin.
+        var previewNote=(!includeSet&&hasDetail)?'<div style="font-size:9px;color:var(--txm);font-style:italic;margin-bottom:4px;">Aper\u00e7u du contenu de cette cat\u00e9gorie — pour cocher une sous-cat\u00e9gorie ou un ingr\u00e9dient pr\u00e9cis, utilise "Exceptions fines par ingr\u00e9dient" plus bas.</div>':'';
+        detail='<div id="'+detailId+'" style="display:none;margin:4px 0 8px 4px;padding:4px 0 4px 10px;border-left:2px solid var(--bd);">'+previewNote+subHtml+directHtml+'</div>';
       }
       return label+detail;
     }).join('');
