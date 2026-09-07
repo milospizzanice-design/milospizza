@@ -331,6 +331,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="plan-rtabs" id="sa-resto-tabs"></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px">
       <button class="btn bs" onclick="openComptageApercu()">&#128065; Aper&#231;u comptage</button>
+      <button class="btn bs" onclick="openPlanningComptageJour()">&#128197; Planning comptage du jour</button>
       <button class="btn bp" onclick="openAddSal()">+ Ajouter</button>
     </div>
     <div id="sab"></div>
@@ -4524,6 +4525,150 @@ async function renderComptageApercuList(preserveScroll){
   if(savedScroll)box.scrollTop=savedScroll;
 }
 
+// ══ Planning comptage du jour : pour un restaurant + une date donnée, qui est prévu au planning
+// (planning_creneaux, hors créneaux marqués absence) et le détail complet des ingrédients que cette
+// personne est censée compter d'après son rôle + ses exceptions individuelles — même logique de
+// couverture que côté pointage (comptageCatsForEmployee), rejouée ici côté admin. Aucune nouvelle table :
+// juste un croisement planning_creneaux × roles × employees.comptage_*. ══
+var pcgFilterResto=null,pcgSelDate=null;
+async function openPlanningComptageJour(){
+  var restos=(restosData||[]).slice();
+  if(!restos.length){alert('Aucun restaurant configuré.');return;}
+  pcgFilterResto=restos[0].id;
+  pcgSelDate=planDs(new Date());
+  openM('modal-planning-comptage');
+  document.getElementById('pcg-list').innerHTML='<div style="color:#aaa;font-size:11px;">Chargement...</div>';
+  await Promise.all([loadRoles(),loadEmps()]);
+  renderPlanningComptageTabs();
+  renderPlanningComptageDateBar();
+  await renderPlanningComptageList();
+}
+function renderPlanningComptageTabs(){
+  var box=document.getElementById('pcg-resto-tabs');
+  if(!box)return;
+  var restos=(restosData||[]).slice();
+  box.innerHTML=restos.map(function(r){
+    var on=pcgFilterResto===r.id;
+    return '<button type="button" class="btn '+(on?'bp':'bs')+' sm" onclick="pcgSwitchResto(\''+r.id+'\')">'+esc(r.nom||r.id)+'</button>';
+  }).join('');
+}
+function pcgSwitchResto(id){
+  pcgFilterResto=id;
+  renderPlanningComptageTabs();
+  renderPlanningComptageList();
+}
+function renderPlanningComptageDateBar(){
+  var box=document.getElementById('pcg-date-bar');
+  if(!box)return;
+  var d=new Date(pcgSelDate+'T12:00:00');
+  var lbl=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  var isToday=pcgSelDate===planDs(new Date());
+  box.innerHTML='<button type="button" class="btn bs sm" onclick="pcgShiftDay(-1)">&#8592;</button>'
+    +'<span style="flex:1;text-align:center;font-weight:700;text-transform:capitalize;">'+esc(lbl)+(isToday?' <span style="font-size:10px;color:var(--bx);font-weight:400;">(aujourd\'hui)</span>':'')+'</span>'
+    +'<button type="button" class="btn bs sm" onclick="pcgShiftDay(1)">&#8594;</button>'
+    +(isToday?'':'<button type="button" class="btn bs sm" onclick="pcgToday()">Aujourd\'hui</button>');
+}
+function pcgShiftDay(n){
+  var d=new Date(pcgSelDate+'T12:00:00');
+  d.setDate(d.getDate()+n);
+  pcgSelDate=planDs(d);
+  renderPlanningComptageDateBar();
+  renderPlanningComptageList();
+}
+function pcgToday(){
+  pcgSelDate=planDs(new Date());
+  renderPlanningComptageDateBar();
+  renderPlanningComptageList();
+}
+// Aplati l'arborescence onglet > catégorie > sous-catégorie en une simple liste {code,nom,categorie} —
+// la catégorie de rattachement (celle utilisée par comptage_categories des rôles) reste celle de la
+// catégorie parente, pas de la sous-catégorie.
+function flattenComptageTree(tree){
+  var out=[];
+  (tree||[]).forEach(function(grp){
+    (grp.categories||[]).forEach(function(c){
+      (c.directIngredients||[]).forEach(function(ig){out.push({code:ig.code,nom:ig.nom,categorie:c.nom});});
+      (c.sousCats||[]).forEach(function(sc){(sc.ingredients||[]).forEach(function(ig){out.push({code:ig.code,nom:ig.nom,categorie:c.nom});});});
+    });
+  });
+  return out;
+}
+// Reprend exactement la logique de comptageCatsForEmployee + filtre cptIngredients côté pointage.html :
+// catégories couvertes par le(s) rôle(s) + exceptions catégorie de l'employé, plus/moins les exceptions
+// fines par ingrédient (rôle puis employé, l'employé ayant le dernier mot).
+function employeeComptageDetailList(em,rolesById,flatIngredients,activeCodes){
+  var catsSet={},ingInclude={},ingExclude={};
+  (em.roles||[]).forEach(function(rid){
+    var r=rolesById[rid];if(!r)return;
+    (r.comptage_categories||[]).forEach(function(c){catsSet[c]=true;});
+    (r.comptage_ingredients_include||[]).forEach(function(code){ingInclude[code]=true;});
+    (r.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude[code]=true;});
+  });
+  (em.comptage_cats_add||[]).forEach(function(c){catsSet[c]=true;});
+  (em.comptage_cats_remove||[]).forEach(function(c){delete catsSet[c];});
+  (em.comptage_ingredients_include||[]).forEach(function(code){ingInclude[code]=true;});
+  (em.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude[code]=true;});
+  return flatIngredients.filter(function(ig){
+    if(!activeCodes[ig.code])return false;
+    return (catsSet[ig.categorie]||ingInclude[ig.code])&&!ingExclude[ig.code];
+  });
+}
+async function renderPlanningComptageList(){
+  var box=document.getElementById('pcg-list');
+  if(!box)return;
+  box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement...</div>';
+  var restoId=pcgFilterResto;
+  try{
+    var tree=await ensureComptageCatsCanonical();
+    var flat=flattenComptageTree(tree);
+    var seuilsRes=await db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId);
+    var activeCodes={};(seuilsRes.data||[]).forEach(function(s){if(s.actif!==false)activeCodes[s.ingredient_code]=true;});
+    var crRes=await db.from('planning_creneaux').select('*').eq('date',pcgSelDate).eq('restaurant_id',restoId);
+    if(crRes.error)throw crRes.error;
+    var creneaux=(crRes.data||[]).filter(function(c){return !c.absence_code;});
+    if(!creneaux.length){
+      box.innerHTML='<div style="color:#aaa;font-size:11px;text-align:center;padding:20px;">Personne de pr&eacute;vu ce jour sur ce restaurant.</div>';
+      return;
+    }
+    var rolesById={};(rolesData||[]).forEach(function(r){rolesById[r.id]=r;});
+    var byEmp={};
+    creneaux.forEach(function(c){(byEmp[c.employee_id]=byEmp[c.employee_id]||[]).push(c);});
+    var rows=Object.keys(byEmp).map(function(eid){
+      var em=(emps||[]).find(function(e){return String(e.id)===String(eid);});
+      if(!em)return null;
+      var crs=byEmp[eid].slice().sort(function(a,b){return (a.heure_debut||'').localeCompare(b.heure_debut||'');});
+      var horaire=crs.map(function(c){return (c.heure_debut||'').slice(0,5)+'\u2013'+(c.heure_fin||'').slice(0,5);}).join(', ');
+      var ings=employeeComptageDetailList(em,rolesById,flat,activeCodes);
+      return {emp:em,horaire:horaire,ings:ings};
+    }).filter(Boolean).sort(function(a,b){return (a.emp.prenom+a.emp.nom).localeCompare(b.emp.prenom+b.emp.nom,'fr');});
+    if(!rows.length){
+      box.innerHTML='<div style="color:#aaa;font-size:11px;text-align:center;padding:20px;">Personne de pr&eacute;vu ce jour sur ce restaurant.</div>';
+      return;
+    }
+    box.innerHTML=rows.map(function(row){
+      var byCat={};
+      row.ings.forEach(function(ig){(byCat[ig.categorie]=byCat[ig.categorie]||[]).push(ig);});
+      var catNames=Object.keys(byCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+      var detailHtml=catNames.length?catNames.map(function(cat){
+        var items=byCat[cat].slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+        return '<div style="margin-top:6px;"><div style="font-size:10px;font-weight:700;color:var(--txm);text-transform:uppercase;">'+esc(cat)+' ('+items.length+')</div>'
+          +'<div style="font-size:11px;color:var(--tx);line-height:1.6;">'+items.map(function(ig){return esc(ig.nom);}).join(', ')+'</div></div>';
+      }).join(''):'<div style="font-size:11px;color:#DC2626;margin-top:4px;">Aucun r&ocirc;le/exception ne lui donne quoi que ce soit &agrave; compter ici.</div>';
+      return '<div class="card" style="margin-bottom:10px;padding:10px;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+          +'<div style="font-weight:700;font-size:13px;">'+esc(row.emp.prenom+' '+row.emp.nom)+' <span style="font-weight:400;font-size:11px;color:var(--txm);">'+esc(row.horaire)+'</span></div>'
+          +'<button type="button" class="btn bs sm" onclick="closeM(\'modal-planning-comptage\');goTabByName(\'sa\');openEditSal('+row.emp.id+');setTimeout(function(){var el=document.getElementById(\'sal-comptage-cats-add-list\');if(el)el.scrollIntoView({behavior:\'smooth\',block:\'center\'});},150);">&#9998; Modifier</button>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--txm);margin-top:2px;">'+row.ings.length+' ingr&eacute;dient(s) &agrave; compter</div>'
+        +detailHtml
+        +'</div>';
+    }).join('');
+  }catch(e){
+    console.error('renderPlanningComptageList',e);
+    box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur : '+esc(e.message)+'</div>';
+  }
+}
+
 function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalCatsOverrides(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
@@ -7354,23 +7499,36 @@ function renderLaboPrepList(){
     el.innerHTML='<div style="color:var(--txm);">Aucune commande en attente de préparation.</div>';
     return;
   }
+  // Catégorie de chaque produit (via le catalogue ingrédients global), pour regrouper l'affichage — sinon
+  // les lignes restent dans l'ordre brut de la base, illisible dès que plusieurs familles se mélangent.
+  var catByCode={};
+  laboIngredientsCache.forEach(function(i){catByCode[i.code]=i.categorie||'Autre';});
   el.innerHTML=laboCommandesCache.map(function(c){
     if(!laboPrepSelections[c.id])laboPrepSelections[c.id]={};
-    var lignesHtml=(c.lignes||[]).map(function(l){
-      var restant=l.quantite_demandee-(l.quantite_couverte||0);
-      var candidats=laboLotsCache.filter(function(lot){return lot.statut==='en_stock'&&lot.produit_code===l.produit_code;});
-      var selected=laboPrepSelections[c.id][l.id]||[];
-      var lotsHtml=candidats.length?candidats.map(function(lot){
-        var checked=selected.indexOf(lot.id)>=0?' checked':'';
-        return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;">'
-          +'<input type="checkbox" '+checked+' onchange="toggleLaboLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
-          +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg — créé le '+fmtD(lot.created_at)
-          +'</label>';
-      }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit — transforme-le d\'abord ci-dessous.</div>';
-      return '<div style="margin:8px 0;padding:8px;background:#FAF4EC;border-radius:8px;">'
-        +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+l.quantite_demandee+', déjà couvert '+(l.quantite_couverte||0)+(selected.length?' <span style="color:#1ABC9C;">+ '+selected.length+' coché(s) maintenant</span>':'')+(restant>0?' <span style="color:#C0392B;">(reste '+restant+')</span>':' ✓')+'</div>'
-        +lotsHtml
-        +'</div>';
+    var lignesByCat={};
+    (c.lignes||[]).forEach(function(l){
+      var cat=catByCode[l.produit_code]||'Autre';
+      (lignesByCat[cat]=lignesByCat[cat]||[]).push(l);
+    });
+    var catNames=Object.keys(lignesByCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+    var lignesHtml=catNames.map(function(cat){
+      var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
+        var restant=l.quantite_demandee-(l.quantite_couverte||0);
+        var candidats=laboLotsCache.filter(function(lot){return lot.statut==='en_stock'&&lot.produit_code===l.produit_code;});
+        var selected=laboPrepSelections[c.id][l.id]||[];
+        var lotsHtml=candidats.length?candidats.map(function(lot){
+          var checked=selected.indexOf(lot.id)>=0?' checked':'';
+          return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;">'
+            +'<input type="checkbox" '+checked+' onchange="toggleLaboLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
+            +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg — créé le '+fmtD(lot.created_at)
+            +'</label>';
+        }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit — transforme-le d\'abord ci-dessous.</div>';
+        return '<div style="margin:8px 0;padding:8px;background:#FAF4EC;border-radius:8px;">'
+          +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+l.quantite_demandee+', déjà couvert '+(l.quantite_couverte||0)+(selected.length?' <span style="color:#1ABC9C;">+ '+selected.length+' coché(s) maintenant</span>':'')+(restant>0?' <span style="color:#C0392B;">(reste '+restant+')</span>':' ✓')+'</div>'
+          +lotsHtml
+          +'</div>';
+      }).join('');
+      return '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--bx);margin:10px 0 2px;">'+esc(cat)+'</div>'+lignesCatHtml;
     }).join('');
     return '<div style="border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:10px;">'
       +'<div style="font-weight:700;margin-bottom:4px;">Commande #'+c.numero+' — '+(LABO_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span style="font-weight:400;font-size:11px;color:var(--txm);">('+fmtD(c.created_at)+')</span></div>'
@@ -7512,6 +7670,10 @@ async function loadLaboSuivi(){
       if(resto!=='all')items=items.filter(function(it){return it.resto===resto;});
       return {envoi:f,items:items};
     }).filter(function(f){return resto==='all'||f.items.length>0;});
+    // Index par id d'envoi, pour le bouton "Renvoyer" (renvoyerFournSuivi) — items non filtrés par
+    // restaurant ici, pour renvoyer le message complet tel qu'il a réellement été envoyé.
+    window.fournSuiviById={};
+    (fournRes.data||[]).forEach(function(f){window.fournSuiviById[f.id]=f;});
     if(!laboSuiviCache.length&&!fournSuiviCache.length){
       box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucune commande sur cette période.</div>';
       return;
@@ -7574,10 +7736,32 @@ function fournSuiviCardHtml(f){
     return '<div style="font-size:11px;padding:2px 0;">• '+esc(it.nom)+(it.resto?(' <span style="color:var(--txm);">('+(LABO_SUIVI_RESTO_LABELS[it.resto]||it.resto)+')</span>'):'')+' — '+esc(it.suggestion||String(it.valeur))+'</div>';
   }).join('');
   return '<div class="card" style="margin-bottom:10px;">'
-    +'<div style="font-weight:700;font-size:13px;">📦 '+esc(e.fournisseur_nom||'Fournisseur')+'</div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+      +'<div style="font-weight:700;font-size:13px;">📦 '+esc(e.fournisseur_nom||'Fournisseur')+'</div>'
+      +'<button type="button" class="btn bs sm" style="background:#25D366;color:#fff;" onclick="renvoyerFournSuivi('+e.id+')">🔁 Renvoyer</button>'
+    +'</div>'
     +'<div style="font-size:10px;color:var(--txm);margin-bottom:4px;">'+when+' · par '+esc(e.envoye_par_nom||'?')+' · '+f.items.length+' article(s)</div>'
     +itemsHtml
     +'</div>';
+}
+// Rouvre WhatsApp avec exactement le même message qu'à l'envoi d'origine (reconstruit à partir de ce qui
+// a été loggé dans commandes_fournisseurs_envois) — utile si l'envoi initial a été raté, mal reçu, ou doit
+// juste être renvoyé. Ne touche à aucun statut de comptage (ce n'est pas un nouvel envoi côté suivi des
+// stocks, juste une réouverture du même texte).
+function renvoyerFournSuivi(envoiId){
+  var f=(window.fournSuiviById||{})[envoiId];
+  if(!f){alert('Envoi introuvable (recharge la période).');return;}
+  var items=(f.items||[]).slice().sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'','fr');});
+  if(!items.length){alert('Aucun article dans cet envoi.');return;}
+  var restos={};items.forEach(function(it){if(it.resto)restos[it.resto]=true;});
+  var restoKeys=Object.keys(restos);
+  var restoLabel=restoKeys.length===1?(LABO_SUIVI_RESTO_LABELS[restoKeys[0]]||restoKeys[0]):(restoKeys.length>1?'Plusieurs restaurants':'');
+  var dateLabel=new Date(f.envoye_le).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  var headerLine='📦 Commande '+(f.fournisseur_nom||'Fournisseur')+(restoLabel?(' — '+restoLabel):'');
+  var msgLines=[headerLine,'👤 '+(f.envoye_par_nom||'—')+' · 📅 '+dateLabel,'──────────────'].concat(items.map(function(it){
+    return '- '+it.nom+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
+  }));
+  window.open('https://wa.me/?text='+encodeURIComponent(msgLines.join('\n')),'_blank');
 }
 function renderLaboSuiviList(){
   var box=document.getElementById('lsuivi-list');
@@ -10167,8 +10351,10 @@ async function updateSupplierField(id,field,value){
   s[field]=payload[field];
   try{
     sbCheck(await db.from('fournisseurs_stock').update(payload).eq('id',id));
-    renderSuppliersList();
-    if(field==='nom')renderIngredientsList();
+    // Ne reconstruit la liste que si l'ordre d'affichage peut changer (tri par nom) — sinon, reconstruire
+    // le HTML à chaque frappe détruit et recrée l'input en cours d'édition (le champ perd le focus et,
+    // pour un <input type="time">, ça fait "sauter" le sélecteur natif d'heure pendant qu'on tape).
+    if(field==='nom'){renderSuppliersList();renderIngredientsList();}
   }catch(e){console.error('updateSupplierField',e);alert('Erreur : '+e.message);}
 }
 async function createSupplier(){
@@ -12555,6 +12741,19 @@ async function init(){
     <div id="ca-list" style="max-height:60vh;overflow-y:auto"></div>
     <div class="ma">
       <button class="btn bs" onclick="closeM('modal-comptage-apercu')" style="width:100%">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="modal-planning-comptage">
+  <div class="md" style="max-width:640px">
+    <div class="mdt">&#128197; Planning comptage du jour</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Qui est pr&#233;vu au travail ce jour-l&#224;, et le d&#233;tail de ce qu'il/elle est cens&#233;(e) compter (r&#244;le(s) + exceptions individuelles). Pour corriger ce qu'une personne compte, ouvre sa fiche depuis le bouton &#9998;.</div>
+    <div id="pcg-resto-tabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <div id="pcg-date-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px"></div>
+    <div id="pcg-list" style="max-height:56vh;overflow-y:auto"></div>
+    <div class="ma">
+      <button class="btn bs" onclick="closeM('modal-planning-comptage')" style="width:100%">Fermer</button>
     </div>
   </div>
 </div>

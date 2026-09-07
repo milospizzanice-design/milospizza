@@ -1382,7 +1382,10 @@ function renderCommandesFournisseursList(byFourn){
     var g=byFourn[key];
     var groupName=g.sup?g.sup.nom:key;
     var its=g.items.slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
-    var msgLines=['📦 Commande '+groupName].concat(its.map(function(it){
+    var restoLabel=restoNamesById[RESTAURANT_ID]||RESTAURANT_ID;
+    var empNom=emp?(emp.prenom+' '+emp.nom):'—';
+    var dateLabel=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    var msgLines=['📦 Commande '+groupName+' — '+restoLabel,'👤 '+empNom+' · 📅 '+dateLabel,'──────────────'].concat(its.map(function(it){
       return '- '+it.nom+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
     }));
     var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
@@ -1533,23 +1536,36 @@ function renderLaboPrepListPointage(){
     box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:16px;font-size:12px;">Aucune commande en attente. &#128077;</div>';
     return;
   }
+  // Catégorie de chaque produit, pour regrouper l'affichage (sinon les lignes restent dans l'ordre brut
+  // de la base, illisible dès qu'une commande a plusieurs produits de familles différentes).
+  var catByCode={};
+  lpIngredientsCache.forEach(function(i){catByCode[i.code]=i.categorie||'Autre';});
   box.innerHTML=lpCommandesCache.map(function(c){
     if(!lpSelections[c.id])lpSelections[c.id]={};
-    var lignesHtml=(c.lignes||[]).map(function(l){
-      var restant=l.quantite_demandee-(l.quantite_couverte||0);
-      var candidats=lpLotsCache.filter(function(lot){return lot.produit_code===l.produit_code;});
-      var selected=lpSelections[c.id][l.id]||[];
-      var lotsHtml=candidats.length?candidats.map(function(lot){
-        var checked=selected.indexOf(lot.id)>=0?' checked':'';
-        return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:rgba(255,255,255,.85);">'
-          +'<input type="checkbox"'+checked+' onchange="toggleLpLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
-          +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg'
-          +'</label>';
-      }).join(''):'<div style="font-size:10px;color:rgba(255,255,255,.5);">Aucun lot en stock pour ce produit — cr&eacute;e-le ci-dessous.</div>';
-      return '<div style="margin:6px 0;padding:8px;background:rgba(255,255,255,.08);border-radius:8px;">'
-        +'<div style="font-weight:600;font-size:12px;color:#fff;">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+l.quantite_demandee+', couvert '+(l.quantite_couverte||0)+(selected.length?' <span style="color:#6EE7B7;">+ '+selected.length+' coch&eacute;(s)</span>':'')+(restant>0?' <span style="color:#FCA5A5;">(reste '+restant+')</span>':' ✓')+'</div>'
-        +lotsHtml
-        +'</div>';
+    var lignesByCat={};
+    (c.lignes||[]).forEach(function(l){
+      var cat=catByCode[l.produit_code]||'Autre';
+      (lignesByCat[cat]=lignesByCat[cat]||[]).push(l);
+    });
+    var catNames=Object.keys(lignesByCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+    var lignesHtml=catNames.map(function(cat){
+      var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
+        var restant=l.quantite_demandee-(l.quantite_couverte||0);
+        var candidats=lpLotsCache.filter(function(lot){return lot.produit_code===l.produit_code;});
+        var selected=lpSelections[c.id][l.id]||[];
+        var lotsHtml=candidats.length?candidats.map(function(lot){
+          var checked=selected.indexOf(lot.id)>=0?' checked':'';
+          return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:rgba(255,255,255,.85);">'
+            +'<input type="checkbox"'+checked+' onchange="toggleLpLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
+            +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg'
+            +'</label>';
+        }).join(''):'<div style="font-size:10px;color:rgba(255,255,255,.5);">Aucun lot en stock pour ce produit — cr&eacute;e-le ci-dessous.</div>';
+        return '<div style="margin:6px 0;padding:8px;background:rgba(255,255,255,.08);border-radius:8px;">'
+          +'<div style="font-weight:600;font-size:12px;color:#fff;">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+l.quantite_demandee+', couvert '+(l.quantite_couverte||0)+(selected.length?' <span style="color:#6EE7B7;">+ '+selected.length+' coch&eacute;(s)</span>':'')+(restant>0?' <span style="color:#FCA5A5;">(reste '+restant+')</span>':' ✓')+'</div>'
+          +lotsHtml
+          +'</div>';
+      }).join('');
+      return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:rgba(255,255,255,.55);margin:10px 0 2px;">'+escCpt(cat)+'</div>'+lignesCatHtml;
     }).join('');
     return '<div style="border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;margin-bottom:10px;">'
       +'<div style="font-weight:700;color:#fff;margin-bottom:4px;font-size:13px;">Commande #'+(c.numero||c.id)+' — '+(LP_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,.6);">('+new Date(c.created_at).toLocaleDateString('fr-FR')+')</span></div>'
