@@ -6286,19 +6286,38 @@ let rctIngredientRegles={}; // {ingredient_code: [regle,...]} — table 'ingredi
 // doit être signalé comme "à commander" QUE les jours qui correspondent à une de ses règles — sinon il
 // remonterait tous les jours malgré une production/livraison qui n'a lieu que 1 ou 2 fois par semaine
 // (ex: poulet rôti fait au Labo 2x/semaine). Un ingrédient SANS règle n'est jamais verrouillé.
-function reglesGateStatus(rules,suppliersById,refDate){
-  if(!rules||!rules.length)return{gated:false,matches:true};
+//
+// "supplier" = le fournisseur RÉELLEMENT assigné à cet ingrédient sur ce restaurant (celui qu'on livre,
+// ou le Labo si sourcé en interne — voir le paramètre à l'appel pour la cascade Labo → fournisseur externe).
+// Sert à deux choses :
+//  1. Mode "veille_livraison" explicite : le nombre de jours avant livraison vient de supplier.delai_commande_jours
+//     (au lieu d'être toujours "la veille" — 1 jour fixe). Défaut à 1 si le délai n'est pas renseigné.
+//  2. Règle PAR DÉFAUT sans avoir à créer de règle par ingrédient : si aucune règle explicite n'existe pour
+//     cet ingrédient mais que le fournisseur assigné a lui-même un délai de commande ET des jours de
+//     livraison renseignés sur sa fiche, ce délai s'applique automatiquement à tous ses produits.
+function reglesGateStatus(rules,supplier,suppliersById,refDate){
   var d=refDate||new Date();
-  var todayIdx=d.getDay(),demainIdx=(todayIdx+1)%7;
-  var matches=rules.some(function(r){
-    if(r.mode==='jours_fixes')return Array.isArray(r.jours)&&r.jours.indexOf(todayIdx)>=0;
-    if(r.mode==='veille_livraison'){
-      var sup=r.fournisseur_id?(suppliersById||{})[r.fournisseur_id]:null;
-      return !!(sup&&Array.isArray(sup.jours_livraison)&&sup.jours_livraison.indexOf(demainIdx)>=0);
-    }
-    return false;
-  });
-  return{gated:true,matches:matches};
+  var todayIdx=d.getDay();
+  function matchesVeille(sup){
+    if(!sup||!Array.isArray(sup.jours_livraison)||!sup.jours_livraison.length)return false;
+    var n=(sup.delai_commande_jours!=null&&sup.delai_commande_jours>0)?sup.delai_commande_jours:1;
+    var targetIdx=((todayIdx+n)%7+7)%7;
+    return sup.jours_livraison.indexOf(targetIdx)>=0;
+  }
+  if(rules&&rules.length){
+    var matches=rules.some(function(r){
+      if(r.mode==='jours_fixes')return Array.isArray(r.jours)&&r.jours.indexOf(todayIdx)>=0;
+      if(r.mode==='veille_livraison')return matchesVeille(r.fournisseur_id?(suppliersById||{})[r.fournisseur_id]:supplier);
+      return false;
+    });
+    return{gated:true,matches:matches};
+  }
+  // Pas de règle explicite : règle par défaut du fournisseur, automatique dès que délai + jours de livraison
+  // sont renseignés sur sa fiche (rien à configurer produit par produit).
+  if(supplier&&supplier.delai_commande_jours!=null&&Array.isArray(supplier.jours_livraison)&&supplier.jours_livraison.length){
+    return{gated:true,matches:matchesVeille(supplier)};
+  }
+  return{gated:false,matches:true};
 }
 // Garde-fou d'urgence : même verrouillé par une règle jour fixe, un ingrédient en RUPTURE TOTALE (pas juste
 // bas) reste signalé — pour 'yn'/'two' (binaires, pas de granularité) le signal "à commander" EST déjà le
@@ -10523,6 +10542,7 @@ async function openBesoinsComptageModal(){
       return false;
     }
     var suppliersById={};rctSuppliers.forEach(function(s){suppliersById[s.id]=s;});
+    var laboSeuilsForCascade=(rctIngredientSeuilsAll&&rctIngredientSeuilsAll['labo'])||{};
     var items=[];
     restos.forEach(function(resto){
       var seuils=(rctIngredientSeuilsAll&&rctIngredientSeuilsAll[resto])||{};
@@ -10555,13 +10575,25 @@ async function openBesoinsComptageModal(){
           flagged=flaggedNonQty(s.type_suivi,d.valeur);
         }
         if(!flagged)return;
-        // Verrouillage jour fixe / veille de livraison (ex: poulet rôti produit 2x/semaine au Labo) — sauf
-        // rupture totale, qui reste toujours signalée quel que soit le jour.
-        var rules=(rctIngredientRegles[resto]||{})[code]||[];
-        var gate=reglesGateStatus(rules,suppliersById);
+        var sup=s.fournisseur_id?rctSuppliers.find(function(x){return x.id===s.fournisseur_id;}):null;
+        // Verrouillage jour fixe / veille de livraison — priorité à une règle explicite sur CE restaurant ;
+        // sinon, si le produit est sourcé au Labo (fournisseur interne), on descend voir avec quel
+        // fournisseur EXTERNE le Labo se procure ce même ingrédient (même principe que "Besoins Labo"
+        // ci-dessus) et on applique SON calendrier — sinon un produit Port/Dabray sourcé au Labo remonterait
+        // tous les jours alors que le Labo ne peut l'obtenir que selon le calendrier de son propre
+        // fournisseur (ex: Carrefour livré le mercredi). Sauf rupture totale, toujours signalée.
+        var ownRules=(rctIngredientRegles[resto]||{})[code]||[];
+        var gate;
+        if(!ownRules.length&&sup&&sup.is_labo_interne&&resto!=='labo'){
+          var laboSeuil=laboSeuilsForCascade[code];
+          var upstreamSup=laboSeuil&&laboSeuil.fournisseur_id?suppliersById[laboSeuil.fournisseur_id]:null;
+          var upstreamRules=(rctIngredientRegles['labo']||{})[code]||[];
+          gate=reglesGateStatus(upstreamRules,upstreamSup,suppliersById);
+        }else{
+          gate=reglesGateStatus(ownRules,sup,suppliersById);
+        }
         if(gate.gated&&!gate.matches&&!isRuptureTotale(s.type_suivi,d.valeur))return;
         var ing=rctIngredients.find(function(p){return p.code===code;});
-        var sup=s.fournisseur_id?rctSuppliers.find(function(x){return x.id===s.fournisseur_id;}):null;
         items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,qteACommander:qteACommander,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi,comptageId:d.id});
       });
     });
