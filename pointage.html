@@ -308,6 +308,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
           <span class="cpt-topbar-count" id="cpt-alert-count">0</span>
         </div>
         <div id="cpt-resto-chip-wrap"></div>
+        <div id="cpt-postes-chip-wrap"></div>
         <input type="text" id="cpt-search" class="ainp" placeholder="Rechercher un ingr&eacute;dient..." oninput="renderComptageList()">
       </div>
       <div id="cpt-today-banner" style="display:none;margin-bottom:10px"></div>
@@ -1251,6 +1252,9 @@ var cptCuisineInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "
 var cptSuppliersById={}; // id -> {nom,is_labo_interne,is_cuisine_interne,jours_livraison,delai_commande_jours} — pour afficher le nom du fournisseur sur le tag de routage + calculer les règles "veille de livraison"
 var cptReglesByCode={}; // ingredient_code -> [règles ingredient_regles_commande] pour CE restaurant — verrouillage par jour fixe / veille de livraison
 var cptLaboUpstreamByCode={}; // ingredient_code -> {fournisseurId, rules} — sourcing amont du Labo pour ce code (chargé seulement si ce restaurant n'est pas le Labo), pour faire descendre le calendrier du fournisseur externe du Labo (ex: Carrefour) jusqu'au Port/Dabray
+var cptAllRoleObjs=[]; // [{id,nom}] tous les rôles du salarié connecté (rechargé à chaque ouverture de Comptage)
+var cptSelectedRoleIds=null; // sous-ensemble de rôles retenu pour CETTE session ("postes réellement occupés aujourd'hui") — null = pas encore demandé, on prend tout
+var cptRoleChoixDone=false; // le choix des postes du jour a déjà été posé/validé cette session (évite de redemander à chaque ouverture de l'onglet)
 
 // Un ingrédient avec au moins une règle "jours fixes"/"veille de livraison" ne doit être signalé (Labo ou
 // fournisseur) QUE les jours qui correspondent à une de ses règles — sinon il remonterait tous les jours
@@ -1297,26 +1301,74 @@ function isRuptureTotale(typeSuivi,valeur){
 
 // Calcule les catégories de comptage effectives du salarié connecté (union des rôles + overrides),
 // même principe que le module Stocks (catsAdd/catsRemove) mais sur roles.comptage_categories.
+// Si cptSelectedRoleIds est renseigné (salarié multi-postes ayant précisé lesquels il occupe aujourd'hui),
+// seuls CES rôles-là contribuent — les exceptions individuelles (comptage_cats_add/remove, ingrédients
+// include/exclude propres au salarié) s'appliquent toujours, quel que soit le poste du jour.
 async function comptageCatsForEmployee(){
-  var fresh=await db.from('employees').select('roles,comptage_cats_add,comptage_cats_remove').eq('id',emp.id).single();
-  var roles=(fresh&&fresh.data&&Array.isArray(fresh.data.roles))?fresh.data.roles:[];
+  var fresh=await db.from('employees').select('roles,comptage_cats_add,comptage_cats_remove,comptage_ingredients_include,comptage_ingredients_exclude').eq('id',emp.id).single();
+  var roleIds=(fresh&&fresh.data&&Array.isArray(fresh.data.roles))?fresh.data.roles:[];
   var catsAdd=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_add))?fresh.data.comptage_cats_add:[];
   var catsRemove=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_remove))?fresh.data.comptage_cats_remove:[];
+  var empIngInclude=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_ingredients_include))?fresh.data.comptage_ingredients_include:[];
+  var empIngExclude=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_ingredients_exclude))?fresh.data.comptage_ingredients_exclude:[];
+  var rolesFull=[];
+  if(roleIds.length){
+    var rolesRes=await db.from('roles').select('id,nom,comptage_categories,comptage_ingredients_include,comptage_ingredients_exclude').in('id',roleIds);
+    if(rolesRes.error)throw rolesRes.error;
+    rolesFull=rolesRes.data||[];
+  }
+  cptAllRoleObjs=rolesFull.map(function(r){return{id:r.id,nom:r.nom};});
+  var effectiveRoles=(cptSelectedRoleIds&&cptSelectedRoleIds.length)?rolesFull.filter(function(r){return cptSelectedRoleIds.indexOf(r.id)>=0;}):rolesFull;
   var roleCats=[];
   var ingInclude=new Set(),ingExclude=new Set();
-  if(roles.length){
-    var rolesRes=await db.from('roles').select('id,comptage_categories,comptage_ingredients_include,comptage_ingredients_exclude').in('id',roles);
-    if(rolesRes.error)throw rolesRes.error;
-    var set=new Set();
-    (rolesRes.data||[]).forEach(function(ro){
-      (ro.comptage_categories||[]).forEach(function(c){set.add(c);});
-      (ro.comptage_ingredients_include||[]).forEach(function(code){ingInclude.add(code);});
-      (ro.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude.add(code);});
-    });
-    roleCats=Array.from(set);
-  }
+  var set=new Set();
+  effectiveRoles.forEach(function(ro){
+    (ro.comptage_categories||[]).forEach(function(c){set.add(c);});
+    (ro.comptage_ingredients_include||[]).forEach(function(code){ingInclude.add(code);});
+    (ro.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude.add(code);});
+  });
+  roleCats=Array.from(set);
+  empIngInclude.forEach(function(code){ingInclude.add(code);});
+  empIngExclude.forEach(function(code){ingExclude.add(code);});
   var finalCats=roleCats.concat(catsAdd).filter(function(c,idx,arr){return arr.indexOf(c)===idx;}).filter(function(c){return catsRemove.indexOf(c)<0;});
   return {cats:finalCats,ingInclude:ingInclude,ingExclude:ingExclude};
+}
+// Écran "Quels postes fais-tu aujourd'hui ?" — affiché une fois par session quand le salarié a plusieurs
+// rôles (ex: téléphone + après-cuisson) : tout est coché par défaut (rien ne change s'il ne touche à rien),
+// il décoche ce qu'il n'occupe pas ce jour-là pour ne pas avoir à compter ce qui va avec.
+function cptRenderPosteChoix(){
+  var box=document.getElementById('cpt-list');
+  var banner=document.getElementById('cpt-today-banner');if(banner){banner.style.display='none';banner.innerHTML='';}
+  var preSelected=cptSelectedRoleIds;
+  box.innerHTML='<div style="padding:16px 4px;">'
+    +'<div style="color:#fff;font-weight:700;font-size:14px;margin-bottom:4px;">Quels postes fais-tu aujourd\'hui ?</div>'
+    +'<div style="color:rgba(255,255,255,.7);font-size:12px;margin-bottom:14px;">Tout est coch&eacute; par d&eacute;faut. D&eacute;coche un poste que tu n\'occupes pas aujourd\'hui pour ne pas avoir &agrave; compter ce qui va avec.</div>'
+    +cptAllRoleObjs.map(function(r){
+      var checked=(!preSelected||preSelected.indexOf(r.id)>=0)?' checked':'';
+      return '<label style="display:flex;align-items:center;gap:10px;padding:10px 4px;color:#fff;font-size:14px;border-bottom:1px solid rgba(255,255,255,.12);">'
+        +'<input type="checkbox"'+checked+' data-role-id="'+r.id+'" style="width:20px;height:20px;flex-shrink:0;">'+escCpt(r.nom)
+        +'</label>';
+    }).join('')
+    +'<button class="nb" style="width:100%;margin-top:16px;padding:12px;font-size:14px;" onclick="cptValiderPosteChoix()">Valider et voir mon comptage</button>'
+    +'</div>';
+}
+function cptValiderPosteChoix(){
+  var checked=Array.prototype.slice.call(document.querySelectorAll('#cpt-list input[data-role-id]:checked')).map(function(el){return parseInt(el.getAttribute('data-role-id'),10);});
+  if(!checked.length){alert('Coche au moins un poste — sinon rien ne pourra être compté.');return;}
+  cptSelectedRoleIds=checked;
+  cptRoleChoixDone=true;
+  menuComptage();
+}
+// Rouvre le choix des postes du jour (bouton visible en haut de l'écran de comptage quand le salarié a
+// plusieurs rôles) — permet de corriger en cours de session sans devoir se déconnecter/reconnecter.
+function cptRouvrirPosteChoix(){
+  cptRoleChoixDone=false;
+  menuComptage();
+}
+function cptPostesChipHtml(){
+  if(!cptAllRoleObjs||cptAllRoleObjs.length<2)return'';
+  var n=(cptSelectedRoleIds&&cptSelectedRoleIds.length)?cptSelectedRoleIds.length:cptAllRoleObjs.length;
+  return '<button type="button" class="nb" style="font-size:11px;padding:4px 10px;margin-bottom:8px;" onclick="cptRouvrirPosteChoix()">&#128295; Postes du jour ('+n+'/'+cptAllRoleObjs.length+')</button>';
 }
 
 // ── COMMANDES FOURNISSEURS (accessible directement depuis pointage, sans passer par admin) ──
@@ -1724,12 +1776,29 @@ async function menuComptage(){
   box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
   document.getElementById('cpt-search').value='';
   try{
+    // Salarié multi-postes (ex: téléphone + après-cuisson) : demande une fois par session quels postes il
+    // occupe AUJOURD'HUI avant de charger quoi que ce soit — sinon il devrait compter pour des postes qu'il
+    // ne tient pas ce jour-là. Un salarié avec un seul rôle (l'immense majorité) ne voit jamais cet écran.
+    if(!cptRoleChoixDone){
+      var roleCheckRes=await db.from('employees').select('roles').eq('id',emp.id).single();
+      var roleIdsCheck=(roleCheckRes&&roleCheckRes.data&&Array.isArray(roleCheckRes.data.roles))?roleCheckRes.data.roles:[];
+      if(roleIdsCheck.length>1){
+        var rolesNomRes=await db.from('roles').select('id,nom').in('id',roleIdsCheck);
+        cptAllRoleObjs=(rolesNomRes.data||[]).map(function(r){return{id:r.id,nom:r.nom};});
+        cptRenderPosteChoix();
+        return;
+      }
+      cptRoleChoixDone=true;
+    }
+    var postesChipWrap=document.getElementById('cpt-postes-chip-wrap');
+    if(postesChipWrap)postesChipWrap.innerHTML=cptPostesChipHtml();
+    cptSyncBarHeight();
     // Recharge les rôles/overrides depuis la base à chaque ouverture : évite d'utiliser des catégories
     // périmées si l'admin a modifié les accès comptage pendant que ce salarié était déjà connecté au pointage.
     var cce=await comptageCatsForEmployee();
     var finalCats=cce.cats,ingInclude=cce.ingInclude,ingExclude=cce.ingExclude;
     if(!finalCats.length&&!ingInclude.size){
-      box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Aucune cat&eacute;gorie de comptage configur&eacute;e pour toi.<br>Demande &agrave; un manager de configurer ton r&ocirc;le dans Admin &gt; Param&egrave;tres &gt; R&ocirc;les.</div>';
+      box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Aucune cat&eacute;gorie de comptage configur&eacute;e pour toi&nbsp;(pour le ou les postes coch&eacute;s).<br>Demande &agrave; un manager de configurer ton r&ocirc;le dans Admin &gt; Param&egrave;tres &gt; R&ocirc;les.</div>';
       return;
     }
 

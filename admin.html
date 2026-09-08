@@ -4640,7 +4640,7 @@ async function renderPlanningComptageList(){
     creneaux.forEach(function(c){(byEmp[c.employee_id]=byEmp[c.employee_id]||[]).push(c);});
     var rows=Object.keys(byEmp).map(function(eid){
       var em=(emps||[]).find(function(e){return String(e.id)===String(eid);});
-      if(!em)return null;
+      if(!em||em.archive)return null; // salarié archivé : ignoré même s'il reste un créneau planning résiduel
       var crs=byEmp[eid].slice().sort(function(a,b){return (a.heure_debut||'').localeCompare(b.heure_debut||'');});
       var horaire=crs.map(function(c){return (c.heure_debut||'').slice(0,5)+'\u2013'+(c.heure_fin||'').slice(0,5);}).join(', ');
       var ings=employeeComptageDetailList(em,rolesById,flat,activeCodes);
