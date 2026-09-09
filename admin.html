@@ -4796,6 +4796,19 @@ async function applyPlanningType(){
   var hasSlots=pt.some(function(d){return d&&d.length;});
   if(!hasSlots){alert('Ajoutez au moins un cr\u00e9neau');return;}
   if(!confirm('G\u00e9n\u00e9rer le planning sur 12 semaines \u00e0 partir du '+startVal+' ?\n\nCela remplacera les cr\u00e9neaux existants sur cette p\u00e9riode.'))return;
+  // Sauvegarde le modèle hebdomadaire lui-même sur la fiche AVANT de générer les créneaux. Avant ce correctif,
+  // "Générer" créait bien les créneaux dans planning_creneaux mais n'écrivait jamais tmpSalPlanningType dans
+  // employees.planning_type — donc si on ne cliquait pas ENSUITE sur le bouton "Enregistrer" général de la
+  // fiche, le modèle affiché à la réouverture de la fiche restait vide et il fallait tout ressaisir pour la
+  // moindre correction, même si le planning généré lui restait bien en place.
+  var ptSave=await db.from('employees').update({planning_type:pt}).eq('id',curSal);
+  if(ptSave&&ptSave.error){
+    console.warn('planning_type non sauvegard\u00e9 sur la fiche (migration SQL manquante ?)',ptSave.error);
+    alert('Attention : le planning va \u00eatre g\u00e9n\u00e9r\u00e9, mais le mod\u00e8le hebdomadaire n\'a pas pu \u00eatre enregistr\u00e9 sur la fiche (colonne planning_type manquante c\u00f4t\u00e9 Supabase) — il faudra le ressaisir la prochaine fois.');
+  }else{
+    var emCacheForPt=emp(curSal);
+    if(emCacheForPt)emCacheForPt.planning_type=JSON.parse(JSON.stringify(pt));
+  }
   var em=emp(curSal);
   var startDate=new Date(startVal+'T12:00:00');
   var weekStart=planMonOf(startDate);

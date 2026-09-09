@@ -1073,6 +1073,11 @@ async function ccodeNext(){
 function reset(){
   if(photoTimer){clearInterval(photoTimer);photoTimer=null;}
   pin='';absPin='';planPin='';acoPin='';emp=null;absEmp=null;planEmp=null;acoEmp=null;
+  // Tablette partagée entre plusieurs salariés sans rechargement de page : sans cette remise à zéro, le
+  // choix "postes du jour" (et le rôle sélectionné) du salarié précédent restait actif pour le suivant —
+  // un nouveau salarié avec un seul rôle différent se retrouvait filtré sur le rôle de quelqu'un d'autre et
+  // voyait "rien à compter" alors que son propre rôle a bien des catégories configurées.
+  cptSelectedRoleIds=null;cptRoleChoixDone=false;cptAllRoleObjs=[];
   var lpBtn=document.getElementById('cbtn-laboprep');if(lpBtn)lpBtn.style.display='none';
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
   if(typeof upd==='function')upd();
