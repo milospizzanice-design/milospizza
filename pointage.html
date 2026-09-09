@@ -122,6 +122,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-row{background:#fff;border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .cpt-row.warn{outline:2px solid #F39C12;outline-offset:-2px}
 .cpt-row.order{outline:2px solid #C0392B;outline-offset:-2px}
+.cpt-row.done-today{background:#F0FBF4}
+.cpt-done-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:#D5F5E3;color:#1E8449;margin-left:6px;white-space:nowrap}
 .cpt-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .cpt-info{flex:1;min-width:0}
 .cpt-name{font-size:13px;font-weight:600;color:#1A1008;line-height:1.25}
@@ -2024,12 +2026,14 @@ function renderComptageList(){
   catNames.forEach(function(cat){
     var items=byCat[cat];
     var nAlert=items.filter(function(i){var st=cptStatus(i);return st&&st.cls!=='ok';}).length;
+    var nDone=items.filter(function(i){return cptComptedToday(i.dernier);}).length;
     var color=cptCatColor(cat);
     var secId=cptSecId(cat);
     var collapsed=cptCollapsedCats.has(cat);
     html+='<div class="cpt-sec">'
       +'<div class="cpt-sec-hdr'+(collapsed?' coll':'')+'" id="'+secId+'-hdr" style="background:'+color+'" onclick="cptSecToggle(\''+cat.replace(/'/g,"\\'")+'\')">'
         +'<h3>'+escCpt(cat)+'</h3>'
+        +'<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);margin-right:4px;white-space:nowrap;">'+nDone+'/'+items.length+' &#10003;</span>'
         +'<span class="cpt-sec-count'+(nAlert?' vis':'')+'">'+nAlert+'</span>'
         +'<span class="cpt-chev">&#9660;</span>'
       +'</div>'
@@ -2040,6 +2044,14 @@ function renderComptageList(){
   if(wrapEl)wrapEl.scrollTop=scrollBefore;
 }
 
+// Un ingrédient déjà compté AUJOURD'HUI (peu importe l'heure) — sert à distinguer d'un simple "Dernier
+// comptage OK" qui pourrait dater de plusieurs jours et donner une fausse impression que c'est à jour.
+function cptComptedToday(dernier){
+  if(!dernier)return false;
+  var d=new Date(dernier.compte_le);
+  var now=new Date();
+  return d.toDateString()===now.toDateString();
+}
 function dernierLabelCpt(dernier,unite){
   if(!dernier)return 'Jamais compté';
   var d=new Date(dernier.compte_le);
@@ -2073,11 +2085,16 @@ function comptageRowHtml(i){
   var st=cptStatus(i);
   var pill=st?('<span class="cpt-pill cpt-pill-'+st.cls+'">'+escCpt(st.label)+'</span>'):'';
   var rowFlag=st&&st.cls==='bad'?' order':(st&&st.cls==='warn'?' warn':'');
+  var doneToday=cptComptedToday(i.dernier);
+  if(doneToday)rowFlag+=' done-today';
+  var doneBadge=doneToday?'<span class="cpt-done-badge">&#10003; Compt\u00e9 aujourd\'hui</span>':'';
   var delBtn=i.dernier?('<span class="cpt-del" onclick="deleteComptageHistory(\''+i.code+'\')" title="Supprimer l\'historique de comptage de cet ingr\u00e9dient (pour tester)">&#128465;</span>'):'';
+  // La ligne reste toujours pleinement modifiable même une fois comptée aujourd'hui (recompter/corriger doit
+  // rester possible sans manip supplémentaire) — la coche verte n'est qu'une indication visuelle, jamais un verrou.
   return '<div class="cpt-row'+rowFlag+'" id="'+id+'">'
     +'<span class="cpt-dot" style="background:'+cptCatColor(i.categorie)+'"></span>'
     +'<div class="cpt-info">'
-      +'<div class="cpt-name">'+escCpt(i.nom)+'</div>'
+      +'<div class="cpt-name">'+escCpt(i.nom)+doneBadge+'</div>'
       +cptMetaLine(i)
       +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+delBtn+'</div>'
       +'<div class="cpt-suptag-wrap">'+cptRoutingTag(i)+'</div>'
