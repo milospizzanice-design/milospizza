@@ -1312,7 +1312,11 @@ function isRuptureTotale(typeSuivi,valeur){
 // seuls CES rôles-là contribuent — les exceptions individuelles (comptage_cats_add/remove, ingrédients
 // include/exclude propres au salarié) s'appliquent toujours, quel que soit le poste du jour.
 async function comptageCatsForEmployee(){
-  var fresh=await db.from('employees').select('roles,comptage_cats_add,comptage_cats_remove,comptage_ingredients_include,comptage_ingredients_exclude').eq('id',emp.id).single();
+  // select('*') et non une liste de colonnes nommées : si comptage_ingredients_include/exclude n'existent
+  // pas encore côté Supabase (migration SQL pas exécutée), une requête qui les nomme explicitement échoue
+  // ENTIÈREMENT — et avec elle la lecture de "roles", qui n'a pourtant rien à voir. C'était le bug exact :
+  // "aucune catégorie configurée pour toi" alors que le rôle était parfaitement assigné en base.
+  var fresh=await db.from('employees').select('*').eq('id',emp.id).single();
   var roleIds=(fresh&&fresh.data&&Array.isArray(fresh.data.roles))?fresh.data.roles:[];
   var catsAdd=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_add))?fresh.data.comptage_cats_add:[];
   var catsRemove=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_remove))?fresh.data.comptage_cats_remove:[];
