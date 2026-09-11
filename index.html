@@ -51,6 +51,9 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .item:hover{background:rgba(155,28,28,0.04);}
 .item-info{flex:1;}
 .item-name{font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.88rem;color:var(--rouge);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:0.35rem;}
+.item-name-fr{display:block;font-weight:500;font-size:0.75rem;color:var(--gris);letter-spacing:0.02em;text-transform:none;margin-top:0.1rem;}
+.item-name-fr::before{content:"(";}
+.item-name-fr::after{content:")";}
 .item-desc{font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#3D2B1F;line-height:1.65;font-weight:400;}
 .item-price{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:700;color:var(--brun);white-space:nowrap;min-width:52px;text-align:right;padding-top:0.1rem;}
 .photo-badge{display:inline-block;width:8px;height:8px;background:var(--vert);border-radius:50%;margin-left:6px;vertical-align:middle;box-shadow:0 0 0 2px rgba(107,126,90,0.2);}
@@ -863,7 +866,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
       <!-- POPUP -->
       <div class="admin-section" id="as-popup">
-        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Créez des pop-ups et assignez-les à des catégories. Vide = s'affiche partout.</p>
+        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Créez des pop-ups et assignez-les à des catégories. Vide = s'affiche partout. Cochez des jours pour un changement automatique (ex: un pop-up "Pizza du lundi" et un autre "Pizza du mardi" — chacun ne s'affiche que son jour, sans rien retoucher).</p>
         <div id="popupAdminList"></div>
         <button class="add-btn" onclick="addPopup()" style="width:100%;margin-bottom:0.8rem;background:#7D9B76;">✚ Nouveau pop-up</button>
         <button class="admin-save-btn" onclick="savePopupConfig()">✓ Sauvegarder les pop-ups</button>
@@ -1287,6 +1290,17 @@ function prewarmImage(url){
   });
 }
 
+// Beaucoup de clients étrangers utilisent la traduction automatique du navigateur (ou nos noms traduits
+// stockés par langue), qui traduit les noms de plats mot à mot — problématique pour un nom de pizza qui
+// est un nom propre/une appellation maison. On affiche donc la traduction ET le nom français d'origine
+// ensemble dès qu'ils diffèrent, pour que le client puisse toujours reconnaître/commander le bon plat.
+function itemDisplayNameHTML(it, l) {
+  const fr = it.name.fr || '';
+  const translated = it.name[l];
+  if (l === 'fr' || !translated || translated === fr) return fr;
+  return `${translated}<span class="item-name-fr">${fr}</span>`;
+}
+
 function renderItem(it, l) {
   const hasPhoto = it.photo && it.photo.trim();
   const priceHTML = (it.priceVariants && it.priceVariants.length)
@@ -1294,7 +1308,7 @@ function renderItem(it, l) {
     : it.price;
   return `<div class="item" onclick="openModal('${it.id}')">
     <div class="item-info">
-      <div class="item-name">${it.name[l]||it.name.fr}${hasPhoto?'<span class="photo-badge"></span>':''}</div>
+      <div class="item-name">${itemDisplayNameHTML(it,l)}${hasPhoto?'<span class="photo-badge"></span>':''}</div>
       ${(it.desc[l]||it.desc.fr)?`<div class="item-desc">${it.desc[l]||it.desc.fr}</div>`:''}
     </div>
     <div class="item-price">${priceHTML}</div>
@@ -1328,7 +1342,7 @@ function openModal(id) {
   const img = document.getElementById('modalImg');
   if (it.photo){img.src=cld(it.photo,800);img.className='modal-img';img.onerror=()=>img.className='modal-img hidden';}
   else{img.src='';img.className='modal-img hidden';}
-  document.getElementById('modalName').textContent = it.name[l]||it.name.fr;
+  document.getElementById('modalName').innerHTML = itemDisplayNameHTML(it,l);
   document.getElementById('modalDesc').textContent = it.desc[l]||it.desc.fr;
   document.getElementById('modalPrice').innerHTML = (it.priceVariants && it.priceVariants.length)
     ? it.priceVariants.map(v=>`<div>${v.label||''} ${v.price||''}</div>`).join('')
@@ -3861,6 +3875,9 @@ function collectPopupEdits() {
     // collect cats
     const catBoxes = document.querySelectorAll('.popup-cat-cb_'+p.id+':checked');
     p.cats = [...catBoxes].map(cb => cb.value);
+    // collect days (jours d'affichage — voir showPopupIfNeeded)
+    const dayBoxes = document.querySelectorAll('.popup-day-cb_'+p.id+':checked');
+    p.days = [...dayBoxes].map(cb => parseInt(cb.value, 10));
   });
 }
 
@@ -3872,12 +3889,19 @@ function renderPopupAdmin() {
   const activeCats = cats.filter(c=>!c.archived);
   const container = document.getElementById('popupAdminList');
   if (!container) return;
+  const DAY_LABELS = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam']; // aligné sur Date.getDay() (0=dimanche)
 
   container.innerHTML = popups.map(p => {
     const catChecks = activeCats.map(c =>
       `<div class="allergen-check-item">
         <input type="checkbox" class="popup-cat-cb_${p.id}" value="${c.id}" id="pcb_${p.id}_${c.id}" ${(p.cats||[]).includes(c.id)?'checked':''}>
         <label for="pcb_${p.id}_${c.id}">${c.name.fr}</label>
+      </div>`
+    ).join('');
+    const dayChecks = DAY_LABELS.map((lbl,idx) =>
+      `<div class="allergen-check-item">
+        <input type="checkbox" class="popup-day-cb_${p.id}" value="${idx}" id="pday_${p.id}_${idx}" ${(p.days||[]).includes(idx)?'checked':''}>
+        <label for="pday_${p.id}_${idx}">${lbl}</label>
       </div>`
     ).join('');
 
@@ -3909,6 +3933,8 @@ function renderPopupAdmin() {
         <option value="once_day" ${p.timing==='once_day'?'selected':''}>Une fois par jour</option>
         <option value="once_ever" ${p.timing==='once_ever'?'selected':''}>Une seule fois</option>
       </select>
+      <label class="admin-label" style="margin-top:0.5rem;">Jours d'affichage <span style="font-size:0.65rem;color:#aaa;">(rien de coché = tous les jours)</span></label>
+      <div class="allergen-checks">${dayChecks}</div>
       <label class="admin-label" style="margin-top:0.5rem;">Afficher sur ces catégories <span style="font-size:0.65rem;color:#aaa;">(vide = toutes)</span></label>
       <div class="allergen-checks">${catChecks}</div>
       <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
@@ -3924,7 +3950,7 @@ function deletePopup(id) {
 }
 
 function addPopup() {
-  popups.push({id:'p'+Date.now(), active:true, badge:'🍕 Pizza du moment !', title:'', desc:'', price:'', photo:'', timing:'always', cats:[]});
+  popups.push({id:'p'+Date.now(), active:true, badge:'🍕 Pizza du moment !', title:'', desc:'', price:'', photo:'', timing:'always', cats:[], days:[]});
   renderPopupAdmin();
 }
 
@@ -3985,6 +4011,9 @@ function showPopupIfNeeded(catId) {
     if (!p.active || !p.title) return false;
     if (p.cats && p.cats.length > 0 && catId && !p.cats.includes(catId)) return false;
     if (p.cats && p.cats.length > 0 && !catId) return false;
+    // Jours d'affichage : rien de coché = tous les jours (comportement d'origine, rétrocompatible avec
+    // les pop-ups déjà configurés sans ce champ). Sinon, ne s'affiche que les jours cochés.
+    if (p.days && p.days.length > 0 && !p.days.includes(new Date().getDay())) return false;
     const t = p.timing;
     if(t==='once_day'){
       try { if(localStorage.getItem('milos_popup_seen_'+p.id)===new Date().toDateString()) return false; } catch(e){}
