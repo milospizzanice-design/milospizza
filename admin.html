@@ -2959,10 +2959,16 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
         :'<span style="width:20px;display:inline-block"></span>';
       var nameHtml='<span style="flex:1;'+(hasDetail?'cursor:pointer;':'')+'" onclick="'+expandJs+'">'+esc(c.nom)+'</span>';
       var countHtml='<span style="color:var(--txm);font-weight:400;font-size:10px;'+(hasDetail?'cursor:pointer;':'')+'" onclick="'+expandJs+'">'+c.nbIngredients+' ingr.</span>';
+      // Raccourci "Retirer" : la case Catégorie est verrouillée dans "Exceptions fines par ingrédient"
+      // (catReadOnly, cf. plus bas) car elle est déjà réglée par les sections "+ Ajouter"/"- Retirer"
+      // au-dessus — mais un admin qui essaie de décocher une catégorie ICI se retrouve bloqué sans
+      // comprendre pourquoi. Ce lien fait l'aller-retour à sa place : il ajoute la catégorie à
+      // "- Retirer" (et retire un éventuel "+ Ajouter" devenu inutile) puis rafraîchit les deux écrans.
+      var retirerLink=(scope==='salingex'&&on)?('<span onclick="event.stopPropagation();salRetirerCatDepuisExceptions(\''+esc(c.nom)+'\')" style="color:#C0392B;font-size:10px;font-weight:700;cursor:pointer;margin-left:auto;padding:2px 6px;white-space:nowrap;">&#10005; Retirer</span>'):'';
       var label='<div style="display:flex;align-items:center;gap:4px;font-size:12px;background:'+(on?colorOn:colorOff)+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;width:100%;box-sizing:border-box;">'
         +arrowHtml
-        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+(catReadOnly?' disabled title="D\u00e9j\u00e0 r\u00e9gl\u00e9 plus haut \u2014 utilise les sous-cat\u00e9gories/ingr\u00e9dients ci-dessous pour affiner"':' onchange="'+onchange+'"')+' style="width:20px;height:20px;flex-shrink:0;cursor:pointer;">'
-        +nameHtml+countHtml
+        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+(catReadOnly?' disabled title="D\u00e9j\u00e0 r\u00e9gl\u00e9 plus haut \u2014 utilise le lien Retirer \u00e0 droite, ou les sous-cat\u00e9gories/ingr\u00e9dients ci-dessous pour affiner"':' onchange="'+onchange+'"')+' style="width:20px;height:20px;flex-shrink:0;cursor:pointer;">'
+        +nameHtml+countHtml+retirerLink
         +'</div>';
       var detail='';
       if(hasDetail){
@@ -4879,6 +4885,16 @@ function toggleSalComptageCat(kind,catId,checked){
   var i=arr.indexOf(catId);
   if(checked&&i<0)arr.push(catId);
   else if(!checked&&i>=0)arr.splice(i,1);
+}
+// Raccourci "Retirer" cliqué depuis "Exceptions fines par ingrédient" (cf. comptageCatsTreeHtml) : bascule
+// la catégorie vers "- Retirer catégories" (en enlevant un éventuel "+ Ajouter" contradictoire), puis
+// rafraîchit les deux écrans concernés — sans ça la case Exceptions resterait affichée "tout coché" jusqu'au
+// prochain rechargement de la fiche.
+function salRetirerCatDepuisExceptions(catNom){
+  var iAdd=tmpSalComptageCatsAdd.indexOf(catNom);if(iAdd>=0)tmpSalComptageCatsAdd.splice(iAdd,1);
+  if(tmpSalComptageCatsRemove.indexOf(catNom)<0)tmpSalComptageCatsRemove.push(catNom);
+  renderSalComptageCatsCheckboxes();
+  renderSalIngExceptions();
 }
 // Catégories effectivement visibles pour ce salarié : celles de son/ses rôle(s), plus les ajouts, moins les
 // retraits — c'est cet ensemble qui sert de référence ("coché par défaut") pour les cases Sous-catégorie et
