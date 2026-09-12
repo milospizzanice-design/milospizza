@@ -383,58 +383,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   
 </div>
 
-<!-- ══ MODULE STOCKS ══ -->
-<div id="page-stocks" style="display:none;">
-  <div class="page" style="padding-top:14px;">
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <div class="stk-subtab on" id="stksubtab-cat" onclick="stkSubTab('cat')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🗂 Catalogue</div>
-      <div class="stk-subtab" id="stksubtab-reglages" onclick="stkSubTab('reglages')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">⚙️ Réglages restaurant</div>
-    </div>
-
-    <!-- Sous-onglet Catalogue (nom / catégorie / prix / visibilité par restaurant) -->
-    <div id="stk-pane-cat">
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Catalogue partagé entre Port, Dabray et Labo. Le nom, la catégorie et le prix sont communs — chaque restaurant garde ses propres seuils/fournisseur dans "Réglages restaurant". Décoche un restaurant pour lui masquer un produit sans le supprimer ailleurs — rien ne disparaît jamais de cet écran, juste grisé pour le restaurant sélectionné ci-dessous.
-      </div>
-      <div class="card" style="display:flex;align-items:center;gap:8px;">
-        <label class="fl2" style="margin:0;">Filtrer par restaurant</label>
-        <select class="fi" id="stk-cat-filter" style="flex:1;" onchange="renderStocksCatalogue()">
-          <option value="">— Tous les produits —</option>
-        </select>
-      </div>
-
-      <div class="card" style="border:1px solid #1ABC9C;">
-        <div style="font-weight:700;margin-bottom:6px;">📥 Importer depuis l'existant</div>
-        <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Récupère les catégories/produits déjà présents sur Port, Dabray et Labo (fusionnés, sans doublons), et tente de retrouver le prix depuis l'ancienne base Coûts en faisant correspondre les noms — à vérifier après coup. Les cases de visibilité sont pré-cochées selon les restaurants où le produit existe déjà. Rejouable à tout moment, ne touche jamais aux prix/visibilités déjà réglés à la main.</div>
-        <button class="btn bp" style="width:100%;" onclick="importMasterCatalogueDepuisExistant()">📥 Importer maintenant</button>
-      </div>
-
-      <div class="card" style="border:1px solid #1ABC9C;">
-        <div style="font-weight:700;margin-bottom:6px;">☁️ Pousser vers les restaurants</div>
-        <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Envoie les catégories/produits actifs vers Port, Dabray et Labo. Ajoute les nouveautés et met à jour les noms — ne supprime jamais rien côté restaurant, et ne touche jamais aux fournisseurs/seuils déjà configurés. Les nouveaux produits arrivent sans fournisseur assigné (invisibles tant que non configurés dans "Réglages restaurant").</div>
-        <button class="btn bp" style="width:100%;" onclick="pushMasterCatalogueToRestaurants()">☁️ Pousser maintenant</button>
-      </div>
-
-      <div class="card">
-        <button class="btn bp" style="width:100%;" onclick="stkPromptCreateOnglet()">+ Nouvel onglet</button>
-      </div>
-
-      <div id="stk-catalogue-list"></div>
-    </div>
-
-    <!-- Sous-onglet Réglages restaurant (seuils/colisage/fournisseur — inchangé) -->
-    <div id="stk-pane-reglages" style="display:none;">
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Le restaurant affich&#233; ci-dessous suit le s&#233;lecteur en haut de page. Seuils / colisage / fournisseurs / config propres &#224; ce restaurant.
-      </div>
-      <div id="stock-nofile-warning" class="card" style="display:none;background:#FEF3C7;color:#92400E;">
-        &#9888;&#65039; Aucun fichier de gestion des stocks n'existe encore pour ce restaurant. Demandez-en la cr&#233;ation avant de pouvoir l'utiliser ici.
-      </div>
-      <iframe id="stock-iframe" src="milos-pizza-port.html" style="width:100%;height:75vh;border:1px solid var(--bd);border-radius:12px;background:#fff;"></iframe>
-    </div>
-  </div>
-</div>
-
 <!-- ══ MODULE RECETTES ══ -->
 <div id="page-recettes" style="display:none;">
   <div class="page" style="padding-top:14px;">
@@ -764,17 +712,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
-<!-- Modal création format de conditionnement (avec modèles réutilisables) -->
-<div class="mb" id="stkcondmodal">
-  <div class="md" style="max-width:420px;">
-    <div class="mdt" id="stkcondmodal-title">Nouveau format de conditionnement</div>
-    <div id="stkcondmodal-templates" style="margin-bottom:10px;"></div>
-    <div class="fr"><label class="fl2">Nom du format</label><input type="text" class="fi" id="stkcondmodal-label" placeholder="Ex: Bouteille 70cl"></div>
-    <div class="fr"><label class="fl2">Quantité (<span id="stkcondmodal-unite"></span>)</label><input type="number" class="fi" id="stkcondmodal-qte" step="0.001" placeholder="Ex: 0.7"></div>
-    <div class="ma"><button class="btn bs" onclick="closeM('stkcondmodal')">Annuler</button><button class="btn bp" onclick="stkConfirmCreateCond()">Créer</button></div>
-  </div>
-</div>
-
 <!-- Modal composition d'un ingrédient (ex: crème moutarde-miel = plusieurs produits stock) -->
 <div class="mb" id="mingcomp">
   <div class="md" style="max-width:420px;">
@@ -909,16 +846,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="page" style="padding-top:14px;">
     <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
       Le Labo transforme des blocs de matière première en lots pesés (bacs, bûches…) destinés à Port et Dabray.
-    </div>
-
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-weight:700;">🧑‍🍳 Stock du Labo (matières premières)</div>
-          <div style="font-size:11px;color:var(--txm);">Fournisseurs, produits bruts, commandes — géré dans son propre écran, comme Port et Dabray.</div>
-        </div>
-        <button class="btn bp" onclick="openLaboStockAdmin()">Ouvrir</button>
-      </div>
     </div>
 
     <div class="card">
@@ -1120,14 +1047,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr">
       <label class="fl2">R&#244;les</label>
       <div id="sal-roles-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
-    </div>
-    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
-      <label class="fl2">Personnalisation stocks (optionnel)</label>
-      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">Ajuste l'acc&#232;s stocks de ce salari&#233; en plus de ce que donnent ses r&#244;les.</div>
-      <div style="font-size:10px;font-weight:700;color:#166534;margin-bottom:2px">+ Ajouter des cat&#233;gories</div>
-      <div id="sal-cats-add-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
-      <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:2px">- Retirer des cat&#233;gories (m&#234;me si le r&#244;le les donne)</div>
-      <div id="sal-cats-remove-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
     <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
       <label class="fl2">Personnalisation comptage rapide (optionnel)</label>
@@ -1366,7 +1285,6 @@ function fillAllRestaurantSelects(){
   fillRestaurantSelect('fr',{allLabel:'Tous restaurants'});
   fillRestaurantSelect('rcr',{allLabel:'Tous'});
   fillRestaurantSelect('abr',{allLabel:'Tous'});
-  fillRestaurantSelect('stk-cat-filter',{emptyLabel:'— Tous les produits —'});
   fillRestaurantSelect('sar',{});
   fillRestaurantSelect('pedit-resto',{});
   fillRestaurantSelect('pcr-resto',{});
@@ -1445,7 +1363,7 @@ function openM(id){
 }
 
 function goModule(name){
-  var pages={rh:'page-rh',stocks:'page-stocks',recettes:'page-recettes',menu:'page-menu',labo:'page-labo',caisse:'page-caisse',reglages:'page-reglages'};
+  var pages={rh:'page-rh',recettes:'page-recettes',menu:'page-menu',labo:'page-labo',caisse:'page-caisse',reglages:'page-reglages'};
   var tabsBar=document.getElementById('tabs-rh');
   var home=document.getElementById('home-bubbles');
   var backBar=document.getElementById('back-to-home-bar');
@@ -1463,14 +1381,13 @@ function goModule(name){
   });
   if(tabsBar)tabsBar.style.display=(name==='rh')?'flex':'none';
   if(name!=='recettes')document.body.classList.remove('ing-tree-active');
-  if(name==='stocks')loadStocksModule();
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
   if(name==='caisse')loadCaisseModule();
   if(name==='reglages')loadReglagesModule();
 }
 function goHome(){
-  var pages=['page-rh','page-stocks','page-recettes','page-menu','page-labo','page-caisse','page-reglages'];
+  var pages=['page-rh','page-recettes','page-menu','page-labo','page-caisse','page-reglages'];
   pages.forEach(function(id){
     var e=document.getElementById(id);
     if(e)e.style.display='none';
@@ -2614,17 +2531,7 @@ function closeQrScanner(){
 
 // ── GESTION DES RÔLES ───────────────────────────────────────────────────────
 var rolesData=[];var roleEditId=null;var restoEditId=null;
-var STOCK_CATS_CANONICAL=[
-  {id:'boissons-emporter',label:'🥤 Boissons à emporter'},
-  {id:'boissons-place',label:'🍷 Boissons sur place'},
-  {id:'epicerie',label:'🍽 Épicerie'},
-  {id:'fromages',label:'🧀 Fromages & Frais'},
-  {id:'charcuterie',label:'🥩 Charcuterie & Cuissons'},
-  {id:'glaces',label:'🍦 Glaces'},
-  {id:'hygiene',label:'🧴 Hygiène'}
-];
 var restosData=[];
-var RESTAURANT_FILES={port:'milos-pizza-port.html',dabray:'milos-pizza-dabray.html'};
 async function loadRestaurants(){
   var r=await db.from('restaurants').select('*').order('nom');
   restosData=r.data||[];
@@ -2665,10 +2572,9 @@ function renderRestosList(){
   if(!restosData.length){box.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0">Aucun restaurant enregistr\u00e9</div>';return;}
   var h='';
   restosData.forEach(function(r){
-    var hasFile=!!RESTAURANT_FILES[r.id];
     h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">';
     h+='<span style="width:14px;height:14px;border-radius:50%;background:'+(r.couleur||'#B91E26')+';flex-shrink:0"></span>';
-    h+='<span style="flex:1;font-size:13px;font-weight:600">'+(r.nom||r.id)+'<div style="font-size:10px;font-weight:400;color:var(--txm)">'+r.id+(hasFile?'':' \u2022 \u26a0\ufe0f fichier stocks pas encore cr\u00e9\u00e9')+'</div></span>';
+    h+='<span style="flex:1;font-size:13px;font-weight:600">'+(r.nom||r.id)+'<div style="font-size:10px;font-weight:400;color:var(--txm)">'+r.id+'</div></span>';
     h+='<button class="btn bs sm" onclick="openEditResto(\''+r.id+'\')">\u270E</button>';
     h+='</div>';
   });
@@ -2708,9 +2614,6 @@ async function saveResto(){
   }else{
     var r2=await db.from('restaurants').insert({id:id,nom:nom,label:nom,couleur:couleur,admin_pin:pin});
     if(r2.error){alert('Erreur: '+r2.error.message);return;}
-    if(!RESTAURANT_FILES[id]){
-      alert('Restaurant enregistr\u00e9. Pensez \u00e0 demander la cr\u00e9ation du fichier de gestion des stocks pour "'+nom+'" avant de pouvoir l\'utiliser.');
-    }
   }
   closeM('modal-resto');
   loadRestaurants();
@@ -2729,24 +2632,6 @@ function onGlobalRestoChange(){
   var sel=document.getElementById('global-resto-select');
   if(!sel||!sel.value)return;
   var id=sel.value;
-  var iframe=document.getElementById('stock-iframe');
-  var warn=document.getElementById('stock-nofile-warning');
-  if(id==='tous'){
-    // L'onglet Stocks (iframe milos-pizza-*.html) est propre à un seul restaurant à la fois et obsolète de
-    // toute façon (remplacé par le comptage rapide unifié) — pas de sens à l'afficher en mode "Tous".
-    if(iframe)iframe.style.display='none';
-    if(warn){warn.style.display='block';warn.innerHTML='&#127760; Sélectionne un restaurant précis pour l\'ancien onglet Stocks (obsolète, remplacé par le comptage rapide unifié).';}
-  }else{
-    var file=RESTAURANT_FILES[id];
-    if(file){
-      try{localStorage.setItem('rg_admin_session',JSON.stringify({at:new Date().toISOString()}));}catch(e){}
-      if(iframe){iframe.style.display='block';iframe.src=file;}
-      if(warn)warn.style.display='none';
-    }else{
-      if(iframe)iframe.style.display='none';
-      if(warn){warn.style.display='block';warn.innerHTML='&#9888;&#65039; Aucun fichier de gestion des stocks n\'existe encore pour ce restaurant. Demandez-en la création avant de pouvoir l\'utiliser ici.';}
-    }
-  }
   applyGlobalRestoDefault(id);
   // Le module Recettes (prix des ingrédients, recettes, prix de revient) est propre à chaque restaurant
   // mais n'était rechargé qu'à l'ouverture initiale — recharger explicitement s'il est affiché, sinon
@@ -2800,33 +2685,15 @@ async function loadRoles(){
   if(!rolesData.length){box.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0">Aucun r\u00f4le d\u00e9fini</div>';return;}
   var h='';
   rolesData.forEach(function(ro){
-    var nCats=(ro.stock_categories||[]).length;
     var nCptCats=(ro.comptage_categories||[]).length;
     h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">';
     h+='<span style="width:14px;height:14px;border-radius:50%;background:'+(ro.couleur||'#B91E26')+';flex-shrink:0"></span>';
-    h+='<span style="flex:1;font-size:13px;font-weight:600">'+ro.nom+'<div style="font-size:10px;font-weight:400;color:var(--txm)">'+(nCats?nCats+' cat\u00e9gorie(s) stocks':'aucun acc\u00e8s stocks')+' &middot; '+(nCptCats?nCptCats+' cat\u00e9gorie(s) comptage':'aucun acc\u00e8s comptage')+'</div></span>';
+    h+='<span style="flex:1;font-size:13px;font-weight:600">'+ro.nom+'<div style="font-size:10px;font-weight:400;color:var(--txm)">'+(nCptCats?nCptCats+' cat\u00e9gorie(s) comptage':'aucun acc\u00e8s comptage')+'</div></span>';
     h+='<button class="btn bs sm" onclick="openEditRole('+ro.id+')">\u270E</button>';
     h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="delRole('+ro.id+')">\u{1F5D1}</button>';
     h+='</div>';
   });
   box.innerHTML=h;
-}
-function renderRoleStockCatsCheckboxes(selected){
-  selected=selected||[];
-  var box=document.getElementById('role-stock-cats');
-  if(!box)return;
-  var cats=window.STOCK_CATS_CANONICAL||[];
-  box.innerHTML=cats.map(function(c){
-    var on=selected.indexOf(c.id)>=0;
-    return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;background:'+(on?'#FDEDEC':'#FAF4EC')+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;cursor:pointer;">'
-      +'<input type="checkbox" value="'+c.id+'"'+(on?' checked':'')+' onchange="this.parentElement.style.background=this.checked?\'#FDEDEC\':\'#FAF4EC\'">'
-      +c.label+'</label>';
-  }).join('');
-}
-function readRoleStockCatsCheckboxes(){
-  var box=document.getElementById('role-stock-cats');
-  if(!box)return[];
-  return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:checked')).map(function(i){return i.value;});
 }
 // Catégories de comptage rapide : construites depuis l'arborescence PROPRE déjà utilisée par Recettes
 // (tables categories_ordre / sous_categories_ordre / onglets_ordre, restaurant_id=RCT_GLOBAL), pas depuis
@@ -2959,16 +2826,10 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
         :'<span style="width:20px;display:inline-block"></span>';
       var nameHtml='<span style="flex:1;'+(hasDetail?'cursor:pointer;':'')+'" onclick="'+expandJs+'">'+esc(c.nom)+'</span>';
       var countHtml='<span style="color:var(--txm);font-weight:400;font-size:10px;'+(hasDetail?'cursor:pointer;':'')+'" onclick="'+expandJs+'">'+c.nbIngredients+' ingr.</span>';
-      // Raccourci "Retirer" : la case Catégorie est verrouillée dans "Exceptions fines par ingrédient"
-      // (catReadOnly, cf. plus bas) car elle est déjà réglée par les sections "+ Ajouter"/"- Retirer"
-      // au-dessus — mais un admin qui essaie de décocher une catégorie ICI se retrouve bloqué sans
-      // comprendre pourquoi. Ce lien fait l'aller-retour à sa place : il ajoute la catégorie à
-      // "- Retirer" (et retire un éventuel "+ Ajouter" devenu inutile) puis rafraîchit les deux écrans.
-      var retirerLink=(scope==='salingex'&&on)?('<span onclick="event.stopPropagation();salRetirerCatDepuisExceptions(\''+esc(c.nom)+'\')" style="color:#C0392B;font-size:10px;font-weight:700;cursor:pointer;margin-left:auto;padding:2px 6px;white-space:nowrap;">&#10005; Retirer</span>'):'';
       var label='<div style="display:flex;align-items:center;gap:4px;font-size:12px;background:'+(on?colorOn:colorOff)+';border:1px solid var(--bd);border-radius:8px;padding:5px 8px;width:100%;box-sizing:border-box;">'
         +arrowHtml
-        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+(catReadOnly?' disabled title="D\u00e9j\u00e0 r\u00e9gl\u00e9 plus haut \u2014 utilise le lien Retirer \u00e0 droite, ou les sous-cat\u00e9gories/ingr\u00e9dients ci-dessous pour affiner"':' onchange="'+onchange+'"')+' style="width:20px;height:20px;flex-shrink:0;cursor:pointer;">'
-        +nameHtml+countHtml+retirerLink
+        +'<input type="checkbox" class="cptcat-chk" value="'+esc(c.nom)+'"'+(on?' checked':'')+(catReadOnly?' disabled title="D\u00e9j\u00e0 r\u00e9gl\u00e9 plus haut \u2014 utilise les sous-cat\u00e9gories/ingr\u00e9dients ci-dessous pour affiner"':' onchange="'+onchange+'"')+' style="width:20px;height:20px;flex-shrink:0;cursor:pointer;">'
+        +nameHtml+countHtml
         +'</div>';
       var detail='';
       if(hasDetail){
@@ -3184,7 +3045,6 @@ function openAddRole(){
   document.getElementById('role-modal-title').textContent='Nouveau r\u00f4le';
   document.getElementById('role-nom').value='';
   document.getElementById('role-couleur').value='#B91E26';
-  renderRoleStockCatsCheckboxes([]);
   roleComptageFilterRestos=[];
   renderRoleComptageRestoFilter();
   renderRoleComptageCatsCheckboxes([],[],[]);
@@ -3198,7 +3058,6 @@ function openEditRole(id){
   document.getElementById('role-modal-title').textContent='Modifier le r\u00f4le';
   document.getElementById('role-nom').value=ro.nom;
   document.getElementById('role-couleur').value=ro.couleur||'#B91E26';
-  renderRoleStockCatsCheckboxes(ro.stock_categories||[]);
   roleComptageFilterRestos=[];
   renderRoleComptageRestoFilter();
   renderRoleComptageCatsCheckboxes(ro.comptage_categories||[],ro.comptage_ingredients_include||[],ro.comptage_ingredients_exclude||[]);
@@ -3208,11 +3067,10 @@ function openEditRole(id){
 async function saveRole(){
   var nom=document.getElementById('role-nom').value.trim();
   var couleur=document.getElementById('role-couleur').value;
-  var stockCats=readRoleStockCatsCheckboxes();
   var comptageCats=readRoleComptageCatsCheckboxes();
   var ingOverrides=readRoleIngredientOverrides(comptageCats);
   if(!nom){alert('Indiquez un nom');return;}
-  var payload={nom:nom,couleur:couleur,stock_categories:stockCats,comptage_categories:comptageCats,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude};
+  var payload={nom:nom,couleur:couleur,comptage_categories:comptageCats,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude};
   if(roleEditId){
     var r=await db.from('roles').update(payload).eq('id',roleEditId);
     if(r.error){alert('Erreur: '+r.error.message);return;}
@@ -4680,7 +4538,7 @@ async function renderPlanningComptageList(){
   }
 }
 
-function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalCatsOverrides(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
+function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
 
@@ -4743,7 +4601,7 @@ function deduceSecteur(salId){
 // ── PLANNING TYPE HEBDOMADAIRE ──────────────────────────────────────────────
 var PT_DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 // Planning par défaut (modèle hebdomadaire de créneaux) — en mémoire le temps de l'édition de la fiche,
-// comme tmpSalRoles/tmpSalCatsAdd juste plus bas, PUIS écrit dans employees.planning_type à l'enregistrement.
+// comme tmpSalRoles juste plus bas, PUIS écrit dans employees.planning_type à l'enregistrement.
 // Avant : stocké uniquement dans localStorage (jamais envoyé à Supabase), donc invisible sur un autre appareil
 // et perdu si le cache du navigateur était vidé — d'où "ça ne se sauvegarde pas".
 var tmpSalPlanningType=[];
@@ -4849,8 +4707,6 @@ async function applyPlanningType(){
 
 // ── RÔLES DU SALARIÉ (attribution) ──────────────────────────────────────────
 var tmpSalRoles=[];
-var tmpSalCatsAdd=[];
-var tmpSalCatsRemove=[];
 var tmpSalComptageCatsAdd=[];
 var tmpSalComptageCatsRemove=[];
 var tmpSalComptageIngInclude=[]; // exceptions fines par ingrédient (comptage_ingredients_include) — symétrique à roles.comptage_ingredients_include
@@ -4885,16 +4741,6 @@ function toggleSalComptageCat(kind,catId,checked){
   var i=arr.indexOf(catId);
   if(checked&&i<0)arr.push(catId);
   else if(!checked&&i>=0)arr.splice(i,1);
-}
-// Raccourci "Retirer" cliqué depuis "Exceptions fines par ingrédient" (cf. comptageCatsTreeHtml) : bascule
-// la catégorie vers "- Retirer catégories" (en enlevant un éventuel "+ Ajouter" contradictoire), puis
-// rafraîchit les deux écrans concernés — sans ça la case Exceptions resterait affichée "tout coché" jusqu'au
-// prochain rechargement de la fiche.
-function salRetirerCatDepuisExceptions(catNom){
-  var iAdd=tmpSalComptageCatsAdd.indexOf(catNom);if(iAdd>=0)tmpSalComptageCatsAdd.splice(iAdd,1);
-  if(tmpSalComptageCatsRemove.indexOf(catNom)<0)tmpSalComptageCatsRemove.push(catNom);
-  renderSalComptageCatsCheckboxes();
-  renderSalIngExceptions();
 }
 // Catégories effectivement visibles pour ce salarié : celles de son/ses rôle(s), plus les ajouts, moins les
 // retraits — c'est cet ensemble qui sert de référence ("coché par défaut") pour les cases Sous-catégorie et
@@ -4939,39 +4785,6 @@ function readSalIngredientOverrides(effectiveCats){
     else if(!inp.checked&&catOn)exclude.push(code);
   });
   return{include:include,exclude:exclude};
-}
-function renderSalCatsOverrides(salId){
-  if(salId){
-    var em2=emp(salId);
-    tmpSalCatsAdd=(em2&&em2.stock_cats_add)?(Array.isArray(em2.stock_cats_add)?em2.stock_cats_add.slice():[]):[];
-    tmpSalCatsRemove=(em2&&em2.stock_cats_remove)?(Array.isArray(em2.stock_cats_remove)?em2.stock_cats_remove.slice():[]):[];
-  }else{
-    tmpSalCatsAdd=[];tmpSalCatsRemove=[];
-  }
-  renderSalCatsCheckboxes();
-}
-function renderSalCatsCheckboxes(){
-  var addBox=document.getElementById('sal-cats-add-list');
-  var remBox=document.getElementById('sal-cats-remove-list');
-  if(!addBox||!remBox)return;
-  addBox.innerHTML=STOCK_CATS_CANONICAL.map(function(c){
-    var on=tmpSalCatsAdd.indexOf(c.id)>=0;
-    return '<label style="display:flex;align-items:center;gap:5px;font-size:11px;background:'+(on?'#DCFCE7':'#fff')+';border:1px solid var(--bd);border-radius:8px;padding:4px 7px;cursor:pointer;">'
-      +'<input type="checkbox" value="'+c.id+'"'+(on?' checked':'')+' onchange="toggleSalCat(\'add\',\''+c.id+'\',this.checked);this.parentElement.style.background=this.checked?\'#DCFCE7\':\'#fff\'">'
-      +c.label+'</label>';
-  }).join('');
-  remBox.innerHTML=STOCK_CATS_CANONICAL.map(function(c){
-    var on=tmpSalCatsRemove.indexOf(c.id)>=0;
-    return '<label style="display:flex;align-items:center;gap:5px;font-size:11px;background:'+(on?'#FEE2E2':'#fff')+';border:1px solid var(--bd);border-radius:8px;padding:4px 7px;cursor:pointer;">'
-      +'<input type="checkbox" value="'+c.id+'"'+(on?' checked':'')+' onchange="toggleSalCat(\'remove\',\''+c.id+'\',this.checked);this.parentElement.style.background=this.checked?\'#FEE2E2\':\'#fff\'">'
-      +c.label+'</label>';
-  }).join('');
-}
-function toggleSalCat(kind,catId,checked){
-  var arr=kind==='add'?tmpSalCatsAdd:tmpSalCatsRemove;
-  var i=arr.indexOf(catId);
-  if(checked&&i<0)arr.push(catId);
-  else if(!checked&&i>=0)arr.splice(i,1);
 }
 function renderSalRolesList(salId){
   var div=document.getElementById('sal-roles-list');if(!div)return;
@@ -5127,7 +4940,7 @@ function openEditSal(id){
   document.getElementById('sapin').value='';
   var bu=document.getElementById('sal-badge-uid');if(bu)bu.value=em.badge_uid||'';
   loadSalPinState(em);
-  renderSalPostesList(id);renderSalRolesList(id);renderSalCatsOverrides(id);renderSalComptageCatsOverrides(id);renderSalRestosSecList(id);
+  renderSalPostesList(id);renderSalRolesList(id);renderSalComptageCatsOverrides(id);renderSalRestosSecList(id);
   tmpSalPlanningType=(em&&Array.isArray(em.planning_type))?JSON.parse(JSON.stringify(em.planning_type)):[];
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
@@ -5150,7 +4963,7 @@ async function saveSal(){
     var mail=document.getElementById('samail').value||null;
     var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
+  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
     var r1=await db.from('employees').update(upd).eq('id',curSal);
     if(r1&&r1.error){
       // Repli tolérant : si comptage_ingredients_include/exclude ou planning_type n'existent pas encore côté
@@ -5168,7 +4981,7 @@ async function saveSal(){
     var mail2=document.getElementById('samail').value||null;
     var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut2=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var insPayload={prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,stock_cats_add:tmpSalCatsAdd,stock_cats_remove:tmpSalCatsRemove,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2};
+  var insPayload={prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2};
   var insR=await db.from('employees').insert(insPayload).select();
   if(insR&&insR.error){
     delete insPayload.comptage_ingredients_include;delete insPayload.comptage_ingredients_exclude;delete insPayload.planning_type;
@@ -6443,463 +6256,6 @@ function sbCheck(result){
   return result;
 }
 
-// ══ MODULE STOCKS — Catalogue partagé (Onglets > Catégories > Sous-catégories > Produits) ══
-var stkOnglets=[],stkCategories=[],stkSousCategories=[],stkProduits=[],stkConditionnements=[];
-var STK_UNITES=['kg','g','L','ml','pièce','colis','bac'];
-function stkSubTab(name){
-  var a=document.getElementById('stk-pane-cat'),b=document.getElementById('stk-pane-reglages');
-  if(a)a.style.display=(name==='cat')?'block':'none';
-  if(b)b.style.display=(name==='reglages')?'block':'none';
-  var ta=document.getElementById('stksubtab-cat'),tb=document.getElementById('stksubtab-reglages');
-  if(ta){ta.style.background=(name==='cat')?'var(--bx)':'#FAF4EC';ta.style.color=(name==='cat')?'#fff':'var(--tx)';}
-  if(tb){tb.style.background=(name==='reglages')?'var(--bx)':'#FAF4EC';tb.style.color=(name==='reglages')?'#fff':'var(--tx)';}
-}
-async function loadStocksModule(){
-  try{
-    var ro=sbCheck(await db.from('master_onglets').select('*').order('ordre',{ascending:true}).order('label',{ascending:true}));
-    stkOnglets=ro.data||[];
-    var rc=sbCheck(await db.from('master_categories').select('*').order('ordre',{ascending:true}).order('label',{ascending:true}));
-    stkCategories=rc.data||[];
-    var rs=sbCheck(await db.from('master_sous_categories').select('*').order('ordre',{ascending:true}).order('label',{ascending:true}));
-    stkSousCategories=rs.data||[];
-    var rp=sbCheck(await db.from('master_produits').select('*').order('ordre',{ascending:true}).order('nom',{ascending:true}));
-    stkProduits=rp.data||[];
-    var rcd=sbCheck(await db.from('master_conditionnements').select('*').order('ordre',{ascending:true}));
-    stkConditionnements=rcd.data||[];
-  }catch(e){
-    console.error('Erreur chargement catalogue Stocks',e);
-  }
-  renderStocksCatalogue();
-}
-function stkVisible(item,filter){
-  if(!filter)return true;
-  if(filter==='port')return item.actif_port!==false;
-  if(filter==='dabray')return item.actif_dabray!==false;
-  if(filter==='labo')return item.actif_labo!==false;
-  return true;
-}
-function stkVisiCheckboxesHtml(item,code,kind){
-  // kind: 'onglet' | 'categorie' | 'souscat'
-  return '<label style="font-size:9px;display:flex;align-items:center;gap:1px;"><input type="checkbox" '+(item.actif_port!==false?'checked':'')+' onchange="stkToggleContainerActif(\''+kind+'\',\''+code+'\',\'port\',this.checked)">P</label>'
-    +'<label style="font-size:9px;display:flex;align-items:center;gap:1px;"><input type="checkbox" '+(item.actif_dabray!==false?'checked':'')+' onchange="stkToggleContainerActif(\''+kind+'\',\''+code+'\',\'dabray\',this.checked)">D</label>'
-    +'<label style="font-size:9px;display:flex;align-items:center;gap:1px;"><input type="checkbox" '+(item.actif_labo!==false?'checked':'')+' onchange="stkToggleContainerActif(\''+kind+'\',\''+code+'\',\'labo\',this.checked)">L</label>';
-}
-async function stkToggleContainerActif(kind,code,resto,checked){
-  var table=kind==='onglet'?'master_onglets':(kind==='categorie'?'master_categories':'master_sous_categories');
-  var field='actif_'+resto;
-  var patch={};patch[field]=checked;
-  try{sbCheck(await db.from(table).update(patch).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-function stkProduitRowHtml(p){
-  var uniteOpts=STK_UNITES.map(function(u){return '<option value="'+u+'"'+(u===p.prix_unite?' selected':'')+'>'+u+'</option>';}).join('');
-  var source=p.prix_source_code?stkProduits.find(function(x){return x.code===p.prix_source_code;}):null;
-  var prixHtml;
-  if(source){
-    var effectivePrix=source.prix!=null?source.prix:'';
-    prixHtml='<input type="number" class="fi" style="width:70px;padding:4px;background:#eee;" step="0.01" value="'+effectivePrix+'" disabled title="Prix lié à '+esc(source.nom)+'">'
-      +'<span style="font-size:14px;" title="Prix lié à '+esc(source.nom)+'">🔗</span>'
-      +'<button class="btn bs" style="padding:2px 6px;font-size:10px;" onclick="stkUnlinkProduitPrix(\''+p.code+'\')">🔓</button>';
-  }else{
-    prixHtml='<input type="number" class="fi" style="width:70px;padding:4px;" step="0.01" placeholder="Prix" value="'+(p.prix!=null?p.prix:'')+'" onchange="stkUpdProduitPrix(\''+p.code+'\',this.value)">'
-      +'<select class="fi" style="width:66px;padding:4px;" onchange="stkUpdProduitUnite(\''+p.code+'\',this.value)">'+uniteOpts+'</select>';
-  }
-  var condCount=stkConditionnements.filter(function(c){return c.produit_code===p.code;}).length;
-  return '<div style="padding:4px 0;">'
-    +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
-    +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+(p.ordre||0)+'" onchange="stkMoveProduit(\''+p.code+'\',this.value)">'
-    +'<input type="text" class="fi" style="flex:1;min-width:110px;padding:4px;" value="'+esc(p.nom)+'" onchange="stkRenameProduit(\''+p.code+'\',this.value)">'
-    +prixHtml
-    +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_port!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'port\',this.checked)">Port</label>'
-    +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_dabray!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'dabray\',this.checked)">Dabray</label>'
-    +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif_labo!==false?'checked':'')+' onchange="stkToggleActif(\''+p.code+'\',\'labo\',this.checked)">Labo</label>'
-    +'<button class="btn bs" style="padding:4px 8px;" onclick="stkToggleCondPanel(\''+p.code+'\')" title="Formats de conditionnement">📦'+(condCount?' '+condCount:'')+'</button>'
-    +'<button class="btn bs" style="padding:4px 8px;" onclick="stkDuplicateProduit(\''+p.code+'\')" title="Dupliquer (lié au prix)">⎘</button>'
-    +'<button class="btn bs" style="padding:4px 8px;" onclick="stkDeleteProduit(\''+p.code+'\')">🗑️</button>'
-    +'</div>'
-    +'<div id="stk-cond-panel-'+p.code+'" style="display:none;margin:6px 0 0 50px;padding:8px;background:#F0F0F0;border-radius:8px;">'
-    +stkCondPanelHtml(p)
-    +'</div>'
-    +'</div>';
-}
-function stkCondPanelHtml(p){
-  var conds=stkConditionnements.filter(function(c){return c.produit_code===p.code;}).sort(function(a,b){return (a.ordre||0)-(b.ordre||0);});
-  var unite=p.prix_source_code?((stkProduits.find(function(x){return x.code===p.prix_source_code;})||{}).prix_unite||''):(p.prix_unite||'');
-  var rows=conds.map(function(c){
-    return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0;">'
-      +'<input type="text" class="fi" style="flex:1;padding:3px;font-size:12px;" value="'+esc(c.label)+'" onchange="stkRenameCond(\''+c.id+'\',this.value)">'
-      +'<span style="font-size:11px;color:var(--txm);">=</span>'
-      +'<input type="number" class="fi" style="width:60px;padding:3px;font-size:12px;" step="0.001" value="'+c.quantite_ref+'" onchange="stkUpdCondQte(\''+c.id+'\',this.value)">'
-      +'<span style="font-size:11px;color:var(--txm);">'+esc(unite||'unité')+'</span>'
-      +'<button class="btn bs" style="padding:2px 6px;font-size:10px;" onclick="stkDeleteCond(\''+c.id+'\')">🗑️</button>'
-      +'</div>';
-  }).join('');
-  return (rows||'<div style="font-size:11px;color:var(--txm);">Aucun format enregistré.</div>')
-    +'<button class="btn bp" style="margin-top:6px;padding:4px 10px;font-size:11px;" onclick="stkOpenCondModal(\''+p.code+'\')">+ Format</button>';
-}
-function stkToggleCondPanel(code){
-  var el=document.getElementById('stk-cond-panel-'+code);
-  if(!el)return;
-  el.style.display=(el.style.display==='none')?'block':'none';
-}
-function renderStocksCatalogue(){
-  var el=document.getElementById('stk-catalogue-list');
-  if(!el)return;
-  var filterEl=document.getElementById('stk-cat-filter');
-  var filter=filterEl?filterEl.value:'';
-  if(!stkOnglets.length){
-    el.innerHTML='<div class="card" style="color:var(--txm);">Aucun onglet — utilise le bouton "+ Onglet" ci-dessus.</div>';
-    return;
-  }
-  function dim(item){return stkVisible(item,filter)?'':'opacity:0.4;';}
-  function ongletMoveSelect(cat){
-    return '<select class="aselect" style="font-size:10px;padding:2px;" onchange="if(this.value)stkMoveCategorieToOnglet(\''+cat.code+'\',this.value);this.selectedIndex=0;">'
-      +'<option value="">📁 Déplacer…</option>'
-      +stkOnglets.filter(function(o){return o.code!==cat.onglet_code;}).map(function(o){return '<option value="'+o.code+'">→ '+esc(o.label)+'</option>';}).join('')
-      +'</select>';
-  }
-  function catMoveSelect(sc){
-    return '<select class="aselect" style="font-size:10px;padding:2px;" onchange="if(this.value)stkMoveSousCatToCategorie(\''+sc.code+'\',this.value);this.selectedIndex=0;">'
-      +'<option value="">📁 Déplacer…</option>'
-      +stkCategories.filter(function(c){return c.code!==sc.categorie_code;}).map(function(c){return '<option value="'+c.code+'">→ '+esc(c.label)+'</option>';}).join('')
-      +'</select>';
-  }
-  function prodMoveSelect(p){
-    var opts='<option value="">📁 Déplacer…</option>';
-    stkCategories.forEach(function(c){
-      if(c.code!==p.categorie_code||p.sous_categorie_code){
-        opts+='<option value="'+c.code+'|">→ '+esc(c.label)+'</option>';
-      }
-      stkSousCategories.filter(function(s){return s.categorie_code===c.code;}).forEach(function(s){
-        if(s.code!==p.sous_categorie_code)opts+='<option value="'+c.code+'|'+s.code+'">→ '+esc(c.label)+' &gt; '+esc(s.label)+'</option>';
-      });
-    });
-    return '<select class="aselect" style="font-size:10px;padding:2px;" onchange="if(this.value)stkMoveProduit2(\''+p.code+'\',this.value);this.selectedIndex=0;">'+opts+'</select>';
-  }
-  el.innerHTML=stkOnglets.map(function(ong){
-    var cats=stkCategories.filter(function(c){return c.onglet_code===ong.code;});
-    var catsHtml=cats.map(function(cat){
-      var sousCats=stkSousCategories.filter(function(s){return s.categorie_code===cat.code;});
-      var prodsDirects=stkProduits.filter(function(p){return p.categorie_code===cat.code&&!p.sous_categorie_code;});
-      var sousCatsHtml=sousCats.map(function(sc){
-        var prods=stkProduits.filter(function(p){return p.sous_categorie_code===sc.code;});
-        return '<div style="margin-left:14px;margin-top:6px;padding:8px;background:#fff;border-radius:8px;border:1px solid var(--bd);'+dim(sc)+'">'
-          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">'
-          +'<input type="number" class="fi" style="width:40px;padding:3px;font-size:11px;" value="'+(sc.ordre||0)+'" onchange="stkMoveSousCat(\''+sc.code+'\',this.value)">'
-          +'<input type="text" class="fi" style="flex:1;padding:3px;font-size:12px;font-weight:600;" value="'+esc(sc.label)+'" onchange="stkRenameSousCat(\''+sc.code+'\',this.value)">'
-          +stkVisiCheckboxesHtml(sc,sc.code,'souscat')
-          +catMoveSelect(sc)
-          +'<button class="btn bs" style="padding:3px 7px;" onclick="stkDeleteSousCat(\''+sc.code+'\')">🗑️</button>'
-          +'</div>'
-          +prods.map(function(p){return '<div style="'+dim(p)+'display:flex;align-items:center;gap:4px;">'+stkProduitRowHtml(p)+prodMoveSelect(p)+'</div>';}).join('')
-          +'<button class="btn bp" style="margin-top:4px;padding:4px 10px;font-size:11px;" onclick="stkPromptCreateProduit(\''+cat.code+'\',\''+sc.code+'\')">+ Produit</button>'
-          +'</div>';
-      }).join('');
-      return '<div style="margin-left:10px;margin-top:8px;padding:10px;background:#FAF4EC;border-radius:10px;'+dim(cat)+'">'
-        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">'
-        +'<input type="number" class="fi" style="width:42px;padding:4px;" value="'+(cat.ordre||0)+'" onchange="stkMoveCategorie(\''+cat.code+'\',this.value)">'
-        +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;" value="'+esc(cat.label)+'" onchange="stkRenameCategorie(\''+cat.code+'\',this.value)">'
-        +stkVisiCheckboxesHtml(cat,cat.code,'categorie')
-        +ongletMoveSelect(cat)
-        +'<button class="btn bs" onclick="stkDeleteCategorie(\''+cat.code+'\')">🗑️</button>'
-        +'</div>'
-        +prodsDirects.map(function(p){return '<div style="'+dim(p)+'display:flex;align-items:center;gap:4px;">'+stkProduitRowHtml(p)+prodMoveSelect(p)+'</div>';}).join('')
-        +sousCatsHtml
-        +'<div style="display:flex;gap:6px;margin-top:6px;">'
-        +'<button class="btn bp" style="padding:5px 10px;font-size:11px;" onclick="stkPromptCreateProduit(\''+cat.code+'\',null)">+ Produit</button>'
-        +'<button class="btn bs" style="padding:5px 10px;font-size:11px;" onclick="stkPromptCreateSousCat(\''+cat.code+'\')">+ Sous-catégorie</button>'
-        +'</div>'
-        +'</div>';
-    }).join('');
-    return '<div class="card" style="'+dim(ong)+'">'
-      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">'
-      +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+(ong.ordre||0)+'" onchange="stkMoveOnglet(\''+ong.code+'\',this.value)">'
-      +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;font-size:14px;" value="'+esc(ong.label)+'" onchange="stkRenameOnglet(\''+ong.code+'\',this.value)">'
-      +stkVisiCheckboxesHtml(ong,ong.code,'onglet')
-      +'<button class="btn bs" onclick="stkDeleteOnglet(\''+ong.code+'\')">🗑️</button>'
-      +'</div>'
-      +catsHtml
-      +'<button class="btn bp" style="margin-top:8px;padding:6px 12px;font-size:12px;" onclick="stkPromptCreateCategorie(\''+ong.code+'\')">+ Catégorie</button>'
-      +'</div>';
-  }).join('');
-}
-// -- Onglets --
-async function stkPromptCreateOnglet(){
-  var label=prompt('Nom du nouvel onglet :');
-  if(label===null)return;
-  label=label.trim();
-  if(!label){alert('Indique un nom d\'onglet.');return;}
-  var code=slugify(label);
-  var maxOrdre=stkOnglets.reduce(function(m,o){return Math.max(m,o.ordre||0);},0);
-  try{sbCheck(await db.from('master_onglets').insert({code:code,label:label,ordre:maxOrdre+10}));}
-  catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
-  loadStocksModule();
-}
-async function stkRenameOnglet(code,label){
-  label=label.trim();if(!label)return;
-  try{sbCheck(await db.from('master_onglets').update({label:label}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkMoveOnglet(code,val){
-  var ordre=parseInt(val,10);if(isNaN(ordre))return;
-  try{sbCheck(await db.from('master_onglets').update({ordre:ordre}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkDeleteOnglet(code){
-  if(!confirm('Supprimer cet onglet et toutes ses catégories/produits ?'))return;
-  try{
-    var cats=stkCategories.filter(function(c){return c.onglet_code===code;}).map(function(c){return c.code;});
-    for(var i=0;i<cats.length;i++)await stkDeleteCategorieSilent(cats[i]);
-    sbCheck(await db.from('master_onglets').delete().eq('code',code));
-  }catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-// -- Catégories --
-async function stkPromptCreateCategorie(ongletCode){
-  var label=prompt('Nom de la nouvelle catégorie :');
-  if(label===null)return;
-  label=label.trim();
-  if(!label){alert('Indique un nom de catégorie.');return;}
-  var code=slugify(label);
-  var maxOrdre=stkCategories.filter(function(c){return c.onglet_code===ongletCode;}).reduce(function(m,c){return Math.max(m,c.ordre||0);},0);
-  try{sbCheck(await db.from('master_categories').insert({code:code,label:label,onglet_code:ongletCode,ordre:maxOrdre+10}));}
-  catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
-  loadStocksModule();
-}
-async function stkMoveCategorieToOnglet(catCode,newOngletCode){
-  try{sbCheck(await db.from('master_categories').update({onglet_code:newOngletCode}).eq('code',catCode));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkRenameCategorie(code,label){
-  label=label.trim();if(!label)return;
-  try{sbCheck(await db.from('master_categories').update({label:label}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkMoveCategorie(code,val){
-  var ordre=parseInt(val,10);if(isNaN(ordre))return;
-  try{sbCheck(await db.from('master_categories').update({ordre:ordre}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkDeleteCategorieSilent(code){
-  var sousCats=stkSousCategories.filter(function(s){return s.categorie_code===code;}).map(function(s){return s.code;});
-  for(var i=0;i<sousCats.length;i++)await stkDeleteSousCatSilent(sousCats[i]);
-  await db.from('master_produits').delete().eq('categorie_code',code);
-  await db.from('master_categories').delete().eq('code',code);
-}
-async function stkDeleteCategorie(code){
-  if(!confirm('Supprimer cette catégorie et tout ce qu\'elle contient (sous-catégories, produits) ?'))return;
-  try{await stkDeleteCategorieSilent(code);}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-// -- Sous-catégories --
-async function stkPromptCreateSousCat(catCode){
-  var label=prompt('Nom de la nouvelle sous-catégorie :');
-  if(label===null)return;
-  label=label.trim();
-  if(!label){alert('Indique un nom de sous-catégorie.');return;}
-  var code=slugify(label);
-  var maxOrdre=stkSousCategories.filter(function(s){return s.categorie_code===catCode;}).reduce(function(m,s){return Math.max(m,s.ordre||0);},0);
-  try{sbCheck(await db.from('master_sous_categories').insert({code:code,label:label,categorie_code:catCode,ordre:maxOrdre+10}));}
-  catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
-  loadStocksModule();
-}
-async function stkMoveSousCatToCategorie(scCode,newCatCode){
-  try{sbCheck(await db.from('master_sous_categories').update({categorie_code:newCatCode}).eq('code',scCode));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkRenameSousCat(code,label){
-  label=label.trim();if(!label)return;
-  try{sbCheck(await db.from('master_sous_categories').update({label:label}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkMoveSousCat(code,val){
-  var ordre=parseInt(val,10);if(isNaN(ordre))return;
-  try{sbCheck(await db.from('master_sous_categories').update({ordre:ordre}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkDeleteSousCatSilent(code){
-  await db.from('master_produits').delete().eq('sous_categorie_code',code);
-  await db.from('master_sous_categories').delete().eq('code',code);
-}
-async function stkDeleteSousCat(code){
-  if(!confirm('Supprimer cette sous-catégorie et ses produits ?'))return;
-  try{await stkDeleteSousCatSilent(code);}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-// -- Produits --
-function stkUniqueProdCode(nom){
-  var base=slugify(nom);
-  var code=base;
-  var n=2;
-  var existing={};
-  stkProduits.forEach(function(p){existing[p.code]=true;});
-  while(existing[code]){code=base+'-'+n;n++;}
-  return code;
-}
-function stkUniqueProdCodeFromMap(nom,presenceMap,dedupKey){
-  if(presenceMap[dedupKey])return presenceMap[dedupKey].code; // déjà vu pour cette combinaison nom+catégorie, on réutilise le même code
-  var base=slugify(nom);
-  var code=base;
-  var n=2;
-  var used={};
-  stkProduits.forEach(function(p){used[p.code]=true;});
-  Object.keys(presenceMap).forEach(function(k){used[presenceMap[k].code]=true;});
-  while(used[code]){code=base+'-'+n;n++;}
-  return code;
-}
-async function stkPromptCreateProduit(catCode,sousCode){
-  var nom=prompt('Nom du nouveau produit :');
-  if(nom===null)return;
-  nom=nom.trim();
-  if(!nom){alert('Indique un nom de produit.');return;}
-  var normNom=stkNormName(nom);
-  var exactMatch=stkProduits.find(function(p){return stkNormName(p.nom)===normNom;});
-  var prixSourceCode=null;
-  if(exactMatch){
-    var catLabel=(stkCategories.find(function(c){return c.code===exactMatch.categorie_code;})||{}).label||'?';
-    var ok=confirm('Un produit nommé exactement "'+exactMatch.nom+'" existe déjà (catégorie '+catLabel+').\nPour éviter un doublon non lié, ce nouveau produit sera relié à son prix (le modifier sur l\'un mettra à jour l\'autre).\n\nContinuer ?');
-    if(!ok)return;
-    prixSourceCode=exactMatch.code;
-  }
-  var code=stkUniqueProdCode(nom);
-  var maxOrdre=stkProduits.filter(function(p){return p.categorie_code===catCode&&p.sous_categorie_code===sousCode;}).reduce(function(m,p){return Math.max(m,p.ordre||0);},0);
-  try{
-    sbCheck(await db.from('master_produits').insert({code:code,nom:nom,categorie_code:catCode,sous_categorie_code:sousCode,ordre:maxOrdre+10,prix_source_code:prixSourceCode}));
-  }catch(e){alert('Erreur : '+e.message);return;}
-  loadStocksModule();
-}
-async function stkDuplicateProduit(origCode){
-  var orig=stkProduits.find(function(p){return p.code===origCode;});
-  if(!orig)return;
-  var code=stkUniqueProdCode(orig.nom);
-  var maxOrdre=stkProduits.filter(function(p){return p.categorie_code===orig.categorie_code&&p.sous_categorie_code===orig.sous_categorie_code;}).reduce(function(m,p){return Math.max(m,p.ordre||0);},0);
-  // La copie est reliée au prix de l'original (source réelle = celle de l'original si lui-même est déjà lié, sinon l'original)
-  var sourceCode=orig.prix_source_code||orig.code;
-  try{
-    sbCheck(await db.from('master_produits').insert({
-      code:code,nom:orig.nom,categorie_code:orig.categorie_code,sous_categorie_code:orig.sous_categorie_code,
-      ordre:maxOrdre+10,prix_source_code:sourceCode
-    }));
-  }catch(e){alert('Erreur : '+e.message);return;}
-  loadStocksModule();
-  alert('✅ "'+orig.nom+'" dupliqué, relié en permanence à son prix. Utilise "📁 Déplacer" sur la copie pour l\'envoyer dans l\'autre catégorie (ex: à emporter).');
-}
-async function stkUnlinkProduitPrix(code){
-  var p=stkProduits.find(function(x){return x.code===code;});
-  var source=p&&p.prix_source_code?stkProduits.find(function(x){return x.code===p.prix_source_code;}):null;
-  var startPrix=source?source.prix:null;
-  var startUnite=source?source.prix_unite:null;
-  try{sbCheck(await db.from('master_produits').update({prix_source_code:null,prix:startPrix,prix_unite:startUnite}).eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkMoveProduit2(prodCode,target){
-  var parts=target.split('|');
-  var catCode=parts[0]||null;
-  var scCode=parts[1]||null;
-  try{sbCheck(await db.from('master_produits').update({categorie_code:catCode,sous_categorie_code:scCode}).eq('code',prodCode));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkRenameProduit(code,nom){
-  nom=nom.trim();if(!nom)return;
-  try{sbCheck(await db.from('master_produits').update({nom:nom}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkMoveProduit(code,val){
-  var ordre=parseInt(val,10);if(isNaN(ordre))return;
-  try{sbCheck(await db.from('master_produits').update({ordre:ordre}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkUpdProduitPrix(code,val){
-  var prix=val===''?null:parseFloat(val);
-  try{sbCheck(await db.from('master_produits').update({prix:prix}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkUpdProduitUnite(code,unite){
-  try{sbCheck(await db.from('master_produits').update({prix_unite:unite}).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkToggleActif(code,resto,checked){
-  var field='actif_'+resto;
-  var patch={};patch[field]=checked;
-  try{sbCheck(await db.from('master_produits').update(patch).eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-async function stkDeleteProduit(code){
-  if(!confirm('Supprimer ce produit du catalogue partagé ?'))return;
-  try{sbCheck(await db.from('master_produits').delete().eq('code',code));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-}
-
-// -- Formats de conditionnement (ex: bouteille 70cl, carton de 6, fût 30L...) --
-var stkCondModalProdCode=null;
-function stkOpenCondModal(prodCode){
-  stkCondModalProdCode=prodCode;
-  var p=stkProduits.find(function(x){return x.code===prodCode;});
-  var unite=p?(p.prix_source_code?((stkProduits.find(function(x){return x.code===p.prix_source_code;})||{}).prix_unite||''):(p.prix_unite||'')):'';
-  document.getElementById('stkcondmodal-title').textContent='Nouveau format'+(p?' — '+p.nom:'');
-  document.getElementById('stkcondmodal-unite').textContent=unite||'unité';
-  document.getElementById('stkcondmodal-label').value='';
-  document.getElementById('stkcondmodal-qte').value='';
-  // Modèles déjà créés sur d'autres produits, dédupliqués par nom (insensible à la casse)
-  var seen={},templates=[];
-  stkConditionnements.forEach(function(c){
-    var key=(c.label||'').trim().toLowerCase();
-    if(!key||seen[key])return;
-    seen[key]=true;
-    templates.push(c);
-  });
-  templates.sort(function(a,b){return (a.label||'').localeCompare(b.label||'');});
-  var box=document.getElementById('stkcondmodal-templates');
-  if(templates.length){
-    box.innerHTML='<div style="font-size:11px;color:var(--txm);margin-bottom:6px;">Modèles déjà utilisés (clique pour pré-remplir, la quantité reste modifiable) :</div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
-      +templates.map(function(t){
-        return '<button type="button" class="btn bs sm" style="font-size:11px;" onclick="stkPickCondTemplate(\''+esc(t.label).replace(/'/g,"\\'")+'\','+t.quantite_ref+')">'+esc(t.label)+'</button>';
-      }).join('')
-      +'</div>';
-  }else{
-    box.innerHTML='<div style="font-size:11px;color:var(--txm);">Aucun modèle existant, crée le premier format ci-dessous.</div>';
-  }
-  document.getElementById('stkcondmodal').classList.add('op');
-}
-function stkPickCondTemplate(label,qte){
-  document.getElementById('stkcondmodal-label').value=label;
-  document.getElementById('stkcondmodal-qte').value=qte;
-}
-async function stkConfirmCreateCond(){
-  var prodCode=stkCondModalProdCode;
-  if(!prodCode)return;
-  var label=(document.getElementById('stkcondmodal-label').value||'').trim();
-  if(!label){alert('Indique un nom de format.');return;}
-  var qteStr=(document.getElementById('stkcondmodal-qte').value||'').toString().replace(',','.');
-  var qte=parseFloat(qteStr);
-  if(!qte||qte<=0){alert('Indique une quantité valide.');return;}
-  var maxOrdre=stkConditionnements.filter(function(c){return c.produit_code===prodCode;}).reduce(function(m,c){return Math.max(m,c.ordre||0);},0);
-  try{sbCheck(await db.from('master_conditionnements').insert({produit_code:prodCode,label:label,quantite_ref:qte,ordre:maxOrdre+10}));}
-  catch(e){alert('Erreur : '+e.message);return;}
-  closeM('stkcondmodal');
-  loadStocksModule();
-  // Rouvrir le panneau après le rechargement
-  setTimeout(function(){var el=document.getElementById('stk-cond-panel-'+prodCode);if(el)el.style.display='block';},50);
-}
-async function stkRenameCond(id,label){
-  label=label.trim();if(!label)return;
-  try{sbCheck(await db.from('master_conditionnements').update({label:label}).eq('id',id));}catch(e){alert('Erreur : '+e.message);}
-}
-async function stkUpdCondQte(id,val){
-  var qte=parseFloat((val||'').toString().replace(',','.'));
-  if(!qte||qte<=0){alert('Quantité invalide.');loadStocksModule();return;}
-  try{sbCheck(await db.from('master_conditionnements').update({quantite_ref:qte}).eq('id',id));}catch(e){alert('Erreur : '+e.message);}
-}
-async function stkDeleteCond(id){
-  if(!confirm('Supprimer ce format ?'))return;
-  var prodCode=(stkConditionnements.find(function(c){return c.id===id;})||{}).produit_code;
-  try{sbCheck(await db.from('master_conditionnements').delete().eq('id',id));}catch(e){alert('Erreur : '+e.message);}
-  loadStocksModule();
-  if(prodCode)setTimeout(function(){var el=document.getElementById('stk-cond-panel-'+prodCode);if(el)el.style.display='block';},50);
-}
-
 // -- Module Caisse : rapprochement produits Hiboutik <-> produits_vendus --
 let caisseMapping=[];
 let caisseProduitsVendus=[];
@@ -6910,7 +6266,6 @@ let caisseMenuItemsAll=[];   // items du menu public, pour dériver les sous-cat
 // ── Réglages : fonctionnalités activables/désactivables pour les salariés (app pointage) ──
 // Ajouter une entrée ici suffit pour qu'elle apparaisse dans l'écran Réglages.
 var FEATURE_FLAGS_CATALOG=[
-  {key:'stocks_enabled',label:'📦 Gestion des stocks',desc:'Bouton "Gérer les stocks" dans l\'app de pointage des salariés.'},
   {key:'comptage_rapide_enabled',label:'🧮 Comptage rapide',desc:'Bouton "Comptage rapide" dans l\'app de pointage des salariés (nouveau module de comptage, branché sur ingredient_seuils).'}
 ];
 var rctFeatureFlags={};
@@ -7312,184 +6667,8 @@ async function caisseIgnorer(hiboutikProductId){
   loadCaisseModule();
 }
 
-// -- Synchronisation vers les restaurants (fusion, jamais de suppression côté restaurant) --
-async function syncMasterToRestaurant(restaurantId){
-  var activeField='actif_'+restaurantId;
-  var cur=sbCheck(await db.from('stock_catalogue').select('*').eq('restaurant_id',restaurantId).maybeSingle());
-  var currentProducts=(cur.data&&Array.isArray(cur.data.products))?cur.data.products:[];
-  var currentCats=(cur.data&&Array.isArray(cur.data.cats))?cur.data.cats:[];
-  var currentSuppliers=(cur.data&&cur.data.suppliers)?cur.data.suppliers:{};
-  var currentOverrides=(cur.data&&cur.data.overrides)?cur.data.overrides:{};
-
-  var activeOngletCodes={};
-  stkOnglets.forEach(function(o){if(o[activeField]!==false)activeOngletCodes[o.code]=true;});
-  var activeCats=stkCategories.filter(function(c){return c[activeField]!==false&&activeOngletCodes[c.onglet_code];});
-  var activeCatCodes={};activeCats.forEach(function(c){activeCatCodes[c.code]=true;});
-  var activeSousCats=stkSousCategories.filter(function(s){return s[activeField]!==false&&activeCatCodes[s.categorie_code];});
-  var activeSousCatCodes={};activeSousCats.forEach(function(s){activeSousCatCodes[s.code]=true;});
-  var activeProduits=stkProduits.filter(function(p){
-    return p[activeField]!==false&&activeCatCodes[p.categorie_code]&&(!p.sous_categorie_code||activeSousCatCodes[p.sous_categorie_code]);
-  });
-
-  // Fusionner les catégories (mise à jour du label, jamais de suppression)
-  var catsById={};
-  currentCats.forEach(function(c){catsById[c.id]=c;});
-  activeCats.forEach(function(mc){
-    if(catsById[mc.code]){catsById[mc.code].label=mc.label;}
-    else{catsById[mc.code]={id:mc.code,label:mc.label,color:'#7A0F14',ordre:mc.ordre||0,subcats:[]};}
-  });
-  activeSousCats.forEach(function(msc){
-    var parentCat=catsById[msc.categorie_code];
-    if(!parentCat)return;
-    if(!Array.isArray(parentCat.subcats))parentCat.subcats=[];
-    var existingSub=parentCat.subcats.find(function(s){return s.id===msc.code;});
-    if(existingSub)existingSub.label=msc.label;
-    else parentCat.subcats.push({id:msc.code,label:msc.label});
-  });
-  var newCats=Object.values(catsById);
-
-  // Fusionner les produits (mise à jour nom/catégorie, jamais de suppression, jamais de fournisseur/seuils touchés)
-  var prodsById={};
-  currentProducts.forEach(function(p){prodsById[p.id]=p;});
-  activeProduits.forEach(function(mp){
-    if(prodsById[mp.code]){
-      prodsById[mp.code].name=mp.nom;
-      prodsById[mp.code].cat=mp.categorie_code;
-      prodsById[mp.code].sub=mp.sous_categorie_code||undefined;
-    }else{
-      prodsById[mp.code]={id:mp.code,cat:mp.categorie_code,sub:mp.sous_categorie_code||undefined,sup:'',name:mp.nom,unit:mp.prix_unite||'kg',type:'qty'};
-    }
-  });
-  var newProducts=Object.values(prodsById);
-
-  sbCheck(await db.from('stock_catalogue').upsert({
-    restaurant_id:restaurantId,
-    products:newProducts,
-    cats:newCats,
-    suppliers:currentSuppliers,
-    overrides:currentOverrides,
-    updated_by_nom:'catalogue-maitre',
-    updated_at:new Date().toISOString()
-  },{onConflict:'restaurant_id'}));
-  return {catsCount:newCats.length,prodsCount:newProducts.length,newProdsCount:activeProduits.length};
-}
-// -- Import depuis l'existant (Stock Port/Dabray/Labo + rapprochement prix Coûts) --
-function stkNormName(s){
-  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-}
-async function importMasterCatalogueDepuisExistant(){
-  var btn=event&&event.target;
-  if(btn)btn.disabled=true;
-  try{
-    // 1. Récupérer les catalogues opérationnels (structure fiable : nom + catégorie)
-    var rsc=sbCheck(await db.from('stock_catalogue').select('restaurant_id,cats,products').in('restaurant_id',['port','dabray','labo']));
-    var scRows=rsc.data||[];
-
-    // 2. Récupérer l'ancienne base Coûts, pour tenter un rapprochement de prix par nom (best-effort)
-    var rprix=sbCheck(await db.from('produits').select('nom,mode_prix,prix_unitaire,prix_kilo,prix_litre').in('restaurant_id',['port','dabray','labo']));
-    var prixRows=rprix.data||[];
-    var prixByName={};
-    prixRows.forEach(function(pr){
-      if(!pr.nom)return;
-      var key=stkNormName(pr.nom);
-      if(prixByName[key])return; // garder la première correspondance trouvée
-      var prix=null,unite=null;
-      if(pr.mode_prix==='kilo'&&pr.prix_kilo!=null){prix=pr.prix_kilo;unite='kg';}
-      else if(pr.mode_prix==='litre'&&pr.prix_litre!=null){prix=pr.prix_litre;unite='L';}
-      else if(pr.mode_prix==='unitaire'&&pr.prix_unitaire!=null){prix=pr.prix_unitaire;unite='pièce';}
-      if(prix!=null)prixByName[key]={prix:prix,unite:unite};
-    });
-
-    // 3. Fusionner catégories (une seule sous un onglet "Général" par défaut, pas de notion d'onglet côté Stock actuel)
-    var ongletCode='general';
-    var ongletExists=stkOnglets.some(function(o){return o.code===ongletCode;});
-    if(!ongletExists){
-      sbCheck(await db.from('master_onglets').insert({code:ongletCode,label:'Général',ordre:0}));
-    }
-    var catsByCode={},sousCatsByCode={};
-    var prodPresence={}; // code -> {port:bool, dabray:bool, labo:bool}
-    // Passe 1 : collecter toutes les catégories/sous-catégories d'abord (across les 3 restaurants)
-    scRows.forEach(function(row){
-      (row.cats||[]).forEach(function(c){
-        if(!c||!c.id)return;
-        if(!catsByCode[c.id])catsByCode[c.id]={code:c.id,label:c.label||c.id,onglet_code:ongletCode};
-        (c.subcats||[]).forEach(function(sc){
-          if(!sc||!sc.id)return;
-          if(!sousCatsByCode[sc.id])sousCatsByCode[sc.id]={code:sc.id,label:sc.label||sc.id,categorie_code:c.id};
-        });
-      });
-    });
-    // Passe 2 : collecter les produits, en ignorant les références cassées (catégorie/sous-catégorie qui n'existe pas vraiment)
-    // Dédoublonnage par nom + catégorie (pas juste le nom) : un même nom dans 2 catégories différentes
-    // (ex: Lambrusco sur place / à emporter) reste 2 produits distincts.
-    scRows.forEach(function(row){
-      (row.products||[]).forEach(function(p){
-        if(!p||!p.name)return;
-        var catCode=(p.cat&&catsByCode[p.cat])?p.cat:null;
-        var subCode=(p.sub&&sousCatsByCode[p.sub]&&sousCatsByCode[p.sub].categorie_code===catCode)?p.sub:null;
-        var dedupKey=slugify(p.name)+'|'+(catCode||'')+'|'+(subCode||'');
-        var code=stkUniqueProdCodeFromMap(p.name,prodPresence,dedupKey);
-        if(!prodPresence[dedupKey])prodPresence[dedupKey]={code:code,nom:p.name,categorie_code:catCode,sous_categorie_code:subCode,port:false,dabray:false,labo:false};
-        prodPresence[dedupKey][row.restaurant_id]=true;
-      });
-    });
-    var catRows=Object.values(catsByCode);
-    var sousCatRows=Object.values(sousCatsByCode);
-    if(catRows.length)sbCheck(await db.from('master_categories').upsert(catRows,{onConflict:'code'}));
-    if(sousCatRows.length)sbCheck(await db.from('master_sous_categories').upsert(sousCatRows,{onConflict:'code'}));
-
-    // 4. Produits : séparer nouveaux (payload complet, avec visibilité pré-cochée) et existants (juste nom/catégorie, prix si trouvé, jamais la visibilité déjà réglée à la main)
-    var existingCodes={};
-    stkProduits.forEach(function(p){existingCodes[p.code]=true;});
-    var groupMaxOrdre={}; // clé = "categorie|sous_categorie" -> position max déjà utilisée dans ce groupe
-    stkProduits.forEach(function(p){
-      var key=(p.categorie_code||'')+'|'+(p.sous_categorie_code||'');
-      groupMaxOrdre[key]=Math.max(groupMaxOrdre[key]||0,p.ordre||0);
-    });
-    var allProds=Object.values(prodPresence);
-    var toInsert=[],toUpdate=[];
-    var prixTrouves=0;
-    allProds.forEach(function(p){
-      var prixInfo=prixByName[stkNormName(p.nom)];
-      if(existingCodes[p.code]){
-        var upd={code:p.code,nom:p.nom,categorie_code:p.categorie_code,sous_categorie_code:p.sous_categorie_code};
-        toUpdate.push(upd);
-      }else{
-        var key=(p.categorie_code||'')+'|'+(p.sous_categorie_code||'');
-        groupMaxOrdre[key]=(groupMaxOrdre[key]||0)+10;
-        var ins={code:p.code,nom:p.nom,categorie_code:p.categorie_code,sous_categorie_code:p.sous_categorie_code,actif_port:p.port,actif_dabray:p.dabray,actif_labo:p.labo,ordre:groupMaxOrdre[key]};
-        if(prixInfo){ins.prix=prixInfo.prix;ins.prix_unite=prixInfo.unite;prixTrouves++;}
-        toInsert.push(ins);
-      }
-    });
-    if(toInsert.length)sbCheck(await db.from('master_produits').upsert(toInsert,{onConflict:'code'}));
-    if(toUpdate.length)sbCheck(await db.from('master_produits').upsert(toUpdate,{onConflict:'code'}));
-
-    alert('✅ Import terminé : '+catRows.length+' catégorie(s), '+sousCatRows.length+' sous-catégorie(s), '+toInsert.length+' nouveau(x) produit(s) importé(s) ('+prixTrouves+' avec un prix retrouvé automatiquement — à vérifier), '+toUpdate.length+' déjà existant(s) mis à jour (nom/catégorie seulement, visibilité et prix laissés tels quels).');
-  }catch(e){
-    alert('Erreur lors de l\'import : '+e.message);
-  }finally{
-    if(btn)btn.disabled=false;
-  }
-  loadStocksModule();
-}
-async function pushMasterCatalogueToRestaurants(){
-  if(!confirm('Pousser le catalogue maître vers Port, Dabray et Labo ?\nAjoute les nouveautés, ne supprime rien, ne touche pas aux fournisseurs/seuils déjà configurés.'))return;
-  try{
-    await syncMasterToRestaurant('port');
-    await syncMasterToRestaurant('dabray');
-    await syncMasterToRestaurant('labo');
-    alert('✅ Catalogue poussé vers Port, Dabray et Labo.\nLes nouveaux produits sont ajoutés SANS fournisseur — va dans "Réglages restaurant" pour les configurer, sinon ils resteront invisibles côté employés.');
-  }catch(e){
-    alert('Erreur lors de la synchronisation : '+e.message);
-  }
-}
 
 // ══ MODULE LABO — Transformation (lots) ══════════════════════════════════
-function openLaboStockAdmin(){
-  try{localStorage.setItem('rg_admin_session',JSON.stringify({at:new Date().toISOString()}));}catch(e){}
-  window.open('milos-pizza-labo.html','_blank');
-}
 var laboLotsCache=[];
 var laboCommandesCache=[]; // commandes en_attente / partiellement_envoyee, avec .lignes[]
 var laboPrepSelections={}; // {commandeId: {ligneId: [lotId,...]}}
@@ -12814,9 +11993,6 @@ async function init(){
       <input type="text" class="fi" id="role-nom" placeholder="Ex: Pizzaiolo"></div>
     <div class="fr"><label class="fl2">Couleur</label>
       <input type="color" class="fi" id="role-couleur" value="#B91E26" style="height:42px"></div>
-    <div class="fr"><label class="fl2">Cat&#233;gories stocks accessibles</label>
-      <div id="role-stock-cats" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
-    </div>
     <div class="fr"><label class="fl2">Cat&#233;gories comptage rapide accessibles</label>
       <div style="font-size:10px;color:var(--txm);margin-bottom:4px">Les salari&#233;s avec ce r&#244;le ne verront que ces cat&#233;gories dans "Comptage rapide". Aucune case coch&#233;e = aucun acc&#232;s tant que ce n'est pas configur&#233;.</div>
       <div id="role-comptage-resto-filter" style="display:flex;flex-wrap:wrap;margin:2px 0 6px"></div>

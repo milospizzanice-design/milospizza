@@ -245,11 +245,6 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cs">Congés, absences, acomptes</div>
         <div id="suivi-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
       </div>
-      <div class="cbtn" onclick="menuStocks()" id="cbtn-stocks">
-        <div class="ci">&#128230;</div>
-        <div class="cl">G&eacute;rer les stocks</div>
-        <div class="cs">Compter, commander</div>
-      </div>
       <div class="cbtn" onclick="menuComptage()" id="cbtn-comptage">
         <div class="ci">&#129518;</div>
         <div class="cl">Comptage rapide</div>
@@ -552,16 +547,6 @@ async function applyFeatureFlags(){
     var flags={};
     (r.data||[]).forEach(function(f){flags[f.key]=f.enabled;});
     window.rgFeatureFlags=flags;
-    var btn=document.getElementById('cbtn-stocks');
-    if(btn){
-      if(flags.stocks_enabled===false){
-        btn.style.opacity='0.4';
-        btn.style.pointerEvents='none';
-      }else{
-        btn.style.opacity='';
-        btn.style.pointerEvents='';
-      }
-    }
     var btnCpt=document.getElementById('cbtn-comptage');
     if(btnCpt){
       if(flags.comptage_rapide_enabled===false){
@@ -1212,45 +1197,6 @@ function initAbsDates(){
     setTimeout(function(){try{at.focus();if(at.showPicker)at.showPicker();}catch(e){}},100);
   };
 }
-async function menuStocks(){
-  if(window.rgFeatureFlags&&window.rgFeatureFlags.stocks_enabled===false){
-    alert('La gestion des stocks n\'est pas encore activée pour le moment. Demande à un manager.');
-    return;
-  }
-  // Ouvrir l'onglet TOUT DE SUITE, en synchrone avec le tap : Safari iOS bloque ou déconnecte
-  // window.open() s'il est appelé après un await, même court. On redirige cet onglet une fois prêt.
-  var newTab=null;
-  try{newTab=window.open('','_blank');}catch(e){}
-  // Recharge la fiche depuis la base : évite d'utiliser un rôle périmé si l'admin
-  // a modifié les accès stocks pendant que ce salarié était déjà connecté au pointage.
-  try{
-    var fresh=await db.from('employees').select('roles,stock_cats_add,stock_cats_remove').eq('id',emp.id).single();
-    if(fresh&&fresh.data){
-      emp.roles=fresh.data.roles;
-      emp.stock_cats_add=fresh.data.stock_cats_add;
-      emp.stock_cats_remove=fresh.data.stock_cats_remove;
-    }
-  }catch(e){}
-  // Session lue par les fichiers stocks : identité + rôles + overrides -> plus besoin de PIN séparé.
-  try{
-    localStorage.setItem('rg_session',JSON.stringify({
-      id:emp.id,
-      nom:emp.prenom+' '+emp.nom,
-      restaurant:RESTAURANT_ID,
-      roles:Array.isArray(emp.roles)?emp.roles:[],
-      catsAdd:Array.isArray(emp.stock_cats_add)?emp.stock_cats_add:[],
-      catsRemove:Array.isArray(emp.stock_cats_remove)?emp.stock_cats_remove:[],
-      at:new Date().toISOString()
-    }));
-  }catch(e){}
-  // Table de correspondance restaurant -> fichier de gestion des stocks (ajouter une ligne ici
-  // à chaque nouveau restaurant créé dans Réglages > Établissements, sinon ça retombe sur Port par défaut).
-  var STOCK_FILES={port:'milos-pizza-port.html',dabray:'milos-pizza-dabray.html',labo:'milos-pizza-labo.html'};
-  var url=STOCK_FILES[RESTAURANT_ID]||'milos-pizza-port.html';
-  if(newTab&&!newTab.closed){newTab.location.href=url;}
-  else{window.open(url,'_blank');}
-}
-
 // ── COMPTAGE RAPIDE (nouveau module, branché sur ingredients/ingredient_seuils/ingredient_comptages) ──
 // Léger et sans PIN séparé : réutilise directement la session de pointage (emp) déjà authentifiée.
 function escCpt(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
