@@ -2349,6 +2349,7 @@ async function cptAutoCommandeCuisineSiNecessaire(i){
   }catch(e){console.error('cptAutoCommandeCuisineSiNecessaire',e);}
 }
 var cuisineCommandesCache=[];
+var cuisineIngredientsCache=[]; // {code,nom,categorie} — pour regrouper l'affichage par catégorie
 async function loadCuisineTaches(){
   var cmdRes=await db.from('cuisine_commandes').select('*').eq('restaurant_id',RESTAURANT_ID).eq('statut','a_faire').order('created_at',{ascending:true});
   if(cmdRes.error)throw cmdRes.error;
@@ -2362,6 +2363,12 @@ async function loadCuisineTaches(){
     commandes=commandes.filter(function(c){return c.lignes.length>0;}); // ignore une commande dont toutes les lignes sont déjà faites (sera clôturée sous peu)
   }
   cuisineCommandesCache=commandes;
+  if(!cuisineIngredientsCache.length){
+    try{
+      var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id','global').eq('actif',true);
+      cuisineIngredientsCache=ingRes.data||[];
+    }catch(e){console.warn('catégories cuisine indisponibles',e);}
+  }
   return commandes;
 }
 async function checkCuisineTachesBadge(){
@@ -2398,13 +2405,27 @@ function renderCuisineTachesList(){
     box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Rien &agrave; pr&eacute;parer pour l\'instant. &#128077;</div>';
     return;
   }
-  box.innerHTML=allLignes.map(function(x){
-    var l=x.ligne;
-    return '<div class="cbtn" style="cursor:default;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">'
-      +'<div><div class="cl" style="margin-bottom:0">'+escCpt(l.produit_nom||l.produit_code)+'</div>'
-      +'<div class="cs">Quantit&eacute; : '+escCpt(String(l.quantite_demandee))+'</div></div>'
-      +'<button type="button" class="nb" style="padding:8px 14px;font-size:12px;" onclick="marquerCuisineLigneFaite('+x.commandeId+','+l.id+')">&#10003; Fait</button>'
-      +'</div>';
+  // Regroupement par catégorie d'ingrédient — sinon la liste reste dans l'ordre brut d'insertion, illisible
+  // dès qu'il y a plus de quelques articles de familles différentes (même principe que "À préparer/expédier").
+  var catByCode={};
+  cuisineIngredientsCache.forEach(function(i){catByCode[i.code]=i.categorie||'Autre';});
+  var byCat={};
+  allLignes.forEach(function(x){
+    var cat=catByCode[x.ligne.produit_code]||'Autre';
+    (byCat[cat]=byCat[cat]||[]).push(x);
+  });
+  var catNames=Object.keys(byCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+  box.innerHTML=catNames.map(function(cat){
+    var xs=byCat[cat].slice().sort(function(a,b){return (a.ligne.produit_nom||a.ligne.produit_code).localeCompare(b.ligne.produit_nom||b.ligne.produit_code,'fr');});
+    var rowsHtml=xs.map(function(x){
+      var l=x.ligne;
+      return '<div class="cbtn" style="cursor:default;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">'
+        +'<div><div class="cl" style="margin-bottom:0">'+escCpt(l.produit_nom||l.produit_code)+'</div>'
+        +'<div class="cs">Quantit&eacute; : '+escCpt(String(l.quantite_demandee))+'</div></div>'
+        +'<button type="button" class="nb" style="padding:8px 14px;font-size:12px;" onclick="marquerCuisineLigneFaite('+x.commandeId+','+l.id+')">&#10003; Fait</button>'
+        +'</div>';
+    }).join('');
+    return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:rgba(255,255,255,.55);margin:12px 0 4px;">'+escCpt(cat)+' <span style="font-weight:400;text-transform:none;letter-spacing:0;">('+xs.length+')</span></div>'+rowsHtml;
   }).join('');
 }
 async function marquerCuisineLigneFaite(commandeId,ligneId){
