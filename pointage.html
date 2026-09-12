@@ -1345,7 +1345,7 @@ async function loadCommandesFournisseursData(){
   var mergeScope=(RESTAURANT_ID==='dabray'||RESTAURANT_ID==='labo')?['dabray','labo']:[RESTAURANT_ID];
   var seuilsRes=await db.from('ingredient_seuils').select('*').in('restaurant_id',mergeScope);
   if(seuilsRes.error)throw seuilsRes.error;
-  var comptagesRes=await db.from('ingredient_comptages').select('id,ingredient_code,restaurant_id,valeur,compte_le,commande_envoyee').in('restaurant_id',mergeScope).order('compte_le',{ascending:false});
+  var comptagesRes=await db.from('ingredient_comptages').select('id,ingredient_code,restaurant_id,valeur,compte_le,commande_envoyee,compte_par_id').in('restaurant_id',mergeScope).order('compte_le',{ascending:false});
   if(comptagesRes.error)throw comptagesRes.error;
   var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,is_cuisine_interne,whatsapp_groupe,heure_limite,jours_livraison,delai_commande_jours');
   var suppliersById={};(fournRes.data||[]).forEach(function(f){suppliersById[f.id]=f;});
@@ -1393,7 +1393,7 @@ async function loadCommandesFournisseursData(){
     var rulesForResto=(reglesByCode[s.ingredient_code]||{})[s.restaurant_id]||[];
     var gate=reglesGateStatus(rulesForResto,sup,suppliersById);
     if(gate.gated&&!gate.matches&&!isRuptureTotale(s.type_suivi,d.valeur))return;
-    rawItems.push({resto:s.restaurant_id,code:s.ingredient_code,fournisseurId:sup.id,typeSuivi:s.type_suivi,valeur:d.valeur,manque:manque,colisage:s.colisage,uniteComptage:s.unite_comptage,uniteCommande:s.unite_commande,comptageId:d.id});
+    rawItems.push({resto:s.restaurant_id,code:s.ingredient_code,fournisseurId:sup.id,typeSuivi:s.type_suivi,valeur:d.valeur,manque:manque,colisage:s.colisage,uniteComptage:s.unite_comptage,uniteCommande:s.unite_commande,comptageId:d.id,comptePar:d.compte_par_id||null});
   });
   // Étape 2 : fusionne par (ingrédient, fournisseur) à travers les restaurants du périmètre — quantités
   // additionnées pour le suivi quantitatif (une seule ligne, un seul arrondi colisage sur le total, pas un
@@ -1402,10 +1402,11 @@ async function loadCommandesFournisseursData(){
   var merged={};
   rawItems.forEach(function(it){
     var key=it.code+'|'+it.fournisseurId;
-    if(!merged[key])merged[key]={code:it.code,fournisseurId:it.fournisseurId,typeSuivi:it.typeSuivi,restos:[],manqueTotal:0,colisage:it.colisage,uniteComptage:it.uniteComptage,uniteCommande:it.uniteCommande,valeurs:[],comptageIds:[]};
+    if(!merged[key])merged[key]={code:it.code,fournisseurId:it.fournisseurId,typeSuivi:it.typeSuivi,restos:[],manqueTotal:0,colisage:it.colisage,uniteComptage:it.uniteComptage,uniteCommande:it.uniteCommande,valeurs:[],comptageIds:[],comptePars:[]};
     var m=merged[key];
     m.restos.push(it.resto);
     m.comptageIds.push(it.comptageId);
+    if(it.comptePar)m.comptePars.push(it.comptePar);
     m.valeurs.push({resto:it.resto,valeur:it.valeur});
     if(it.typeSuivi==='qty'&&it.manque)m.manqueTotal+=it.manque;
   });
@@ -1428,25 +1429,72 @@ async function loadCommandesFournisseursData(){
     }else{
       valeurAffichee=m.valeurs.length>1?m.valeurs.map(function(v){return (restoNamesById[v.resto]||v.resto)+': '+v.valeur;}).join(' · '):m.valeurs[0].valeur;
     }
-    return {code:m.code,nom:ing?ing.nom:m.code,fournisseurId:m.fournisseurId,suggestion:suggestion,valeur:valeurAffichee,restoTag:restoTag,comptageIds:m.comptageIds};
+    return {code:m.code,nom:ing?ing.nom:m.code,fournisseurId:m.fournisseurId,suggestion:suggestion,valeur:valeurAffichee,restoTag:restoTag,comptageIds:m.comptageIds,comptePars:m.comptePars};
   });
   var byFourn={};
   items.forEach(function(it){
     byFourn[it.fournisseurId]=byFourn[it.fournisseurId]||{sup:suppliersById[it.fournisseurId],items:[]};
     byFourn[it.fournisseurId].items.push(it);
   });
+  // Qui a compté quoi, affiché par RÔLE (pas par nom de salarié) : un fournisseur donné a pu être alimenté
+  // par plusieurs personnes dans la journée, chacune avec son ou ses rôles — utile pour savoir qui a
+  // contribué à cette commande sans exposer les noms individuels sur un écran partagé (tablette commune).
+  var allEmpIds={};
+  items.forEach(function(it){(it.comptePars||[]).forEach(function(id){allEmpIds[id]=true;});});
+  var empIds=Object.keys(allEmpIds);
+  if(empIds.length){
+    try{
+      var empsRes=await db.from('employees').select('id,roles').in('id',empIds);
+      var rolesNeeded={};
+      (empsRes.data||[]).forEach(function(e){(e.roles||[]).forEach(function(rid){rolesNeeded[rid]=true;});});
+      var roleIds=Object.keys(rolesNeeded);
+      var rolesRes=roleIds.length?await db.from('roles').select('id,nom').in('id',roleIds):{data:[]};
+      var roleNomById={};(rolesRes.data||[]).forEach(function(r){roleNomById[r.id]=r.nom;});
+      var roleNomsByEmp={};
+      (empsRes.data||[]).forEach(function(e){roleNomsByEmp[e.id]=(e.roles||[]).map(function(rid){return roleNomById[rid];}).filter(Boolean);});
+      Object.keys(byFourn).forEach(function(fid){
+        var set={};
+        byFourn[fid].items.forEach(function(it){
+          (it.comptePars||[]).forEach(function(empId){(roleNomsByEmp[empId]||[]).forEach(function(nom){set[nom]=true;});});
+        });
+        byFourn[fid].rolesNoms=Object.keys(set).sort(function(a,b){return a.localeCompare(b,'fr');});
+      });
+    }catch(e){console.warn('résolution des rôles ayant compté indisponible',e);}
+  }
   cmdfByFourn=byFourn;
   return byFourn;
+}
+// Un fournisseur est "en retard" si son heure limite du jour est déjà passée alors qu'il lui reste des
+// articles à envoyer — signal qu'un envoi WhatsApp a été oublié aujourd'hui.
+function fournisseurEnRetard(sup){
+  if(!sup||!sup.heure_limite)return false;
+  var now=new Date();
+  var parts=sup.heure_limite.split(':');
+  var limite=new Date(now);limite.setHours(parseInt(parts[0],10)||0,parseInt(parts[1],10)||0,0,0);
+  return now>limite;
+}
+function updateCommandesBadge(byFourn){
+  var badge=document.getElementById('commandes-badge');
+  if(!badge)return;
+  var total=0,retard=false;
+  Object.keys(byFourn).forEach(function(k){
+    total+=byFourn[k].items.length;
+    if(byFourn[k].items.length&&fournisseurEnRetard(byFourn[k].sup))retard=true;
+  });
+  if(total){
+    badge.style.display='flex';
+    badge.textContent=retard?'!':total;
+    badge.style.animation=retard?'pulse 1.2s ease-in-out infinite':'';
+    badge.title=retard?'Au moins un fournisseur a dépassé son heure limite sans envoi':'';
+  }else{
+    badge.style.display='none';
+    badge.style.animation='';
+  }
 }
 async function checkCommandesFournisseursBadge(){
   try{
     var byFourn=await loadCommandesFournisseursData();
-    var total=0;Object.keys(byFourn).forEach(function(k){total+=byFourn[k].items.length;});
-    var badge=document.getElementById('commandes-badge');
-    if(badge){
-      if(total){badge.style.display='flex';badge.textContent=total;}
-      else badge.style.display='none';
-    }
+    updateCommandesBadge(byFourn);
   }catch(e){console.error('checkCommandesFournisseursBadge',e);}
 }
 async function menuCommandesFournisseurs(){
@@ -1456,11 +1504,7 @@ async function menuCommandesFournisseurs(){
   try{
     var byFourn=await loadCommandesFournisseursData();
     renderCommandesFournisseursList(byFourn);
-    var badge=document.getElementById('commandes-badge');
-    if(badge){
-      var total=0;Object.keys(byFourn).forEach(function(k){total+=byFourn[k].items.length;});
-      if(total){badge.style.display='flex';badge.textContent=total;}else badge.style.display='none';
-    }
+    updateCommandesBadge(byFourn);
   }catch(e){
     console.error('menuCommandesFournisseurs',e);
     box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(e.message)+'</div>';
@@ -1473,11 +1517,16 @@ function renderCommandesFournisseursList(byFourn){
     box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Rien &agrave; envoyer pour l\'instant. &#128077;</div>';
     return;
   }
-  keys.sort(function(a,b){return (byFourn[a].sup?byFourn[a].sup.nom:'').localeCompare(byFourn[b].sup?byFourn[b].sup.nom:'','fr');});
+  keys.sort(function(a,b){
+    var ra=fournisseurEnRetard(byFourn[a].sup),rb=fournisseurEnRetard(byFourn[b].sup);
+    if(ra!==rb)return ra?-1:1; // en retard toujours en premier
+    return (byFourn[a].sup?byFourn[a].sup.nom:'').localeCompare(byFourn[b].sup?byFourn[b].sup.nom:'','fr');
+  });
   cmdfWaUrls={};
   box.innerHTML=keys.map(function(key){
     var g=byFourn[key];
     var groupName=g.sup?g.sup.nom:key;
+    var enRetard=fournisseurEnRetard(g.sup);
     var its=g.items.slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
     // "Dabray + Labo" quand les deux sont fusionnés (livraison au même endroit), sinon le restaurant courant.
     var restoLabel=(RESTAURANT_ID==='dabray'||RESTAURANT_ID==='labo')?'Dabray + Labo':(restoNamesById[RESTAURANT_ID]||RESTAURANT_ID);
@@ -1488,18 +1537,26 @@ function renderCommandesFournisseursList(byFourn){
     }));
     var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
     cmdfWaUrls[key]=waUrl;
-    var heureLimiteHtml=(g.sup&&g.sup.heure_limite)?('<div style="font-size:10px;color:#FEF3C7;font-weight:700;margin-top:2px;">&#9200; Heure limite : '+escCpt(g.sup.heure_limite.slice(0,5))+'</div>'):'';
+    // Bandeau d'alerte si l'heure limite du jour est dépassée sans envoi — le signal le plus visible du
+    // card : remplace la simple mention de l'heure limite par un avertissement rouge explicite.
+    var heureLimiteHtml=enRetard
+      ?('<div style="font-size:11px;color:#fff;font-weight:700;margin-top:6px;background:#C0392B;border-radius:8px;padding:5px 9px;">&#9200; En retard — devait &ecirc;tre envoy&eacute; avant '+escCpt(g.sup.heure_limite.slice(0,5))+'</div>')
+      :((g.sup&&g.sup.heure_limite)?('<div style="font-size:10px;color:#FEF3C7;font-weight:700;margin-top:2px;">&#9200; Heure limite : '+escCpt(g.sup.heure_limite.slice(0,5))+'</div>'):'');
     var groupeHtml=(g.sup&&g.sup.whatsapp_groupe)?('<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:2px;">&#128241; Groupe : '+escCpt(g.sup.whatsapp_groupe)+'</div>'):'';
+    var rolesHtml=(g.rolesNoms&&g.rolesNoms.length)?('<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:1px;">&#128100; Compt&eacute; par : '+escCpt(g.rolesNoms.join(', '))+'</div>'):'';
     var itemsHtml=its.map(function(it){
       return '<div style="font-size:11px;color:rgba(255,255,255,.85);padding:2px 0;">&#8226; '+escCpt(it.nom)+(it.restoTag?(' <span style="color:#6EE7B7;">['+escCpt(it.restoTag)+']</span>'):'')+(it.suggestion?(' — '+escCpt(it.suggestion)):(' — '+escCpt(String(it.valeur))))+'</div>';
     }).join('');
-    return '<div class="cbtn" style="cursor:default;text-align:left;margin-bottom:10px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
-        +'<div class="cl" style="margin-bottom:0">'+escCpt(groupName)+'</div>'
-        +'<button type="button" onclick="marquerEtOuvrirWhatsappPointage(\''+key+'\')" style="background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;border:none;cursor:pointer;white-space:nowrap;">&#128228; WhatsApp</button>'
+    return '<div class="cbtn" style="cursor:default;text-align:left;margin-bottom:12px;'+(enRetard?'border:2px solid #C0392B;box-shadow:0 0 0 3px rgba(192,57,43,.25);':'')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
+        +'<div>'
+          +'<div style="font-size:19px;font-weight:800;color:#fff;line-height:1.2;">'+escCpt(groupName)+'</div>'
+          +rolesHtml
+        +'</div>'
+        +'<button type="button" onclick="marquerEtOuvrirWhatsappPointage(\''+key+'\')" style="background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;">&#128228; WhatsApp</button>'
       +'</div>'
       +heureLimiteHtml+groupeHtml
-      +'<div style="margin-top:6px;">'+itemsHtml+'</div>'
+      +'<div style="margin-top:8px;">'+itemsHtml+'</div>'
       +'</div>';
   }).join('');
 }
