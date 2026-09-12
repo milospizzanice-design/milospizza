@@ -1345,11 +1345,11 @@ async function loadCommandesFournisseursData(){
   var mergeScope=(RESTAURANT_ID==='dabray'||RESTAURANT_ID==='labo')?['dabray','labo']:[RESTAURANT_ID];
   var seuilsRes=await db.from('ingredient_seuils').select('*').in('restaurant_id',mergeScope);
   if(seuilsRes.error)throw seuilsRes.error;
-  var comptagesRes=await db.from('ingredient_comptages').select('id,ingredient_code,restaurant_id,valeur,compte_le,commande_envoyee,compte_par_id').in('restaurant_id',mergeScope).order('compte_le',{ascending:false});
+  var comptagesRes=await db.from('ingredient_comptages').select('id,ingredient_code,restaurant_id,valeur,compte_le,commande_envoyee,compte_par_id,compte_par_nom').in('restaurant_id',mergeScope).order('compte_le',{ascending:false});
   if(comptagesRes.error)throw comptagesRes.error;
   var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,is_cuisine_interne,whatsapp_groupe,heure_limite,jours_livraison,delai_commande_jours');
   var suppliersById={};(fournRes.data||[]).forEach(function(f){suppliersById[f.id]=f;});
-  var ingRes=await db.from('ingredients').select('code,nom').eq('restaurant_id','global').eq('actif',true);
+  var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id','global').eq('actif',true);
   var ingByCode={};(ingRes.data||[]).forEach(function(i){ingByCode[i.code]=i;});
   // Règles de commande (jours fixes / veille de livraison) — mêmes verrouillages que côté auto-commande Labo,
   // appliqués ici aux fournisseurs externes. Une par restaurant du périmètre (une règle est propre à un
@@ -1393,7 +1393,7 @@ async function loadCommandesFournisseursData(){
     var rulesForResto=(reglesByCode[s.ingredient_code]||{})[s.restaurant_id]||[];
     var gate=reglesGateStatus(rulesForResto,sup,suppliersById);
     if(gate.gated&&!gate.matches&&!isRuptureTotale(s.type_suivi,d.valeur))return;
-    rawItems.push({resto:s.restaurant_id,code:s.ingredient_code,fournisseurId:sup.id,typeSuivi:s.type_suivi,valeur:d.valeur,manque:manque,colisage:s.colisage,uniteComptage:s.unite_comptage,uniteCommande:s.unite_commande,comptageId:d.id,comptePar:d.compte_par_id||null});
+    rawItems.push({resto:s.restaurant_id,code:s.ingredient_code,fournisseurId:sup.id,typeSuivi:s.type_suivi,valeur:d.valeur,manque:manque,colisage:s.colisage,uniteComptage:s.unite_comptage,uniteCommande:s.unite_commande,comptageId:d.id,comptePar:d.compte_par_nom||null});
   });
   // Étape 2 : fusionne par (ingrédient, fournisseur) à travers les restaurants du périmètre — quantités
   // additionnées pour le suivi quantitatif (une seule ligne, un seul arrondi colisage sur le total, pas un
@@ -1414,7 +1414,10 @@ async function loadCommandesFournisseursData(){
     var m=merged[key];
     var ing=ingByCode[m.code];
     var restosUniq=m.restos.filter(function(r,idx){return m.restos.indexOf(r)===idx;});
-    var restoTag=restosUniq.length>1?restosUniq.map(function(r){return restoNamesById[r]||r;}).join(' + '):null;
+    // Sur un écran fusionné (Dabray+Labo), toujours préciser le(s) restaurant(s) concerné(s) — même pour
+    // une seule ligne mono-restaurant. Sans ça, une ligne "Tomates cerise (Labo)" est indiscernable d'une
+    // ligne qui concernerait Dabray, alors que ce sont deux stocks et deux comptages complètement séparés.
+    var restoTag=(mergeScope.length>1)?restosUniq.map(function(r){return restoNamesById[r]||r;}).join(' + '):null;
     var suggestion='',valeurAffichee;
     if(m.typeSuivi==='qty'){
       if(m.manqueTotal>0){
@@ -1436,31 +1439,61 @@ async function loadCommandesFournisseursData(){
     byFourn[it.fournisseurId]=byFourn[it.fournisseurId]||{sup:suppliersById[it.fournisseurId],items:[]};
     byFourn[it.fournisseurId].items.push(it);
   });
-  // Qui a compté quoi, affiché par RÔLE (pas par nom de salarié) : un fournisseur donné a pu être alimenté
-  // par plusieurs personnes dans la journée, chacune avec son ou ses rôles — utile pour savoir qui a
-  // contribué à cette commande sans exposer les noms individuels sur un écran partagé (tablette commune).
-  var allEmpIds={};
-  items.forEach(function(it){(it.comptePars||[]).forEach(function(id){allEmpIds[id]=true;});});
-  var empIds=Object.keys(allEmpIds);
-  if(empIds.length){
-    try{
-      var empsRes=await db.from('employees').select('id,roles').in('id',empIds);
-      var rolesNeeded={};
-      (empsRes.data||[]).forEach(function(e){(e.roles||[]).forEach(function(rid){rolesNeeded[rid]=true;});});
-      var roleIds=Object.keys(rolesNeeded);
-      var rolesRes=roleIds.length?await db.from('roles').select('id,nom').in('id',roleIds):{data:[]};
-      var roleNomById={};(rolesRes.data||[]).forEach(function(r){roleNomById[r.id]=r.nom;});
-      var roleNomsByEmp={};
-      (empsRes.data||[]).forEach(function(e){roleNomsByEmp[e.id]=(e.roles||[]).map(function(rid){return roleNomById[rid];}).filter(Boolean);});
-      Object.keys(byFourn).forEach(function(fid){
-        var set={};
-        byFourn[fid].items.forEach(function(it){
-          (it.comptePars||[]).forEach(function(empId){(roleNomsByEmp[empId]||[]).forEach(function(nom){set[nom]=true;});});
-        });
-        byFourn[fid].rolesNoms=Object.keys(set).sort(function(a,b){return a.localeCompare(b,'fr');});
+  // Qui a compté quoi : le nom du/des collaborateur(s) ayant compté au moins un article de cette commande
+  // (compte_par_nom est déjà stocké sur chaque comptage, pas besoin d'aller chercher les rôles).
+  Object.keys(byFourn).forEach(function(fid){
+    var set={};
+    byFourn[fid].items.forEach(function(it){
+      (it.comptePars||[]).forEach(function(nom){set[nom]=true;});
+    });
+    byFourn[fid].collabNoms=Object.keys(set).sort(function(a,b){return a.localeCompare(b,'fr');});
+  });
+  // Postes censés compter pour ce fournisseur aujourd'hui, avec une coche verte dès qu'au moins un salarié
+  // de ce poste a compté aujourd'hui un ingrédient de ce fournisseur — sert à valider en un coup d'œil que
+  // tout le monde a fait sa part avant d'envoyer, même les articles déjà recomptés au-dessus du seuil et
+  // donc plus affichés dans la liste "à commander".
+  try{
+    var rolesRes=await db.from('roles').select('id,nom,comptage_categories,comptage_ingredients_include,comptage_ingredients_exclude');
+    var rolesList=rolesRes.data||[];
+    var codesByFourn={};
+    (seuilsRes.data||[]).forEach(function(s){
+      if(!s||s.actif===false||!s.fournisseur_id)return;
+      var sup=suppliersById[s.fournisseur_id];
+      if(!sup||sup.is_labo_interne||sup.is_cuisine_interne)return;
+      (codesByFourn[s.fournisseur_id]=codesByFourn[s.fournisseur_id]||new Set()).add(s.ingredient_code);
+    });
+    var todayStr=new Date().toISOString().slice(0,10);
+    var codesComptesAujourdhuiParEmp={};
+    (comptagesRes.data||[]).forEach(function(c){
+      if(!c.compte_par_id||!c.compte_le||c.compte_le.slice(0,10)!==todayStr)return;
+      (codesComptesAujourdhuiParEmp[c.compte_par_id]=codesComptesAujourdhuiParEmp[c.compte_par_id]||new Set()).add(c.ingredient_code);
+    });
+    var empIdsAujourdhui=Object.keys(codesComptesAujourdhuiParEmp);
+    var rolesByEmp={};
+    if(empIdsAujourdhui.length){
+      var empsRes=await db.from('employees').select('id,roles').in('id',empIdsAujourdhui);
+      (empsRes.data||[]).forEach(function(e){rolesByEmp[e.id]=e.roles||[];});
+    }
+    Object.keys(byFourn).forEach(function(fid){
+      var codes=codesByFourn[fid]||new Set();
+      var cats={};
+      codes.forEach(function(code){var ing=ingByCode[code];if(ing&&ing.categorie)cats[ing.categorie]=true;});
+      var rolesConcernes=rolesList.filter(function(r){
+        var covByCat=(r.comptage_categories||[]).some(function(c){return cats[c];});
+        var covByInc=(r.comptage_ingredients_include||[]).some(function(code){return codes.has(code);});
+        return covByCat||covByInc;
       });
-    }catch(e){console.warn('résolution des rôles ayant compté indisponible',e);}
-  }
+      byFourn[fid].postesStatus=rolesConcernes.map(function(r){
+        var exc=new Set(r.comptage_ingredients_exclude||[]);
+        var done=empIdsAujourdhui.some(function(empId){
+          if((rolesByEmp[empId]||[]).indexOf(r.id)<0)return false;
+          var codesComptes=Array.from(codesComptesAujourdhuiParEmp[empId]);
+          return codesComptes.some(function(code){return codes.has(code)&&!exc.has(code);});
+        });
+        return {nom:r.nom,done:done};
+      }).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+    });
+  }catch(e){console.warn('statut postes fournisseur indisponible',e);}
   cmdfByFourn=byFourn;
   return byFourn;
 }
@@ -1543,7 +1576,16 @@ function renderCommandesFournisseursList(byFourn){
       ?('<div style="font-size:11px;color:#fff;font-weight:700;margin-top:6px;background:#C0392B;border-radius:8px;padding:5px 9px;">&#9200; En retard — devait &ecirc;tre envoy&eacute; avant '+escCpt(g.sup.heure_limite.slice(0,5))+'</div>')
       :((g.sup&&g.sup.heure_limite)?('<div style="font-size:10px;color:#FEF3C7;font-weight:700;margin-top:2px;">&#9200; Heure limite : '+escCpt(g.sup.heure_limite.slice(0,5))+'</div>'):'');
     var groupeHtml=(g.sup&&g.sup.whatsapp_groupe)?('<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:2px;">&#128241; Groupe : '+escCpt(g.sup.whatsapp_groupe)+'</div>'):'';
-    var rolesHtml=(g.rolesNoms&&g.rolesNoms.length)?('<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:1px;">&#128100; Compt&eacute; par : '+escCpt(g.rolesNoms.join(', '))+'</div>'):'';
+    var collabHtml=(g.collabNoms&&g.collabNoms.length)?('<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:1px;">&#128100; Compt&eacute; par : '+escCpt(g.collabNoms.join(', '))+'</div>'):'';
+    // Postes censés compter pour ce fournisseur, chacun avec une coche verte dès qu'il a compté aujourd'hui
+    // — permet de valider d'un coup d'œil que tout le monde a fait sa part avant d'envoyer la commande.
+    var postesHtml=(g.postesStatus&&g.postesStatus.length)?('<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">'
+      +g.postesStatus.map(function(p){
+        return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;'
+          +(p.done?'background:#1E8449;color:#fff;':'background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);')
+          +'">'+(p.done?'&#10003;':'&#9675;')+' '+escCpt(p.nom)+'</span>';
+      }).join('')
+      +'</div>'):'';
     var itemsHtml=its.map(function(it){
       return '<div style="font-size:11px;color:rgba(255,255,255,.85);padding:2px 0;">&#8226; '+escCpt(it.nom)+(it.restoTag?(' <span style="color:#6EE7B7;">['+escCpt(it.restoTag)+']</span>'):'')+(it.suggestion?(' — '+escCpt(it.suggestion)):(' — '+escCpt(String(it.valeur))))+'</div>';
     }).join('');
@@ -1551,10 +1593,11 @@ function renderCommandesFournisseursList(byFourn){
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
         +'<div>'
           +'<div style="font-size:19px;font-weight:800;color:#fff;line-height:1.2;">'+escCpt(groupName)+'</div>'
-          +rolesHtml
+          +collabHtml
         +'</div>'
         +'<button type="button" onclick="marquerEtOuvrirWhatsappPointage(\''+key+'\')" style="background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;">&#128228; WhatsApp</button>'
       +'</div>'
+      +postesHtml
       +heureLimiteHtml+groupeHtml
       +'<div style="margin-top:8px;">'+itemsHtml+'</div>'
       +'</div>';
