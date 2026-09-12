@@ -74,7 +74,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   .cpt-topbar{margin:-13px -13px 8px !important;padding:11px 13px 9px !important}
   .cpt-sec-hdr{padding:6px 9px !important}
   .cpt-row{padding:9px 10px !important}
-  .cpt-qbtn{width:30px !important;height:30px !important;font-size:16px !important}
+  .cpt-qbtn{width:34px !important;height:34px !important;font-size:18px !important}
+  .cpt-qin{width:46px !important;font-size:16px !important;padding:4px 0 !important}
   .cpt-tbtn{padding:6px 8px !important;font-size:10px !important}
 }
 @media (max-height:700px){
@@ -95,7 +96,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   .cpt-topbar{margin:-10px -10px 6px !important;padding:9px 10px 7px !important}
   .cpt-sec-hdr{padding:5px 8px !important}
   .cpt-row{padding:7px 9px !important}
-  .cpt-qbtn{width:28px !important;height:28px !important;font-size:15px !important}
+  .cpt-qbtn{width:30px !important;height:30px !important;font-size:16px !important}
+  .cpt-qin{width:42px !important;font-size:15px !important;padding:3px 0 !important}
   .cpt-tbtn{padding:5px 7px !important;font-size:9px !important}
 }
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.08)}}
@@ -119,10 +121,10 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-sec-count.vis{display:inline-block;background:#fff;color:#C0392B}
 .cpt-chev{font-size:10px;color:rgba(255,255,255,.8);transition:transform .2s}
 .cpt-sec-hdr.coll .cpt-chev{transform:rotate(-90deg)}
-.cpt-row{background:#fff;border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.cpt-row{background:#fff;border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px;border-left:4px solid transparent}
 .cpt-row.warn{outline:2px solid #F39C12;outline-offset:-2px}
 .cpt-row.order{outline:2px solid #C0392B;outline-offset:-2px}
-.cpt-row.done-today{background:#F0FBF4}
+.cpt-row.done-today{background:#F0FBF4;border-left:4px solid #27AE60}
 .cpt-done-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:#D5F5E3;color:#1E8449;margin-left:6px;white-space:nowrap}
 .cpt-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .cpt-info{flex:1;min-width:0}
@@ -138,12 +140,12 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-pill-ok{background:#E8F5E9;color:#1E8449}
 .cpt-pill-warn{background:#FEF9E7;color:#D68910}
 .cpt-pill-bad{background:#FDEDEC;color:#C0392B}
-.cpt-qty-ctrl{display:flex;align-items:center;background:#F5F1EA;border:1.5px solid #E5DDCE;border-radius:9px;overflow:hidden}
-.cpt-qbtn{width:34px;height:34px;background:none;border:none;font-size:18px;color:#B91E26;cursor:pointer;line-height:1}
-.cpt-qbtn:active{background:#EDE0CC}
-.cpt-qin{width:42px;text-align:center;border:none;background:none;font-size:14px;font-weight:700;color:#1A1008;padding:0;-moz-appearance:textfield}
+.cpt-qty-ctrl{display:flex;align-items:center;background:#fff;border:2px solid var(--bx);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(185,30,38,.18)}
+.cpt-qbtn{width:40px;height:40px;background:#FBE7E8;border:none;font-size:22px;font-weight:800;color:#B91E26;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cpt-qbtn:active{background:#F5CDD0}
+.cpt-qin{width:54px;text-align:center;border:none;background:#FFF7DE;font-size:19px;font-weight:800;color:#1A1008;padding:6px 0;-moz-appearance:textfield}
 .cpt-qin::-webkit-outer-spin-button,.cpt-qin::-webkit-inner-spin-button{-webkit-appearance:none}
-.cpt-qin:focus{outline:none}
+.cpt-qin:focus{outline:none;background:#FFEFB8}
 .cpt-tog{display:flex;border:1.5px solid #E5DDCE;border-radius:9px;overflow:hidden}
 .cpt-tbtn{padding:8px 10px;background:#F5F1EA;border:none;font-size:11px;font-weight:700;cursor:pointer;color:#8a7f70;border-right:1px solid #E5DDCE}
 .cpt-tbtn:last-child{border-right:none}
