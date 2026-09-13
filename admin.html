@@ -1061,6 +1061,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="font-size:10px;color:var(--txm);margin-bottom:6px">Coche/d&#233;coche des sous-cat&#233;gories ou ingr&#233;dients pr&#233;cis pour ce salari&#233;, en plus des catégories ci-dessus. Les cases de cat&#233;gorie ci-dessous refl&#232;tent juste l'&#233;tat d&#233;j&#224; r&#233;gl&#233; plus haut (r&#244;le + ajustements) &#8212; utilise les sous-cat&#233;gories/ingr&#233;dients pour affiner.</div>
       <div id="sal-comptage-ing-list" style="display:block;max-height:260px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
     </div>
+    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
+      <label class="fl2">&#128269; Diagnostiquer un produit pour ce salari&#233;</label>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">V&#233;rifie, &#233;tape par &#233;tape, pourquoi un produit appara&#238;t (ou pas) dans le comptage de ce salari&#233; sur un restaurant donn&#233; &#8212; rejoue exactement le m&#234;me calcul que l'app de pointage, sur l'&#233;tat actuellement affich&#233; ci-dessus (pas besoin d'enregistrer avant de tester).</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select class="fi" id="saldiag-resto" style="flex:1"></select>
+        <select class="fi" id="saldiag-produit" style="flex:2"></select>
+      </div>
+      <button type="button" class="btn bs sm" onclick="salDiagnostiquerProduit()">Diagnostiquer</button>
+      <div id="saldiag-result" style="margin-top:8px;font-size:11px;"></div>
+    </div>
     <div class="fr">
       <label class="fl2">Badge NFC (UID)</label>
       <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace" oninput="cleanBadgeUid(this)">
@@ -4538,7 +4548,7 @@ async function renderPlanningComptageList(){
   }
 }
 
-function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
+function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderSalDiagnosticSelectors(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
 
@@ -4771,6 +4781,83 @@ function renderSalIngExceptions(){
     box.innerHTML=comptageCatsTreeHtml(tree,function(nom){return effective.indexOf(nom)>=0;},function(){return '';},'#DCFCE7','#FAF4EC','salingex',{includeSet:includeSet,excludeSet:excludeSet},true);
   });
 }
+var salDiagIngredientsCache=[]; // {code,nom,categorie} — chargé une fois, pour le sélecteur produit du diagnostic
+// Prépare les deux listes déroulantes de l'outil de diagnostic : restaurants où ce salarié travaille
+// (principal + secondaires) et la liste complète des ingrédients (par catégorie). Rejoué à chaque
+// ouverture de fiche pour refléter le restaurant principal actuellement sélectionné.
+function renderSalDiagnosticSelectors(salId){
+  var restoSel=document.getElementById('saldiag-resto');
+  var prodSel=document.getElementById('saldiag-produit');
+  if(!restoSel||!prodSel)return;
+  var mainResto=(document.getElementById('sar')||{}).value||'';
+  var restoIds=[mainResto].concat(tmpSalRestosSec||[]).filter(function(r,idx,arr){return r&&arr.indexOf(r)===idx;});
+  restoSel.innerHTML=restoIds.map(function(rid){return '<option value="'+esc(rid)+'">'+esc(rctRestoLabel(rid))+'</option>';}).join('')||'<option value="">Aucun restaurant</option>';
+  function fillProduits(){
+    var byCat={};
+    salDiagIngredientsCache.forEach(function(i){(byCat[i.categorie||'Autre']=byCat[i.categorie||'Autre']||[]).push(i);});
+    var catNames=Object.keys(byCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+    prodSel.innerHTML=catNames.map(function(cat){
+      return '<optgroup label="'+esc(cat)+'">'+byCat[cat].slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');}).map(function(i){return '<option value="'+esc(i.code)+'">'+esc(i.nom)+'</option>';}).join('')+'</optgroup>';
+    }).join('');
+  }
+  if(salDiagIngredientsCache.length){fillProduits();}
+  else{
+    prodSel.innerHTML='<option value="">Chargement...</option>';
+    db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).then(function(res){
+      salDiagIngredientsCache=res.data||[];
+      fillProduits();
+    });
+  }
+  var resDiv=document.getElementById('saldiag-result');if(resDiv)resDiv.innerHTML='';
+}
+// Rejoue EXACTEMENT le même calcul que comptageCatsForEmployee() + le filtre cptIngredients dans
+// pointage.html, mais sur l'état actuellement affiché à l'écran (pas besoin d'enregistrer avant de tester) —
+// pour dire précisément à quelle étape un produit est inclus ou bloqué, plutôt que de deviner.
+async function salDiagnostiquerProduit(){
+  var resDiv=document.getElementById('saldiag-result');
+  var restoId=document.getElementById('saldiag-resto').value;
+  var code=document.getElementById('saldiag-produit').value;
+  if(!resDiv)return;
+  if(!restoId||!code){resDiv.innerHTML='<span style="color:#991B1B;">Choisis un restaurant et un produit.</span>';return;}
+  resDiv.innerHTML='Calcul en cours...';
+  var ing=salDiagIngredientsCache.find(function(i){return i.code===code;});
+  var cat=(ing&&ing.categorie)||'Autre';
+  var roleObjs=(tmpSalRoles||[]).map(function(rid){return (rolesData||[]).find(function(r){return r.id===rid;});}).filter(Boolean);
+  var roleCatsSet={},roleInc=new Set(),roleExc=new Set();
+  roleObjs.forEach(function(r){
+    (r.comptage_categories||[]).forEach(function(c){roleCatsSet[c]=true;});
+    (r.comptage_ingredients_include||[]).forEach(function(c){roleInc.add(c);});
+    (r.comptage_ingredients_exclude||[]).forEach(function(c){roleExc.add(c);});
+  });
+  var catByRole=Object.keys(roleCatsSet).indexOf(cat)>=0;
+  var catAdd=(tmpSalComptageCatsAdd||[]).indexOf(cat)>=0;
+  var catRemove=(tmpSalComptageCatsRemove||[]).indexOf(cat)>=0;
+  var incByRole=roleInc.has(code);
+  var excByRole=roleExc.has(code);
+  var incByEmp=(tmpSalComptageIngInclude||[]).indexOf(code)>=0;
+  var excByEmp=(tmpSalComptageIngExclude||[]).indexOf(code)>=0;
+  var finalIngInclude=incByRole||incByEmp;
+  var finalIngExclude=excByRole||excByEmp;
+  var inCat=(catByRole||catAdd)&&!catRemove;
+  var included=(inCat||finalIngInclude)&&!finalIngExclude;
+  var seuilRes=await db.from('ingredient_seuils').select('actif').eq('restaurant_id',restoId).eq('ingredient_code',code).maybeSingle();
+  var seuilExiste=!!(seuilRes&&seuilRes.data);
+  var visibleIci=seuilExiste&&seuilRes.data.actif!==false;
+  var finalVisible=included&&visibleIci;
+  function ligne(ok,txt){return '<div style="padding:3px 0;color:'+(ok?'#166534':'#991B1B')+';">'+(ok?'✅':'⛔')+' '+txt+'</div>';}
+  var html='<div style="font-weight:700;margin-bottom:4px;">Cat\u00e9gorie du produit : '+esc(cat)+'</div>'
+    +ligne(catByRole,'Couverte par un r\u00f4le du salari\u00e9 ('+esc(roleObjs.map(function(r){return r.nom;}).join(', ')||'aucun r\u00f4le')+')')
+    +ligne(!catAdd,'Ajout\u00e9e via "+ Ajouter cat\u00e9gories" (salari\u00e9)')+(catAdd?'<div style="margin:-3px 0 3px 20px;color:#166534;font-size:10px;">→ oui, ajout\u00e9e explicitement</div>':'')
+    +ligne(!catRemove,'Retir\u00e9e via "- Retirer cat\u00e9gories" (salari\u00e9)')+(catRemove?'<div style="margin:-3px 0 3px 20px;color:#991B1B;font-size:10px;">→ oui, retir\u00e9e explicitement — annule la couverture par r\u00f4le</div>':'')
+    +ligne(!incByRole&&!incByEmp,'Ajout\u00e9 en exception individuelle (r\u00f4le ou salari\u00e9)')+((incByRole||incByEmp)?'<div style="margin:-3px 0 3px 20px;color:#166534;font-size:10px;">→ oui ('+(incByRole?'via le r\u00f4le':'via le salari\u00e9')+')</div>':'')
+    +ligne(!excByRole&&!excByEmp,'Exclu en exception individuelle (r\u00f4le ou salari\u00e9)')+((excByRole||excByEmp)?'<div style="margin:-3px 0 3px 20px;color:#991B1B;font-size:10px;">→ oui ('+(excByRole?'via le r\u00f4le':'via le salari\u00e9')+') — bloque m\u00eame si la cat\u00e9gorie est couverte</div>':'')
+    +'<div style="border-top:1px solid var(--bd);margin:6px 0;"></div>'
+    +ligne(seuilExiste,'Une fiche seuils existe pour ce produit sur ce restaurant')
+    +(seuilExiste?ligne(visibleIci,'"Visible ici" coch\u00e9 sur cette fiche seuils'):'<div style="margin:0 0 3px 20px;color:#991B1B;font-size:10px;">→ sans fiche seuils, impossible de compter ce produit ici, m\u00eame si la cat\u00e9gorie est couverte</div>')
+    +'<div style="border-top:1px solid var(--bd);margin:6px 0;"></div>'
+    +'<div style="font-weight:800;font-size:13px;color:'+(finalVisible?'#166534':'#991B1B')+';">'+(finalVisible?'✅ VISIBLE au comptage pour ce salari\u00e9 sur ce restaurant':'⛔ INVISIBLE au comptage pour ce salari\u00e9 sur ce restaurant')+'</div>';
+  resDiv.innerHTML=html;
+}
 // Lit les cases ingrédient de la section "Exceptions fines par ingrédient" et ne garde que les exceptions
 // réelles par rapport à l'état effectif (rôle + ajustements) — même logique que readRoleIngredientOverrides.
 function readSalIngredientOverrides(effectiveCats){
@@ -4940,7 +5027,7 @@ function openEditSal(id){
   document.getElementById('sapin').value='';
   var bu=document.getElementById('sal-badge-uid');if(bu)bu.value=em.badge_uid||'';
   loadSalPinState(em);
-  renderSalPostesList(id);renderSalRolesList(id);renderSalComptageCatsOverrides(id);renderSalRestosSecList(id);
+  renderSalPostesList(id);renderSalRolesList(id);renderSalComptageCatsOverrides(id);renderSalRestosSecList(id);renderSalDiagnosticSelectors(id);
   tmpSalPlanningType=(em&&Array.isArray(em.planning_type))?JSON.parse(JSON.stringify(em.planning_type)):[];
   renderPlanningType(id);
   var ptStart=document.getElementById('sal-pt-start');
