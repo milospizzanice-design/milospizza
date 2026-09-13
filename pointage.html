@@ -281,7 +281,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div class="screen" id="s-commandes">
       <div class="panel-title" style="margin-bottom:10px">&#128228; Commandes fournisseurs</div>
       <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Regroup&eacute; par fournisseur, d'apr&egrave;s les derniers comptages de ce restaurant. Un seul message par fournisseur &mdash; attends que tout le monde ait fini de compter avant d'envoyer.</div>
-      <div id="cmdf-list" style="max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <div id="cmdf-list"></div>
       <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
     </div>
 
@@ -1897,7 +1897,7 @@ async function menuComptage(){
       return;
     }
 
-    var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id','global').eq('actif',true).order('categorie').order('nom');
+    var ingRes=await db.from('ingredients').select('code,nom,categorie,sous_categorie').eq('restaurant_id','global').eq('actif',true).order('categorie').order('sous_categorie').order('nom');
     if(ingRes.error)throw ingRes.error;
     var seuilsRes=await db.from('ingredient_seuils').select('*').eq('restaurant_id',RESTAURANT_ID);
     if(seuilsRes.error)throw seuilsRes.error;
@@ -1943,7 +1943,7 @@ async function menuComptage(){
       if(!included)return null;
       var s=seuilsByCode[i.code];
       if(!s||s.actif===false)return null; // pas configuré / masqué pour ce restaurant (fiche ingrédient > Visible ici)
-      return {code:i.code,nom:i.nom,categorie:cat,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null};
+      return {code:i.code,nom:i.nom,categorie:cat,sousCategorie:i.sous_categorie||null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null};
     }).filter(Boolean);
 
     // Bandeau "aujourd'hui" : catégories ayant une règle de commande "jours fixes" (ingredient_regles_commande,
@@ -2092,6 +2092,23 @@ function cptMetaLine(i){
   if(!parts.length)return '';
   return '<div class="cpt-meta2">'+parts.map(escCpt).join(' &middot; ')+'</div>';
 }
+// Sous-groupe les items d'une catégorie par sous-catégorie (tri alphabétique, comme les catégories) — sans
+// ça, les articles d'une même catégorie mais de familles différentes (ex: "Tomates" et "Salades" dans
+// "Légumes") se retrouvent mélangés uniquement parce qu'ils sont triés par nom.
+function cptItemsBySousCatHtml(items){
+  var bySous={};
+  items.forEach(function(i){(bySous[i.sousCategorie||'']=bySous[i.sousCategorie||'']||[]).push(i);});
+  var sousNames=Object.keys(bySous).sort(function(a,b){
+    if(!a)return 1;if(!b)return -1; // "sans sous-catégorie" toujours en dernier
+    return a.localeCompare(b,'fr');
+  });
+  if(sousNames.length===1&&!sousNames[0])return items.map(comptageRowHtml).join(''); // aucune sous-catégorie définie ici : pas la peine d'afficher un sous-en-tête vide
+  return sousNames.map(function(sc){
+    var label=sc||'Autre';
+    return '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--txm);margin:8px 2px 3px;">'+escCpt(label)+'</div>'
+      +bySous[sc].map(comptageRowHtml).join('');
+  }).join('');
+}
 function renderComptageList(){
   var box=document.getElementById('cpt-list');
   var wrapEl=document.querySelector('.wrap');
@@ -2125,7 +2142,7 @@ function renderComptageList(){
         +'<span class="cpt-sec-count'+(nAlert?' vis':'')+'">'+nAlert+'</span>'
         +'<span class="cpt-chev">&#9660;</span>'
       +'</div>'
-      +'<div class="cpt-sec-body" id="'+secId+'-body" style="display:'+(collapsed?'none':'block')+'">'+items.map(comptageRowHtml).join('')+'</div>'
+      +'<div class="cpt-sec-body" id="'+secId+'-body" style="display:'+(collapsed?'none':'block')+'">'+cptItemsBySousCatHtml(items)+'</div>'
       +'</div>';
   });
   box.innerHTML=html;
