@@ -4845,12 +4845,19 @@ async function salDiagnostiquerProduit(){
   var visibleIci=seuilExiste&&seuilRes.data.actif!==false;
   var finalVisible=included&&visibleIci;
   function ligne(ok,txt){return '<div style="padding:3px 0;color:'+(ok?'#166534':'#991B1B')+';">'+(ok?'✅':'⛔')+' '+txt+'</div>';}
+  // Pour les faits "additionnels" (ajout/retrait/exception), un ✅/⛔ générique est trompeur : "non ajouté"
+  // n'est pas un problème en soi. On affiche donc un statut neutre (gris) quand le fait ne s'applique pas,
+  // coloré seulement quand il s'applique vraiment — vert s'il aide à la visibilité, rouge s'il bloque.
+  function fait(actif,label,colorSiActif){
+    if(!actif)return '<div style="padding:2px 0 2px 4px;color:#999;font-size:11px;">&#9679; '+label+' : non</div>';
+    return '<div style="padding:2px 0 2px 4px;color:'+colorSiActif+';font-size:11px;font-weight:700;">&#9679; '+label+' : OUI</div>';
+  }
   var html='<div style="font-weight:700;margin-bottom:4px;">Cat\u00e9gorie du produit : '+esc(cat)+'</div>'
     +ligne(catByRole,'Couverte par un r\u00f4le du salari\u00e9 ('+esc(roleObjs.map(function(r){return r.nom;}).join(', ')||'aucun r\u00f4le')+')')
-    +ligne(!catAdd,'Ajout\u00e9e via "+ Ajouter cat\u00e9gories" (salari\u00e9)')+(catAdd?'<div style="margin:-3px 0 3px 20px;color:#166534;font-size:10px;">→ oui, ajout\u00e9e explicitement</div>':'')
-    +ligne(!catRemove,'Retir\u00e9e via "- Retirer cat\u00e9gories" (salari\u00e9)')+(catRemove?'<div style="margin:-3px 0 3px 20px;color:#991B1B;font-size:10px;">→ oui, retir\u00e9e explicitement — annule la couverture par r\u00f4le</div>':'')
-    +ligne(!incByRole&&!incByEmp,'Ajout\u00e9 en exception individuelle (r\u00f4le ou salari\u00e9)')+((incByRole||incByEmp)?'<div style="margin:-3px 0 3px 20px;color:#166534;font-size:10px;">→ oui ('+(incByRole?'via le r\u00f4le':'via le salari\u00e9')+')</div>':'')
-    +ligne(!excByRole&&!excByEmp,'Exclu en exception individuelle (r\u00f4le ou salari\u00e9)')+((excByRole||excByEmp)?'<div style="margin:-3px 0 3px 20px;color:#991B1B;font-size:10px;">→ oui ('+(excByRole?'via le r\u00f4le':'via le salari\u00e9')+') — bloque m\u00eame si la cat\u00e9gorie est couverte</div>':'')
+    +fait(catAdd,'Ajout\u00e9e via "+ Ajouter cat\u00e9gories" (salari\u00e9)','#166534')
+    +fait(catRemove,'Retir\u00e9e via "- Retirer cat\u00e9gories" (salari\u00e9) — bloque m\u00eame si couverte par un r\u00f4le','#991B1B')
+    +fait(incByRole||incByEmp,'Ajout\u00e9 en exception individuelle ('+(incByRole?'via le r\u00f4le':'via le salari\u00e9')+')','#166534')
+    +fait(excByRole||excByEmp,'Exclu en exception individuelle ('+(excByRole?'via le r\u00f4le':'via le salari\u00e9')+') — bloque m\u00eame si la cat\u00e9gorie est couverte','#991B1B')
     +'<div style="border-top:1px solid var(--bd);margin:6px 0;"></div>'
     +ligne(seuilExiste,'Une fiche seuils existe pour ce produit sur ce restaurant')
     +(seuilExiste?ligne(visibleIci,'"Visible ici" coch\u00e9 sur cette fiche seuils'):'<div style="margin:0 0 3px 20px;color:#991B1B;font-size:10px;">→ sans fiche seuils, impossible de compter ce produit ici, m\u00eame si la cat\u00e9gorie est couverte</div>')
