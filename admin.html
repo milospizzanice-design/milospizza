@@ -9110,6 +9110,23 @@ function renderIngredientsList(){
       +restos.map(function(r){return oneRestoSeuilHtml(i,r,r.id===curResto,curResto==='tous');}).join('')
       +'</div>';
   }
+  var COMPTAGE_JOUR_LABELS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  // Jours de comptage : par défaut (tableau vide/absent) un ingrédient se compte tous les jours, comme avant.
+  // Cocher des jours précis restreint le comptage à CES jours-là uniquement — utile pour un produit qui
+  // bouge peu et n'a pas besoin d'être recompté quotidiennement, même si son fournisseur livre tous les jours.
+  function ingredientComptageJoursHtml(code,restoId,jours){
+    jours=jours||[];
+    var tousLesJours=!jours.length;
+    return '<div style="margin-top:4px;">'
+      +'<span style="font-size:9px;color:var(--txm);margin-right:4px;">📅 Jours de comptage : '+(tousLesJours?'<b>tous les jours</b>':'')+'</span>'
+      +'<div style="display:inline-flex;gap:3px;flex-wrap:wrap;vertical-align:middle;">'
+      +COMPTAGE_JOUR_LABELS.map(function(lbl,idx){
+        var on=jours.indexOf(idx)>=0;
+        return '<span onclick="toggleIngredientComptageJour(\''+code+'\',\''+restoId+'\','+idx+')" style="cursor:pointer;font-size:9px;padding:2px 6px;border-radius:6px;border:1px solid '+(on?'var(--bx)':'var(--bd)')+';background:'+(on?'var(--bx)':'transparent')+';color:'+(on?'#fff':'var(--txm)')+';">'+lbl+'</span>';
+      }).join('')
+      +'</div>'
+      +'</div>';
+  }
   function oneRestoSeuilHtml(i,r,isCurrent,tousMode){
     var s=(rctIngredientSeuilsAll[r.id]||{})[i.code]||{};
     var type=s.type_suivi||'qty';
@@ -9143,6 +9160,7 @@ function renderIngredientsList(){
       +'<span id="ucmd-prev-'+i.code+'-'+r.id+'" style="font-size:8px;color:var(--txm);white-space:nowrap;">'+(s.unite_commande?('= '+esc(s.unite_commande)+' de '+esc(i.nom)):'')+'</span>'
       +'</div>'
       +'</div>'
+      +ingredientComptageJoursHtml(i.code,r.id,s.comptage_jours)
       +((isCurrent||tousMode)?'<div style="margin-top:4px;"><button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+(((rctIngredientRegles[r.id]||{})[i.code]&&(rctIngredientRegles[r.id]||{})[i.code].length)?' ('+(rctIngredientRegles[r.id]||{})[i.code].length+')':'')+'</button></div>'
         :'<div style="margin-top:4px;font-size:9px;color:var(--txm);">📅 Règles de commande avancées : change de restaurant en haut de page (ou choisis "🌍 Tous les restaurants") pour celles de '+esc(r.nom||r.id)+'.</div>')
       +'</div>';
@@ -10134,6 +10152,19 @@ async function handlePriceFieldChange(ingredientCode,field,value){
   }catch(e){console.error('handlePriceFieldChange',e);alert('Erreur : '+e.message);}
 }
 // ── Seuils de stock par ingrédient (table 'ingredient_seuils') — base du futur module Stock unifié ──
+async function toggleIngredientComptageJour(ingredientCode,restoId,dayIdx){
+  var cached=(rctIngredientSeuilsAll[restoId]||{})[ingredientCode]||{};
+  var jours=(cached.comptage_jours||[]).slice();
+  var idx=jours.indexOf(dayIdx);
+  if(idx>=0)jours.splice(idx,1);else jours.push(dayIdx);
+  try{
+    var payload={restaurant_id:restoId,ingredient_code:ingredientCode,type_suivi:cached.type_suivi||'qty',comptage_jours:jours};
+    sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
+    rctIngredientSeuilsAll[restoId]=rctIngredientSeuilsAll[restoId]||{};
+    rctIngredientSeuilsAll[restoId][ingredientCode]=Object.assign({},rctIngredientSeuilsAll[restoId][ingredientCode]||{},payload);
+    renderIngredientsList();
+  }catch(e){console.error('toggleIngredientComptageJour',e);alert('Erreur : '+e.message);}
+}
 function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
   var resto=restoIdOverride||rctResto();
   var p=(async function(){

@@ -126,6 +126,9 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-row.order{outline:2px solid #C0392B;outline-offset:-2px}
 .cpt-row.done-today{background:#F0FBF4;border-left:4px solid #27AE60}
 .cpt-done-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:#D5F5E3;color:#1E8449;margin-left:6px;white-space:nowrap}
+.cpt-notdue-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:#FEF3C7;color:#92400E;margin-left:6px;white-space:nowrap}
+.cpt-row.not-due{opacity:.55}
+.cpt-row.not-due.done-today{opacity:1}
 .cpt-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .cpt-info{flex:1;min-width:0}
 .cpt-name{font-size:13px;font-weight:600;color:#1A1008;line-height:1.25}
@@ -1959,7 +1962,7 @@ async function menuComptage(){
       if(!included)return null;
       var s=seuilsByCode[i.code];
       if(!s||s.actif===false)return null; // pas configuré / masqué pour ce restaurant (fiche ingrédient > Visible ici)
-      return {code:i.code,nom:i.nom,categorie:cat,sousCategorie:i.sous_categorie||null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null};
+      return {code:i.code,nom:i.nom,categorie:cat,sousCategorie:i.sous_categorie||null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null,comptageJours:Array.isArray(s.comptage_jours)?s.comptage_jours:[]};
     }).filter(Boolean);
 
     // Bandeau "aujourd'hui" : catégories ayant une règle de commande "jours fixes" (ingredient_regles_commande,
@@ -2056,6 +2059,13 @@ function cptSecToggle(cat){
   hdr.classList.toggle('coll',coll);
   if(coll)cptCollapsedCats.add(cat);else cptCollapsedCats.delete(cat);
 }
+// Sous-bloc "Pas à compter aujourd'hui" par catégorie : replié par défaut (Set des catégories DÉPLIÉES,
+// donc vide au départ = tout replié), mémorisé pour survivre aux rafraîchissements comme cptCollapsedCats.
+var cptExpandedNotDueCats=new Set();
+function cptToggleNotDueCat(cat){
+  if(cptExpandedNotDueCats.has(cat))cptExpandedNotDueCats.delete(cat);else cptExpandedNotDueCats.add(cat);
+  renderComptageList();
+}
 // Statut synthétique affiché en badge à droite de chaque ligne, à partir du dernier comptage — mêmes règles
 // que le calcul utilisé dans "🛒 Besoins (comptage)" côté admin, pour que ce que voit le salarié pendant le
 // comptage corresponde exactement à ce qui remontera dans les besoins.
@@ -2100,13 +2110,41 @@ function cptRoutingTag(i){
 }
 // Ligne d'infos courtes (seuil/cible/colisage), reprise de l'ancien écran Stocks — n'affiche que ce qui est
 // réellement configuré pour cet ingrédient sur ce restaurant, pour ne pas surcharger visuellement.
+// Fréquence de comptage : par défaut (comptageJours vide) un ingrédient se compte tous les jours. Si des
+// jours précis sont configurés, il n'est "attendu" que ces jours-là — les autres jours, il reste visible
+// (pas caché) mais rangé à part, pour ne pas polluer la liste de ce qu'il y a vraiment à faire aujourd'hui.
+var CPT_JOUR_NOMS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+var CPT_JOUR_COURT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+function cptDueToday(i){
+  var jours=i.comptageJours||[];
+  return !jours.length||jours.indexOf(new Date().getDay())>=0;
+}
+function cptFrequenceLabel(i){
+  var jours=i.comptageJours||[];
+  if(!jours.length)return null;
+  var noms=jours.slice().sort(function(a,b){return a-b;}).map(function(d){return CPT_JOUR_COURT[d];});
+  return (jours.length===1?'1&times;/semaine':(jours.length+'&times;/semaine'))+' ('+noms.join(', ')+')';
+}
+function cptProchainComptageLabel(i){
+  var jours=i.comptageJours||[];
+  if(!jours.length)return null;
+  var today=new Date().getDay();
+  for(var d=1;d<=7;d++){
+    var idx=(today+d)%7;
+    if(jours.indexOf(idx)>=0)return CPT_JOUR_NOMS[idx];
+  }
+  return null;
+}
 function cptMetaLine(i){
   var parts=[];
   if(i.seuil_min!=null)parts.push('Seuil:'+i.seuil_min+(i.type_suivi==='qty'&&i.unite_comptage?(' '+i.unite_comptage):''));
   if(i.cible!=null)parts.push('Cible:'+i.cible);
   if(i.colisage!=null&&i.colisage>1)parts.push('Colis\u00d7'+i.colisage);
-  if(!parts.length)return '';
-  return '<div class="cpt-meta2">'+parts.map(escCpt).join(' &middot; ')+'</div>';
+  var freq=cptFrequenceLabel(i);
+  var lines=[];
+  if(parts.length)lines.push('<div class="cpt-meta2">'+parts.map(escCpt).join(' &middot; ')+'</div>');
+  if(freq)lines.push('<div class="cpt-meta2" style="color:#B45309;">&#128197; '+freq+'</div>');
+  return lines.join('');
 }
 // Sous-groupe les items d'une catégorie par sous-catégorie (tri alphabétique, comme les catégories) — sans
 // ça, les articles d'une même catégorie mais de familles différentes (ex: "Tomates" et "Salades" dans
@@ -2146,19 +2184,30 @@ function renderComptageList(){
   var html='';
   catNames.forEach(function(cat){
     var items=byCat[cat];
+    var dueItems=items.filter(cptDueToday);
+    var notDueItems=items.filter(function(i){return !cptDueToday(i);});
     var nAlert=items.filter(function(i){var st=cptStatus(i);return st&&st.cls!=='ok';}).length;
-    var nDone=items.filter(function(i){return cptComptedToday(i.dernier);}).length;
+    var nDone=dueItems.filter(function(i){return cptComptedToday(i.dernier);}).length;
     var color=cptCatColor(cat);
     var secId=cptSecId(cat);
     var collapsed=cptCollapsedCats.has(cat);
+    var notDueCollapsed=!cptExpandedNotDueCats.has(cat); // replié par défaut : ce n'est pas "à faire aujourd'hui"
+    var notDueHtml=notDueItems.length?(
+      '<div style="margin-top:6px;">'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.55);cursor:pointer;padding:4px 2px;" onclick="cptToggleNotDueCat(\''+cat.replace(/'/g,"\\'")+'\')">'
+        +(notDueCollapsed?'&#9656;':'&#9662;')+' &#128197; Pas &agrave; compter aujourd\'hui ('+notDueItems.length+')'
+      +'</div>'
+      +'<div style="display:'+(notDueCollapsed?'none':'block')+'">'+cptItemsBySousCatHtml(notDueItems)+'</div>'
+      +'</div>'
+    ):'';
     html+='<div class="cpt-sec">'
       +'<div class="cpt-sec-hdr'+(collapsed?' coll':'')+'" id="'+secId+'-hdr" style="background:'+color+'" onclick="cptSecToggle(\''+cat.replace(/'/g,"\\'")+'\')">'
         +'<h3>'+escCpt(cat)+'</h3>'
-        +'<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);margin-right:4px;white-space:nowrap;">'+nDone+'/'+items.length+' &#10003;</span>'
+        +'<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);margin-right:4px;white-space:nowrap;">'+nDone+'/'+dueItems.length+' &#10003;</span>'
         +'<span class="cpt-sec-count'+(nAlert?' vis':'')+'">'+nAlert+'</span>'
         +'<span class="cpt-chev">&#9660;</span>'
       +'</div>'
-      +'<div class="cpt-sec-body" id="'+secId+'-body" style="display:'+(collapsed?'none':'block')+'">'+cptItemsBySousCatHtml(items)+'</div>'
+      +'<div class="cpt-sec-body" id="'+secId+'-body" style="display:'+(collapsed?'none':'block')+'">'+cptItemsBySousCatHtml(dueItems)+notDueHtml+'</div>'
       +'</div>';
   });
   box.innerHTML=html;
@@ -2209,14 +2258,18 @@ function comptageRowHtml(i){
   var rowFlag=st&&st.cls==='bad'?' order':(st&&st.cls==='warn'?' warn':'');
   var doneToday=cptComptedToday(i.dernier);
   if(doneToday)rowFlag+=' done-today';
+  var notDue=!cptDueToday(i);
+  if(notDue)rowFlag+=' not-due';
   var doneBadge=doneToday?('<span class="cpt-done-badge">&#10003; Compt\u00e9 aujourd\'hui'+(i.dernier&&i.dernier.compte_par_nom?(' par '+escCpt(i.dernier.compte_par_nom)):'')+'</span>'):'';
+  var prochain=notDue?cptProchainComptageLabel(i):null;
+  var notDueBadge=prochain?('<span class="cpt-notdue-badge">&#128197; Pas besoin aujourd\'hui &mdash; prochain : '+escCpt(prochain)+'</span>'):'';
   var delBtn=i.dernier?('<span class="cpt-del" onclick="deleteComptageHistory(\''+i.code+'\')" title="Supprimer l\'historique de comptage de cet ingr\u00e9dient (pour tester)">&#128465;</span>'):'';
   // La ligne reste toujours pleinement modifiable même une fois comptée aujourd'hui (recompter/corriger doit
   // rester possible sans manip supplémentaire) — la coche verte n'est qu'une indication visuelle, jamais un verrou.
   return '<div class="cpt-row'+rowFlag+'" id="'+id+'">'
     +'<span class="cpt-dot" style="background:'+cptCatColor(i.categorie)+'"></span>'
     +'<div class="cpt-info">'
-      +'<div class="cpt-name">'+escCpt(i.nom)+doneBadge+'</div>'
+      +'<div class="cpt-name">'+escCpt(i.nom)+doneBadge+notDueBadge+'</div>'
       +cptMetaLine(i)
       +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+delBtn+'</div>'
       +'<div class="cpt-suptag-wrap">'+cptRoutingTag(i)+'</div>'
