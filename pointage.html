@@ -1268,8 +1268,6 @@ async function comptageCatsForEmployee(){
   var roleIds=(fresh&&fresh.data&&Array.isArray(fresh.data.roles))?fresh.data.roles:[];
   var catsAdd=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_add))?fresh.data.comptage_cats_add:[];
   var catsRemove=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_remove))?fresh.data.comptage_cats_remove:[];
-  var empIngInclude=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_ingredients_include))?fresh.data.comptage_ingredients_include:[];
-  var empIngExclude=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_ingredients_exclude))?fresh.data.comptage_ingredients_exclude:[];
   var rolesFull=[];
   if(roleIds.length){
     var rolesRes=await db.from('roles').select('id,nom,comptage_categories,comptage_ingredients_include,comptage_ingredients_exclude').in('id',roleIds);
@@ -1287,8 +1285,11 @@ async function comptageCatsForEmployee(){
     (ro.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude.add(code);});
   });
   roleCats=Array.from(set);
-  empIngInclude.forEach(function(code){ingInclude.add(code);});
-  empIngExclude.forEach(function(code){ingExclude.add(code);});
+  // Note : les exceptions fines par ingrédient au niveau salarié (comptage_ingredients_include/exclude sur
+  // employees) ont été retirées — un bug de chargement (rôles pas encore chargés au moment du calcul) les
+  // remplissait parfois d'exclusions jamais voulues par personne. Seuls les rôles gèrent désormais les
+  // exceptions fines ; "+ Ajouter"/"- Retirer catégories" restent au niveau salarié, mais uniquement à la
+  // granularité catégorie entière.
   var finalCats=roleCats.concat(catsAdd).filter(function(c,idx,arr){return arr.indexOf(c)===idx;}).filter(function(c){return catsRemove.indexOf(c)<0;});
   return {cats:finalCats,ingInclude:ingInclude,ingExclude:ingExclude};
 }
@@ -1393,7 +1394,7 @@ async function loadCommandesFournisseursData(){
     var rulesForResto=(reglesByCode[s.ingredient_code]||{})[s.restaurant_id]||[];
     var gate=reglesGateStatus(rulesForResto,sup,suppliersById);
     if(gate.gated&&!gate.matches&&!isRuptureTotale(s.type_suivi,d.valeur))return;
-    rawItems.push({resto:s.restaurant_id,code:s.ingredient_code,fournisseurId:sup.id,typeSuivi:s.type_suivi,valeur:d.valeur,manque:manque,colisage:s.colisage,uniteComptage:s.unite_comptage,uniteCommande:s.unite_commande,comptageId:d.id,comptePar:d.compte_par_nom||null});
+    rawItems.push({resto:s.restaurant_id,code:s.ingredient_code,fournisseurId:sup.id,typeSuivi:s.type_suivi,valeur:d.valeur,manque:manque,colisage:s.colisage,uniteComptage:s.unite_comptage,uniteCommande:s.unite_commande,comptageId:d.id,comptePar:d.compte_par_nom||null,compteLe:d.compte_le});
   });
   // Étape 2 : fusionne par (ingrédient, fournisseur) à travers les restaurants du périmètre — quantités
   // additionnées pour le suivi quantitatif (une seule ligne, un seul arrondi colisage sur le total, pas un
@@ -1402,11 +1403,12 @@ async function loadCommandesFournisseursData(){
   var merged={};
   rawItems.forEach(function(it){
     var key=it.code+'|'+it.fournisseurId;
-    if(!merged[key])merged[key]={code:it.code,fournisseurId:it.fournisseurId,typeSuivi:it.typeSuivi,restos:[],manqueTotal:0,colisage:it.colisage,uniteComptage:it.uniteComptage,uniteCommande:it.uniteCommande,valeurs:[],comptageIds:[],comptePars:[]};
+    if(!merged[key])merged[key]={code:it.code,fournisseurId:it.fournisseurId,typeSuivi:it.typeSuivi,restos:[],manqueTotal:0,colisage:it.colisage,uniteComptage:it.uniteComptage,uniteCommande:it.uniteCommande,valeurs:[],comptageIds:[],comptePars:[],compteLes:[]};
     var m=merged[key];
     m.restos.push(it.resto);
     m.comptageIds.push(it.comptageId);
     if(it.comptePar)m.comptePars.push(it.comptePar);
+    if(it.compteLe)m.compteLes.push(it.compteLe);
     m.valeurs.push({resto:it.resto,valeur:it.valeur});
     if(it.typeSuivi==='qty'&&it.manque)m.manqueTotal+=it.manque;
   });
@@ -1432,7 +1434,19 @@ async function loadCommandesFournisseursData(){
     }else{
       valeurAffichee=m.valeurs.length>1?m.valeurs.map(function(v){return (restoNamesById[v.resto]||v.resto)+': '+v.valeur;}).join(' · '):m.valeurs[0].valeur;
     }
-    return {code:m.code,nom:ing?ing.nom:m.code,fournisseurId:m.fournisseurId,suggestion:suggestion,valeur:valeurAffichee,restoTag:restoTag,comptageIds:m.comptageIds,comptePars:m.comptePars};
+    // "Aperçu" : quand et par qui ce comptage a été fait — la donnée la plus utile pour comprendre pourquoi
+    // un article est signalé alors que "rien n'a été compté aujourd'hui" (le comptage flagué peut dater de
+    // plusieurs jours et n'a jamais été renvoyé depuis).
+    var compteLabel=null;
+    if(m.compteLes.length){
+      var plusRecent=m.compteLes.slice().sort().slice(-1)[0];
+      var dRec=new Date(plusRecent);
+      var sameDay=dRec.toDateString()===new Date().toDateString();
+      var whenLbl=sameDay?'aujourd\'hui':dRec.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+      var parLbl=m.comptePars.length?(' par '+m.comptePars.filter(function(n,idx){return m.comptePars.indexOf(n)===idx;}).join(', ')):'';
+      compteLabel='compt\u00e9 '+whenLbl+parLbl;
+    }
+    return {code:m.code,nom:ing?ing.nom:m.code,fournisseurId:m.fournisseurId,suggestion:suggestion,valeur:valeurAffichee,restoTag:restoTag,comptageIds:m.comptageIds,comptePars:m.comptePars,compteLabel:compteLabel};
   });
   var byFourn={};
   items.forEach(function(it){
@@ -1587,7 +1601,9 @@ function renderCommandesFournisseursList(byFourn){
       }).join('')
       +'</div>'):'';
     var itemsHtml=its.map(function(it){
-      return '<div style="font-size:11px;color:rgba(255,255,255,.85);padding:2px 0;">&#8226; '+escCpt(it.nom)+(it.restoTag?(' <span style="color:#6EE7B7;">['+escCpt(it.restoTag)+']</span>'):'')+(it.suggestion?(' — '+escCpt(it.suggestion)):(' — '+escCpt(String(it.valeur))))+'</div>';
+      return '<div style="font-size:11px;color:rgba(255,255,255,.85);padding:2px 0;">&#8226; '+escCpt(it.nom)+(it.restoTag?(' <span style="color:#6EE7B7;">['+escCpt(it.restoTag)+']</span>'):'')+(it.suggestion?(' — '+escCpt(it.suggestion)):(' — '+escCpt(String(it.valeur))))
+        +(it.compteLabel?('<div style="font-size:10px;color:rgba(255,255,255,.5);margin:0 0 4px 12px;">'+escCpt(it.compteLabel)+'</div>'):'')
+        +'</div>';
     }).join('');
     return '<div class="cbtn" style="cursor:default;text-align:left;margin-bottom:12px;'+(enRetard?'border:2px solid #C0392B;box-shadow:0 0 0 3px rgba(192,57,43,.25);':'')+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
@@ -2163,7 +2179,8 @@ function dernierLabelCpt(dernier,unite){
   var now=new Date();
   var sameDay=d.toDateString()===now.toDateString();
   var when=sameDay?('aujourd\'hui '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})):d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
-  return 'Dernier : '+escCpt(dernier.valeur)+(unite?(' '+escCpt(unite)):'')+' — '+when;
+  var parNom=dernier.compte_par_nom?(' par '+escCpt(dernier.compte_par_nom)):'';
+  return 'Dernier : '+escCpt(dernier.valeur)+(unite?(' '+escCpt(unite)):'')+' — '+when+parNom;
 }
 
 function comptageRowHtml(i){
@@ -2192,7 +2209,7 @@ function comptageRowHtml(i){
   var rowFlag=st&&st.cls==='bad'?' order':(st&&st.cls==='warn'?' warn':'');
   var doneToday=cptComptedToday(i.dernier);
   if(doneToday)rowFlag+=' done-today';
-  var doneBadge=doneToday?'<span class="cpt-done-badge">&#10003; Compt\u00e9 aujourd\'hui</span>':'';
+  var doneBadge=doneToday?('<span class="cpt-done-badge">&#10003; Compt\u00e9 aujourd\'hui'+(i.dernier&&i.dernier.compte_par_nom?(' par '+escCpt(i.dernier.compte_par_nom)):'')+'</span>'):'';
   var delBtn=i.dernier?('<span class="cpt-del" onclick="deleteComptageHistory(\''+i.code+'\')" title="Supprimer l\'historique de comptage de cet ingr\u00e9dient (pour tester)">&#128465;</span>'):'';
   // La ligne reste toujours pleinement modifiable même une fois comptée aujourd'hui (recompter/corriger doit
   // rester possible sans manip supplémentaire) — la coche verte n'est qu'une indication visuelle, jamais un verrou.

@@ -329,9 +329,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
   <div id="sa" style="display:none">
     <div class="plan-rtabs" id="sa-resto-tabs"></div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn bs" onclick="openComptageApercu()">&#128065; Aper&#231;u comptage</button>
       <button class="btn bs" onclick="openPlanningComptageJour()">&#128197; Planning comptage du jour</button>
+      <button class="btn bs" onclick="openAuditExceptionsIndiv()">&#128269; Audit exceptions comptage</button>
       <button class="btn bp" onclick="openAddSal()">+ Ajouter</button>
     </div>
     <div id="sab"></div>
@@ -1055,11 +1056,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="sal-comptage-cats-add-list" style="display:block;margin-bottom:8px;max-height:220px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
       <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:2px">- Retirer des cat&#233;gories (m&#234;me si le r&#244;le les donne)</div>
       <div id="sal-comptage-cats-remove-list" style="display:block;max-height:220px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
-    </div>
-    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
-      <label class="fl2">Exceptions fines par ingr&#233;dient (optionnel)</label>
-      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">Coche/d&#233;coche des sous-cat&#233;gories ou ingr&#233;dients pr&#233;cis pour ce salari&#233;, en plus des catégories ci-dessus. Les cases de cat&#233;gorie ci-dessous refl&#232;tent juste l'&#233;tat d&#233;j&#224; r&#233;gl&#233; plus haut (r&#244;le + ajustements) &#8212; utilise les sous-cat&#233;gories/ingr&#233;dients pour affiner.</div>
-      <div id="sal-comptage-ing-list" style="display:block;max-height:260px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
     </div>
     <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
       <label class="fl2">&#128269; Diagnostiquer un produit pour ce salari&#233;</label>
@@ -2541,6 +2537,18 @@ function closeQrScanner(){
 
 // ── GESTION DES RÔLES ───────────────────────────────────────────────────────
 var rolesData=[];var roleEditId=null;var restoEditId=null;
+// Recharge rolesData si besoin, et ATTEND que ce soit fait avant de continuer — corrige un bug où la
+// fiche salarié se mettait à calculer "Exceptions fines par ingrédient" et "+/- catégories" avant que les
+// rôles ne soient chargés (rolesData encore vide), ce qui faisait apparaître TOUTES les catégories comme
+// non couvertes. Si la fiche était enregistrée à ce moment-là, chaque ingrédient d'une catégorie pourtant
+// couverte par le rôle se retrouvait ajouté par erreur à comptage_ingredients_exclude, sans action volontaire.
+async function ensureRolesDataLoaded(){
+  if(!rolesData||!rolesData.length){
+    var r=await db.from('roles').select('*').order('nom');
+    rolesData=r.data||[];
+  }
+  return rolesData;
+}
 var restosData=[];
 async function loadRestaurants(){
   var r=await db.from('restaurants').select('*').order('nom');
@@ -4317,6 +4325,46 @@ async function openComptageApercu(){
   renderComptageApercuTabs();
   await renderComptageApercuList();
 }
+// Audit des exceptions individuelles par ingrédient encore présentes en base (comptage_ingredients_include/
+// exclude sur employees) — la fiche salarié ne permet plus d'en créer, mais un bug passé (rôles pas chargés
+// à temps) a pu en écrire sans action volontaire de personne. Sert à repérer et nettoyer ce qui reste.
+async function openAuditExceptionsIndiv(){
+  openM('modal-audit-exceptions');
+  var box=document.getElementById('audit-exc-list');
+  box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement...</div>';
+  try{
+    var empsRes=await db.from('employees').select('id,prenom,nom,restaurant_id,actif,comptage_ingredients_include,comptage_ingredients_exclude');
+    var concerned=(empsRes.data||[]).filter(function(e){
+      return (e.comptage_ingredients_include&&e.comptage_ingredients_include.length)||(e.comptage_ingredients_exclude&&e.comptage_ingredients_exclude.length);
+    });
+    if(!concerned.length){box.innerHTML='<div style="color:#166534;font-size:12px;padding:10px;">Aucune exception individuelle restante — rien &agrave; nettoyer. &#128077;</div>';return;}
+    if(!salDiagIngredientsCache.length){
+      var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true);
+      salDiagIngredientsCache=ingRes.data||[];
+    }
+    var nomByCode={};salDiagIngredientsCache.forEach(function(i){nomByCode[i.code]=i.nom;});
+    box.innerHTML=concerned.map(function(e){
+      var inc=(e.comptage_ingredients_include||[]).map(function(c){return nomByCode[c]||c;});
+      var exc=(e.comptage_ingredients_exclude||[]).map(function(c){return nomByCode[c]||c;});
+      return '<div style="border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:8px;'+(e.actif===false?'opacity:.5;':'')+'">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">'
+          +'<div style="font-weight:700;">'+esc(e.prenom+' '+e.nom)+(e.actif===false?' <span style="font-size:9px;color:var(--txm);">(archiv\u00e9)</span>':'')+' <span style="font-size:10px;color:var(--txm);font-weight:400;">'+esc(rctRestoLabel(e.restaurant_id))+'</span></div>'
+          +'<button type="button" class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="nettoyerExceptionsIndiv('+e.id+')">Nettoyer</button>'
+        +'</div>'
+        +(inc.length?('<div style="font-size:11px;color:#166534;">+ Inclus : '+esc(inc.join(', '))+'</div>'):'')
+        +(exc.length?('<div style="font-size:11px;color:#991B1B;">− Exclus : '+esc(exc.join(', '))+'</div>'):'')
+        +'</div>';
+    }).join('');
+  }catch(e){console.error('openAuditExceptionsIndiv',e);box.innerHTML='<div style="color:#991B1B;font-size:12px;">Erreur : '+esc(e.message)+'</div>';}
+}
+async function nettoyerExceptionsIndiv(empId){
+  if(!confirm('Vider les exceptions individuelles par ingr\u00e9dient de ce salari\u00e9 ?\n\nSes cat\u00e9gories (r\u00f4les + "+ Ajouter"/"- Retirer") ne changent pas — seules les exceptions fines au produit pr\u00e8s sont effac\u00e9es.'))return;
+  try{
+    var r=await db.from('employees').update({comptage_ingredients_include:[],comptage_ingredients_exclude:[]}).eq('id',empId);
+    if(r.error){alert('Erreur : '+r.error.message);return;}
+  }catch(e){alert('Erreur : '+e.message);return;}
+  openAuditExceptionsIndiv();
+}
 function renderComptageApercuTabs(){
   var box=document.getElementById('ca-resto-tabs');
   if(!box)return;
@@ -4548,7 +4596,7 @@ async function renderPlanningComptageList(){
   }
 }
 
-function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';renderSalPostesList(null);renderSalRolesList(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderSalDiagnosticSelectors(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
+async function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';await ensureRolesDataLoaded();renderSalPostesList(null);renderSalRolesList(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderSalDiagnosticSelectors(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
 
@@ -4719,21 +4767,15 @@ async function applyPlanningType(){
 var tmpSalRoles=[];
 var tmpSalComptageCatsAdd=[];
 var tmpSalComptageCatsRemove=[];
-var tmpSalComptageIngInclude=[]; // exceptions fines par ingrédient (comptage_ingredients_include) — symétrique à roles.comptage_ingredients_include
-var tmpSalComptageIngExclude=[]; // comptage_ingredients_exclude
 function renderSalComptageCatsOverrides(salId){
   if(salId){
     var em3=emp(salId);
     tmpSalComptageCatsAdd=(em3&&em3.comptage_cats_add)?(Array.isArray(em3.comptage_cats_add)?em3.comptage_cats_add.slice():[]):[];
     tmpSalComptageCatsRemove=(em3&&em3.comptage_cats_remove)?(Array.isArray(em3.comptage_cats_remove)?em3.comptage_cats_remove.slice():[]):[];
-    tmpSalComptageIngInclude=(em3&&em3.comptage_ingredients_include)?(Array.isArray(em3.comptage_ingredients_include)?em3.comptage_ingredients_include.slice():[]):[];
-    tmpSalComptageIngExclude=(em3&&em3.comptage_ingredients_exclude)?(Array.isArray(em3.comptage_ingredients_exclude)?em3.comptage_ingredients_exclude.slice():[]):[];
   }else{
     tmpSalComptageCatsAdd=[];tmpSalComptageCatsRemove=[];
-    tmpSalComptageIngInclude=[];tmpSalComptageIngExclude=[];
   }
   renderSalComptageCatsCheckboxes();
-  renderSalIngExceptions();
 }
 function renderSalComptageCatsCheckboxes(){
   var addBox=document.getElementById('sal-comptage-cats-add-list');
@@ -4751,35 +4793,6 @@ function toggleSalComptageCat(kind,catId,checked){
   var i=arr.indexOf(catId);
   if(checked&&i<0)arr.push(catId);
   else if(!checked&&i>=0)arr.splice(i,1);
-}
-// Catégories effectivement visibles pour ce salarié : celles de son/ses rôle(s), plus les ajouts, moins les
-// retraits — c'est cet ensemble qui sert de référence ("coché par défaut") pour les cases Sous-catégorie et
-// Ingrédient de la section "Exceptions fines par ingrédient" juste en dessous.
-function salEffectiveComptageCats(){
-  var set={};
-  (tmpSalRoles||[]).forEach(function(rid){
-    var ro=(typeof rolesData!=='undefined'?rolesData:[]).find(function(r){return r.id===rid;});
-    ((ro&&ro.comptage_categories)||[]).forEach(function(c){set[c]=true;});
-  });
-  (tmpSalComptageCatsAdd||[]).forEach(function(c){set[c]=true;});
-  (tmpSalComptageCatsRemove||[]).forEach(function(c){delete set[c];});
-  return Object.keys(set);
-}
-// Section "Exceptions fines par ingrédient" de la fiche salarié — même mécanique que pour les rôles
-// (comptageCatsTreeHtml avec includeSet/excludeSet), mais la case Catégorie y est en lecture seule
-// (catReadOnly=true) puisqu'elle est déjà réglée par les deux sections + et - au-dessus ; seules les
-// sous-catégories ("tout cocher") et les ingrédients un par un restent éditables ici.
-function renderSalIngExceptions(){
-  var box=document.getElementById('sal-comptage-ing-list');
-  if(!box)return;
-  box.innerHTML='<span style="color:#aaa;font-size:11px">Chargement...</span>';
-  var effective=salEffectiveComptageCats();
-  var includeSet=new Set(tmpSalComptageIngInclude||[]);
-  var excludeSet=new Set(tmpSalComptageIngExclude||[]);
-  ensureComptageCatsCanonical().then(function(tree){
-    if(!box)return;
-    box.innerHTML=comptageCatsTreeHtml(tree,function(nom){return effective.indexOf(nom)>=0;},function(){return '';},'#DCFCE7','#FAF4EC','salingex',{includeSet:includeSet,excludeSet:excludeSet},true);
-  });
 }
 var salDiagIngredientsCache=[]; // {code,nom,categorie} — chargé une fois, pour le sélecteur produit du diagnostic
 // Prépare les deux listes déroulantes de l'outil de diagnostic : restaurants où ce salarié travaille
@@ -4834,10 +4847,8 @@ async function salDiagnostiquerProduit(){
   var catRemove=(tmpSalComptageCatsRemove||[]).indexOf(cat)>=0;
   var incByRole=roleInc.has(code);
   var excByRole=roleExc.has(code);
-  var incByEmp=(tmpSalComptageIngInclude||[]).indexOf(code)>=0;
-  var excByEmp=(tmpSalComptageIngExclude||[]).indexOf(code)>=0;
-  var finalIngInclude=incByRole||incByEmp;
-  var finalIngExclude=excByRole||excByEmp;
+  var finalIngInclude=incByRole;
+  var finalIngExclude=excByRole;
   var inCat=(catByRole||catAdd)&&!catRemove;
   var included=(inCat||finalIngInclude)&&!finalIngExclude;
   var seuilRes=await db.from('ingredient_seuils').select('actif').eq('restaurant_id',restoId).eq('ingredient_code',code).maybeSingle();
@@ -4856,29 +4867,14 @@ async function salDiagnostiquerProduit(){
     +ligne(catByRole,'Couverte par un r\u00f4le du salari\u00e9 ('+esc(roleObjs.map(function(r){return r.nom;}).join(', ')||'aucun r\u00f4le')+')')
     +fait(catAdd,'Ajout\u00e9e via "+ Ajouter cat\u00e9gories" (salari\u00e9)','#166534')
     +fait(catRemove,'Retir\u00e9e via "- Retirer cat\u00e9gories" (salari\u00e9) — bloque m\u00eame si couverte par un r\u00f4le','#991B1B')
-    +fait(incByRole||incByEmp,'Ajout\u00e9 en exception individuelle ('+(incByRole?'via le r\u00f4le':'via le salari\u00e9')+')','#166534')
-    +fait(excByRole||excByEmp,'Exclu en exception individuelle ('+(excByRole?'via le r\u00f4le':'via le salari\u00e9')+') — bloque m\u00eame si la cat\u00e9gorie est couverte','#991B1B')
+    +fait(incByRole,'Ajout\u00e9 en exception individuelle sur le r\u00f4le','#166534')
+    +fait(excByRole,'Exclu en exception individuelle sur le r\u00f4le — bloque m\u00eame si la cat\u00e9gorie est couverte','#991B1B')
     +'<div style="border-top:1px solid var(--bd);margin:6px 0;"></div>'
     +ligne(seuilExiste,'Une fiche seuils existe pour ce produit sur ce restaurant')
     +(seuilExiste?ligne(visibleIci,'"Visible ici" coch\u00e9 sur cette fiche seuils'):'<div style="margin:0 0 3px 20px;color:#991B1B;font-size:10px;">→ sans fiche seuils, impossible de compter ce produit ici, m\u00eame si la cat\u00e9gorie est couverte</div>')
     +'<div style="border-top:1px solid var(--bd);margin:6px 0;"></div>'
     +'<div style="font-weight:800;font-size:13px;color:'+(finalVisible?'#166534':'#991B1B')+';">'+(finalVisible?'✅ VISIBLE au comptage pour ce salari\u00e9 sur ce restaurant':'⛔ INVISIBLE au comptage pour ce salari\u00e9 sur ce restaurant')+'</div>';
   resDiv.innerHTML=html;
-}
-// Lit les cases ingrédient de la section "Exceptions fines par ingrédient" et ne garde que les exceptions
-// réelles par rapport à l'état effectif (rôle + ajustements) — même logique que readRoleIngredientOverrides.
-function readSalIngredientOverrides(effectiveCats){
-  var box=document.getElementById('sal-comptage-ing-list');
-  var include=[],exclude=[];
-  if(!box)return{include:include,exclude:exclude};
-  Array.prototype.slice.call(box.querySelectorAll('input.cpting-chk')).forEach(function(inp){
-    var code=inp.getAttribute('data-ing-code');
-    var cat=inp.getAttribute('data-ing-cat');
-    var catOn=effectiveCats.indexOf(cat)>=0;
-    if(inp.checked&&!catOn)include.push(code);
-    else if(!inp.checked&&catOn)exclude.push(code);
-  });
-  return{include:include,exclude:exclude};
 }
 function renderSalRolesList(salId){
   var div=document.getElementById('sal-roles-list');if(!div)return;
@@ -5022,7 +5018,7 @@ async function resetSalPin(){
   var em=emp(curSal);loadSalPinState(em);
 }
 
-function openEditSal(id){
+async function openEditSal(id){
   curSal=id;var em=emp(id);
   document.getElementById('msat').textContent='Modifier '+em.prenom+' '+em.nom;
   document.getElementById('sap').value=em.prenom;
@@ -5034,6 +5030,7 @@ function openEditSal(id){
   document.getElementById('sapin').value='';
   var bu=document.getElementById('sal-badge-uid');if(bu)bu.value=em.badge_uid||'';
   loadSalPinState(em);
+  await ensureRolesDataLoaded();
   renderSalPostesList(id);renderSalRolesList(id);renderSalComptageCatsOverrides(id);renderSalRestosSecList(id);renderSalDiagnosticSelectors(id);
   tmpSalPlanningType=(em&&Array.isArray(em.planning_type))?JSON.parse(JSON.stringify(em.planning_type)):[];
   renderPlanningType(id);
@@ -5049,15 +5046,13 @@ async function saveSal(){
   var resto=document.getElementById('sar').value;
   var pin=document.getElementById('sapin').value.trim();
   if(!p||!n){alert('Prénom et nom requis');return;}
-  var effectiveCats=salEffectiveComptageCats();
-  var ingOverrides=readSalIngredientOverrides(effectiveCats);
   if(curSal){
     var hc=parseFloat(document.getElementById('saheures').value)||null;
     var dd=document.getElementById('sadebut').value||null;
     var mail=document.getElementById('samail').value||null;
     var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
+  var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:[],comptage_ingredients_exclude:[],planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
     var r1=await db.from('employees').update(upd).eq('id',curSal);
     if(r1&&r1.error){
       // Repli tolérant : si comptage_ingredients_include/exclude ou planning_type n'existent pas encore côté
@@ -5075,7 +5070,7 @@ async function saveSal(){
     var mail2=document.getElementById('samail').value||null;
     var badgeUid2=(document.getElementById('sal-badge-uid')||{}).value;badgeUid2=badgeUid2?badgeUid2.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut2=(document.getElementById('sa-pin-autorise')||{}).checked||false;
-  var insPayload={prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2};
+  var insPayload={prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:[],comptage_ingredients_exclude:[],planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2};
   var insR=await db.from('employees').insert(insPayload).select();
   if(insR&&insR.error){
     delete insPayload.comptage_ingredients_include;delete insPayload.comptage_ingredients_exclude;delete insPayload.planning_type;
@@ -12110,6 +12105,17 @@ async function init(){
     <div id="ca-list" style="max-height:60vh;overflow-y:auto"></div>
     <div class="ma">
       <button class="btn bs" onclick="closeM('modal-comptage-apercu')" style="width:100%">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div class="mb" id="modal-audit-exceptions">
+  <div class="md" style="max-width:640px">
+    <div class="mdt">&#128269; Audit exceptions comptage</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Liste les salari&#233;s ayant encore des exceptions individuelles par ingr&#233;dient enregistr&#233;es en base (ancien syst&#232;me, retir&#233; de la fiche salari&#233;). Un bug pass&#233; a pu en cr&#233;er sans action volontaire — v&#233;rifie chaque ligne, puis "Nettoyer" pour les vider si elles ne sont pas voulues.</div>
+    <div id="audit-exc-list" style="max-height:60vh;overflow-y:auto"></div>
+    <div class="ma">
+      <button class="btn bs" onclick="closeM('modal-audit-exceptions')" style="width:100%">Fermer</button>
     </div>
   </div>
 </div>
