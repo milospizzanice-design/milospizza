@@ -18,6 +18,9 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .bar-d{color:rgba(255,255,255,.7);font-size:11px}
 .tabs{background:var(--bxdk);display:flex;overflow-x:auto}
 .tabs::-webkit-scrollbar{display:none}
+.rct-subtabs{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.rct-subtabs::-webkit-scrollbar{display:none}
+.rct-subtab{flex:0 0 auto;white-space:nowrap;user-select:none}
 .tab{padding:10px 14px;font-size:12px;font-weight:600;color:rgba(255,255,255,.6);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent}
 .tab.on{color:#fff;border-bottom-color:var(--cr)}
 .page{padding:14px;max-width:760px;margin:0 auto}
@@ -387,13 +390,13 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <!-- ══ MODULE RECETTES ══ -->
 <div id="page-recettes" style="display:none;">
   <div class="page" style="padding-top:14px;">
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <div class="rct-subtab on" id="rctbtn-list" onclick="goRecettesSub('list')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🍕 Produits &amp; recettes</div>
-      <div class="rct-subtab" id="rctbtn-ingredients" onclick="goRecettesSub('ingredients')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧂 Ingrédients</div>
-      <div class="rct-subtab" id="rctbtn-couts" onclick="goRecettesSub('couts')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💰 Coûts</div>
-      <div class="rct-subtab" id="rctbtn-inv" onclick="goRecettesSub('inv')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📋 Inventaires</div>
-      <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📥 Import ventes</div>
-      <div class="rct-subtab" id="rctbtn-interne" onclick="goRecettesSub('interne')" style="flex:1;text-align:center;padding:9px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🚚 Interne</div>
+    <div class="rct-subtabs">
+      <div class="rct-subtab on" id="rctbtn-list" onclick="goRecettesSub('list')" style="text-align:center;padding:9px 14px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🍕 Produits &amp; recettes</div>
+      <div class="rct-subtab" id="rctbtn-ingredients" onclick="goRecettesSub('ingredients')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧂 Ingrédients</div>
+      <div class="rct-subtab" id="rctbtn-couts" onclick="goRecettesSub('couts')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💰 Coûts</div>
+      <div class="rct-subtab" id="rctbtn-inv" onclick="goRecettesSub('inv')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📋 Inventaires</div>
+      <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📥 Import ventes</div>
+      <div class="rct-subtab" id="rctbtn-interne" onclick="goRecettesSub('interne')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🚚 Interne</div>
     </div>
 
     <!-- Sous-onglet: liste produits vendus / recettes -->
@@ -949,13 +952,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <span>&#127962; &#201;tablissements</span>
         <button class="btn bp sm" onclick="openAddResto()">+ Ajouter</button>
       </div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Alimente le s&#233;lecteur de restaurant en haut de l'admin (RH, Recettes, Stocks…). Apr&#232;s ajout, le fichier de gestion des stocks correspondant doit encore &#234;tre cr&#233;&#233; s'il s'agit d'un point de vente avec stock physique.</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Alimente le s&#233;lecteur de restaurant en haut de l'admin (RH, Recettes, Labo…). Apr&#232;s ajout, pensez &#224; configurer les ingr&#233;dients suivis pour ce point de vente dans Recettes &gt; Ingr&#233;dients.</div>
       <div id="pm-restos"></div>
     </div>
-    <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-      Active ou désactive ce que les salariés voient dans l'app de pointage. Utile pour mettre en place le pointage dès maintenant sans exposer des fonctionnalités pas encore prêtes (ex: gestion des stocks).
-    </div>
-    <div id="reglages-list"></div>
   </div>
 </div>
 
@@ -1069,7 +1068,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <div class="fr">
       <label class="fl2">Badge NFC (UID)</label>
-      <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace" oninput="cleanBadgeUid(this)">
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" class="fi" id="sal-badge-uid" placeholder="Ex: 04:29:84:da:be:72:80" style="font-family:monospace;flex:1;min-width:0" oninput="cleanBadgeUid(this)">
+        <button type="button" class="btn bs sm" onclick="openQrScanner()" style="flex-shrink:0;white-space:nowrap">&#128247; Scanner</button>
+      </div>
       <div style="font-size:10px;color:var(--txm);margin-top:4px">Scannez le badge sur <b>scan-badge.html</b> (Android), visez le QR avec l'appareil photo de l'iPhone, copiez le code et collez-le ici. Le pr&#233;fixe BADGE: est retir&#233; automatiquement.</div>
     </div>
     <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:12px">
@@ -1096,15 +1098,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
-<!-- Modal photo -->
-<div class="mb" id="mph">
-  <div class="md">
-    <div class="mdt" id="pht"></div>
-    <img id="phi" src="" alt="" style="width:100%;border-radius:8px;margin-bottom:8px">
-    <div style="font-size:11px;color:var(--txm)" id="phi2"></div>
-    <div class="ma"><button class="btn bs" onclick="closeM('mph')">Fermer</button></div>
-  </div>
-</div>
 
 
 <!-- Modal édition créneau planning -->
@@ -1390,7 +1383,6 @@ function goModule(name){
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
   if(name==='caisse')loadCaisseModule();
-  if(name==='reglages')loadReglagesModule();
 }
 function goHome(){
   var pages=['page-rh','page-recettes','page-menu','page-labo','page-caisse','page-reglages'];
@@ -1449,13 +1441,6 @@ function getDR(p){
   var s=new Date(y,mo,1);var e=new Date(y,mo+1,0,23,59,59);return{s:s.toISOString(),e:e.toISOString()};
 }
 
-function phrs(str){
-  if(!str||str.trim()==='')return 0;
-  var m=str.match(/(\d+):(\d+)-(\d+):(\d+)/);
-  if(!m)return 0;
-  return Math.max(0,(parseInt(m[3])*60+parseInt(m[4]))-(parseInt(m[1])*60+parseInt(m[2])));
-}
-
 function calcW(entries){
   // Appariement entrée/sortie JOUR PAR JOUR (et non sur toute la période d'un coup) :
   // si un badgeage manque un jour donné (oubli de sortie/entrée), seul ce jour est
@@ -1480,13 +1465,6 @@ function missingEx(entries){
 }
 
 
-function empVisibleAt(em,dateStr){
-  // Avant la date d'entrée: invisible
-  if(em.date_debut&&dateStr<em.date_debut)return false;
-  // Après la date de fin (archivé): invisible
-  if(em.archive&&em.date_fin&&dateStr>em.date_fin)return false;
-  return true;
-}
 function empActifNow(em){
   if(em.archive){
     if(!em.date_fin)return false;
@@ -1576,9 +1554,6 @@ function renderAlerts(){
     c.innerHTML+='<div class="al red"><div class="alt">IP suspecte</div>'+em.prenom+' '+em.nom+' — '+e.ip_address+'</div>';
   });
 }
-
-async function showPh(){}
-
 
 function openCor(){document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
 function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
@@ -2065,8 +2040,6 @@ function planTogEmp(id){
   var op=b.classList.contains('open');b.classList.toggle('open',!op);t.classList.toggle('open',!op);
 }
 
-function planDelCrBtn(btn){planDelCr(parseInt(btn.dataset.eid),btn.dataset.d,parseInt(btn.dataset.i));}
-
 var planEditInfo=null;
 function planOpenEdit(el){
   var eid=parseInt(el.dataset.eid);
@@ -2248,17 +2221,6 @@ function planChkAll(v){document.querySelectorAll('#plan-dupli-list input').forEa
 
 
 // Calcule les semaines (lundis) dont le lundi est dans la plage [from, to]
-function drhComputeTargetWeeks(fromVal,toVal){
-  // Prend la semaine contenant 'from' jusqu'à la semaine contenant 'to'
-  var weeks=[];
-  var monFrom=planMonOf(new Date(fromVal+'T12:00:00'));
-  var monTo=planMonOf(new Date(toVal+'T12:00:00'));
-  var cur=monFrom;
-  while(planDs(cur)<=planDs(monTo)){weeks.push(new Date(cur));cur=planAddD(cur,7);}
-  return weeks;
-}
-
-
 function confirmPlanDupli(){
   planDupliIds=[];
   document.querySelectorAll('#plan-dupli-list input').forEach(function(cb){if(cb.checked)planDupliIds.push(parseInt(cb.id.replace('pdup-','')));});
@@ -2873,7 +2835,7 @@ function comptageCatsTreeHtml(tree,isSelectedFn,toggleJsFn,colorOn,colorOff,scop
         // ENTIÈRES (sections "+ Ajouter"/"- Retirer" de la fiche) — les sous-catégories/ingrédients ne sont
         // qu'un aperçu de ce que contient la catégorie, pas cochables ici. Sans ce message, ça ressemble à
         // des cases à cocher cassées une fois déplié : on précise où aller pour du réglage fin.
-        var previewNote=(!includeSet&&hasDetail)?'<div style="font-size:9px;color:var(--txm);font-style:italic;margin-bottom:4px;">Aper\u00e7u du contenu de cette cat\u00e9gorie — pour cocher une sous-cat\u00e9gorie ou un ingr\u00e9dient pr\u00e9cis, utilise "Exceptions fines par ingr\u00e9dient" plus bas.</div>':'';
+        var previewNote=(!includeSet&&hasDetail)?'<div style="font-size:9px;color:var(--txm);font-style:italic;margin-bottom:4px;">Aper\u00e7u du contenu de cette cat\u00e9gorie — le d\u00e9tail par sous-cat\u00e9gorie ou par ingr\u00e9dient se r\u00e8gle sur le R\u00d4LE, pas sur le salari\u00e9.</div>':'';
         detail='<div id="'+detailId+'" style="display:none;margin:4px 0 8px 4px;padding:4px 0 4px 10px;border-left:2px solid var(--bd);">'+previewNote+subHtml+directHtml+'</div>';
       }
       return label+detail;
@@ -3141,12 +3103,6 @@ function delPoste(id){
   if(!confirm('Supprimer ce poste ?'))return;
   postes=postes.filter(function(p){return p.id!==id;});
   savePostesLocal();loadPostes();
-}
-
-function getPosteNom(id){
-  if(!id)return '';
-  var p=postes.find(function(x){return x.id===parseInt(id);});
-  return p?p.nom:'';
 }
 
 // ── PDF GÉNÉRAL MENSUEL (couleurs tableau) ────────────────────────────────────
@@ -4238,16 +4194,6 @@ function planOpenPDFIndiv(empId){
   openM('modal-pdf-indiv');
 }
 
-function exportIndivPDF(){
-  var empId=parseInt(document.getElementById('pdf-indiv-emp').value);
-  var from=document.getElementById('pdf-indiv-from').value;
-  var to=document.getElementById('pdf-indiv-to').value;
-  if(!from||!to){alert('Sélectionnez une période');return;}
-  closeM('modal-pdf-indiv');
-  exportPlanIndivPDF(empId,from,to);
-}
-
-
 var tmpSalRestosSec=[]; // restaurants secondaires cochés dans la fiche en cours d'édition
 function renderSalRestosSecList(salId){
   if(salId){
@@ -4718,47 +4664,60 @@ async function applyPlanningType(){
   var hasSlots=pt.some(function(d){return d&&d.length;});
   if(!hasSlots){alert('Ajoutez au moins un cr\u00e9neau');return;}
   if(!confirm('G\u00e9n\u00e9rer le planning sur 12 semaines \u00e0 partir du '+startVal+' ?\n\nCela remplacera les cr\u00e9neaux existants sur cette p\u00e9riode.'))return;
-  // Sauvegarde le modèle hebdomadaire lui-même sur la fiche AVANT de générer les créneaux. Avant ce correctif,
-  // "Générer" créait bien les créneaux dans planning_creneaux mais n'écrivait jamais tmpSalPlanningType dans
-  // employees.planning_type — donc si on ne cliquait pas ENSUITE sur le bouton "Enregistrer" général de la
-  // fiche, le modèle affiché à la réouverture de la fiche restait vide et il fallait tout ressaisir pour la
-  // moindre correction, même si le planning généré lui restait bien en place.
-  var ptSave=await db.from('employees').update({planning_type:pt}).eq('id',curSal);
-  if(ptSave&&ptSave.error){
-    console.warn('planning_type non sauvegard\u00e9 sur la fiche (migration SQL manquante ?)',ptSave.error);
-    alert('Attention : le planning va \u00eatre g\u00e9n\u00e9r\u00e9, mais le mod\u00e8le hebdomadaire n\'a pas pu \u00eatre enregistr\u00e9 sur la fiche (colonne planning_type manquante c\u00f4t\u00e9 Supabase) — il faudra le ressaisir la prochaine fois.');
-  }else{
-    var emCacheForPt=emp(curSal);
-    if(emCacheForPt)emCacheForPt.planning_type=JSON.parse(JSON.stringify(pt));
-  }
-  var em=emp(curSal);
-  var startDate=new Date(startVal+'T12:00:00');
-  var weekStart=planMonOf(startDate);
-  var err=0;var created=0;
-  // 1. Supprimer TOUS les créneaux existants sur toute la période (12 semaines)
-  var endDate=planAddD(weekStart,12*7-1);
-  await db.from('planning_creneaux').delete().eq('employee_id',curSal).gte('date',startVal).lte('date',planDs(endDate));
-  // 2. Insérer uniquement les jours avec des créneaux dans le planning type
-  for(var w=0;w<12;w++){
-    for(var d=0;d<7;d++){
-      var slots=pt[d];
-      if(!slots||!slots.length)continue;
-      var crDate=planAddD(weekStart,w*7+d);
-      if(planDs(crDate)<startVal)continue;
-      var dstr=planDs(crDate);
-      for(var s=0;s<slots.length;s++){
-        var ri=await db.from('planning_creneaux').insert({
-          employee_id:curSal,date:dstr,
-          heure_debut:slots[s].start,heure_fin:slots[s].end,
-          restaurant_id:em?em.restaurant_id:'port'
-        });
-        if(ri.error)err++;else created++;
+  // Tout est enveloppé dans un try/catch : avant ce correctif, la génération enchaînait ~85 appels réseau
+  // (1 suppression + jusqu'à 84 insertions, un par un) sans aucune gestion d'erreur. Si l'un d'eux échouait
+  // (coupure réseau, session expirée...), la fonction s'arrêtait net SANS AUCUNE POPUP — ni succès ni échec —
+  // et pouvait laisser l'ancien planning supprimé sans que le nouveau soit créé. Désormais, quoi qu'il arrive,
+  // une popup s'affiche toujours, avec le message d'erreur réel si besoin.
+  try{
+    // Sauvegarde le modèle hebdomadaire lui-même sur la fiche AVANT de générer les créneaux. Avant un
+    // correctif précédent, "Générer" créait bien les créneaux dans planning_creneaux mais n'écrivait jamais
+    // tmpSalPlanningType dans employees.planning_type — donc si on ne cliquait pas ENSUITE sur le bouton
+    // "Enregistrer" général de la fiche, le modèle affiché à la réouverture de la fiche restait vide et il
+    // fallait tout ressaisir pour la moindre correction, même si le planning généré lui restait bien en place.
+    var ptSave=await db.from('employees').update({planning_type:pt}).eq('id',curSal);
+    if(ptSave&&ptSave.error){
+      console.warn('planning_type non sauvegard\u00e9 sur la fiche (migration SQL manquante ?)',ptSave.error);
+      alert('Attention : le planning va \u00eatre g\u00e9n\u00e9r\u00e9, mais le mod\u00e8le hebdomadaire n\'a pas pu \u00eatre enregistr\u00e9 sur la fiche (colonne planning_type manquante c\u00f4t\u00e9 Supabase : '+ptSave.error.message+') — il faudra le ressaisir la prochaine fois.');
+    }else{
+      var emCacheForPt=emp(curSal);
+      if(emCacheForPt)emCacheForPt.planning_type=JSON.parse(JSON.stringify(pt));
+    }
+    var em=emp(curSal);
+    var startDate=new Date(startVal+'T12:00:00');
+    var weekStart=planMonOf(startDate);
+    // 1. Supprimer TOUS les créneaux existants sur toute la période (12 semaines)
+    var endDate=planAddD(weekStart,12*7-1);
+    var delR=await db.from('planning_creneaux').delete().eq('employee_id',curSal).gte('date',startVal).lte('date',planDs(endDate));
+    if(delR&&delR.error)throw new Error('Suppression des anciens cr\u00e9neaux impossible : '+delR.error.message);
+    // 2. Construire tous les créneaux à créer, puis les envoyer en UNE seule insertion groupée (au lieu
+    //    d'un aller-retour réseau par créneau) : plus rapide, et plus rien à mi-chemin en cas de coupure.
+    var rows=[];
+    for(var w=0;w<12;w++){
+      for(var d=0;d<7;d++){
+        var slots=pt[d];
+        if(!slots||!slots.length)continue;
+        var crDate=planAddD(weekStart,w*7+d);
+        if(planDs(crDate)<startVal)continue;
+        var dstr=planDs(crDate);
+        for(var s=0;s<slots.length;s++){
+          rows.push({employee_id:curSal,date:dstr,heure_debut:slots[s].start,heure_fin:slots[s].end,restaurant_id:em?em.restaurant_id:'port'});
+        }
       }
     }
+    var created=0,err=0;
+    if(rows.length){
+      var insR=await db.from('planning_creneaux').insert(rows);
+      if(insR&&insR.error){err=rows.length;console.error('applyPlanningType insert',insR.error);}
+      else created=rows.length;
+    }
+    if(err>0)alert(err+' cr\u00e9neau(x) n\'ont pas pu \u00eatre cr\u00e9\u00e9s. Les anciens cr\u00e9neaux ont \u00e9t\u00e9 supprim\u00e9s : relancez la g\u00e9n\u00e9ration.');
+    else alert(created+' cr\u00e9neaux g\u00e9n\u00e9r\u00e9s sur 12 semaines !');
+    if(typeof loadPl==='function')await loadPl();
+  }catch(e){
+    console.error('applyPlanningType',e);
+    alert('Erreur lors de la g\u00e9n\u00e9ration du planning : '+(e&&e.message?e.message:e)+'\n\nRien n\'est garanti avoir \u00e9t\u00e9 cr\u00e9\u00e9 : v\u00e9rifiez le planning de ce salari\u00e9 puis relancez si besoin.');
   }
-  if(err>0)alert(err+' erreur(s). '+created+' cr\u00e9neaux cr\u00e9\u00e9s.');
-  else alert(created+' cr\u00e9neaux g\u00e9n\u00e9r\u00e9s sur 12 semaines !');
-  if(typeof loadPl==='function')await loadPl();
 }
 
 
@@ -4951,11 +4910,6 @@ function toggleSalPoste(cb,salId){
   else{lbl.style.background='#f5f5f5';lbl.style.color='#aaa';lbl.style.border='1px solid #ddd';}
 }
 
-function getSalPosteNoms(salId){
-  var ids=getSalPostes(salId);
-  return ids.map(function(id){var p=postes.find(function(x){return x.id===id;});return p?p.nom:'';}).filter(Boolean);
-}
-
 // ── POSTES SUR LES CRÉNEAUX ──────────────────────────────────────────────────
 // Stockage: planData[eid][date][i].postes = [1,3] (IDs)
 // Affichage: sur le créneau dans la liste salarié
@@ -4964,22 +4918,6 @@ function getCrPosteNoms(cr){
   if(!cr.postes||!cr.postes.length)return '';
   return cr.postes.map(function(id){var p=postes.find(function(x){return x.id===id;});return p?p.nom:'';}).filter(Boolean).join(', ');
 }
-
-function renderCreneauPostes(eid,salId){
-  var salPostes=getSalPostes(salId||eid);
-  var available=postes.filter(function(p){return salPostes.indexOf(p.id)>=0;});
-  if(!available.length)return '';
-  var h='<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:3px" class="cr-postes">';
-  available.forEach(function(p){
-    h+='<label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer">';
-    h+='<input type="checkbox" class="cr-poste-cb" data-pid="'+p.id+'" style="accent-color:#B91E26;width:12px;height:12px">';
-    h+='<span style="font-size:9px;color:#7A4A35">'+p.nom+'</span></label>';
-  });
-  h+='</div>';
-  return h;
-}
-
-
 
 function loadSalPinState(em){
   var cb=document.getElementById('sa-pin-autorise');
@@ -5055,13 +4993,18 @@ async function saveSal(){
   var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:[],comptage_ingredients_exclude:[],planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
     var r1=await db.from('employees').update(upd).eq('id',curSal);
     if(r1&&r1.error){
-      // Repli tolérant : si comptage_ingredients_include/exclude ou planning_type n'existent pas encore côté
-      // Supabase (migration SQL pas exécutée), on retente sans ces champs plutôt que de perdre TOUTE la
-      // sauvegarde de la fiche.
-      delete upd.comptage_ingredients_include;delete upd.comptage_ingredients_exclude;delete upd.planning_type;
+      // Repli tolérant : si une colonne optionnelle (comptage_ingredients_include/exclude, planning_type)
+      // n'existe pas encore côté Supabase (migration SQL pas exécutée), on retente sans ELLE plutôt que de
+      // perdre toute la sauvegarde de la fiche. On ne retire QUE la ou les colonnes que le message d'erreur
+      // désigne réellement — avant ce correctif, les 3 champs étaient retirés en bloc dès qu'une erreur
+      // survenait, quelle qu'elle soit : un problème sans rapport pouvait faire disparaître silencieusement
+      // le planning par défaut de la sauvegarde.
+      var missingCols1=['comptage_ingredients_include','comptage_ingredients_exclude','planning_type'].filter(function(col){return (r1.error.message||'').indexOf(col)!==-1;});
+      if(!missingCols1.length){alert('Erreur : '+r1.error.message);return;}
+      missingCols1.forEach(function(col){delete upd[col];});
       var r1b=await db.from('employees').update(upd).eq('id',curSal);
       if(r1b&&r1b.error){alert('Erreur : '+r1b.error.message);return;}
-      alert('Fiche enregistrée, mais les exceptions fines par ingrédient et/ou le planning par défaut n\'ont pas pu l\'être : la migration SQL (colonnes comptage_ingredients_include/exclude/planning_type sur employees) doit être exécutée dans Supabase.');
+      alert('Fiche enregistrée, mais '+missingCols1.join(', ')+' n\'a/n\'ont pas pu être enregistré(s) : la migration SQL correspondante doit être exécutée dans Supabase.');
     }
   }else{
     var newSec=deduceSecteur('new');
@@ -5073,10 +5016,12 @@ async function saveSal(){
   var insPayload={prenom:p,nom:n,restaurant_id:resto,actif:true,secteur:newSec,heures_contrat:hc2,date_debut:dd2,email:mail2,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:[],comptage_ingredients_exclude:[],planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid2,pin_autorise:pinAut2};
   var insR=await db.from('employees').insert(insPayload).select();
   if(insR&&insR.error){
-    delete insPayload.comptage_ingredients_include;delete insPayload.comptage_ingredients_exclude;delete insPayload.planning_type;
+    var missingCols2=['comptage_ingredients_include','comptage_ingredients_exclude','planning_type'].filter(function(col){return (insR.error.message||'').indexOf(col)!==-1;});
+    if(!missingCols2.length){alert('Erreur : '+insR.error.message);return;}
+    missingCols2.forEach(function(col){delete insPayload[col];});
     insR=await db.from('employees').insert(insPayload).select();
     if(insR&&insR.error){alert('Erreur : '+insR.error.message);return;}
-    alert('Salarié créé, mais les exceptions fines par ingrédient et/ou le planning par défaut n\'ont pas pu l\'être : la migration SQL (colonnes comptage_ingredients_include/exclude/planning_type sur employees) doit être exécutée dans Supabase.');
+    alert('Salarié créé, mais '+missingCols2.join(', ')+' n\'a/n\'ont pas pu être enregistré(s) : la migration SQL correspondante doit être exécutée dans Supabase.');
   }
     if(insR.data&&insR.data[0]){
       var newId=insR.data[0].id;
@@ -5088,11 +5033,6 @@ async function saveSal(){
   closeM('msa');
   await loadEmps();
   renderSal();
-}
-
-async function togSal(id,actif){
-  await db.from('employees').update({actif:!actif}).eq('id',id);
-  await loadEmps();renderSal();
 }
 
 function openAddSalFromPlan(){openAddSal();}
@@ -5669,19 +5609,6 @@ async function saveAb(){
   if(ficheAbsRetour){ficheAbsRetour=false;openM('modal-absfiche');ficheTab('abs');}
 }
 
-function expRc(){
-  var rows=[['Prenom','Nom','Restaurant','Prevu','Reel','Diff']];
-  document.querySelectorAll('#rcb .card').forEach(function(card,i){
-    var em=emps.filter(function(e){return e.actif;})[i];if(!em)return;
-    var vals=card.querySelectorAll('[style*="font-size:18px"]');
-    if(vals.length>=3)rows.push([em.prenom,em.nom,em.restaurant_id,vals[0].textContent,vals[1].textContent,vals[2].textContent]);
-  });
-  var csv=rows.map(function(r){return r.join(';');}).join('\n');
-  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');a.href=url;a.download='recap_heures.csv';a.click();
-}
-
 async function renderSal(){
   var body=document.getElementById('sab');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
@@ -5906,9 +5833,6 @@ async function loadDem(){
   });
   body.innerHTML=h;
 }
-
-function loadAudit(){}
-
 
 async function traitDem(id,statut){await db.from('demandes_absence').update({statut:statut}).eq('id',id);await loadDem();  updateDemBadge();
 }
@@ -6352,46 +6276,6 @@ let caisseCurrentRow=null;
 let caisseMenuCatsActive=[]; // catégories actives du menu public (menudata.json), mises en cache à l'ouverture de "Créer"
 let caisseMenuItemsAll=[];   // items du menu public, pour dériver les sous-catégories existantes par catégorie
 
-// ── Réglages : fonctionnalités activables/désactivables pour les salariés (app pointage) ──
-// Ajouter une entrée ici suffit pour qu'elle apparaisse dans l'écran Réglages.
-var FEATURE_FLAGS_CATALOG=[
-  {key:'comptage_rapide_enabled',label:'🧮 Comptage rapide',desc:'Bouton "Comptage rapide" dans l\'app de pointage des salariés (nouveau module de comptage, branché sur ingredient_seuils).'}
-];
-var rctFeatureFlags={};
-async function loadReglagesModule(){
-  var box=document.getElementById('reglages-list');
-  box.innerHTML='<div class="card" style="color:var(--txm);font-size:12px;">Chargement…</div>';
-  try{
-    var r=sbCheck(await db.from('feature_flags').select('key,enabled'));
-    rctFeatureFlags={};
-    (r.data||[]).forEach(function(f){rctFeatureFlags[f.key]=f.enabled;});
-  }catch(e){console.error('loadReglagesModule',e);}
-  renderReglagesList();
-}
-function renderReglagesList(){
-  var box=document.getElementById('reglages-list');
-  box.innerHTML=FEATURE_FLAGS_CATALOG.map(function(f){
-    var enabled=rctFeatureFlags[f.key]!==false; // activé par défaut tant que rien n'est explicitement désactivé
-    return '<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px;margin-bottom:8px;">'
-      +'<div style="flex:1;">'
-      +'<div style="font-weight:700;font-size:14px;color:var(--tx);">'+esc(f.label)+'</div>'
-      +'<div style="font-size:11px;color:var(--txm);margin-top:2px;">'+esc(f.desc)+'</div>'
-      +'</div>'
-      +'<label style="position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0;">'
-      +'<input type="checkbox" '+(enabled?'checked':'')+' onchange="toggleFeatureFlag(\''+f.key+'\',this.checked)" style="opacity:0;width:0;height:0;">'
-      +'<span style="position:absolute;inset:0;background:'+(enabled?'#16A34A':'#D1D5DB')+';border-radius:26px;transition:.2s;cursor:pointer;" onclick="this.previousElementSibling.checked=!this.previousElementSibling.checked;this.previousElementSibling.dispatchEvent(new Event(\'change\'));">'
-      +'<span style="position:absolute;top:3px;left:'+(enabled?'23px':'3px')+';width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.3);"></span>'
-      +'</label>'
-      +'</div>';
-  }).join('');
-}
-async function toggleFeatureFlag(key,enabled){
-  try{
-    sbCheck(await db.from('feature_flags').upsert([{key:key,enabled:enabled}],{onConflict:'key'}));
-    rctFeatureFlags[key]=enabled;
-    renderReglagesList();
-  }catch(e){console.error('toggleFeatureFlag',e);alert('Erreur : '+e.message);renderReglagesList();}
-}
 async function loadCaisseModule(){
   var list=document.getElementById('caisse-list');
   var summary=document.getElementById('caisse-summary');
@@ -11040,12 +10924,6 @@ let mcatCurrentCat=null; // null = mode création d'une nouvelle catégorie
 function openCategoryEditModalFromBtn(btn){
   var host=btn.closest('[data-catname]');
   openCategoryEditModal(host?host.getAttribute('data-catname'):null);
-}
-async function openCategoryEditModalPreset(ongletName){
-  if(ongletName==='Boissons')await ensureBoissonsOnglet();
-  openCategoryEditModal(null);
-  var sel=document.getElementById('mcat-onglet');
-  if(sel)sel.value=ongletName;
 }
 function openCategoryEditModal(catName){
   mcatCurrentCat=catName;
