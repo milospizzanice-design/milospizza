@@ -1224,7 +1224,7 @@ async function loadCommandesFournisseursData(){
   if(comptagesRes.error)throw comptagesRes.error;
   var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,is_cuisine_interne,whatsapp_groupe,heure_limite,jours_livraison,delai_commande_jours');
   var suppliersById={};(fournRes.data||[]).forEach(function(f){suppliersById[f.id]=f;});
-  var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id','global').eq('actif',true);
+  var ingRes=await db.from('ingredients').select('code,nom,categorie,sous_categorie').eq('restaurant_id','global').eq('actif',true);
   var ingByCode={};(ingRes.data||[]).forEach(function(i){ingByCode[i.code]=i;});
   // Règles de commande (jours fixes / veille de livraison) — mêmes verrouillages que côté auto-commande Labo,
   // appliqués ici aux fournisseurs externes. Une par restaurant du périmètre (une règle est propre à un
@@ -1244,6 +1244,23 @@ async function loadCommandesFournisseursData(){
     if(typeSuivi==='level'){var v=parseFloat(valeur);return !isNaN(v)&&v<=25;}
     return false;
   }
+  // Un dernier comptage n'est valable que jusqu'à la prochaine échéance de comptage de l'ingrédient (tous les
+  // jours par défaut, ou les jours précis configurés). Avant ce correctif, un comptage pouvait déclencher une
+  // commande INDÉFINIMENT tant que personne ne recomptait — y compris un très vieux comptage, ou un zéro
+  // resté en base suite à une erreur de manipulation il y a plusieurs jours. Un ingrédient dont le dernier
+  // comptage est PÉRIMÉ est désormais traité comme "jamais compté" pour les commandes (donc aucune commande
+  // tant que rien n'a été recompté), au lieu de continuer à alerter sur une donnée obsolète.
+  function cmdfComptageExpire(comptageJours,compteLe){
+    var jours=Array.isArray(comptageJours)?comptageJours:[];
+    var compteDay=new Date(compteLe);compteDay.setHours(0,0,0,0);
+    var today=new Date();today.setHours(0,0,0,0);
+    if(!jours.length)return compteDay.getTime()!==today.getTime(); // comptage quotidien : valable le jour même uniquement
+    for(var back=0;back<7;back++){
+      var d=new Date(today);d.setDate(d.getDate()-back);
+      if(jours.indexOf(d.getDay())>=0)return compteDay.getTime()<d.getTime(); // périmé si antérieur à la dernière échéance programmée
+    }
+    return false;
+  }
   // Étape 1 : une entrée par (restaurant, ingrédient) flagué, comme avant — avant fusion.
   var rawItems=[];
   (seuilsRes.data||[]).forEach(function(s){
@@ -1252,7 +1269,7 @@ async function loadCommandesFournisseursData(){
     var sup=suppliersById[s.fournisseur_id];
     if(!sup||sup.is_labo_interne||sup.is_cuisine_interne)return; // Labo/Cuisine interne : déjà gérés automatiquement au comptage
     var d=dernierByRestoCode[s.restaurant_id+'|'+s.ingredient_code];
-    if(!d)return;
+    if(!d||cmdfComptageExpire(s.comptage_jours,d.compte_le))return;
     if(d.commande_envoyee)return; // déjà signalé dans un message précédent
     var flagged=false,manque=null;
     if(s.type_suivi==='qty'){
@@ -1400,14 +1417,22 @@ async function loadCommandesFournisseursData(){
           if(countedTodayThisResto.has(code))return;
           var ing=ingByCode[code];
           var entry=missingByRoleId[r.id]||(missingByRoleId[r.id]={nom:r.nom,itemsByCode:{}});
-          entry.itemsByCode[code]={code:code,nom:ing?ing.nom:code,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece'};
+          entry.itemsByCode[code]={code:code,nom:ing?ing.nom:code,categorie:ing&&ing.categorie?ing.categorie:'Autre',sousCategorie:ing&&ing.sous_categorie?ing.sous_categorie:null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece'};
         });
         return {nom:r.nom,done:done};
       }).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
     });
     cmdfMissingByPoste=Object.keys(missingByRoleId).map(function(rid){
       var e=missingByRoleId[rid];
-      return {roleId:rid,nom:e.nom,items:Object.keys(e.itemsByCode).map(function(c){return e.itemsByCode[c];}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');})};
+      var items=Object.keys(e.itemsByCode).map(function(c){return e.itemsByCode[c];});
+      items.sort(function(a,b){
+        var c=a.categorie.localeCompare(b.categorie,'fr');if(c)return c;
+        var sa=a.sousCategorie||'',sb=b.sousCategorie||'';
+        if(!sa&&sb)return 1;if(sa&&!sb)return -1; // "sans sous-catégorie" toujours en dernier, comme sur l'écran Comptage
+        var s=sa.localeCompare(sb,'fr');if(s)return s;
+        return a.nom.localeCompare(b.nom,'fr');
+      });
+      return {roleId:rid,nom:e.nom,items:items};
     }).filter(function(e){return e.items.length;}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
   }catch(e){console.warn('statut postes fournisseur indisponible',e);cmdfMissingByPoste=[];}
   cmdfByFourn=byFourn;
@@ -1478,8 +1503,20 @@ function renderCmdfMissingPopup(){
   cmdfMissingByPoste.forEach(function(g){
     html+='<div style="margin-bottom:14px">'
       +'<div style="font-weight:700;font-size:13px;color:#B91E26;margin-bottom:6px">'+escCpt(g.nom)+' &mdash; '+g.items.length+' article'+(g.items.length>1?'s':'')+'</div>';
+    // Jamais en vrac : toujours regroupé par catégorie puis sous-catégorie, comme sur l'écran Comptage
+    // principal — un sous-en-tête à chaque changement de catégorie ou de sous-catégorie dans la liste déjà
+    // triée en amont.
+    var lastCat=null,lastSous=undefined;
     g.items.forEach(function(it){
-      html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid #f0f0f0" id="cmdf-miss-'+it.code+'">'
+      if(it.categorie!==lastCat){
+        html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#B91E26;margin:8px 0 2px">'+escCpt(it.categorie)+'</div>';
+        lastCat=it.categorie;lastSous=undefined;
+      }
+      if(it.sousCategorie!==lastSous){
+        if(it.sousCategorie)html+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#999;margin:4px 0 2px 6px">'+escCpt(it.sousCategorie)+'</div>';
+        lastSous=it.sousCategorie;
+      }
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0 6px 6px;border-top:1px solid #f0f0f0" id="cmdf-miss-'+it.code+'">'
         +'<span style="font-size:12px;color:#333;flex:1;min-width:0">'+escCpt(it.nom)+'</span>'
         +cmdfMissingCtrlHtml(it)
         +'</div>';
