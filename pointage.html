@@ -33,9 +33,6 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .nb:active{background:rgba(255,255,255,.3)}
 .nb.rdy{background:#fff;color:var(--bx)}
 .canc{width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer}
-.cambox{border-radius:12px;overflow:hidden;margin-bottom:10px;background:#000;aspect-ratio:4/3;position:relative}
-.cambox video{width:100%;height:100%;object-fit:cover}
-.camcnt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:72px;font-weight:700;color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.5)}
 .cficon{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 12px}
 .ok{background:linear-gradient(135deg,#276749,#38a169);box-shadow:0 6px 20px rgba(56,161,105,.4)}
 .ko{background:linear-gradient(135deg,#991B1B,#dc2626)}
@@ -65,7 +62,6 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   .albl{font-size:9px;margin-bottom:2px}
   .ainp{padding:6px 8px;font-size:13px}
   .canc{padding:8px;font-size:12px}
-  .cambox{margin-bottom:7px}
   #camstatus{margin:5px auto !important;padding:6px 10px !important;font-size:12px !important}
   #plan-content{max-height:62vh !important}
   .wrap{padding:10px !important}
@@ -101,7 +97,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   .cpt-tbtn{padding:5px 7px !important;font-size:9px !important}
 }
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.08)}}
-/* ── Comptage rapide : mise en page reprise de l'écran Stocks (milos-pizza-*.html), adaptée au thème rouge ──
+/* ── Comptage rapide : en-tetes de categorie collants, la page entiere defile ──
    Barre du haut + en-têtes de catégorie collants (comme le <header> et les .sec-hdr de l'écran Stocks), plus
    d'infos par ligne (seuil/cible/colisage, fournisseur), boutons/pastilles agrandis. La liste ne défile plus
    dans une boîte à part : c'est toute la page (.wrap) qui défile, comme sur l'écran Stocks. */
@@ -126,6 +122,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-row.order{outline:2px solid #C0392B;outline-offset:-2px}
 .cpt-row.done-today{background:#F0FBF4;border-left:4px solid #27AE60}
 .cpt-done-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:#D5F5E3;color:#1E8449;margin-left:6px;white-space:nowrap}
+.cpt-undo-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:#FEE2E2;color:#991B1B;margin-left:6px;white-space:nowrap;cursor:pointer}
+.cpt-undo-badge:active{background:#FCC9C9}
 .cpt-notdue-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:#FEF3C7;color:#92400E;margin-left:6px;white-space:nowrap}
 .cpt-row.not-due{opacity:.55}
 .cpt-row.not-due.done-today{opacity:1}
@@ -134,8 +132,6 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-name{font-size:13px;font-weight:600;color:#1A1008;line-height:1.25}
 .cpt-meta2{font-size:10px;color:#8a7f70;margin-top:2px}
 .cpt-meta{font-size:10px;color:#8a7f70;margin-top:2px}
-.cpt-del{margin-left:6px;cursor:pointer;opacity:.55;font-size:11px;padding:2px 4px}
-.cpt-del:active{opacity:1}
 .cpt-suptag-wrap{margin-top:4px}
 .cpt-suptag{display:inline-block;font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;color:#fff;line-height:1.3}
 .cpt-ctrl{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
@@ -146,6 +142,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-qty-ctrl{display:flex;align-items:center;background:#fff;border:2px solid var(--bx);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(185,30,38,.18)}
 .cpt-qbtn{width:40px;height:40px;background:#FBE7E8;border:none;font-size:22px;font-weight:800;color:#B91E26;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .cpt-qbtn:active{background:#F5CDD0}
+.cpt-qzero{width:30px !important;font-size:13px !important;font-weight:700;background:#FEF3C7;color:#92400E}
+.cpt-qzero:active{background:#FDE7A8}
 .cpt-qin{width:54px;text-align:center;border:none;background:#FFF7DE;font-size:19px;font-weight:800;color:#1A1008;padding:6px 0;-moz-appearance:textfield}
 .cpt-qin::-webkit-outer-spin-button,.cpt-qin::-webkit-inner-spin-button{-webkit-appearance:none}
 .cpt-qin:focus{outline:none;background:#FFEFB8}
@@ -251,7 +249,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="cbtn" onclick="menuComptage()" id="cbtn-comptage">
         <div class="ci">&#129518;</div>
         <div class="cl">Comptage rapide</div>
-        <div class="cs">Nouveau module de comptage (test)</div>
+        <div class="cs">&Eacute;tat des stocks poste par poste</div>
       </div>
       <div class="cbtn" onclick="menuCommandesFournisseurs()" id="cbtn-commandes" style="position:relative">
         <div class="ci">&#128228;</div>
@@ -321,7 +319,6 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div class="screen" id="s-camera">
       <div class="pl" id="camname"></div>
       <div id="camstatus" style="margin:14px auto;padding:14px 18px;border-radius:12px;font-size:16px;max-width:340px;text-align:center"></div>
-      <div id="camcnt" style="display:none"></div>
       <button onclick="confirmBadge()" id="badge-btn" style="width:100%;max-width:340px;margin:10px auto;display:block;background:#fff;color:#B91E26;border:none;border-radius:14px;padding:18px;font-size:18px;font-weight:700;cursor:pointer">Valider mon badgeage</button>
       <button class="canc" onclick="backToMenu()">Annuler</button>
     </div>
@@ -334,19 +331,6 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="cficon ko">&#10005;</div>
       <div class="cfname">Erreur</div>
       <div class="cfdet" id="em"></div>
-    </div>
-    <div class="screen" id="s-abs-pin">
-      <div class="pl">PIN pour demande d'absence</div>
-      <div class="pd"><div id="ap0"></div><div id="ap1"></div><div id="ap2"></div><div id="ap3"></div></div>
-      <div class="np">
-        <button class="nb" onclick="apk('1')">1</button><button class="nb" onclick="apk('2')">2</button><button class="nb" onclick="apk('3')">3</button>
-        <button class="nb" onclick="apk('4')">4</button><button class="nb" onclick="apk('5')">5</button><button class="nb" onclick="apk('6')">6</button>
-        <button class="nb" onclick="apk('7')">7</button><button class="nb" onclick="apk('8')">8</button><button class="nb" onclick="apk('9')">9</button>
-        <button class="nb" onclick="apk('back')" style="font-size:18px">&#9003;</button>
-        <button class="nb" onclick="apk('0')">0</button>
-        <button class="nb" id="apc" onclick="absConfirmPin()">&#10003;</button>
-      </div>
-      <button class="canc" onclick="reset()">Annuler</button>
     </div>
     <div class="screen" id="s-abs-form">
       <div style="color:#fff;font-size:14px;font-weight:700;text-align:center;margin-bottom:11px" id="absempname"></div>
@@ -378,38 +362,12 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="cfname">Demande envoyée !</div>
       <div class="cfdet" id="abs-ok-det"></div>
     </div>
-    <div class="screen" id="s-plan-pin">
-      <div class="pl">PIN pour consulter mon planning</div>
-      <div class="pd"><div id="pp0"></div><div id="pp1"></div><div id="pp2"></div><div id="pp3"></div></div>
-      <div class="np">
-        <button class="nb" onclick="ppk('1')">1</button><button class="nb" onclick="ppk('2')">2</button><button class="nb" onclick="ppk('3')">3</button>
-        <button class="nb" onclick="ppk('4')">4</button><button class="nb" onclick="ppk('5')">5</button><button class="nb" onclick="ppk('6')">6</button>
-        <button class="nb" onclick="ppk('7')">7</button><button class="nb" onclick="ppk('8')">8</button><button class="nb" onclick="ppk('9')">9</button>
-        <button class="nb" onclick="ppk('back')" style="font-size:18px">&#9003;</button>
-        <button class="nb" onclick="ppk('0')">0</button>
-        <button class="nb" id="ppc" onclick="planConfirmPin()">&#10003;</button>
-      </div>
-      <button class="canc" onclick="reset()">Annuler</button>
-    </div>
     <div class="screen" id="s-plan-view">
       <div class="pl" id="planempname" style="margin-bottom:4px"></div>
       <div style="font-size:13px;color:#888;margin-bottom:10px">Vos horaires des 4 prochaines semaines</div>
       <div id="plan-content" style="width:100%;max-height:48vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"></div>
       <div id="plan-lu-zone" style="margin-top:10px"></div>
       <button onclick="backToMenu()" style="width:100%;margin-top:8px;background:#B91E26;border:none;border-radius:12px;padding:14px;color:#fff;font-size:16px;font-weight:700;cursor:pointer">&#8592; Retour au menu</button>
-    </div>
-    <div class="screen" id="s-aco-pin">
-      <div class="pl">PIN pour demander un acompte</div>
-      <div class="pd"><div id="qp0"></div><div id="qp1"></div><div id="qp2"></div><div id="qp3"></div></div>
-      <div class="np">
-        <button class="nb" onclick="qpk('1')">1</button><button class="nb" onclick="qpk('2')">2</button><button class="nb" onclick="qpk('3')">3</button>
-        <button class="nb" onclick="qpk('4')">4</button><button class="nb" onclick="qpk('5')">5</button><button class="nb" onclick="qpk('6')">6</button>
-        <button class="nb" onclick="qpk('7')">7</button><button class="nb" onclick="qpk('8')">8</button><button class="nb" onclick="qpk('9')">9</button>
-        <button class="nb" onclick="qpk('back')" style="font-size:18px">&#9003;</button>
-        <button class="nb" onclick="qpk('0')">0</button>
-        <button class="nb" id="qpc" onclick="acoConfirmPin()">&#10003;</button>
-      </div>
-      <button class="canc" onclick="reset()">Annuler</button>
     </div>
     <div class="screen" id="s-aco-form">
       <div style="color:#fff;font-size:14px;font-weight:700;text-align:center;margin-bottom:11px" id="acoempname"></div>
@@ -469,13 +427,23 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <button onclick="closeDemNotif()" style="width:100%;background:#B91E26;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">OK, compris</button>
   </div>
 </div>
+
+<!-- Pop-up bloquant à l'ouverture de "Commande fournisseur" : liste par poste ce qui n'a pas encore été
+     compté aujourd'hui, avec la possibilité de compter directement ici les articles de CE restaurant. -->
+<div id="cmdf-missing-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:22px 18px;max-width:400px;width:100%;text-align:left;box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:82vh;overflow-y:auto">
+    <div style="text-align:center;font-size:34px;margin-bottom:6px">&#9203;</div>
+    <div style="text-align:center;font-weight:700;font-size:17px;color:#B91E26;margin-bottom:10px">Comptage du jour incomplet</div>
+    <div id="cmdf-missing-list"></div>
+    <button onclick="closeCmdfMissingPopup()" style="width:100%;background:#B91E26;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px">Fermer et voir les commandes</button>
+  </div>
+</div>
 <script>
 var RESTAURANT_ID='port';
 var RESTAURANT_ADDRESS='9 rue Bavastro, 06300 Nice';
 var SURL='https://kkfccfipmxnsiohjxfdy.supabase.co';
 var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZmNjZmlwbXhuc2lvaGp4ZmR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjgwNjcsImV4cCI6MjA5Njg0NDA2N30.cMp5VhkkzSN6i04fJD1B6zVuDfMOHo8GfD91_Q6Rk-U';
 var db=supabase.createClient(SURL,SKEY);
-window.rgFeatureFlags=null;
 // Vérifie quelles fonctionnalités sont activées globalement (réglées depuis admin.html > Réglages),
 // et grise le bouton correspondant s'il est désactivé. Défaut = activé si la table est vide/injoignable,
 // pour ne jamais bloquer par erreur si Supabase répond mal.
@@ -534,7 +502,6 @@ function _restoPickerCancel(){
 }
 function finishEmployeeLogin(){
   document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
-  applyFeatureFlags();
   applyRestaurantMenuVisibility();
   ss('menu');
   resetInactivity();
@@ -544,26 +511,8 @@ function applyRestaurantMenuVisibility(){
   if(!btn)return;
   btn.style.display=(RESTAURANT_ID==='labo')?'':'none';
 }
-async function applyFeatureFlags(){
-  try{
-    var r=await db.from('feature_flags').select('key,enabled');
-    var flags={};
-    (r.data||[]).forEach(function(f){flags[f.key]=f.enabled;});
-    window.rgFeatureFlags=flags;
-    var btnCpt=document.getElementById('cbtn-comptage');
-    if(btnCpt){
-      if(flags.comptage_rapide_enabled===false){
-        btnCpt.style.opacity='0.4';
-        btnCpt.style.pointerEvents='none';
-      }else{
-        btnCpt.style.opacity='';
-        btnCpt.style.pointerEvents='';
-      }
-    }
-  }catch(e){console.error('applyFeatureFlags',e);}
-}
 var pin='',emp=null,stream=null;
-var absPin='',absEmp=null;
+var absEmp=null;
 
 function tick(){
   var n=new Date();
@@ -661,30 +610,7 @@ function updateSuiviBadge(){
   var badge=document.getElementById('suivi-badge');
   if(badge)badge.style.display='none';
 }
-var acoPin='',acoEmp=null;
-function showAcoBtn(){
-  acoPin='';acoEmp=null;
-  for(var i=0;i<4;i++){var d=document.getElementById('qp'+i);if(d)d.classList.remove('f');}
-  var cf=document.getElementById('qpc');if(cf)cf.classList.remove('rdy');
-  ss('aco-pin');
-}
-function qpk(k){
-  if(k==='back')acoPin=acoPin.slice(0,-1);
-  else if(acoPin.length<4)acoPin+=k;
-  for(var i=0;i<4;i++){var d=document.getElementById('qp'+i);if(d)d.classList.toggle('f',acoPin.length>i);}
-  var cf=document.getElementById('qpc');if(cf)cf.classList.toggle('rdy',acoPin.length===4);
-}
-async function acoConfirmPin(){
-  if(acoPin.length!==4)return;
-  var r=await db.rpc('verify_pin',{p_pin:acoPin,p_restaurant:RESTAURANT_ID});
-  if(r.error||!r.data||r.data.length===0){acoPin='';for(var i=0;i<4;i++){var d=document.getElementById('qp'+i);if(d)d.classList.remove('f');}alert('PIN incorrect');return;}
-  acoEmp=r.data[0];
-  document.getElementById('acoempname').textContent=acoEmp.prenom+' '+acoEmp.nom;
-  document.getElementById('aco-montant').value='';
-  document.getElementById('aco-date').value='';
-  document.getElementById('aco-msg').value='';
-  ss('aco-form');
-}
+var acoEmp=null;
 async function submitAco(){
   if(!acoEmp)return;
   var montant=parseFloat(document.getElementById('aco-montant').value);
@@ -702,20 +628,7 @@ async function submitAco(){
 }
 
 // ── CONSULTATION PLANNING SALARIÉ (tablette) ────────────────────────────────
-var planPin='',planEmp=null;
-function showPlanBtn(){
-  planPin='';planEmp=null;
-  for(var i=0;i<4;i++){var d=document.getElementById('pp'+i);if(d)d.classList.remove('f');}
-  var cf=document.getElementById('ppc');if(cf)cf.classList.remove('rdy');
-  ss('plan-pin');
-}
-function ppk(k){
-  if(k==='back')planPin=planPin.slice(0,-1);
-  else if(planPin.length<4)planPin+=k;
-  for(var i=0;i<4;i++){var d=document.getElementById('pp'+i);if(d)d.classList.toggle('f',planPin.length>i);}
-  var cf=document.getElementById('ppc');if(cf)cf.classList.toggle('rdy',planPin.length===4);
-}
-
+var planEmp=null;
 async function planAfficherLu(){
   var zone=document.getElementById('plan-lu-zone');
   if(!zone||!planEmp)return;
@@ -781,16 +694,6 @@ async function planEnvoyerReserve(){
   planAfficherLu();
 }
 
-async function planConfirmPin(){
-  if(planPin.length!==4)return;
-  var r=await db.rpc('verify_pin',{p_pin:planPin,p_restaurant:RESTAURANT_ID});
-  if(r.error||!r.data||r.data.length===0){planPin='';for(var i=0;i<4;i++){var d=document.getElementById('pp'+i);if(d)d.classList.remove('f');}alert('PIN incorrect');return;}
-  planEmp=r.data[0];
-  document.getElementById('planempname').textContent=planEmp.prenom+' '+planEmp.nom;
-  document.getElementById('plan-content').innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
-  ss('plan-view');
-  await loadSalariePlanning();
-}
 function pPad(n){return n<10?'0'+n:''+n;}
 function pDs(d){var x=new Date(d);return x.getFullYear()+'-'+pPad(x.getMonth()+1)+'-'+pPad(x.getDate());}
 function pMon(d){var x=new Date(d);
@@ -942,18 +845,6 @@ function retourBadge(){
 function nfcUsePin(){
   ouvrirPinName();
 }
-function backToIdleOrNfc(){
-  // Retour à l'écran d'accueil selon la disponibilité NFC de l'appareil
-  pin='';upd&&upd();
-  if('NDEFReader' in window){
-    ss('nfc');
-    var s=document.getElementById('nfc-status');if(s)s.innerHTML='';
-  }else{
-    ouvrirPinName();
-  }
-}
-
-
 // ── ÉTAPE C : PIN par nom + création du code par le salarié ─────────────────
 var PIN_EMPLOYES=[];      // salariés dont le PIN est autorisé
 var pinSelEmp=null;       // salarié sélectionné pour la saisie/création
@@ -1063,8 +954,7 @@ async function ccodeNext(){
 }
 
 function reset(){
-  if(photoTimer){clearInterval(photoTimer);photoTimer=null;}
-  pin='';absPin='';planPin='';acoPin='';emp=null;absEmp=null;planEmp=null;acoEmp=null;
+  pin='';emp=null;absEmp=null;planEmp=null;acoEmp=null;
   // Tablette partagée entre plusieurs salariés sans rechargement de page : sans cette remise à zéro, le
   // choix "postes du jour" (et le rôle sélectionné) du salarié précédent restait actif pour le suivant —
   // un nouveau salarié avec un seul rôle différent se retrouvait filtré sur le rôle de quelqu'un d'autre et
@@ -1125,26 +1015,11 @@ async function confirmPin(){
 // ── CONSENTEMENT ÉLECTRONIQUE (1ère connexion) ──────────────────────────────
 
 
-function consentRender(){}
-
-
 var consentScrolledBottom=false;
-function consentInit(){}
-
-
 var consentCanvas,consentCtx,consentDrawing=false,consentHasSign=false;
-function consentInitCanvas(){}
-
-function consentClearSign(){}
-
-
-function consentSubmit(){}
-
-
 // ── ACTIONS DU MENU (emp déjà identifié) ────────────────────────────────────
 async function menuPointer(){
   document.getElementById('camname').textContent=emp.prenom+' '+emp.nom;
-  document.getElementById('camcnt').textContent='';
   var lr=await db.from('time_entries').select('type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
   var lastB=lr.data&&lr.data[0];
   var lastIsToday=lastB&&pDs(new Date(lastB.timestamp))===pDs(new Date());
@@ -1172,9 +1047,6 @@ function confirmBadge(){
   if(btn){btn.disabled=true;btn.textContent='Enregistrement...';}
   badge(null);
 }
-var photoTimer=null;
-function startPhotoCountdown(){}
-
 function menuPlanning(){
   planEmp=emp;
   document.getElementById('planempname').textContent=emp.prenom+' '+emp.nom;
@@ -1341,6 +1213,7 @@ function cptPostesChipHtml(){
 // qu'il n'a pas été recompté — ça permet à plusieurs personnes de compter dans la journée pour un même
 // fournisseur sans fragmenter en plusieurs messages WhatsApp.
 var cmdfByFourn={};
+var cmdfMissingByPoste=[]; // [{roleId,nom,items:[{code,nom,type_suivi,unite_comptage}]}] — postes concernés par au moins une commande fournisseur mais n'ayant pas fini leur comptage du jour ICI (ce restaurant). Alimente le pop-up bloquant à l'ouverture de "Commande fournisseur".
 var cmdfWaUrls={};
 async function loadCommandesFournisseursData(){
   // Dabray et le Labo sont livrés au même endroit (même arrêt de livraison) : leurs besoins fournisseurs
@@ -1491,6 +1364,16 @@ async function loadCommandesFournisseursData(){
       var empsRes=await db.from('employees').select('id,roles').in('id',empIdsAujourdhui);
       (empsRes.data||[]).forEach(function(e){rolesByEmp[e.id]=e.roles||[];});
     }
+    // Index (restaurant, code) -> seuil, et ce qui a déjà été compté AUJOURD'HUI précisément ICI (ce
+    // restaurant) — sert à bâtir la liste réelle d'articles manquants par poste (pop-up bloquant), distincte
+    // du simple statut "done" par poste ci-dessous qui ne dit pas QUOI compter.
+    var seuilByRestoCode={};
+    (seuilsRes.data||[]).forEach(function(s){seuilByRestoCode[s.restaurant_id+'|'+s.ingredient_code]=s;});
+    var countedTodayThisResto=new Set();
+    (comptagesRes.data||[]).forEach(function(c){
+      if(c.restaurant_id===RESTAURANT_ID&&c.compte_le&&c.compte_le.slice(0,10)===todayStr)countedTodayThisResto.add(c.ingredient_code);
+    });
+    var missingByRoleId={};
     Object.keys(byFourn).forEach(function(fid){
       var codes=codesByFourn[fid]||new Set();
       var cats={};
@@ -1507,10 +1390,28 @@ async function loadCommandesFournisseursData(){
           var codesComptes=Array.from(codesComptesAujourdhuiParEmp[empId]);
           return codesComptes.some(function(code){return codes.has(code)&&!exc.has(code);});
         });
+        // Manque réel article par article (à cet endroit précis), indépendant du statut "done" ci-dessus :
+        // un article peut être à jour même si ce n'est pas QUELQU'UN AVEC CE RÔLE qui l'a compté aujourd'hui.
+        codes.forEach(function(code){
+          if(exc.has(code))return;
+          var s=seuilByRestoCode[RESTAURANT_ID+'|'+code];
+          if(!s||s.actif===false)return; // pas suivi ici (probablement l'autre restaurant fusionné)
+          var jours=Array.isArray(s.comptage_jours)?s.comptage_jours:[];
+          var due=!jours.length||jours.indexOf(new Date().getDay())>=0;
+          if(!due)return;
+          if(countedTodayThisResto.has(code))return;
+          var ing=ingByCode[code];
+          var entry=missingByRoleId[r.id]||(missingByRoleId[r.id]={nom:r.nom,itemsByCode:{}});
+          entry.itemsByCode[code]={code:code,nom:ing?ing.nom:code,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece'};
+        });
         return {nom:r.nom,done:done};
       }).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
     });
-  }catch(e){console.warn('statut postes fournisseur indisponible',e);}
+    cmdfMissingByPoste=Object.keys(missingByRoleId).map(function(rid){
+      var e=missingByRoleId[rid];
+      return {roleId:rid,nom:e.nom,items:Object.keys(e.itemsByCode).map(function(c){return e.itemsByCode[c];}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');})};
+    }).filter(function(e){return e.items.length;}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+  }catch(e){console.warn('statut postes fournisseur indisponible',e);cmdfMissingByPoste=[];}
   cmdfByFourn=byFourn;
   return byFourn;
 }
@@ -1553,12 +1454,90 @@ async function menuCommandesFournisseurs(){
   box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
   try{
     var byFourn=await loadCommandesFournisseursData();
-    renderCommandesFournisseursList(byFourn);
     updateCommandesBadge(byFourn);
+    if(cmdfMissingByPoste.length){
+      renderCmdfMissingPopup();
+      document.getElementById('cmdf-missing-overlay').style.display='flex';
+      box.innerHTML='';
+    }else{
+      renderCommandesFournisseursList(byFourn);
+    }
   }catch(e){
     console.error('menuCommandesFournisseurs',e);
     box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(e.message)+'</div>';
   }
+}
+// Pop-up bloquant "il manque tel comptage" : doit être fermée explicitement avant de voir les commandes.
+// Permet de compter directement les articles de CE restaurant sans quitter l'écran ; les articles gérés par
+// l'autre restaurant fusionné (Dabray/Labo) sont juste listés, sans contrôle de saisie (pas comptables d'ici).
+function renderCmdfMissingPopup(){
+  var box=document.getElementById('cmdf-missing-list');if(!box)return;
+  if(!cmdfMissingByPoste.length){
+    box.innerHTML='<div style="font-size:13px;color:#16A34A;font-weight:600;text-align:center">&#10003; Tout est à jour !</div>';
+    return;
+  }
+  var html='<div style="font-size:13px;color:#555;margin-bottom:12px">Avant de passer les commandes, il manque le comptage de :</div>';
+  cmdfMissingByPoste.forEach(function(g){
+    html+='<div style="margin-bottom:14px">'
+      +'<div style="font-weight:700;font-size:13px;color:#B91E26;margin-bottom:6px">'+escCpt(g.nom)+' &mdash; '+g.items.length+' article'+(g.items.length>1?'s':'')+'</div>';
+    g.items.forEach(function(it){
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid #f0f0f0" id="cmdf-miss-'+it.code+'">'
+        +'<span style="font-size:12px;color:#333;flex:1;min-width:0">'+escCpt(it.nom)+'</span>'
+        +cmdfMissingCtrlHtml(it)
+        +'</div>';
+    });
+    html+='</div>';
+  });
+  box.innerHTML=html;
+}
+function cmdfMissingCtrlHtml(it){
+  if(it.type_suivi==='qty'){
+    return '<div style="display:flex;align-items:center;gap:3px;flex-shrink:0">'
+      +'<button type="button" onclick="cmdfQuickAdj(\''+it.code+'\',-1)" style="width:26px;height:26px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;font-size:14px;cursor:pointer">&minus;</button>'
+      +'<input type="number" inputmode="decimal" step="0.1" id="cmdf-miss-'+it.code+'-val" style="width:44px;text-align:center;font-size:12px;padding:4px 2px;border:1px solid #ddd;border-radius:6px" placeholder="0">'
+      +'<button type="button" onclick="cmdfQuickAdj(\''+it.code+'\',1)" style="width:26px;height:26px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;font-size:14px;cursor:pointer">+</button>'
+      +'<button type="button" onclick="cmdfQuickSave(\''+it.code+'\',\'0\')" title="Pas de stock" style="font-size:9px;padding:0 6px;height:26px;border-radius:6px;border:1px solid #ddd;background:#FEF3C7;color:#92400E;cursor:pointer;white-space:nowrap">0</button>'
+      +'</div>';
+  }
+  if(it.type_suivi==='two')return cmdfMissingBtn(it,'ok','OK')+cmdfMissingBtn(it,'commander','Cmd');
+  if(it.type_suivi==='yn')return cmdfMissingBtn(it,'oui','Oui')+cmdfMissingBtn(it,'non','Non');
+  if(it.type_suivi==='rup')return cmdfMissingBtn(it,'ok','OK')+cmdfMissingBtn(it,'faible','Faible')+cmdfMissingBtn(it,'rupture','Rupture');
+  if(it.type_suivi==='level')return [0,25,50,75,100].map(function(v){return cmdfMissingBtn(it,String(v),v+'%');}).join('');
+  return '';
+}
+function cmdfMissingBtn(it,val,lbl){
+  return '<button type="button" onclick="cmdfQuickSave(\''+it.code+'\',\''+val+'\')" style="font-size:10px;padding:4px 7px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;cursor:pointer;flex-shrink:0">'+escCpt(lbl)+'</button>';
+}
+function cmdfQuickAdj(code,delta){
+  var inp=document.getElementById('cmdf-miss-'+code+'-val');if(!inp)return;
+  if(inp.value.trim()===''&&delta<0)return; // jamais touché : le moins ne doit pas créer un faux zéro
+  var cur=parseFloat(inp.value)||0;
+  var next=Math.max(0,Math.round((cur+delta)*10)/10);
+  inp.value=next;
+  cmdfQuickSave(code,String(next));
+}
+// Enregistre un comptage directement depuis le pop-up "manquants" (même table/format que saveComptage), puis
+// retire l'article de la liste — pas d'annulation ici volontairement : en cas d'erreur, l'écran Comptage
+// principal reste l'endroit où corriger (bouton ✕), pour ne pas dupliquer cette logique dans ce pop-up léger.
+var cmdfMissingSaving={};
+async function cmdfQuickSave(code,valeur){
+  if(cmdfMissingSaving[code])return;
+  cmdfMissingSaving[code]=true;
+  try{
+    var typeSuivi='qty';
+    cmdfMissingByPoste.forEach(function(g){g.items.forEach(function(it){if(it.code===code)typeSuivi=it.type_suivi;});});
+    var payload={restaurant_id:RESTAURANT_ID,ingredient_code:code,type_suivi:typeSuivi,valeur:String(valeur),compte_par_id:emp?emp.id:null,compte_par_nom:emp?(emp.prenom+' '+emp.nom):null,compte_le:new Date().toISOString()};
+    var ins=await db.from('ingredient_comptages').insert(payload).select().single();
+    if(ins.error){alert('Erreur : '+ins.error.message);return;}
+    cmdfMissingByPoste.forEach(function(g){g.items=g.items.filter(function(it){return it.code!==code;});});
+    cmdfMissingByPoste=cmdfMissingByPoste.filter(function(g){return g.items.length;});
+    renderCmdfMissingPopup();
+  }catch(e){console.error('cmdfQuickSave',e);alert('Erreur : '+e.message);}
+  finally{cmdfMissingSaving[code]=false;}
+}
+function closeCmdfMissingPopup(){
+  document.getElementById('cmdf-missing-overlay').style.display='none';
+  renderCommandesFournisseursList(cmdfByFourn);
 }
 function renderCommandesFournisseursList(byFourn){
   var box=document.getElementById('cmdf-list');
@@ -1875,10 +1854,6 @@ async function envoyerLaboCommandePointage(commandeId){
 }
 
 async function menuComptage(){
-  if(window.rgFeatureFlags&&window.rgFeatureFlags.comptage_rapide_enabled===false){
-    alert('Le comptage rapide n\'est pas encore activé pour le moment. Demande à un manager.');
-    return;
-  }
   ss('comptage');
   var wrapEl0=document.querySelector('.wrap');if(wrapEl0)wrapEl0.scrollTop=0; // toute la page défile désormais (plus de boîte à part) : repart du haut à chaque ouverture
   var chipWrap=document.getElementById('cpt-resto-chip-wrap');
@@ -2241,6 +2216,7 @@ function comptageRowHtml(i){
       +'<button type="button" class="cpt-qbtn" onclick="cptAdjQty(\''+i.code+'\',-1)">&minus;</button>'
       +'<input type="number" inputmode="decimal" step="0.1" class="cpt-qin" id="'+id+'-val" value="'+escCpt(val)+'" placeholder="0" onchange="saveComptage(\''+i.code+'\')">'
       +'<button type="button" class="cpt-qbtn" onclick="cptAdjQty(\''+i.code+'\',1)">+</button>'
+      +'<button type="button" class="cpt-qbtn cpt-qzero" onclick="cptMarkZero(\''+i.code+'\')" title="Pas de stock">0</button>'
       +'</div>';
   }else if(i.type_suivi==='two'){
     body='<div class="cpt-tog">'+cptChoiceBtn(i,'ok','OK','ok')+cptChoiceBtn(i,'commander','Cmd','bad')+'</div>';
@@ -2261,17 +2237,17 @@ function comptageRowHtml(i){
   var notDue=!cptDueToday(i);
   if(notDue)rowFlag+=' not-due';
   var doneBadge=doneToday?('<span class="cpt-done-badge">&#10003; Compt\u00e9 aujourd\'hui'+(i.dernier&&i.dernier.compte_par_nom?(' par '+escCpt(i.dernier.compte_par_nom)):'')+'</span>'):'';
+  var undoBtn=i._canUndo?('<span class="cpt-undo-badge" onclick="cptUndoLast(\''+i.code+'\')" title="Annuler mon dernier comptage sur cet article">&#8630; Annuler</span>'):'';
   var prochain=notDue?cptProchainComptageLabel(i):null;
   var notDueBadge=prochain?('<span class="cpt-notdue-badge">&#128197; Pas besoin aujourd\'hui &mdash; prochain : '+escCpt(prochain)+'</span>'):'';
-  var delBtn=i.dernier?('<span class="cpt-del" onclick="deleteComptageHistory(\''+i.code+'\')" title="Supprimer l\'historique de comptage de cet ingr\u00e9dient (pour tester)">&#128465;</span>'):'';
   // La ligne reste toujours pleinement modifiable même une fois comptée aujourd'hui (recompter/corriger doit
   // rester possible sans manip supplémentaire) — la coche verte n'est qu'une indication visuelle, jamais un verrou.
   return '<div class="cpt-row'+rowFlag+'" id="'+id+'">'
     +'<span class="cpt-dot" style="background:'+cptCatColor(i.categorie)+'"></span>'
     +'<div class="cpt-info">'
-      +'<div class="cpt-name">'+escCpt(i.nom)+doneBadge+notDueBadge+'</div>'
+      +'<div class="cpt-name">'+escCpt(i.nom)+doneBadge+undoBtn+notDueBadge+'</div>'
       +cptMetaLine(i)
-      +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+delBtn+'</div>'
+      +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+'</div>'
       +'<div class="cpt-suptag-wrap">'+cptRoutingTag(i)+'</div>'
     +'</div>'
     +'<div class="cpt-ctrl">'+pill+body+'</div>'
@@ -2283,33 +2259,46 @@ function cptChoiceBtn(i,val,lbl,cls){
   return '<button type="button" class="cpt-tbtn'+(active?' '+cls:'')+'" onclick="saveComptage(\''+i.code+'\',\''+val+'\')">'+escCpt(lbl)+'</button>';
 }
 // +/- pas de 1 sur le stepper qty, puis enregistrement direct (pas besoin de revalider) — comme sur l'écran Stocks.
+// Le moins ne fait plus rien tant que la bulle n'a jamais été touchée : avant ce correctif, une bulle vide
+// cliquée par erreur sur "-" était traitée comme un 0, puis ce 0 était enregistré comme un vrai comptage —
+// l'article passait alors pour "compté aujourd'hui" avec une fausse valeur de zéro.
 function cptAdjQty(code,delta){
   var i=cptIngredients.find(function(x){return x.code===code;});
   if(!i||cptSaving[code])return;
   var inp=document.getElementById('cpt-'+code+'-val');
   if(!inp)return;
+  if(inp.value.trim()===''&&delta<0)return;
   var cur=parseFloat(inp.value)||0;
   var next=Math.max(0,Math.round((cur+delta)*10)/10);
   inp.value=next;
   saveComptage(code);
 }
-// Supprime TOUT l'historique de comptage de cet ingrédient sur ce restaurant (pas juste le dernier) — pensé
-// pour les tests : repart de "jamais compté". Sans confirmation ce serait dangereux en usage normal, donc
-// on demande toujours confirmation, et l'ingrédient redescend en "Jamais compté" après coup.
-async function deleteComptageHistory(code){
+// Bouton dédié "Pas de stock" : contrairement au moins ci-dessus, celui-ci ÉCRIT délibérément un zéro — utile
+// pour distinguer "je confirme qu'il n'y en a plus" d'une bulle simplement jamais touchée.
+function cptMarkZero(code){
+  var inp=document.getElementById('cpt-'+code+'-val');
+  if(inp)inp.value='0';
+  saveComptage(code);
+}
+// Annule le DERNIER comptage enregistré cette session pour cet ingrédient (un seul niveau, pas un historique
+// complet) : redonne à la bulle son état d'avant ce clic, sans toucher aux comptages des jours précédents.
+// Volontairement limité au dernier geste — pas de suppression en masse comme l'ancien outil de debug retiré.
+async function cptUndoLast(code){
   var i=cptIngredients.find(function(x){return x.code===code;});
-  if(!i||cptSaving[code])return;
-  if(!confirm('Supprimer tout l\'historique de comptage de "'+i.nom+'" sur ce restaurant ?\n\nIrréversible — utile pour repartir de zéro en test.'))return;
+  if(!i||!i._canUndo||cptSaving[code])return;
+  var toDelete=i.dernier?i.dernier.id:null;
   cptSaving[code]=true;
   try{
-    var del=await db.from('ingredient_comptages').delete().eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code);
-    if(del.error){alert('Erreur : '+del.error.message);return;}
-    i.dernier=null;
+    if(toDelete){
+      var del=await db.from('ingredient_comptages').delete().eq('id',toDelete);
+      if(del.error){alert('Erreur : '+del.error.message);return;}
+    }
+    i.dernier=i._undoPrev||null;
+    i._canUndo=false;i._undoPrev=null;
     renderComptageList();
-  }catch(e){console.error('deleteComptageHistory',e);alert('Erreur : '+e.message);}
+  }catch(e){console.error('cptUndoLast',e);alert('Erreur : '+e.message);}
   finally{cptSaving[code]=false;}
 }
-
 async function saveComptage(code,choiceVal){
   var i=cptIngredients.find(function(x){return x.code===code;});
   if(!i||cptSaving[code])return;
@@ -2321,15 +2310,18 @@ async function saveComptage(code,choiceVal){
   }
   cptSaving[code]=true;
   try{
+    var prevDernier=i.dernier?JSON.parse(JSON.stringify(i.dernier)):null;
     var payload={restaurant_id:RESTAURANT_ID,ingredient_code:code,type_suivi:i.type_suivi,valeur:String(valeur),compte_par_id:emp?emp.id:null,compte_par_nom:emp?(emp.prenom+' '+emp.nom):null,compte_le:new Date().toISOString()};
     var ins=await db.from('ingredient_comptages').insert(payload).select().single();
     if(ins.error){alert('Erreur : '+ins.error.message);return;}
     i.dernier=ins.data;
+    i._undoPrev=prevDernier;i._canUndo=true;
     renderComptageList();
     cptAutoCommandeLaboSiNecessaire(i); // pas de await : ne bloque jamais l'écran de comptage, juste en tâche de fond
     cptAutoCommandeCuisineSiNecessaire(i);
   }catch(e){console.error('saveComptage',e);alert('Erreur : '+e.message);}
   finally{cptSaving[code]=false;}
+
 }
 // Déclenche/actualise automatiquement une commande Labo dès que le comptage fait passer un ingrédient sous
 // son seuil ET que son fournisseur est marqué "🏭 Interne" — pas besoin de repasser par Admin > Besoins.
@@ -2545,12 +2537,10 @@ function menuAcompte(){
 // ── RETOUR AU MENU + DÉCONNEXION AUTO ───────────────────────────────────────
 var inactivityTimer=null;
 function backToMenu(){
-  if(photoTimer){clearInterval(photoTimer);photoTimer=null;}
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
-  pin='';absPin='';planPin='';acoPin='';
+  pin='';
   if(emp){
     document.getElementById('menu-welcome').textContent='Bienvenue '+emp.prenom+' \u{1F44B}';
-  applyFeatureFlags();
     ss('menu');
     resetInactivity();
   }else{
@@ -2561,18 +2551,12 @@ function resetInactivity(){
   if(inactivityTimer)clearTimeout(inactivityTimer);
   inactivityTimer=setTimeout(function(){reset();},90000); // 90s d'inactivité RÉELLE (voir listeners globaux ci-dessous)
 }
-function clearInactivity(){
-  if(inactivityTimer){clearTimeout(inactivityTimer);inactivityTimer=null;}
-}
 // Toute interaction réelle (taper, cocher, faire défiler) relance le minuteur — avant, seuls le login et
 // "retour au menu" le faisaient, donc quelqu'un en plein comptage (coche des cases, tape des quantités,
 // lit une liste) se faisait déconnecter au bout de 30s pile, même en pleine activité.
 ['click','touchstart','input','scroll'].forEach(function(evt){
   document.addEventListener(evt,function(){if(emp)resetInactivity();},{passive:true,capture:true});
 });
-
-
-function takePhoto(){}
 
 
 var DELAI_MIN_BADGE=60; // minutes minimum entre 2 badgeages (chargé depuis app_config)
@@ -2649,44 +2633,6 @@ async function badge(){
   ss('ok');setTimeout(backToMenu,3000);
 }
 
-function showAbsBtn(){
-  absPin='';absEmp=null;
-  for(var i=0;i<4;i++){var d=document.getElementById('ap'+i);if(d)d.classList.remove('f');}
-  var cf=document.getElementById('apc');if(cf)cf.classList.remove('rdy');
-  ss('abs-pin');
-}
-
-function apk(k){
-  if(k==='back')absPin=absPin.slice(0,-1);
-  else if(absPin.length<4)absPin+=k;
-  for(var i=0;i<4;i++){var d=document.getElementById('ap'+i);if(d)d.classList.toggle('f',absPin.length>i);}
-  var cf=document.getElementById('apc');if(cf)cf.classList.toggle('rdy',absPin.length===4);
-}
-
-async function absConfirmPin(){
-  if(absPin.length!==4)return;
-  var r=await db.rpc('verify_pin',{p_pin:absPin,p_restaurant:RESTAURANT_ID});
-  if(r.error||!r.data||r.data.length===0){absPin='';for(var i=0;i<4;i++){var d=document.getElementById('ap'+i);if(d)d.classList.remove('f');}alert('PIN incorrect');return;}
-  absEmp=r.data[0];
-  document.getElementById('absempname').textContent=absEmp.prenom+' '+absEmp.nom;
-  var today=pDs(new Date());
-  var af=document.getElementById('abs-from');
-  var at=document.getElementById('abs-to');
-  af.value=today;at.value=today;
-  af.min=today;at.min=today;  // griser les jours passés
-  // Enchaînement auto : choisir la date de début ajuste le min de la fin et l'ouvre
-  af.onchange=function(){
-    at.min=af.value;
-    if(at.value<af.value)at.value=af.value;
-    // Ouvrir automatiquement le calendrier de la date de fin
-    setTimeout(function(){try{at.focus();if(at.showPicker)at.showPicker();}catch(e){}},100);
-  };
-  document.getElementById('abs-msg').value='';
-  document.getElementById('abs-file-lbl').textContent='Ajouter un justificatif';
-  var fi=document.getElementById('abs-file');if(fi)fi.value='';
-  ss('abs-form');
-}
-
 function absFileChg(input){
   if(input.files&&input.files[0])document.getElementById('abs-file-lbl').textContent=input.files[0].name;
 }
@@ -2714,9 +2660,6 @@ async function submitAbs(){
 
 
 
-function acceptRgpd(){}
-
-function checkRgpd(){}
 </script>
 
 
