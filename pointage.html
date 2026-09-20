@@ -1301,22 +1301,6 @@ async function loadCommandesFournisseursData(){
     var joursExplicites=Array.isArray(s.comptage_jours)?s.comptage_jours:[];
     return joursExplicites.length?joursExplicites:cmdfDerivedComptageJours(s.ingredient_code,s.restaurant_id,s.fournisseur_id);
   }
-  // Un dernier comptage n'est valable que jusqu'à la prochaine échéance de comptage de l'ingrédient (tous les
-  // jours par défaut, ou les jours précis/déduits ci-dessus). Avant ce correctif, un comptage pouvait
-  // déclencher une commande INDÉFINIMENT tant que personne ne recomptait — y compris un très vieux comptage,
-  // ou un zéro resté en base suite à une erreur de manipulation il y a plusieurs jours. Un ingrédient dont le
-  // dernier comptage est PÉRIMÉ est désormais traité comme "jamais compté" pour les commandes (donc aucune
-  // commande tant que rien n'a été recompté), au lieu de continuer à alerter sur une donnée obsolète.
-  function cmdfComptageExpire(jours,compteLe){
-    var compteDay=new Date(compteLe);compteDay.setHours(0,0,0,0);
-    var today=new Date();today.setHours(0,0,0,0);
-    if(!jours.length)return compteDay.getTime()!==today.getTime(); // comptage quotidien : valable le jour même uniquement
-    for(var back=0;back<7;back++){
-      var d=new Date(today);d.setDate(d.getDate()-back);
-      if(jours.indexOf(d.getDay())>=0)return compteDay.getTime()<d.getTime(); // périmé si antérieur à la dernière échéance programmée
-    }
-    return false;
-  }
   // Étape 1 : une entrée par (restaurant, ingrédient) flagué, comme avant — avant fusion.
   var rawItems=[];
   (seuilsRes.data||[]).forEach(function(s){
@@ -1325,7 +1309,11 @@ async function loadCommandesFournisseursData(){
     var sup=suppliersById[s.fournisseur_id];
     if(!sup||sup.is_labo_interne||sup.is_cuisine_interne)return; // Labo/Cuisine interne : déjà gérés automatiquement au comptage
     var d=dernierByRestoCode[s.restaurant_id+'|'+s.ingredient_code];
-    if(!d||cmdfComptageExpire(cmdfJoursEffectifs(s),d.compte_le))return;
+    // Un dernier comptage n'est valable que jusqu'à la prochaine échéance de comptage (fonction globale
+    // joursComptageExpire, partagée avec l'écran Comptage) — sans comptage du tout, "jamais compté" reste
+    // exclu ici (rien à comparer à un seuil), mais un comptage PÉRIMÉ l'est désormais aussi, au lieu de
+    // continuer à déclencher une commande indéfiniment sur une donnée obsolète.
+    if(!d||joursComptageExpire(cmdfJoursEffectifs(s),d.compte_le))return;
     if(d.commande_envoyee)return; // déjà signalé dans un message précédent
     var flagged=false,manque=null;
     if(s.type_suivi==='qty'){
@@ -1522,7 +1510,12 @@ async function loadCommandesFournisseursData(){
       var s=seuilByRestoCode[RESTAURANT_ID+'|'+code];
       if(!s||s.actif===false)return; // pas suivi ici (probablement l'autre restaurant fusionné)
       var jours=cmdfJoursEffectifs(s);
-      var due=!jours.length||jours.indexOf(new Date().getDay())>=0;
+      var d=dernierByRestoCode[RESTAURANT_ID+'|'+code];
+      // "Dû" = jamais compté ICI, ou dernier comptage périmé par rapport au calendrier — pas juste "aujourd'hui
+      // est-il le jour programmé". Avant ce correctif, un article jamais compté (ou en retard depuis
+      // plusieurs jours) devait attendre le PROCHAIN jour programmé pour être signalé : invisible du pop-up
+      // et donc absent des commandes fournisseurs entre-temps, alors qu'il aurait justement fallu le compter.
+      var due=!d||joursComptageExpire(jours,d.compte_le);
       if(!due)return;
       if(countedTodayThisResto.has(code))return;
       var ing=ingByCode[code];
@@ -2371,9 +2364,24 @@ function cptRoutingTag(i){
 // (pas caché) mais rangé à part, pour ne pas polluer la liste de ce qu'il y a vraiment à faire aujourd'hui.
 var CPT_JOUR_NOMS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
 var CPT_JOUR_COURT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+// Un ingrédient est "dû" s'il n'a JAMAIS été compté (peu importe le calendrier — bootstrap, ou retard
+// accumulé), OU si son dernier comptage est antérieur à la dernière échéance programmée. Avant ce correctif,
+// "dû" ne vérifiait que "aujourd'hui est-il un jour programmé ?" : un article jamais compté (ou dont le
+// comptage traîne depuis des jours) devait attendre le PROCHAIN jour programmé pour réapparaître — invisible
+// entre-temps, et donc absent aussi des commandes fournisseurs puisqu'il ne pouvait jamais être recompté.
+function joursComptageExpire(jours,compteLe){
+  var j=Array.isArray(jours)?jours:[];
+  var compteDay=new Date(compteLe);compteDay.setHours(0,0,0,0);
+  var today=new Date();today.setHours(0,0,0,0);
+  if(!j.length)return compteDay.getTime()!==today.getTime(); // quotidien : valable le jour même uniquement
+  for(var back=0;back<7;back++){
+    var d=new Date(today);d.setDate(d.getDate()-back);
+    if(j.indexOf(d.getDay())>=0)return compteDay.getTime()<d.getTime();
+  }
+  return false;
+}
 function cptDueToday(i){
-  var jours=i.comptageJours||[];
-  return !jours.length||jours.indexOf(new Date().getDay())>=0;
+  return !i.dernier||joursComptageExpire(i.comptageJours||[],i.dernier.compte_le);
 }
 function cptFrequenceLabel(i){
   var jours=i.comptageJours||[];
