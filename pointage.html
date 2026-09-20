@@ -1213,7 +1213,7 @@ function cptPostesChipHtml(){
 var cmdfByFourn={};
 var cmdfMissingItems=[]; // [{code,nom,categorie,sousCategorie,type_suivi,unite_comptage,postes:[nomRole,...]}] — TOUT ce qui n'a pas été compté aujourd'hui ICI, quel que soit le poste. Alimente le pop-up bloquant à l'ouverture de "Commande fournisseur".
 var cmdfMissingPostesList=[]; // noms de postes présents parmi cmdfMissingItems (+ '__NONE__' si des articles ne sont assignés à aucun poste) — sert aux cases à cocher du filtre.
-var cmdfMissingFilterRoles=new Set(); // postes cochés dans le filtre — vide = tout afficher.
+var cmdfMissingFilterRoles=new Set(); // postes COCHÉS dans le filtre — tous cochés par défaut ; décocher un poste masque ses articles.
 var cmdfWaUrls={};
 async function loadCommandesFournisseursData(){
   // Dabray et le Labo sont livrés au même endroit (même arrêt de livraison) : leurs besoins fournisseurs
@@ -1480,7 +1480,7 @@ async function loadCommandesFournisseursData(){
     cmdfMissingItems=items;
     cmdfMissingPostesList=Array.from(new Set(items.reduce(function(acc,it){return acc.concat(it.postes);},[]))).sort(function(a,b){return a.localeCompare(b,'fr');});
     if(items.some(function(it){return !it.postes.length;}))cmdfMissingPostesList.push('__NONE__');
-    cmdfMissingFilterRoles=new Set(); // toujours "tout afficher" par défaut à chaque ouverture
+    cmdfMissingFilterRoles=new Set(cmdfMissingPostesList); // tout coché par défaut à chaque ouverture
   }catch(e){console.warn('statut comptage manquant indisponible',e);cmdfMissingItems=[];cmdfMissingPostesList=[];}
   cmdfByFourn=byFourn;
   return byFourn;
@@ -1557,9 +1557,7 @@ function renderCmdfMissingPopup(){
     });
     html+='</div>';
   }
-  var filtre=cmdfMissingFilterRoles.size>0;
   var visibles=cmdfMissingItems.filter(function(it){
-    if(!filtre)return true;
     if(!it.postes.length)return cmdfMissingFilterRoles.has('__NONE__');
     return it.postes.some(function(p){return cmdfMissingFilterRoles.has(p);});
   });
