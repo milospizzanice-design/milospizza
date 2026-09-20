@@ -142,8 +142,6 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-qty-ctrl{display:flex;align-items:center;background:#fff;border:2px solid var(--bx);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(185,30,38,.18)}
 .cpt-qbtn{width:40px;height:40px;background:#FBE7E8;border:none;font-size:22px;font-weight:800;color:#B91E26;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .cpt-qbtn:active{background:#F5CDD0}
-.cpt-qzero{width:30px !important;font-size:13px !important;font-weight:700;background:#FEF3C7;color:#92400E}
-.cpt-qzero:active{background:#FDE7A8}
 .cpt-qin{width:54px;text-align:center;border:none;background:#FFF7DE;font-size:19px;font-weight:800;color:#1A1008;padding:6px 0;-moz-appearance:textfield}
 .cpt-qin::-webkit-outer-spin-button,.cpt-qin::-webkit-inner-spin-button{-webkit-appearance:none}
 .cpt-qin:focus{outline:none;background:#FFEFB8}
@@ -1493,10 +1491,10 @@ function renderCmdfMissingPopup(){
 function cmdfMissingCtrlHtml(it){
   if(it.type_suivi==='qty'){
     return '<div style="display:flex;align-items:center;gap:3px;flex-shrink:0">'
-      +'<button type="button" onclick="cmdfQuickAdj(\''+it.code+'\',-1)" style="width:26px;height:26px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;font-size:14px;cursor:pointer">&minus;</button>'
-      +'<input type="number" inputmode="decimal" step="0.1" id="cmdf-miss-'+it.code+'-val" style="width:44px;text-align:center;font-size:12px;padding:4px 2px;border:1px solid #ddd;border-radius:6px" placeholder="0">'
-      +'<button type="button" onclick="cmdfQuickAdj(\''+it.code+'\',1)" style="width:26px;height:26px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;font-size:14px;cursor:pointer">+</button>'
-      +'<button type="button" onclick="cmdfQuickSave(\''+it.code+'\',\'0\')" title="Pas de stock" style="font-size:9px;padding:0 6px;height:26px;border-radius:6px;border:1px solid #ddd;background:#FEF3C7;color:#92400E;cursor:pointer;white-space:nowrap">0</button>'
+      +'<button type="button" onclick="cmdfAdjLocal(\''+it.code+'\',-1)" style="width:26px;height:26px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;font-size:14px;cursor:pointer">&minus;</button>'
+      +'<input type="number" inputmode="decimal" step="0.1" id="cmdf-miss-'+it.code+'-val" style="width:44px;text-align:center;font-size:12px;padding:4px 2px;border:1px solid #ddd;border-radius:6px" placeholder="0" onkeydown="if(event.key===\'Enter\')cmdfValidate(\''+it.code+'\')">'
+      +'<button type="button" onclick="cmdfAdjLocal(\''+it.code+'\',1)" style="width:26px;height:26px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;font-size:14px;cursor:pointer">+</button>'
+      +'<button type="button" onclick="cmdfValidate(\''+it.code+'\')" title="Valider" style="width:26px;height:26px;border-radius:6px;border:none;background:#16A34A;color:#fff;font-size:13px;font-weight:700;cursor:pointer">&#10003;</button>'
       +'</div>';
   }
   if(it.type_suivi==='two')return cmdfMissingBtn(it,'ok','OK')+cmdfMissingBtn(it,'commander','Cmd');
@@ -1508,13 +1506,24 @@ function cmdfMissingCtrlHtml(it){
 function cmdfMissingBtn(it,val,lbl){
   return '<button type="button" onclick="cmdfQuickSave(\''+it.code+'\',\''+val+'\')" style="font-size:10px;padding:4px 7px;border-radius:6px;border:1px solid #ddd;background:#f7f7f7;cursor:pointer;flex-shrink:0">'+escCpt(lbl)+'</button>';
 }
-function cmdfQuickAdj(code,delta){
+// Ajuste la valeur AFFICHÉE seulement, sans rien écrire en base ni retirer l'article de la liste — avant ce
+// correctif, chaque clic sur + appelait directement cmdfQuickSave, qui enregistrait ET faisait disparaître
+// l'article dès le premier clic : impossible d'atteindre la vraie quantité par clics successifs. Il faut
+// désormais valider (✓) pour enregistrer. Repasser sous zéro vide le champ ("pas compté"), comme sur l'écran
+// Comptage principal — plus besoin d'un bouton "0" séparé.
+function cmdfAdjLocal(code,delta){
   var inp=document.getElementById('cmdf-miss-'+code+'-val');if(!inp)return;
-  if(inp.value.trim()===''&&delta<0)return; // jamais touché : le moins ne doit pas créer un faux zéro
+  if(inp.value.trim()===''&&delta<0)return;
   var cur=parseFloat(inp.value)||0;
+  if(cur===0&&delta<0){inp.value='';return;}
   var next=Math.max(0,Math.round((cur+delta)*10)/10);
   inp.value=next;
-  cmdfQuickSave(code,String(next));
+}
+function cmdfValidate(code){
+  var inp=document.getElementById('cmdf-miss-'+code+'-val');
+  var valeur=inp?inp.value.trim():'';
+  if(valeur===''){alert('Indique une quantité.');return;}
+  cmdfQuickSave(code,valeur);
 }
 // Enregistre un comptage directement depuis le pop-up "manquants" (même table/format que saveComptage), puis
 // retire l'article de la liste — pas d'annulation ici volontairement : en cas d'erreur, l'écran Comptage
@@ -2211,12 +2220,16 @@ function comptageRowHtml(i){
   var id='cpt-'+i.code;
   var body='';
   if(i.type_suivi==='qty'){
-    var val=i.dernier?i.dernier.valeur:'';
+    // Ne pré-remplit QUE si compté aujourd'hui — avant ce correctif, la boîte affichait le dernier chiffre
+    // connu même vieux de plusieurs jours (ex: un vrai zéro d'il y a 3 jours) en toutes lettres, exactement
+    // comme si quelqu'un venait de le taper : impossible à l'œil de distinguer "pas compté aujourd'hui" d'un
+    // "zéro déjà validé". Le "Dernier : ..." juste en dessous garde l'historique complet, lui, quelle que
+    // soit sa date.
+    var val=(i.dernier&&cptComptedToday(i.dernier))?i.dernier.valeur:'';
     body='<div class="cpt-qty-ctrl">'
       +'<button type="button" class="cpt-qbtn" onclick="cptAdjQty(\''+i.code+'\',-1)">&minus;</button>'
       +'<input type="number" inputmode="decimal" step="0.1" class="cpt-qin" id="'+id+'-val" value="'+escCpt(val)+'" placeholder="0" onchange="saveComptage(\''+i.code+'\')">'
       +'<button type="button" class="cpt-qbtn" onclick="cptAdjQty(\''+i.code+'\',1)">+</button>'
-      +'<button type="button" class="cpt-qbtn cpt-qzero" onclick="cptMarkZero(\''+i.code+'\')" title="Pas de stock">0</button>'
       +'</div>';
   }else if(i.type_suivi==='two'){
     body='<div class="cpt-tog">'+cptChoiceBtn(i,'ok','OK','ok')+cptChoiceBtn(i,'commander','Cmd','bad')+'</div>';
@@ -2261,7 +2274,10 @@ function cptChoiceBtn(i,val,lbl,cls){
 // +/- pas de 1 sur le stepper qty, puis enregistrement direct (pas besoin de revalider) — comme sur l'écran Stocks.
 // Le moins ne fait plus rien tant que la bulle n'a jamais été touchée : avant ce correctif, une bulle vide
 // cliquée par erreur sur "-" était traitée comme un 0, puis ce 0 était enregistré comme un vrai comptage —
-// l'article passait alors pour "compté aujourd'hui" avec une fausse valeur de zéro.
+// l'article passait alors pour "compté aujourd'hui" avec une fausse valeur de zéro. Et repasser sous zéro
+// (moins encore une fois quand la bulle affiche déjà 0) vide entièrement la bulle au lieu de rester bloqué à
+// 0 : ça redonne "pas compté aujourd'hui", sert à corriger une erreur de saisie ET remplace l'ancien bouton
+// "0" séparé (redevenu inutile : zéro reste atteignable normalement en descendant jusque-là avec le moins).
 function cptAdjQty(code,delta){
   var i=cptIngredients.find(function(x){return x.code===code;});
   if(!i||cptSaving[code])return;
@@ -2269,16 +2285,30 @@ function cptAdjQty(code,delta){
   if(!inp)return;
   if(inp.value.trim()===''&&delta<0)return;
   var cur=parseFloat(inp.value)||0;
+  if(cur===0&&delta<0){cptClearToday(code);return;}
   var next=Math.max(0,Math.round((cur+delta)*10)/10);
   inp.value=next;
   saveComptage(code);
 }
-// Bouton dédié "Pas de stock" : contrairement au moins ci-dessus, celui-ci ÉCRIT délibérément un zéro — utile
-// pour distinguer "je confirme qu'il n'y en a plus" d'une bulle simplement jamais touchée.
-function cptMarkZero(code){
-  var inp=document.getElementById('cpt-'+code+'-val');
-  if(inp)inp.value='0';
-  saveComptage(code);
+// Supprime le(s) comptage(s) DU JOUR pour cet ingrédient (il peut y en avoir plusieurs si on a cliqué +/-
+// à répétition) et revient à la bulle vide — ne touche jamais aux comptages des jours précédents, qui
+// restent visibles dans le "Dernier : ..." pour l'historique.
+async function cptClearToday(code){
+  var i=cptIngredients.find(function(x){return x.code===code;});
+  if(!i||cptSaving[code])return;
+  if(!i.dernier||!cptComptedToday(i.dernier))return; // rien compté aujourd'hui : la bulle est déjà vide
+  cptSaving[code]=true;
+  try{
+    var todayStart=new Date();todayStart.setHours(0,0,0,0);
+    var todayEnd=new Date();todayEnd.setHours(23,59,59,999);
+    var del=await db.from('ingredient_comptages').delete().eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code).gte('compte_le',todayStart.toISOString()).lte('compte_le',todayEnd.toISOString());
+    if(del.error){alert('Erreur : '+del.error.message);return;}
+    var prevRes=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code).order('compte_le',{ascending:false}).limit(1);
+    i.dernier=(prevRes.data&&prevRes.data[0])?prevRes.data[0]:null;
+    i._canUndo=false;i._undoPrev=null;
+    renderComptageList();
+  }catch(e){console.error('cptClearToday',e);alert('Erreur : '+e.message);}
+  finally{cptSaving[code]=false;}
 }
 // Annule le DERNIER comptage enregistré cette session pour cet ingrédient (un seul niveau, pas un historique
 // complet) : redonne à la bulle son état d'avant ce clic, sans toucher aux comptages des jours précédents.
