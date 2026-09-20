@@ -280,8 +280,16 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div class="screen" id="s-commandes">
       <div class="panel-title" style="margin-bottom:10px">&#128228; Commandes fournisseurs</div>
       <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Regroup&eacute; par fournisseur, d'apr&egrave;s les derniers comptages de ce restaurant. Un seul message par fournisseur &mdash; attends que tout le monde ait fini de compter avant d'envoyer.</div>
+      <button type="button" class="nb" style="font-size:11px;padding:6px 12px;margin-bottom:10px" onclick="menuCmdfHistory()">&#128337; Commandes pass&eacute;es</button>
       <div id="cmdf-list"></div>
       <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
+    </div>
+
+    <div class="screen" id="s-cmdf-history">
+      <div class="panel-title" style="margin-bottom:10px">&#128337; Commandes pass&eacute;es</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Les 30 derniers jours, les plus r&eacute;centes en premier.</div>
+      <div id="cmdf-history-list" style="max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <button class="canc" onclick="ss('commandes')" style="margin-top:10px">Retour</button>
     </div>
 
     <div class="screen" id="s-laboprep">
@@ -434,6 +442,16 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div style="text-align:center;font-weight:700;font-size:17px;color:#B91E26;margin-bottom:10px">Comptage du jour incomplet</div>
     <div id="cmdf-missing-list"></div>
     <button onclick="closeCmdfMissingPopup()" style="width:100%;background:#B91E26;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px">Fermer et voir les commandes</button>
+  </div>
+</div>
+
+<!-- Aperçu du message exact avant envoi WhatsApp — ouvert en tapant sur la bulle d'un fournisseur. -->
+<div id="cmdf-preview-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:20px 18px;max-width:400px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:82vh;overflow-y:auto;display:flex;flex-direction:column">
+    <div style="font-weight:700;font-size:15px;color:#333;margin-bottom:10px">Aperçu du message</div>
+    <pre id="cmdf-preview-text" style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:#333;background:#F7F5F0;border-radius:10px;padding:12px;margin:0 0 14px;flex:1;overflow-y:auto"></pre>
+    <button id="cmdf-preview-send" style="width:100%;background:#25D366;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">&#128228; Envoyer via WhatsApp</button>
+    <button onclick="closeCmdfPreview()" style="width:100%;background:#f0f0f0;color:#555;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer">Fermer</button>
   </div>
 </div>
 <script>
@@ -1215,11 +1233,18 @@ var cmdfMissingItems=[]; // [{code,nom,categorie,sousCategorie,type_suivi,unite_
 var cmdfMissingPostesList=[]; // noms de postes présents parmi cmdfMissingItems (+ '__NONE__' si des articles ne sont assignés à aucun poste) — sert aux cases à cocher du filtre.
 var cmdfMissingFilterRoles=new Set(); // postes COCHÉS dans le filtre — tous cochés par défaut ; décocher un poste masque ses articles.
 var cmdfWaUrls={};
+var cmdfMsgTexts={}; // key -> texte du message (pour l'aperçu au clic sur la bulle, avant envoi)
+var cmdfPreviewCurrentKey=null;
+var restoAdressesById={}; // id -> adresse de livraison, rempli à chaque ouverture de Commande fournisseur (pour le message)
 async function loadCommandesFournisseursData(){
   // Dabray et le Labo sont livrés au même endroit (même arrêt de livraison) : leurs besoins fournisseurs
   // externes sont fusionnés dans UN seul message, quantités additionnées. Port reste seul (pas de
   // restaurant partageant son point de livraison) — comportement inchangé pour lui.
   var mergeScope=(RESTAURANT_ID==='dabray'||RESTAURANT_ID==='labo')?['dabray','labo']:[RESTAURANT_ID];
+  try{
+    var restosInfoRes=await db.from('restaurants').select('id,nom,adresse').in('id',mergeScope);
+    (restosInfoRes.data||[]).forEach(function(x){restoNamesById[x.id]=x.nom;restoAdressesById[x.id]=x.adresse||null;});
+  }catch(e){console.warn('adresse(s) restaurant indisponible(s)',e);}
   var seuilsRes=await db.from('ingredient_seuils').select('*').in('restaurant_id',mergeScope);
   if(seuilsRes.error)throw seuilsRes.error;
   var comptagesRes=await db.from('ingredient_comptages').select('id,ingredient_code,restaurant_id,valeur,compte_le,commande_envoyee,compte_par_id,compte_par_nom').in('restaurant_id',mergeScope).order('compte_le',{ascending:false});
@@ -1246,14 +1271,43 @@ async function loadCommandesFournisseursData(){
     if(typeSuivi==='level'){var v=parseFloat(valeur);return !isNaN(v)&&v<=25;}
     return false;
   }
+  // Si aucun jour de comptage n'est explicitement configuré sur l'ingrédient (comptage_jours vide), on le
+  // déduit du calendrier de son fournisseur pour CE restaurant (jours fixes, ou veille de livraison = jour(s)
+  // de livraison moins le délai de commande) — au lieu de le considérer "à compter tous les jours" par
+  // défaut. Sert à la fois à la péremption du comptage ci-dessous et à la liste des manquants plus bas.
+  function cmdfDerivedComptageJours(code,restoId,fournisseurId){
+    var rules=(reglesByCode[code]||{})[restoId]||[];
+    var supplier=fournisseurId?suppliersById[fournisseurId]:null;
+    var days=new Set(),explicite=false;
+    rules.forEach(function(r){
+      if(r.mode==='jours_fixes'&&Array.isArray(r.jours)){r.jours.forEach(function(d){days.add(d);});explicite=true;}
+      if(r.mode==='veille_livraison'){
+        var sup=r.fournisseur_id?suppliersById[r.fournisseur_id]:supplier;
+        if(sup&&Array.isArray(sup.jours_livraison)&&sup.jours_livraison.length){
+          var n=(sup.delai_commande_jours!=null&&sup.delai_commande_jours>0)?sup.delai_commande_jours:1;
+          sup.jours_livraison.forEach(function(livr){days.add(((livr-n)%7+7)%7);});
+          explicite=true;
+        }
+      }
+    });
+    if(!explicite&&supplier&&Array.isArray(supplier.jours_livraison)&&supplier.jours_livraison.length){
+      var n2=(supplier.delai_commande_jours!=null&&supplier.delai_commande_jours>0)?supplier.delai_commande_jours:1;
+      supplier.jours_livraison.forEach(function(livr){days.add(((livr-n2)%7+7)%7);});
+      explicite=true;
+    }
+    return explicite?Array.from(days):[];
+  }
+  function cmdfJoursEffectifs(s){
+    var joursExplicites=Array.isArray(s.comptage_jours)?s.comptage_jours:[];
+    return joursExplicites.length?joursExplicites:cmdfDerivedComptageJours(s.ingredient_code,s.restaurant_id,s.fournisseur_id);
+  }
   // Un dernier comptage n'est valable que jusqu'à la prochaine échéance de comptage de l'ingrédient (tous les
-  // jours par défaut, ou les jours précis configurés). Avant ce correctif, un comptage pouvait déclencher une
-  // commande INDÉFINIMENT tant que personne ne recomptait — y compris un très vieux comptage, ou un zéro
-  // resté en base suite à une erreur de manipulation il y a plusieurs jours. Un ingrédient dont le dernier
-  // comptage est PÉRIMÉ est désormais traité comme "jamais compté" pour les commandes (donc aucune commande
-  // tant que rien n'a été recompté), au lieu de continuer à alerter sur une donnée obsolète.
-  function cmdfComptageExpire(comptageJours,compteLe){
-    var jours=Array.isArray(comptageJours)?comptageJours:[];
+  // jours par défaut, ou les jours précis/déduits ci-dessus). Avant ce correctif, un comptage pouvait
+  // déclencher une commande INDÉFINIMENT tant que personne ne recomptait — y compris un très vieux comptage,
+  // ou un zéro resté en base suite à une erreur de manipulation il y a plusieurs jours. Un ingrédient dont le
+  // dernier comptage est PÉRIMÉ est désormais traité comme "jamais compté" pour les commandes (donc aucune
+  // commande tant que rien n'a été recompté), au lieu de continuer à alerter sur une donnée obsolète.
+  function cmdfComptageExpire(jours,compteLe){
     var compteDay=new Date(compteLe);compteDay.setHours(0,0,0,0);
     var today=new Date();today.setHours(0,0,0,0);
     if(!jours.length)return compteDay.getTime()!==today.getTime(); // comptage quotidien : valable le jour même uniquement
@@ -1271,7 +1325,7 @@ async function loadCommandesFournisseursData(){
     var sup=suppliersById[s.fournisseur_id];
     if(!sup||sup.is_labo_interne||sup.is_cuisine_interne)return; // Labo/Cuisine interne : déjà gérés automatiquement au comptage
     var d=dernierByRestoCode[s.restaurant_id+'|'+s.ingredient_code];
-    if(!d||cmdfComptageExpire(s.comptage_jours,d.compte_le))return;
+    if(!d||cmdfComptageExpire(cmdfJoursEffectifs(s),d.compte_le))return;
     if(d.commande_envoyee)return; // déjà signalé dans un message précédent
     var flagged=false,manque=null;
     if(s.type_suivi==='qty'){
@@ -1367,7 +1421,7 @@ async function loadCommandesFournisseursData(){
     // tenu par au moins un salarié DE CE restaurant (ou de l'autre restaurant fusionné pour Dabray/Labo) —
     // sinon un rôle nommé "Labo" apparaissait sur l'écran de Port simplement parce qu'il partage une
     // catégorie de comptage avec un ingrédient suivi là-bas, sans qu'aucun salarié du Port ne tienne ce poste.
-    var empsScopeRes=await db.from('employees').select('id,roles,restaurant_id,restaurants_secondaires,actif,archive,comptage_cats_add,comptage_cats_remove');
+    var empsScopeRes=await db.from('employees').select('id,prenom,nom,roles,restaurant_id,restaurants_secondaires,actif,archive,comptage_cats_add,comptage_cats_remove');
     var empsIci=(empsScopeRes.data||[]).filter(function(e){
       if(e.actif===false||e.archive)return false;
       return mergeScope.indexOf(e.restaurant_id)>=0||(e.restaurants_secondaires||[]).some(function(r){return mergeScope.indexOf(r)>=0;});
@@ -1380,20 +1434,34 @@ async function loadCommandesFournisseursData(){
     // téléphone" — la personne qui tient ce poste avait Miel ajouté personnellement, invisible en ne
     // regardant QUE la configuration du rôle.
     var empsEffectifs=empsIci.map(function(e){
+      var perRole=(e.roles||[]).map(function(rid){
+        var r=rolesById[rid];if(!r)return null;
+        return {nom:r.nom,cats:new Set(r.comptage_categories||[]),ingInclude:new Set(r.comptage_ingredients_include||[]),ingExclude:new Set(r.comptage_ingredients_exclude||[])};
+      }).filter(Boolean);
       var cats=new Set(),ingInclude=new Set(),ingExclude=new Set();
-      (e.roles||[]).forEach(function(rid){
-        var r=rolesById[rid];if(!r)return;
-        (r.comptage_categories||[]).forEach(function(c){cats.add(c);});
-        (r.comptage_ingredients_include||[]).forEach(function(code){ingInclude.add(code);});
-        (r.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude.add(code);});
+      perRole.forEach(function(pr){
+        pr.cats.forEach(function(c){cats.add(c);});
+        pr.ingInclude.forEach(function(code){ingInclude.add(code);});
+        pr.ingExclude.forEach(function(code){ingExclude.add(code);});
       });
       (e.comptage_cats_add||[]).forEach(function(c){cats.add(c);});
       (e.comptage_cats_remove||[]).forEach(function(c){cats.delete(c);});
-      return {roles:e.roles||[],cats:cats,ingInclude:ingInclude,ingExclude:ingExclude};
+      return {nomComplet:((e.prenom||'')+' '+(e.nom||'')).trim()||'salarié',perRole:perRole,cats:cats,ingInclude:ingInclude,ingExclude:ingExclude};
     });
     function couvertParEmploye(effEmp,code,categorie){
       if(effEmp.ingExclude.has(code))return false;
       return effEmp.ingInclude.has(code)||effEmp.cats.has(categorie);
+    }
+    // Quel(s) rôle(s) de cet employé expliquent RÉELLEMENT la couverture (sa propre config, sans les ajouts
+    // personnels) — avant ce correctif, TOUS les rôles de l'employé étaient étiquetés dès qu'il couvrait un
+    // article, même quand un seul de ses rôles (voire un ajout personnel sans rapport avec un rôle) en était
+    // la cause. Résultat : des articles de cuisine apparaissaient sous le filtre "Serveur" simplement parce
+    // que la même personne tient aussi ce poste-là.
+    function rolesQuiExpliquent(effEmp,code,categorie){
+      return effEmp.perRole.filter(function(pr){
+        if(pr.ingExclude.has(code))return false;
+        return pr.ingInclude.has(code)||pr.cats.has(categorie);
+      }).map(function(pr){return pr.nom;});
     }
     var codesByFourn={};
     (seuilsRes.data||[]).forEach(function(s){
@@ -1453,7 +1521,7 @@ async function loadCommandesFournisseursData(){
     allFournCodes.forEach(function(code){
       var s=seuilByRestoCode[RESTAURANT_ID+'|'+code];
       if(!s||s.actif===false)return; // pas suivi ici (probablement l'autre restaurant fusionné)
-      var jours=Array.isArray(s.comptage_jours)?s.comptage_jours:[];
+      var jours=cmdfJoursEffectifs(s);
       var due=!jours.length||jours.indexOf(new Date().getDay())>=0;
       if(!due)return;
       if(countedTodayThisResto.has(code))return;
@@ -1462,10 +1530,13 @@ async function loadCommandesFournisseursData(){
       var postes=[];
       empsEffectifs.forEach(function(e){
         if(!couvertParEmploye(e,code,categorie))return;
-        e.roles.forEach(function(rid){
-          var r=rolesById[rid];
-          if(r&&postes.indexOf(r.nom)<0)postes.push(r.nom);
-        });
+        var rolesExpl=rolesQuiExpliquent(e,code,categorie);
+        if(rolesExpl.length){
+          rolesExpl.forEach(function(nom){if(postes.indexOf(nom)<0)postes.push(nom);});
+        }else{
+          var label='Ajout personnel ('+e.nomComplet+')';
+          if(postes.indexOf(label)<0)postes.push(label);
+        }
       });
       itemsByCode[code]={code:code,nom:ing?ing.nom:code,categorie:categorie,sousCategorie:ing&&ing.sous_categorie?ing.sous_categorie:null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',postes:postes.sort(function(a,b){return a.localeCompare(b,'fr');})};
     });
@@ -1671,11 +1742,19 @@ function renderCommandesFournisseursList(byFourn){
     var restoLabel=(RESTAURANT_ID==='dabray'||RESTAURANT_ID==='labo')?'Dabray + Labo':(restoNamesById[RESTAURANT_ID]||RESTAURANT_ID);
     var empNom=emp?(emp.prenom+' '+emp.nom):'—';
     var dateLabel=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-    var msgLines=['📦 Commande '+groupName+' — '+restoLabel,'👤 '+empNom+' · 📅 '+dateLabel,'──────────────'].concat(its.map(function(it){
-      return '- '+it.nom+(it.restoTag?(' ['+it.restoTag+']'):'')+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
-    }));
+    // Adresse de livraison configurée dans Admin > Réglages > Établissements (Dabray/Labo partagent le même
+    // point de livraison : on retombe sur l'adresse de l'autre si celle du restaurant courant est vide).
+    var adresseLivraison=restoAdressesById[RESTAURANT_ID]||restoAdressesById.dabray||restoAdressesById.labo||null;
+    var msgLines=['📦 Nouvelle commande — '+groupName,'Restaurant : '+restoLabel,'Commandé par : '+empNom,'Date : '+dateLabel]
+      .concat(adresseLivraison?['Adresse de livraison : '+adresseLivraison]:[])
+      .concat(['──────────────'])
+      .concat(its.map(function(it){
+        return '- '+it.nom+(it.restoTag?(' ['+it.restoTag+']'):'')+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
+      }))
+      .concat(['──────────────','Merci de nous prévenir en cas de rupture de stock.']);
     var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
     cmdfWaUrls[key]=waUrl;
+    cmdfMsgTexts[key]=msgLines.join('\n');
     // Bandeau d'alerte si l'heure limite du jour est dépassée sans envoi — le signal le plus visible du
     // card : remplace la simple mention de l'heure limite par un avertissement rouge explicite.
     var heureLimiteHtml=enRetard
@@ -1697,19 +1776,31 @@ function renderCommandesFournisseursList(byFourn){
         +(it.compteLabel?('<div style="font-size:10px;color:rgba(255,255,255,.5);margin:0 0 4px 12px;">'+escCpt(it.compteLabel)+'</div>'):'')
         +'</div>';
     }).join('');
-    return '<div class="cbtn" style="cursor:default;text-align:left;margin-bottom:12px;'+(enRetard?'border:2px solid #C0392B;box-shadow:0 0 0 3px rgba(192,57,43,.25);':'')+'">'
+    return '<div class="cbtn" onclick="cmdfShowPreview(\''+key+'\')" style="cursor:pointer;text-align:left;margin-bottom:12px;'+(enRetard?'border:2px solid #C0392B;box-shadow:0 0 0 3px rgba(192,57,43,.25);':'')+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
         +'<div>'
           +'<div style="font-size:19px;font-weight:800;color:#fff;line-height:1.2;">'+escCpt(groupName)+'</div>'
           +collabHtml
         +'</div>'
-        +'<button type="button" onclick="marquerEtOuvrirWhatsappPointage(\''+key+'\')" style="background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;">&#128228; WhatsApp</button>'
+        +'<button type="button" onclick="event.stopPropagation();marquerEtOuvrirWhatsappPointage(\''+key+'\')" style="background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;">&#128228; WhatsApp</button>'
       +'</div>'
       +postesHtml
       +heureLimiteHtml+groupeHtml
       +'<div style="margin-top:8px;">'+itemsHtml+'</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:6px;">&#128065; Toucher pour l\'aper&ccedil;u du message</div>'
       +'</div>';
   }).join('');
+}
+function cmdfShowPreview(key){
+  var text=cmdfMsgTexts[key];if(text==null)return;
+  cmdfPreviewCurrentKey=key;
+  document.getElementById('cmdf-preview-text').textContent=text;
+  document.getElementById('cmdf-preview-send').onclick=function(){closeCmdfPreview();marquerEtOuvrirWhatsappPointage(key);};
+  document.getElementById('cmdf-preview-overlay').style.display='flex';
+}
+function closeCmdfPreview(){
+  document.getElementById('cmdf-preview-overlay').style.display='none';
+  cmdfPreviewCurrentKey=null;
 }
 async function marquerEtOuvrirWhatsappPointage(fournKey){
   var waUrl=cmdfWaUrls[fournKey];
@@ -1763,6 +1854,57 @@ async function marquerEtOuvrirWhatsappPointage(fournKey){
     },400);
   }
   document.addEventListener('visibilitychange',onReturn);
+}
+// Historique des commandes déjà envoyées — table commandes_fournisseurs_envois, alimentée par
+// marquerEtOuvrirWhatsappPointage ci-dessus. Un article marqué "commande_envoyee" disparaît de la liste
+// active tant qu'il n'est pas recompté (voulu, pour ne pas fragmenter en plusieurs messages) — cet écran est
+// le seul endroit pour retrouver ce qui a déjà été commandé, ex: la commande Carrefour du jour.
+async function menuCmdfHistory(){
+  ss('cmdf-history');
+  var box=document.getElementById('cmdf-history-list');
+  box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
+  try{
+    var mergeScope=(RESTAURANT_ID==='dabray'||RESTAURANT_ID==='labo')?['dabray','labo']:[RESTAURANT_ID];
+    var since=new Date();since.setDate(since.getDate()-30);
+    var r=await db.from('commandes_fournisseurs_envois').select('*').gte('envoye_le',since.toISOString()).order('envoye_le',{ascending:false});
+    if(r.error)throw r.error;
+    var noms=mergeScope.map(function(x){return (restoNamesById[x]||x).toLowerCase();}).concat(mergeScope.map(function(x){return x.toLowerCase();}));
+    var envois=(r.data||[]).filter(function(envoi){
+      return (envoi.items||[]).some(function(it){
+        var resto=(it.resto||'').toLowerCase();
+        return noms.some(function(n){return resto.indexOf(n)>=0;});
+      });
+    });
+    renderCmdfHistoryList(envois);
+  }catch(e){
+    console.error('menuCmdfHistory',e);
+    box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(e.message)+'</div>';
+  }
+}
+function renderCmdfHistoryList(envois){
+  var box=document.getElementById('cmdf-history-list');if(!box)return;
+  if(!envois.length){
+    box.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.7);padding:20px;font-size:13px;">Aucune commande envoyée ces 30 derniers jours pour ce restaurant.</div>';
+    return;
+  }
+  box.innerHTML=envois.map(function(envoi){
+    var d=new Date(envoi.envoye_le);
+    var when=d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    var itemsHtml=(envoi.items||[]).map(function(it){
+      return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:rgba(255,255,255,.85);padding:3px 0">'
+        +'<span>'+escCpt(it.nom)+(it.resto?(' <span style="color:rgba(255,255,255,.5)">('+escCpt(it.resto)+')</span>'):'')+'</span>'
+        +'<span style="color:rgba(255,255,255,.6)">'+escCpt(it.suggestion||it.valeur||'')+'</span>'
+        +'</div>';
+    }).join('');
+    return '<div style="background:rgba(255,255,255,.08);border-radius:12px;padding:12px;margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px">'
+      +'<div style="font-size:15px;font-weight:800;color:#fff">'+escCpt(envoi.fournisseur_nom||'Fournisseur')+'</div>'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap">'+when+'</div>'
+      +'</div>'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.6);margin-bottom:6px">Envoyé par '+escCpt(envoi.envoye_par_nom||'?')+'</div>'
+      +itemsHtml
+      +'</div>';
+  }).join('');
 }
 
 // ── À PRÉPARER / EXPÉDIER (Labo) — porté depuis Admin > Labo pour que toute l'équipe Labo y accède sans
@@ -2040,6 +2182,33 @@ async function menuComptage(){
     (seuilsRes.data||[]).forEach(function(s){seuilsByCode[s.ingredient_code]=s;});
     var dernierByCode={};
     (comptagesRes.data||[]).forEach(function(c){if(!dernierByCode[c.ingredient_code])dernierByCode[c.ingredient_code]=c;}); // déjà trié desc -> le 1er par code est le plus récent
+    // Si aucun jour de comptage n'est explicitement configuré sur l'ingrédient (comptage_jours vide), on le
+    // déduit automatiquement du calendrier de son fournisseur — même logique que reglesGateStatus (jours
+    // fixes, ou veille de livraison = jour(s) de livraison moins le délai de commande). Avant ce correctif,
+    // un ingrédient livré une seule fois par semaine mais sans comptage_jours réglé à la main apparaissait
+    // "à compter" tous les jours, saturant l'écran pour rien.
+    function cptDerivedComptageJours(code,fournisseurId){
+      var rules=cptReglesByCode[code]||[];
+      var supplier=fournisseurId?cptSuppliersById[fournisseurId]:null;
+      var days=new Set(),explicite=false;
+      rules.forEach(function(r){
+        if(r.mode==='jours_fixes'&&Array.isArray(r.jours)){r.jours.forEach(function(d){days.add(d);});explicite=true;}
+        if(r.mode==='veille_livraison'){
+          var sup=r.fournisseur_id?cptSuppliersById[r.fournisseur_id]:supplier;
+          if(sup&&Array.isArray(sup.jours_livraison)&&sup.jours_livraison.length){
+            var n=(sup.delai_commande_jours!=null&&sup.delai_commande_jours>0)?sup.delai_commande_jours:1;
+            sup.jours_livraison.forEach(function(livr){days.add(((livr-n)%7+7)%7);});
+            explicite=true;
+          }
+        }
+      });
+      if(!explicite&&supplier&&Array.isArray(supplier.jours_livraison)&&supplier.jours_livraison.length){
+        var n2=(supplier.delai_commande_jours!=null&&supplier.delai_commande_jours>0)?supplier.delai_commande_jours:1;
+        supplier.jours_livraison.forEach(function(livr){days.add(((livr-n2)%7+7)%7);});
+        explicite=true;
+      }
+      return explicite?Array.from(days):[];
+    }
     cptIngredients=(ingRes.data||[]).map(function(i){
       var cat=i.categorie||'Autre';
       var inCat=finalCats.indexOf(cat)>=0;
@@ -2047,7 +2216,9 @@ async function menuComptage(){
       if(!included)return null;
       var s=seuilsByCode[i.code];
       if(!s||s.actif===false)return null; // pas configuré / masqué pour ce restaurant (fiche ingrédient > Visible ici)
-      return {code:i.code,nom:i.nom,categorie:cat,sousCategorie:i.sous_categorie||null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null,comptageJours:Array.isArray(s.comptage_jours)?s.comptage_jours:[]};
+      var joursExplicites=Array.isArray(s.comptage_jours)?s.comptage_jours:[];
+      var comptageJours=joursExplicites.length?joursExplicites:cptDerivedComptageJours(i.code,s.fournisseur_id);
+      return {code:i.code,nom:i.nom,categorie:cat,sousCategorie:i.sous_categorie||null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null,comptageJours:comptageJours};
     }).filter(Boolean);
 
     // Bandeau "aujourd'hui" : catégories ayant une règle de commande "jours fixes" (ingredient_regles_commande,

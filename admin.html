@@ -2568,6 +2568,7 @@ function openAddResto(){
   document.getElementById('resto-nom').value='';
   document.getElementById('resto-couleur').value='#B91E26';
   document.getElementById('resto-pin').value='';
+  document.getElementById('resto-adresse').value='';
   openM('modal-resto');
 }
 function openEditResto(id){
@@ -2580,6 +2581,7 @@ function openEditResto(id){
   document.getElementById('resto-nom').value=r.nom||'';
   document.getElementById('resto-couleur').value=r.couleur||'#B91E26';
   document.getElementById('resto-pin').value=r.admin_pin||'';
+  document.getElementById('resto-adresse').value=r.adresse||'';
   openM('modal-resto');
 }
 async function saveResto(){
@@ -2587,13 +2589,26 @@ async function saveResto(){
   var nom=document.getElementById('resto-nom').value.trim();
   var couleur=document.getElementById('resto-couleur').value;
   var pin=document.getElementById('resto-pin').value.trim();
+  var adresse=document.getElementById('resto-adresse').value.trim();
   if(!id||!nom){alert('Indiquez au minimum un identifiant et un nom');return;}
+  // Repli tolérant si la colonne "adresse" n'existe pas encore côté Supabase (migration SQL pas exécutée) :
+  // on retente sans elle plutôt que de bloquer tout l'enregistrement du restaurant pour ça.
   if(restoEditId){
-    var r=await db.from('restaurants').update({nom:nom,label:nom,couleur:couleur,admin_pin:pin}).eq('id',restoEditId);
-    if(r.error){alert('Erreur: '+r.error.message);return;}
+    var r=await db.from('restaurants').update({nom:nom,label:nom,couleur:couleur,admin_pin:pin,adresse:adresse}).eq('id',restoEditId);
+    if(r.error){
+      if((r.error.message||'').indexOf('adresse')===-1){alert('Erreur: '+r.error.message);return;}
+      var r1b=await db.from('restaurants').update({nom:nom,label:nom,couleur:couleur,admin_pin:pin}).eq('id',restoEditId);
+      if(r1b.error){alert('Erreur: '+r1b.error.message);return;}
+      alert('Restaurant enregistré, mais l\'adresse n\'a pas pu l\'être : la migration SQL (colonne adresse sur restaurants) doit être exécutée dans Supabase.');
+    }
   }else{
-    var r2=await db.from('restaurants').insert({id:id,nom:nom,label:nom,couleur:couleur,admin_pin:pin});
-    if(r2.error){alert('Erreur: '+r2.error.message);return;}
+    var r2=await db.from('restaurants').insert({id:id,nom:nom,label:nom,couleur:couleur,admin_pin:pin,adresse:adresse});
+    if(r2.error){
+      if((r2.error.message||'').indexOf('adresse')===-1){alert('Erreur: '+r2.error.message);return;}
+      var r2b=await db.from('restaurants').insert({id:id,nom:nom,label:nom,couleur:couleur,admin_pin:pin});
+      if(r2b.error){alert('Erreur: '+r2b.error.message);return;}
+      alert('Restaurant créé, mais l\'adresse n\'a pas pu l\'être : la migration SQL (colonne adresse sur restaurants) doit être exécutée dans Supabase.');
+    }
   }
   closeM('modal-resto');
   loadRestaurants();
@@ -4675,10 +4690,18 @@ async function applyPlanningType(){
     // tmpSalPlanningType dans employees.planning_type — donc si on ne cliquait pas ENSUITE sur le bouton
     // "Enregistrer" général de la fiche, le modèle affiché à la réouverture de la fiche restait vide et il
     // fallait tout ressaisir pour la moindre correction, même si le planning généré lui restait bien en place.
-    var ptSave=await db.from('employees').update({planning_type:pt}).eq('id',curSal);
+    var ptSave=await db.from('employees').update({planning_type:pt}).eq('id',curSal).select('id');
     if(ptSave&&ptSave.error){
       console.warn('planning_type non sauvegard\u00e9 sur la fiche (migration SQL manquante ?)',ptSave.error);
       alert('Attention : le planning va \u00eatre g\u00e9n\u00e9r\u00e9, mais le mod\u00e8le hebdomadaire n\'a pas pu \u00eatre enregistr\u00e9 sur la fiche (colonne planning_type manquante c\u00f4t\u00e9 Supabase : '+ptSave.error.message+') — il faudra le ressaisir la prochaine fois.');
+    }else if(!ptSave||!ptSave.data||!ptSave.data.length){
+      // Supabase peut répondre "succès, aucune erreur" tout en ayant modifié 0 ligne (règle de sécurité au
+      // niveau des lignes qui bloque silencieusement l'écriture, ou identifiant qui ne correspond à aucune
+      // ligne). Sans .select(), ce cas passait inaperçu : la copie en mémoire du navigateur semblait à jour
+      // (voir plus bas), donc la fiche paraissait correcte tant qu'on ne rechargeait pas la page — mais rien
+      // n'était réellement écrit en base, d'où le modèle qui "disparaissait" à la prochaine ouverture.
+      console.warn('planning_type : la mise \u00e0 jour Supabase n\'a modifi\u00e9 aucune ligne (id introuvable ou bloqu\u00e9 par une r\u00e8gle de s\u00e9curit\u00e9 - RLS)');
+      alert('Attention : le planning va \u00eatre g\u00e9n\u00e9r\u00e9, mais le mod\u00e8le hebdomadaire n\'a PAS \u00e9t\u00e9 enregistr\u00e9 sur la fiche (la mise \u00e0 jour n\'a touch\u00e9 aucune ligne c\u00f4t\u00e9 Supabase — probablement une r\u00e8gle de s\u00e9curit\u00e9 RLS sur la table employees) — il faudra le ressaisir la prochaine fois.');
     }else{
       var emCacheForPt=emp(curSal);
       if(emCacheForPt)emCacheForPt.planning_type=JSON.parse(JSON.stringify(pt));
@@ -4991,7 +5014,7 @@ async function saveSal(){
     var badgeUid=(document.getElementById('sal-badge-uid')||{}).value;badgeUid=badgeUid?badgeUid.replace(/^\s*BADGE\s*:\s*/i,'').trim()||null:null;
   var pinAut=(document.getElementById('sa-pin-autorise')||{}).checked||false;
   var upd={prenom:p,nom:n,restaurant_id:resto,secteur:deduceSecteur(curSal),heures_contrat:hc,date_debut:dd,email:mail,roles:tmpSalRoles,comptage_cats_add:tmpSalComptageCatsAdd,comptage_cats_remove:tmpSalComptageCatsRemove,comptage_ingredients_include:[],comptage_ingredients_exclude:[],planning_type:tmpSalPlanningType,restaurants_secondaires:tmpSalRestosSec.filter(function(r){return r!==resto;}),badge_uid:badgeUid,pin_autorise:pinAut};
-    var r1=await db.from('employees').update(upd).eq('id',curSal);
+    var r1=await db.from('employees').update(upd).eq('id',curSal).select('id');
     if(r1&&r1.error){
       // Repli tolérant : si une colonne optionnelle (comptage_ingredients_include/exclude, planning_type)
       // n'existe pas encore côté Supabase (migration SQL pas exécutée), on retente sans ELLE plutôt que de
@@ -5005,6 +5028,12 @@ async function saveSal(){
       var r1b=await db.from('employees').update(upd).eq('id',curSal);
       if(r1b&&r1b.error){alert('Erreur : '+r1b.error.message);return;}
       alert('Fiche enregistrée, mais '+missingCols1.join(', ')+' n\'a/n\'ont pas pu être enregistré(s) : la migration SQL correspondante doit être exécutée dans Supabase.');
+    }else if(!r1||!r1.data||!r1.data.length){
+      // Supabase peut répondre "succès, aucune erreur" en ayant modifié 0 ligne (identifiant introuvable, ou
+      // une règle de sécurité — RLS — qui bloque silencieusement l'écriture). Sans .select(), ce cas passait
+      // inaperçu et RIEN n'était enregistré, planning par défaut compris, sans que l'admin en soit informé.
+      alert('Attention : rien n\'a été enregistré (la mise à jour n\'a touché aucune ligne côté Supabase — probablement une règle de sécurité RLS sur la table employees). Contactez le support technique si ça persiste.');
+      return;
     }
   }else{
     var newSec=deduceSecteur('new');
@@ -11977,6 +12006,10 @@ async function init(){
       <input type="color" class="fi" id="resto-couleur" value="#B91E26" style="height:42px"></div>
     <div class="fr"><label class="fl2">Code Admin stocks (4 chiffres)</label>
       <input type="text" class="fi" id="resto-pin" maxlength="4" placeholder="Ex: 4821"></div>
+    <div class="fr"><label class="fl2">Adresse de livraison</label>
+      <textarea class="fi" id="resto-adresse" rows="2" placeholder="Ex: 9 rue Bavastro, 06300 Nice" style="resize:vertical"></textarea>
+      <div style="font-size:10px;color:var(--txm);margin-top:4px">Reprise automatiquement dans le message de commande envoyé aux fournisseurs.</div>
+    </div>
     <div class="ma">
       <button class="btn bp" onclick="saveResto()">Enregistrer</button>
       <button class="btn bs" onclick="closeM('modal-resto')">Annuler</button>
