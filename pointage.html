@@ -1211,7 +1211,9 @@ function cptPostesChipHtml(){
 // qu'il n'a pas été recompté — ça permet à plusieurs personnes de compter dans la journée pour un même
 // fournisseur sans fragmenter en plusieurs messages WhatsApp.
 var cmdfByFourn={};
-var cmdfMissingByPoste=[]; // [{roleId,nom,items:[{code,nom,type_suivi,unite_comptage}]}] — postes concernés par au moins une commande fournisseur mais n'ayant pas fini leur comptage du jour ICI (ce restaurant). Alimente le pop-up bloquant à l'ouverture de "Commande fournisseur".
+var cmdfMissingItems=[]; // [{code,nom,categorie,sousCategorie,type_suivi,unite_comptage,postes:[nomRole,...]}] — TOUT ce qui n'a pas été compté aujourd'hui ICI, quel que soit le poste. Alimente le pop-up bloquant à l'ouverture de "Commande fournisseur".
+var cmdfMissingPostesList=[]; // noms de postes présents parmi cmdfMissingItems (+ '__NONE__' si des articles ne sont assignés à aucun poste) — sert aux cases à cocher du filtre.
+var cmdfMissingFilterRoles=new Set(); // postes cochés dans le filtre — vide = tout afficher.
 var cmdfWaUrls={};
 async function loadCommandesFournisseursData(){
   // Dabray et le Labo sont livrés au même endroit (même arrêt de livraison) : leurs besoins fournisseurs
@@ -1360,6 +1362,39 @@ async function loadCommandesFournisseursData(){
   try{
     var rolesRes=await db.from('roles').select('id,nom,comptage_categories,comptage_ingredients_include,comptage_ingredients_exclude');
     var rolesList=rolesRes.data||[];
+    var rolesById={};rolesList.forEach(function(r){rolesById[r.id]=r;});
+    // Un poste (rôle) n'est "concerné" (pour la pastille par fournisseur ci-dessous) que s'il est réellement
+    // tenu par au moins un salarié DE CE restaurant (ou de l'autre restaurant fusionné pour Dabray/Labo) —
+    // sinon un rôle nommé "Labo" apparaissait sur l'écran de Port simplement parce qu'il partage une
+    // catégorie de comptage avec un ingrédient suivi là-bas, sans qu'aucun salarié du Port ne tienne ce poste.
+    var empsScopeRes=await db.from('employees').select('id,roles,restaurant_id,restaurants_secondaires,actif,archive,comptage_cats_add,comptage_cats_remove');
+    var empsIci=(empsScopeRes.data||[]).filter(function(e){
+      if(e.actif===false||e.archive)return false;
+      return mergeScope.indexOf(e.restaurant_id)>=0||(e.restaurants_secondaires||[]).some(function(r){return mergeScope.indexOf(r)>=0;});
+    });
+    var rolesIdsAuResto={};
+    empsIci.forEach(function(e){(e.roles||[]).forEach(function(rid){rolesIdsAuResto[rid]=true;});});
+    // Couverture RÉELLE par salarié plutôt que par rôle seul : un rôle donne des catégories/inclusions par
+    // défaut, mais chaque salarié peut avoir ses propres ajouts/retraits (employees.comptage_cats_add/remove).
+    // C'est exactement ce qui expliquait "Miel non coché sur le rôle Téléphone, pourtant compté par le
+    // téléphone" — la personne qui tient ce poste avait Miel ajouté personnellement, invisible en ne
+    // regardant QUE la configuration du rôle.
+    var empsEffectifs=empsIci.map(function(e){
+      var cats=new Set(),ingInclude=new Set(),ingExclude=new Set();
+      (e.roles||[]).forEach(function(rid){
+        var r=rolesById[rid];if(!r)return;
+        (r.comptage_categories||[]).forEach(function(c){cats.add(c);});
+        (r.comptage_ingredients_include||[]).forEach(function(code){ingInclude.add(code);});
+        (r.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude.add(code);});
+      });
+      (e.comptage_cats_add||[]).forEach(function(c){cats.add(c);});
+      (e.comptage_cats_remove||[]).forEach(function(c){cats.delete(c);});
+      return {roles:e.roles||[],cats:cats,ingInclude:ingInclude,ingExclude:ingExclude};
+    });
+    function couvertParEmploye(effEmp,code,categorie){
+      if(effEmp.ingExclude.has(code))return false;
+      return effEmp.ingInclude.has(code)||effEmp.cats.has(categorie);
+    }
     var codesByFourn={};
     (seuilsRes.data||[]).forEach(function(s){
       if(!s||s.actif===false||!s.fournisseur_id)return;
@@ -1380,20 +1415,20 @@ async function loadCommandesFournisseursData(){
       (empsRes.data||[]).forEach(function(e){rolesByEmp[e.id]=e.roles||[];});
     }
     // Index (restaurant, code) -> seuil, et ce qui a déjà été compté AUJOURD'HUI précisément ICI (ce
-    // restaurant) — sert à bâtir la liste réelle d'articles manquants par poste (pop-up bloquant), distincte
-    // du simple statut "done" par poste ci-dessous qui ne dit pas QUOI compter.
+    // restaurant).
     var seuilByRestoCode={};
     (seuilsRes.data||[]).forEach(function(s){seuilByRestoCode[s.restaurant_id+'|'+s.ingredient_code]=s;});
     var countedTodayThisResto=new Set();
     (comptagesRes.data||[]).forEach(function(c){
       if(c.restaurant_id===RESTAURANT_ID&&c.compte_le&&c.compte_le.slice(0,10)===todayStr)countedTodayThisResto.add(c.ingredient_code);
     });
-    var missingByRoleId={};
+    // -- Pastille "poste a compté aujourd'hui" affichée sur chaque carte fournisseur (inchangé) --
     Object.keys(byFourn).forEach(function(fid){
       var codes=codesByFourn[fid]||new Set();
       var cats={};
       codes.forEach(function(code){var ing=ingByCode[code];if(ing&&ing.categorie)cats[ing.categorie]=true;});
       var rolesConcernes=rolesList.filter(function(r){
+        if(!rolesIdsAuResto[r.id])return false;
         var covByCat=(r.comptage_categories||[]).some(function(c){return cats[c];});
         var covByInc=(r.comptage_ingredients_include||[]).some(function(code){return codes.has(code);});
         return covByCat||covByInc;
@@ -1405,36 +1440,48 @@ async function loadCommandesFournisseursData(){
           var codesComptes=Array.from(codesComptesAujourdhuiParEmp[empId]);
           return codesComptes.some(function(code){return codes.has(code)&&!exc.has(code);});
         });
-        // Manque réel article par article (à cet endroit précis), indépendant du statut "done" ci-dessus :
-        // un article peut être à jour même si ce n'est pas QUELQU'UN AVEC CE RÔLE qui l'a compté aujourd'hui.
-        codes.forEach(function(code){
-          if(exc.has(code))return;
-          var s=seuilByRestoCode[RESTAURANT_ID+'|'+code];
-          if(!s||s.actif===false)return; // pas suivi ici (probablement l'autre restaurant fusionné)
-          var jours=Array.isArray(s.comptage_jours)?s.comptage_jours:[];
-          var due=!jours.length||jours.indexOf(new Date().getDay())>=0;
-          if(!due)return;
-          if(countedTodayThisResto.has(code))return;
-          var ing=ingByCode[code];
-          var entry=missingByRoleId[r.id]||(missingByRoleId[r.id]={nom:r.nom,itemsByCode:{}});
-          entry.itemsByCode[code]={code:code,nom:ing?ing.nom:code,categorie:ing&&ing.categorie?ing.categorie:'Autre',sousCategorie:ing&&ing.sous_categorie?ing.sous_categorie:null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece'};
-        });
         return {nom:r.nom,done:done};
       }).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
     });
-    cmdfMissingByPoste=Object.keys(missingByRoleId).map(function(rid){
-      var e=missingByRoleId[rid];
-      var items=Object.keys(e.itemsByCode).map(function(c){return e.itemsByCode[c];});
-      items.sort(function(a,b){
-        var c=a.categorie.localeCompare(b.categorie,'fr');if(c)return c;
-        var sa=a.sousCategorie||'',sb=b.sousCategorie||'';
-        if(!sa&&sb)return 1;if(sa&&!sb)return -1; // "sans sous-catégorie" toujours en dernier, comme sur l'écran Comptage
-        var s=sa.localeCompare(sb,'fr');if(s)return s;
-        return a.nom.localeCompare(b.nom,'fr');
+    // -- Liste plate de TOUT ce qui n'a pas été compté aujourd'hui ICI, quel que soit le poste. Le poste
+    // n'est plus une condition d'inclusion (avant ce correctif, un trou dans la configuration des rôles
+    // faisait disparaître des articles entiers de cette liste sans que personne ne s'en aperçoive) — c'est
+    // désormais juste une étiquette d'information, et un filtre optionnel pour appeler la bonne personne.
+    var allFournCodes=new Set();
+    Object.keys(codesByFourn).forEach(function(fid){codesByFourn[fid].forEach(function(c){allFournCodes.add(c);});});
+    var itemsByCode={};
+    allFournCodes.forEach(function(code){
+      var s=seuilByRestoCode[RESTAURANT_ID+'|'+code];
+      if(!s||s.actif===false)return; // pas suivi ici (probablement l'autre restaurant fusionné)
+      var jours=Array.isArray(s.comptage_jours)?s.comptage_jours:[];
+      var due=!jours.length||jours.indexOf(new Date().getDay())>=0;
+      if(!due)return;
+      if(countedTodayThisResto.has(code))return;
+      var ing=ingByCode[code];
+      var categorie=ing&&ing.categorie?ing.categorie:'Autre';
+      var postes=[];
+      empsEffectifs.forEach(function(e){
+        if(!couvertParEmploye(e,code,categorie))return;
+        e.roles.forEach(function(rid){
+          var r=rolesById[rid];
+          if(r&&postes.indexOf(r.nom)<0)postes.push(r.nom);
+        });
       });
-      return {roleId:rid,nom:e.nom,items:items};
-    }).filter(function(e){return e.items.length;}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
-  }catch(e){console.warn('statut postes fournisseur indisponible',e);cmdfMissingByPoste=[];}
+      itemsByCode[code]={code:code,nom:ing?ing.nom:code,categorie:categorie,sousCategorie:ing&&ing.sous_categorie?ing.sous_categorie:null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',postes:postes.sort(function(a,b){return a.localeCompare(b,'fr');})};
+    });
+    var items=Object.keys(itemsByCode).map(function(c){return itemsByCode[c];});
+    items.sort(function(a,b){
+      var c=a.categorie.localeCompare(b.categorie,'fr');if(c)return c;
+      var sa=a.sousCategorie||'',sb=b.sousCategorie||'';
+      if(!sa&&sb)return 1;if(sa&&!sb)return -1; // "sans sous-catégorie" toujours en dernier, comme sur l'écran Comptage
+      var s=sa.localeCompare(sb,'fr');if(s)return s;
+      return a.nom.localeCompare(b.nom,'fr');
+    });
+    cmdfMissingItems=items;
+    cmdfMissingPostesList=Array.from(new Set(items.reduce(function(acc,it){return acc.concat(it.postes);},[]))).sort(function(a,b){return a.localeCompare(b,'fr');});
+    if(items.some(function(it){return !it.postes.length;}))cmdfMissingPostesList.push('__NONE__');
+    cmdfMissingFilterRoles=new Set(); // toujours "tout afficher" par défaut à chaque ouverture
+  }catch(e){console.warn('statut comptage manquant indisponible',e);cmdfMissingItems=[];cmdfMissingPostesList=[];}
   cmdfByFourn=byFourn;
   return byFourn;
 }
@@ -1478,7 +1525,7 @@ async function menuCommandesFournisseurs(){
   try{
     var byFourn=await loadCommandesFournisseursData();
     updateCommandesBadge(byFourn);
-    if(cmdfMissingByPoste.length){
+    if(cmdfMissingItems.length){
       renderCmdfMissingPopup();
       document.getElementById('cmdf-missing-overlay').style.display='flex';
       box.innerHTML='';
@@ -1491,39 +1538,59 @@ async function menuCommandesFournisseurs(){
   }
 }
 // Pop-up bloquant "il manque tel comptage" : doit être fermée explicitement avant de voir les commandes.
-// Permet de compter directement les articles de CE restaurant sans quitter l'écran ; les articles gérés par
-// l'autre restaurant fusionné (Dabray/Labo) sont juste listés, sans contrôle de saisie (pas comptables d'ici).
+// Liste TOUT ce qui manque aujourd'hui ici, quel que soit le poste — les cases à cocher en haut permettent de
+// filtrer par poste pour appeler la bonne personne, sans jamais faire disparaître un article de la liste de
+// base juste parce qu'aucun rôle ne lui est officiellement rattaché ("Non assigné" reste visible).
 function renderCmdfMissingPopup(){
   var box=document.getElementById('cmdf-missing-list');if(!box)return;
-  if(!cmdfMissingByPoste.length){
+  if(!cmdfMissingItems.length){
     box.innerHTML='<div style="font-size:13px;color:#16A34A;font-weight:600;text-align:center">&#10003; Tout est à jour !</div>';
     return;
   }
-  var html='<div style="font-size:13px;color:#555;margin-bottom:12px">Avant de passer les commandes, il manque le comptage de :</div>';
-  cmdfMissingByPoste.forEach(function(g){
-    html+='<div style="margin-bottom:14px">'
-      +'<div style="font-weight:700;font-size:13px;color:#B91E26;margin-bottom:6px">'+escCpt(g.nom)+' &mdash; '+g.items.length+' article'+(g.items.length>1?'s':'')+'</div>';
+  var html='<div style="font-size:13px;color:#555;margin-bottom:10px">Avant de passer les commandes, il manque le comptage de :</div>';
+  if(cmdfMissingPostesList.length>1){
+    html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee">';
+    cmdfMissingPostesList.forEach(function(p){
+      var label=p==='__NONE__'?'Non assigné':p;
+      var checked=cmdfMissingFilterRoles.has(p);
+      html+='<button type="button" onclick="cmdfToggleFilterRole(\''+p.replace(/'/g,"\\'")+'\')" style="font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid '+(checked?'#B91E26':'#ddd')+';background:'+(checked?'#B91E26':'#f7f7f7')+';color:'+(checked?'#fff':'#555')+';cursor:pointer">'+escCpt(label)+'</button>';
+    });
+    html+='</div>';
+  }
+  var filtre=cmdfMissingFilterRoles.size>0;
+  var visibles=cmdfMissingItems.filter(function(it){
+    if(!filtre)return true;
+    if(!it.postes.length)return cmdfMissingFilterRoles.has('__NONE__');
+    return it.postes.some(function(p){return cmdfMissingFilterRoles.has(p);});
+  });
+  if(!visibles.length){
+    html+='<div style="font-size:12px;color:#999;text-align:center;padding:14px 0">Aucun article pour ce filtre.</div>';
+  }else{
     // Jamais en vrac : toujours regroupé par catégorie puis sous-catégorie, comme sur l'écran Comptage
     // principal — un sous-en-tête à chaque changement de catégorie ou de sous-catégorie dans la liste déjà
     // triée en amont.
     var lastCat=null,lastSous=undefined;
-    g.items.forEach(function(it){
+    visibles.forEach(function(it){
       if(it.categorie!==lastCat){
-        html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#B91E26;margin:8px 0 2px">'+escCpt(it.categorie)+'</div>';
+        html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#B91E26;margin:10px 0 2px">'+escCpt(it.categorie)+'</div>';
         lastCat=it.categorie;lastSous=undefined;
       }
       if(it.sousCategorie!==lastSous){
         if(it.sousCategorie)html+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#999;margin:4px 0 2px 6px">'+escCpt(it.sousCategorie)+'</div>';
         lastSous=it.sousCategorie;
       }
+      var posteTag=it.postes.length?('<span style="font-size:9px;color:#999">'+escCpt(it.postes.join(', '))+'</span>'):'<span style="font-size:9px;color:#C0392B">Non assigné</span>';
       html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0 6px 6px;border-top:1px solid #f0f0f0" id="cmdf-miss-'+it.code+'">'
-        +'<span style="font-size:12px;color:#333;flex:1;min-width:0">'+escCpt(it.nom)+'</span>'
+        +'<span style="flex:1;min-width:0"><span style="font-size:12px;color:#333;display:block">'+escCpt(it.nom)+'</span>'+posteTag+'</span>'
         +cmdfMissingCtrlHtml(it)
         +'</div>';
     });
-    html+='</div>';
-  });
+  }
   box.innerHTML=html;
+}
+function cmdfToggleFilterRole(p){
+  if(cmdfMissingFilterRoles.has(p))cmdfMissingFilterRoles.delete(p);else cmdfMissingFilterRoles.add(p);
+  renderCmdfMissingPopup();
 }
 function cmdfMissingCtrlHtml(it){
   if(it.type_suivi==='qty'){
@@ -1570,13 +1637,12 @@ async function cmdfQuickSave(code,valeur){
   if(cmdfMissingSaving[code])return;
   cmdfMissingSaving[code]=true;
   try{
-    var typeSuivi='qty';
-    cmdfMissingByPoste.forEach(function(g){g.items.forEach(function(it){if(it.code===code)typeSuivi=it.type_suivi;});});
+    var found=cmdfMissingItems.find(function(it){return it.code===code;});
+    var typeSuivi=found?found.type_suivi:'qty';
     var payload={restaurant_id:RESTAURANT_ID,ingredient_code:code,type_suivi:typeSuivi,valeur:String(valeur),compte_par_id:emp?emp.id:null,compte_par_nom:emp?(emp.prenom+' '+emp.nom):null,compte_le:new Date().toISOString()};
     var ins=await db.from('ingredient_comptages').insert(payload).select().single();
     if(ins.error){alert('Erreur : '+ins.error.message);return;}
-    cmdfMissingByPoste.forEach(function(g){g.items=g.items.filter(function(it){return it.code!==code;});});
-    cmdfMissingByPoste=cmdfMissingByPoste.filter(function(g){return g.items.length;});
+    cmdfMissingItems=cmdfMissingItems.filter(function(it){return it.code!==code;});
     renderCmdfMissingPopup();
   }catch(e){console.error('cmdfQuickSave',e);alert('Erreur : '+e.message);}
   finally{cmdfMissingSaving[code]=false;}
