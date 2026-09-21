@@ -6212,6 +6212,23 @@ function isRuptureTotale(typeSuivi,valeur){
   if(typeSuivi==='level'){var lv=parseFloat(valeur);return !isNaN(lv)&&lv<=0;}
   return true;
 }
+// Libellé explicite du dernier comptage, pour ne jamais afficher un nombre nu dans un message/historique de
+// commande — indiscernable entre "stock restant" et "quantité à commander" sinon. typeSuivi peut être absent
+// sur un envoi loggé avant l'ajout de ce champ : on retombe alors sur l'ancien affichage brut.
+function fournLabelValeur(typeSuivi,valeur,uniteComptage){
+  if(typeSuivi==null)return String(valeur==null?'':valeur);
+  var unite=uniteComptage?(' '+uniteComptage):'';
+  if(typeSuivi==='qty')return 'Stock actuel : '+valeur+unite;
+  if(typeSuivi==='rup'){
+    if(valeur==='rupture')return 'État : rupture de stock';
+    if(valeur==='faible')return 'État : stock faible';
+    return 'État : '+valeur;
+  }
+  if(typeSuivi==='two')return 'État : '+(valeur==='commander'?'à commander':valeur);
+  if(typeSuivi==='yn')return 'État : '+(valeur==='non'?'manquant':valeur);
+  if(typeSuivi==='level'){var lv=parseFloat(valeur);return 'État : '+(isNaN(lv)?valeur:'≈'+lv+'% restant');}
+  return String(valeur==null?'':valeur);
+}
 let rctSuppliers=[]; // fournisseurs du restaurant courant (depuis stock_catalogue.suppliers)
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
 let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons — niveau au-dessus des catégories, commun
@@ -6992,16 +7009,22 @@ function laboSuiviCommandeCardHtml(item){
 }
 function fournSuiviCardHtml(f){
   var e=f.envoi;
+  var nonValidee=e.statut==='non_validee';
   var when=new Date(e.envoye_le).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   var itemsHtml=f.items.map(function(it){
-    return '<div style="font-size:11px;padding:2px 0;">• '+esc(it.nom)+(it.resto?(' <span style="color:var(--txm);">('+(LABO_SUIVI_RESTO_LABELS[it.resto]||it.resto)+')</span>'):'')+' — '+esc(it.suggestion||String(it.valeur))+'</div>';
+    return '<div style="font-size:11px;padding:2px 0;">• '+esc(it.nom)+(it.resto?(' <span style="color:var(--txm);">('+(LABO_SUIVI_RESTO_LABELS[it.resto]||it.resto)+')</span>'):'')+' — '+esc(it.suggestion?('Commander : '+it.suggestion):fournLabelValeur(it.typeSuivi,it.valeur,it.uniteComptage))+'</div>';
   }).join('');
-  return '<div class="card" style="margin-bottom:10px;">'
+  // Une commande "non validée" a été détectée en retard (heure limite dépassée) sans avoir jamais été
+  // envoyée sur WhatsApp — loggée automatiquement (voir logCommandesNonValideesSiRetard côté pointage.html).
+  // "Renvoyer" reste utile ici : ça permet d'ouvrir enfin le message resté sans suite.
+  return '<div class="card" style="margin-bottom:10px;'+(nonValidee?'border:1px solid #D97706;background:#FEF3C7;':'')+'">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
       +'<div style="font-weight:700;font-size:13px;">📦 '+esc(e.fournisseur_nom||'Fournisseur')+'</div>'
-      +'<button type="button" class="btn bs sm" style="background:#25D366;color:#fff;" onclick="renvoyerFournSuivi('+e.id+')">🔁 Renvoyer</button>'
+      +'<button type="button" class="btn bs sm" style="background:#25D366;color:#fff;" onclick="renvoyerFournSuivi('+e.id+')">🔁 '+(nonValidee?'Envoyer':'Renvoyer')+'</button>'
     +'</div>'
-    +'<div style="font-size:10px;color:var(--txm);margin-bottom:4px;">'+when+' · par '+esc(e.envoye_par_nom||'?')+' · '+f.items.length+' article(s)</div>'
+    +(nonValidee
+      ?'<div style="font-size:10px;font-weight:700;color:#92400E;margin-bottom:4px;">⚠️ Non validée — heure limite dépassée sans envoi · '+f.items.length+' article(s)</div>'
+      :'<div style="font-size:10px;color:var(--txm);margin-bottom:4px;">'+when+' · par '+esc(e.envoye_par_nom||'?')+' · '+f.items.length+' article(s)</div>')
     +itemsHtml
     +'</div>';
 }
@@ -7020,7 +7043,7 @@ function renvoyerFournSuivi(envoiId){
   var dateLabel=new Date(f.envoye_le).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   var headerLine='📦 Commande '+(f.fournisseur_nom||'Fournisseur')+(restoLabel?(' — '+restoLabel):'');
   var msgLines=[headerLine,'👤 '+(f.envoye_par_nom||'—')+' · 📅 '+dateLabel,'──────────────'].concat(items.map(function(it){
-    return '- '+it.nom+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
+    return '- '+it.nom+' — '+(it.suggestion?('Commander : '+it.suggestion):fournLabelValeur(it.typeSuivi,it.valeur,it.uniteComptage));
   }));
   window.open('https://wa.me/?text='+encodeURIComponent(msgLines.join('\n')),'_blank');
 }
@@ -7075,7 +7098,7 @@ async function exportLaboSuiviPDF(){
       y+=4;
       f.items.forEach(function(it){
         checkPageBreak(5);
-        doc.text('- '+it.nom+' : '+(it.suggestion||String(it.valeur)),MG+4,y);
+        doc.text('- '+it.nom+' : '+(it.suggestion?('Commander : '+it.suggestion):fournLabelValeur(it.typeSuivi,it.valeur,it.uniteComptage)),MG+4,y);
         y+=4;
       });
       y+=2;
@@ -9822,7 +9845,7 @@ async function openBesoinsComptageModal(){
         }
         if(gate.gated&&!gate.matches&&!isRuptureTotale(s.type_suivi,d.valeur))return;
         var ing=rctIngredients.find(function(p){return p.code===code;});
-        items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,qteACommander:qteACommander,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi,comptageId:d.id});
+        items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,qteACommander:qteACommander,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi,uniteComptage:s.unite_comptage,comptageId:d.id});
       });
     });
     if(!items.length){
@@ -9850,7 +9873,7 @@ async function openBesoinsComptageModal(){
       // (lien wa.me/?text=... — l'utilisateur choisit lui-même le contact/groupe et appuie sur envoyer,
       // rien n'est envoyé automatiquement et rien ne touche la table 'fournisseurs').
       var msgLines=['📦 Commande '+groupName].concat(its.map(function(it){
-        return '- '+it.nom+' ('+restoLabels[it.resto]+')'+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
+        return '- '+it.nom+' ('+restoLabels[it.resto]+') — '+(it.suggestion?('Commander : '+it.suggestion):fournLabelValeur(it.typeSuivi,it.valeur,it.uniteComptage));
       }));
       var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
       besoinsComptageWaUrls[key]=waUrl; // lu par marquerBesoinsEnvoyesEtOuvrirWhatsapp au clic
@@ -9870,8 +9893,8 @@ async function openBesoinsComptageModal(){
         +its.map(function(it){
           var when=new Date(it.compteLe).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
           return '<div class="card" style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;gap:8px;">'
-            +'<span>'+esc(it.nom)+'<div style="font-size:10px;color:var(--txm);">'+restoLabels[it.resto]+' · compté le '+when+(it.suggestion?(' · '+esc(it.suggestion)):'')+'</div></span>'
-            +'<span style="color:#C0392B;font-weight:700;font-size:11px;white-space:nowrap;">⚠️ '+esc(String(it.valeur))+'</span>'
+            +'<span>'+esc(it.nom)+'<div style="font-size:10px;color:var(--txm);">'+restoLabels[it.resto]+' · compté le '+when+(it.suggestion?(' · Commander : '+esc(it.suggestion)):'')+'</div></span>'
+            +'<span style="color:#C0392B;font-weight:700;font-size:11px;white-space:nowrap;">⚠️ '+esc(fournLabelValeur(it.typeSuivi,it.valeur,it.uniteComptage))+'</span>'
             +'</div>';
         }).join('')
         +'</div></div>';
@@ -9931,8 +9954,9 @@ async function marquerBesoinsEnvoyesEtOuvrirWhatsapp(fournKey){
         await db.from('commandes_fournisseurs_envois').insert({
           fournisseur_id:g.sup?g.sup.id:null,
           fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
-          items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.resto,valeur:it.valeur,suggestion:it.suggestion};}),
-          envoye_par_nom:creePar
+          items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.resto,valeur:it.valeur,suggestion:it.suggestion,typeSuivi:it.typeSuivi,uniteComptage:it.uniteComptage};}),
+          envoye_par_nom:creePar,
+          statut:'envoyee'
         });
       }catch(e){console.error('log commandes_fournisseurs_envois',e);}
       openBesoinsComptageModal(); // recharge : ces articles disparaissent de la liste seulement maintenant
