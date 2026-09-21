@@ -1114,8 +1114,7 @@ var cptRoleChoixDone=false; // le choix des postes du jour a déjà été posé/
 //     fournisseur assigné a lui-même un délai + des jours de livraison renseignés, ça s'applique
 //     automatiquement à tous ses produits.
 function reglesGateStatus(rules,supplier,suppliersById,refDate){
-  var d=refDate||new Date();
-  var todayIdx=d.getDay();
+  var todayIdx=refDate?refDate.getDay():bizGetDay();
   function matchesVeille(sup){
     if(!sup||!Array.isArray(sup.jours_livraison)||!sup.jours_livraison.length)return false;
     var n=(sup.delai_commande_jours!=null&&sup.delai_commande_jours>0)?sup.delai_commande_jours:1;
@@ -1458,10 +1457,10 @@ async function loadCommandesFournisseursData(){
       if(!sup||sup.is_labo_interne||sup.is_cuisine_interne)return;
       (codesByFourn[s.fournisseur_id]=codesByFourn[s.fournisseur_id]||new Set()).add(s.ingredient_code);
     });
-    var todayStr=new Date().toISOString().slice(0,10);
+    var todayStr=bizDateKey();
     var codesComptesAujourdhuiParEmp={};
     (comptagesRes.data||[]).forEach(function(c){
-      if(!c.compte_par_id||!c.compte_le||c.compte_le.slice(0,10)!==todayStr)return;
+      if(!c.compte_par_id||!c.compte_le||bizDateKey(c.compte_le)!==todayStr)return;
       (codesComptesAujourdhuiParEmp[c.compte_par_id]=codesComptesAujourdhuiParEmp[c.compte_par_id]||new Set()).add(c.ingredient_code);
     });
     var empIdsAujourdhui=Object.keys(codesComptesAujourdhuiParEmp);
@@ -1476,7 +1475,7 @@ async function loadCommandesFournisseursData(){
     (seuilsRes.data||[]).forEach(function(s){seuilByRestoCode[s.restaurant_id+'|'+s.ingredient_code]=s;});
     var countedTodayThisResto=new Set();
     (comptagesRes.data||[]).forEach(function(c){
-      if(c.restaurant_id===RESTAURANT_ID&&c.compte_le&&c.compte_le.slice(0,10)===todayStr)countedTodayThisResto.add(c.ingredient_code);
+      if(c.restaurant_id===RESTAURANT_ID&&c.compte_le&&bizDateKey(c.compte_le)===todayStr)countedTodayThisResto.add(c.ingredient_code);
     });
     // -- Pastille "poste a compté aujourd'hui" affichée sur chaque carte fournisseur (inchangé) --
     Object.keys(byFourn).forEach(function(fid){
@@ -2211,14 +2210,20 @@ async function menuComptage(){
       if(!s||s.actif===false)return null; // pas configuré / masqué pour ce restaurant (fiche ingrédient > Visible ici)
       var joursExplicites=Array.isArray(s.comptage_jours)?s.comptage_jours:[];
       var comptageJours=joursExplicites.length?joursExplicites:cptDerivedComptageJours(i.code,s.fournisseur_id);
-      return {code:i.code,nom:i.nom,categorie:cat,sousCategorie:i.sous_categorie||null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null,comptageJours:comptageJours};
+      var obj={code:i.code,nom:i.nom,categorie:cat,sousCategorie:i.sous_categorie||null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null,comptageJours:comptageJours};
+      // Figé à l'ouverture de l'écran, jamais recalculé après une saisie de cette session : sans ça, un
+      // article qu'on vient de compter passerait aussitôt pour "plus dû" et sauterait dans la section repliée
+      // "Pas à compter aujourd'hui" — donnant l'impression que la saisie a disparu alors qu'elle est bien
+      // enregistrée. Rouvrir l'écran (ou revenir plus tard) reclasse normalement à partir des données fraîches.
+      obj._dueAtLoad=cptDueToday(obj);
+      return obj;
     }).filter(Boolean);
 
     // Bandeau "aujourd'hui" : catégories ayant une règle de commande "jours fixes" (ingredient_regles_commande,
     // appliquée à toute la catégorie via categorie_source) qui tombe sur le jour du jour — purement informatif,
     // aucune nouvelle table, ça relit la même règle qui pilote déjà le seuil de commande.
     try{
-      var todayIdx=new Date().getDay(); // 0=Dim ... convention identique à SUP_DAY_LABELS/jours en admin
+      var todayIdx=bizGetDay(); // 0=Dim ... convention identique à SUP_DAY_LABELS/jours en admin — journée métier (7h)
       var reglesRes=await db.from('ingredient_regles_commande').select('categorie_source,jours,mode').eq('restaurant_id',RESTAURANT_ID).eq('mode','jours_fixes').not('categorie_source','is',null);
       if(!reglesRes.error){
         var todayCats=[];
@@ -2363,6 +2368,20 @@ function cptRoutingTag(i){
 // jours précis sont configurés, il n'est "attendu" que ces jours-là — les autres jours, il reste visible
 // (pas caché) mais rangé à part, pour ne pas polluer la liste de ce qu'il y a vraiment à faire aujourd'hui.
 var CPT_JOUR_NOMS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+// Journée "métier" : une nouvelle journée de comptage commence à 7h du matin, pas à minuit — un comptage fait
+// à 1h du matin après une fermeture tardive appartient donc encore à la veille. Utilisé partout où le
+// comptage/les commandes fournisseurs raisonnent en "aujourd'hui" (jamais pour le pointage horaire des
+// salariés, qui reste sur l'heure réelle).
+function bizDateKey(dateLike){
+  var d=dateLike?new Date(dateLike):new Date();
+  d.setHours(d.getHours()-7);
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+function bizGetDay(dateLike){
+  var d=dateLike?new Date(dateLike):new Date();
+  d.setHours(d.getHours()-7);
+  return d.getDay();
+}
 var CPT_JOUR_COURT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 // Un ingrédient est "dû" s'il n'a JAMAIS été compté (peu importe le calendrier — bootstrap, ou retard
 // accumulé), OU si son dernier comptage est antérieur à la dernière échéance programmée. Avant ce correctif,
@@ -2371,12 +2390,12 @@ var CPT_JOUR_COURT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 // entre-temps, et donc absent aussi des commandes fournisseurs puisqu'il ne pouvait jamais être recompté.
 function joursComptageExpire(jours,compteLe){
   var j=Array.isArray(jours)?jours:[];
-  var compteDay=new Date(compteLe);compteDay.setHours(0,0,0,0);
-  var today=new Date();today.setHours(0,0,0,0);
-  if(!j.length)return compteDay.getTime()!==today.getTime(); // quotidien : valable le jour même uniquement
+  var compteKey=bizDateKey(compteLe);
+  var todayKey=bizDateKey();
+  if(!j.length)return compteKey!==todayKey; // quotidien : valable le jour métier même uniquement
   for(var back=0;back<7;back++){
-    var d=new Date(today);d.setDate(d.getDate()-back);
-    if(j.indexOf(d.getDay())>=0)return compteDay.getTime()<d.getTime();
+    var d=new Date();d.setDate(d.getDate()-back);
+    if(j.indexOf(bizGetDay(d))>=0)return compteKey<bizDateKey(d);
   }
   return false;
 }
@@ -2392,7 +2411,7 @@ function cptFrequenceLabel(i){
 function cptProchainComptageLabel(i){
   var jours=i.comptageJours||[];
   if(!jours.length)return null;
-  var today=new Date().getDay();
+  var today=bizGetDay();
   for(var d=1;d<=7;d++){
     var idx=(today+d)%7;
     if(jours.indexOf(idx)>=0)return CPT_JOUR_NOMS[idx];
@@ -2448,8 +2467,8 @@ function renderComptageList(){
   var html='';
   catNames.forEach(function(cat){
     var items=byCat[cat];
-    var dueItems=items.filter(cptDueToday);
-    var notDueItems=items.filter(function(i){return !cptDueToday(i);});
+    var dueItems=items.filter(function(i){return i._dueAtLoad;});
+    var notDueItems=items.filter(function(i){return !i._dueAtLoad;});
     var nAlert=items.filter(function(i){var st=cptStatus(i);return st&&st.cls!=='ok';}).length;
     var nDone=dueItems.filter(function(i){return cptComptedToday(i.dernier);}).length;
     var color=cptCatColor(cat);
@@ -2482,15 +2501,12 @@ function renderComptageList(){
 // comptage OK" qui pourrait dater de plusieurs jours et donner une fausse impression que c'est à jour.
 function cptComptedToday(dernier){
   if(!dernier)return false;
-  var d=new Date(dernier.compte_le);
-  var now=new Date();
-  return d.toDateString()===now.toDateString();
+  return bizDateKey(dernier.compte_le)===bizDateKey();
 }
 function dernierLabelCpt(dernier,unite){
   if(!dernier)return 'Jamais compté';
   var d=new Date(dernier.compte_le);
-  var now=new Date();
-  var sameDay=d.toDateString()===now.toDateString();
+  var sameDay=bizDateKey(dernier.compte_le)===bizDateKey();
   var when=sameDay?('aujourd\'hui '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})):d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
   var parNom=dernier.compte_par_nom?(' par '+escCpt(dernier.compte_par_nom)):'';
   return 'Dernier : '+escCpt(dernier.valeur)+(unite?(' '+escCpt(unite)):'')+' — '+when+parNom;
@@ -2527,7 +2543,7 @@ function comptageRowHtml(i){
   var rowFlag=st&&st.cls==='bad'?' order':(st&&st.cls==='warn'?' warn':'');
   var doneToday=cptComptedToday(i.dernier);
   if(doneToday)rowFlag+=' done-today';
-  var notDue=!cptDueToday(i);
+  var notDue=!i._dueAtLoad;
   if(notDue)rowFlag+=' not-due';
   var doneBadge=doneToday?('<span class="cpt-done-badge">&#10003; Compt\u00e9 aujourd\'hui'+(i.dernier&&i.dernier.compte_par_nom?(' par '+escCpt(i.dernier.compte_par_nom)):'')+'</span>'):'';
   var undoBtn=i._canUndo?('<span class="cpt-undo-badge" onclick="cptUndoLast(\''+i.code+'\')" title="Annuler mon dernier comptage sur cet article">&#8630; Annuler</span>'):'';
@@ -2579,9 +2595,11 @@ async function cptClearToday(code){
   if(!i.dernier||!cptComptedToday(i.dernier))return; // rien compté aujourd'hui : la bulle est déjà vide
   cptSaving[code]=true;
   try{
-    var todayStart=new Date();todayStart.setHours(0,0,0,0);
-    var todayEnd=new Date();todayEnd.setHours(23,59,59,999);
-    var del=await db.from('ingredient_comptages').delete().eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code).gte('compte_le',todayStart.toISOString()).lte('compte_le',todayEnd.toISOString());
+    // Fenêtre de la journée métier en cours : de 7h ce matin à 7h demain matin (pas minuit-minuit).
+    var todayStart=new Date();todayStart.setHours(7,0,0,0);
+    if(new Date()<todayStart)todayStart.setDate(todayStart.getDate()-1); // avant 7h : la journée métier a commencé hier à 7h
+    var todayEnd=new Date(todayStart);todayEnd.setDate(todayEnd.getDate()+1);
+    var del=await db.from('ingredient_comptages').delete().eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code).gte('compte_le',todayStart.toISOString()).lt('compte_le',todayEnd.toISOString());
     if(del.error){alert('Erreur : '+del.error.message);return;}
     var prevRes=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code).order('compte_le',{ascending:false}).limit(1);
     i.dernier=(prevRes.data&&prevRes.data[0])?prevRes.data[0]:null;
