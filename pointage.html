@@ -151,6 +151,28 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-tbtn.ok{background:#E8F5E9;color:#1E8449}
 .cpt-tbtn.warn{background:#FEF9E7;color:#D68910}
 .cpt-tbtn.bad{background:#FDEDEC;color:#C0392B}
+/* ── Labo : "À préparer / expédier" — cartes claires (fond blanc, texte foncé) pour la lisibilité,
+   au lieu du fond rouge translucide utilisé auparavant (illisible en plein soleil / faible contraste). ──*/
+.lp-card{background:#fff;border-radius:12px;padding:11px 12px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.lp-card-title{font-weight:800;color:#1A1008;margin-bottom:2px;font-size:13px}
+.lp-card-sub{font-weight:400;font-size:10px;color:#8a7f70}
+.lp-cat-hdr{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--bx);margin:10px 0 4px;padding-bottom:3px;border-bottom:1px solid #F0E4D4}
+.lp-ligne{margin:6px 0;padding:9px;background:#FAF4EC;border-radius:9px;border:1px solid #EEE1CE}
+.lp-ligne-title{font-weight:700;font-size:12px;color:#1A1008}
+.lp-restant{color:#C0392B;font-weight:700}
+.lp-ok{color:#1E8449;font-weight:700}
+.lp-lot-label{display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;color:#1A1008}
+.lp-lot-label input[type=checkbox]{width:20px;height:20px;flex-shrink:0;accent-color:var(--bx)}
+.lp-empty-lot{font-size:11px;color:#A08060;padding:2px 0}
+.lp-send-btn{width:100%;margin-top:8px;padding:11px;font-size:13px;background:var(--bx);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer}
+.lp-cancel-btn{width:100%;margin-top:6px;padding:9px;font-size:11px;background:#FDEDEC;color:#C0392B;border:1px solid #F5C6C2;border-radius:10px;font-weight:700;cursor:pointer}
+.lp-create-btn{width:100%;padding:14px;font-size:14px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:12px;color:#fff;font-weight:700;cursor:pointer;text-align:center;margin-bottom:10px}
+.lp-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center;padding:18px}
+.lp-modal-overlay.on{display:flex}
+.lp-modal-box{background:#fff;border-radius:16px;padding:18px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.lp-modal-title{font-weight:800;color:#1A1008;font-size:15px;margin-bottom:12px}
+.lp-modal-lbl{color:#8a7f70;font-size:10px;font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px}
+.lp-modal-inp{width:100%;background:#FAF4EC;border:1px solid #E5DDCE;border-radius:8px;padding:9px 10px;font-size:14px;color:#1A1008;outline:none;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -295,14 +317,8 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div class="screen" id="s-laboprep">
       <div class="panel-title" style="margin-bottom:10px">&#127859; &Agrave; pr&eacute;parer / exp&eacute;dier</div>
       <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Visible par toute l'&eacute;quipe Labo tant qu'une commande n'est pas enti&egrave;rement exp&eacute;di&eacute;e.</div>
-      <div id="laboprep-list" style="max-height:42vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px"></div>
-      <div style="background:rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:10px">
-        <div style="font-weight:700;color:#fff;margin-bottom:8px;font-size:13px">&#10133; Nouveau lot</div>
-        <div class="af"><span class="albl">Produit</span><select class="ainp" id="lp-new-produit"></select></div>
-        <div class="af"><span class="albl">Poids r&eacute;el (kg)</span><input type="number" class="ainp" id="lp-new-poids" placeholder="Ex: 0.405" min="0" step="0.001"></div>
-        <div class="af"><span class="albl">Mati&egrave;re premi&egrave;re utilis&eacute;e (optionnel)</span><input type="text" class="ainp" id="lp-new-source" placeholder="Ex: bloc jambon #12"></div>
-        <button class="nb" style="width:100%;padding:11px;font-size:14px" onclick="createLaboLotPointage()">Cr&eacute;er le lot</button>
-      </div>
+      <div id="laboprep-list" style="max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px"></div>
+      <button type="button" class="lp-create-btn" onclick="lpOpenNewLotModal()">&#10133; Cr&eacute;er un lot</button>
       <button class="canc" onclick="backToMenu()">Retour au menu</button>
     </div>
 
@@ -452,6 +468,22 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <pre id="cmdf-preview-text" style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:#333;background:#F7F5F0;border-radius:10px;padding:12px;margin:0 0 14px;flex:1;overflow-y:auto"></pre>
     <button id="cmdf-preview-send" style="width:100%;background:#25D366;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">&#128228; Envoyer via WhatsApp</button>
     <button onclick="closeCmdfPreview()" style="width:100%;background:#f0f0f0;color:#555;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer">Fermer</button>
+  </div>
+</div>
+
+<!-- Pop-up "Créer un lot" (Labo) — remplace l'ancien formulaire toujours affiché sous la liste, pour ne
+     plus encombrer l'écran principal : un simple bouton "Créer un lot" l'ouvre à la demande. -->
+<div id="lp-new-lot-overlay" class="lp-modal-overlay">
+  <div class="lp-modal-box">
+    <div class="lp-modal-title">&#10133; Cr&eacute;er un lot</div>
+    <label class="lp-modal-lbl">Produit</label>
+    <select class="lp-modal-inp" id="lp-new-produit"></select>
+    <label class="lp-modal-lbl">Poids r&eacute;el (kg)</label>
+    <input type="number" class="lp-modal-inp" id="lp-new-poids" placeholder="Ex: 0.405" min="0" step="0.001">
+    <label class="lp-modal-lbl">Mati&egrave;re premi&egrave;re utilis&eacute;e (optionnel)</label>
+    <input type="text" class="lp-modal-inp" id="lp-new-source" placeholder="Ex: bloc jambon #12">
+    <button type="button" style="width:100%;padding:12px;font-size:14px;background:var(--bx);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;margin-top:4px" onclick="createLaboLotPointage()">Cr&eacute;er le lot</button>
+    <button type="button" style="width:100%;padding:10px;font-size:12px;background:#F0E4D4;color:#7A4A35;border:none;border-radius:10px;font-weight:700;cursor:pointer;margin-top:8px" onclick="lpCloseNewLotModal()">Annuler</button>
   </div>
 </div>
 <script>
@@ -1143,24 +1175,6 @@ function isRuptureTotale(typeSuivi,valeur){
   if(typeSuivi==='level'){var lv=parseFloat(valeur);return !isNaN(lv)&&lv<=0;}
   return true;
 }
-// Libellé explicite du dernier comptage, pour ne JAMAIS afficher un nombre nu dans un message de commande —
-// un chiffre sans contexte est indiscernable entre "stock restant" et "quantité à commander" (confusion
-// remontée en usage réel). typeSuivi peut être absent sur un envoi loggé avant l'ajout de ce champ : dans ce
-// cas on retombe sur l'ancien affichage brut plutôt que d'inventer une étiquette qui pourrait être fausse.
-function fournLabelValeur(typeSuivi,valeur,uniteComptage){
-  if(typeSuivi==null)return String(valeur==null?'':valeur);
-  var unite=uniteComptage?(' '+uniteComptage):'';
-  if(typeSuivi==='qty')return 'Stock actuel : '+valeur+unite;
-  if(typeSuivi==='rup'){
-    if(valeur==='rupture')return 'État : rupture de stock';
-    if(valeur==='faible')return 'État : stock faible';
-    return 'État : '+valeur;
-  }
-  if(typeSuivi==='two')return 'État : '+(valeur==='commander'?'à commander':valeur);
-  if(typeSuivi==='yn')return 'État : '+(valeur==='non'?'manquant':valeur);
-  if(typeSuivi==='level'){var lv=parseFloat(valeur);return 'État : '+(isNaN(lv)?valeur:'≈'+lv+'% restant');}
-  return String(valeur==null?'':valeur);
-}
 
 // Calcule les catégories de comptage effectives du salarié connecté (union des rôles + overrides),
 // même principe que le module Stocks (catsAdd/catsRemove) mais sur roles.comptage_categories.
@@ -1346,15 +1360,7 @@ async function loadCommandesFournisseursData(){
     var rulesForResto=(reglesByCode[s.ingredient_code]||{})[s.restaurant_id]||[];
     var gate=reglesGateStatus(rulesForResto,sup,suppliersById);
     if(gate.gated&&!gate.matches&&!isRuptureTotale(s.type_suivi,d.valeur))return;
-    // Motif d'affichage, pour pouvoir expliquer sur la carte pourquoi un article sort un jour où il ne
-    // semble "pas prévu" — remonté suite à une incohérence perçue (article signalé un jour sans calendrier
-    // de livraison correspondant, sans que ce soit une vraie rupture) : sans ce marqueur, impossible de
-    // distinguer à l'œil "urgence légitime (rupture totale hors jour)" de "fournisseur/ingrédient sans
-    // calendrier configuré (signalé tous les jours par défaut, ce qui peut être un oubli de config)".
-    var raison=null;
-    if(gate.gated&&!gate.matches)raison='urgence';
-    else if(!gate.gated)raison='sans_calendrier';
-    rawItems.push({resto:s.restaurant_id,code:s.ingredient_code,fournisseurId:sup.id,typeSuivi:s.type_suivi,valeur:d.valeur,manque:manque,colisage:s.colisage,uniteComptage:s.unite_comptage,uniteCommande:s.unite_commande,comptageId:d.id,comptePar:d.compte_par_nom||null,compteLe:d.compte_le,raison:raison});
+    rawItems.push({resto:s.restaurant_id,code:s.ingredient_code,fournisseurId:sup.id,typeSuivi:s.type_suivi,valeur:d.valeur,manque:manque,colisage:s.colisage,uniteComptage:s.unite_comptage,uniteCommande:s.unite_commande,comptageId:d.id,comptePar:d.compte_par_nom||null,compteLe:d.compte_le});
   });
   // Étape 2 : fusionne par (ingrédient, fournisseur) à travers les restaurants du périmètre — quantités
   // additionnées pour le suivi quantitatif (une seule ligne, un seul arrondi colisage sur le total, pas un
@@ -1363,9 +1369,8 @@ async function loadCommandesFournisseursData(){
   var merged={};
   rawItems.forEach(function(it){
     var key=it.code+'|'+it.fournisseurId;
-    if(!merged[key])merged[key]={code:it.code,fournisseurId:it.fournisseurId,typeSuivi:it.typeSuivi,restos:[],manqueTotal:0,colisage:it.colisage,uniteComptage:it.uniteComptage,uniteCommande:it.uniteCommande,valeurs:[],comptageIds:[],comptePars:[],compteLes:[],raison:null};
+    if(!merged[key])merged[key]={code:it.code,fournisseurId:it.fournisseurId,typeSuivi:it.typeSuivi,restos:[],manqueTotal:0,colisage:it.colisage,uniteComptage:it.uniteComptage,uniteCommande:it.uniteCommande,valeurs:[],comptageIds:[],comptePars:[],compteLes:[]};
     var m=merged[key];
-    if(!m.raison&&it.raison)m.raison=it.raison;
     m.restos.push(it.resto);
     m.comptageIds.push(it.comptageId);
     if(it.comptePar)m.comptePars.push(it.comptePar);
@@ -1407,7 +1412,7 @@ async function loadCommandesFournisseursData(){
       var parLbl=m.comptePars.length?(' par '+m.comptePars.filter(function(n,idx){return m.comptePars.indexOf(n)===idx;}).join(', ')):'';
       compteLabel='compt\u00e9 '+whenLbl+parLbl;
     }
-    return {code:m.code,nom:ing?ing.nom:m.code,fournisseurId:m.fournisseurId,suggestion:suggestion,valeur:valeurAffichee,typeSuivi:m.typeSuivi,uniteComptage:m.uniteComptage,restoTag:restoTag,comptageIds:m.comptageIds,comptePars:m.comptePars,compteLabel:compteLabel,raison:m.raison};
+    return {code:m.code,nom:ing?ing.nom:m.code,fournisseurId:m.fournisseurId,suggestion:suggestion,valeur:valeurAffichee,restoTag:restoTag,comptageIds:m.comptageIds,comptePars:m.comptePars,compteLabel:compteLabel};
   });
   var byFourn={};
   items.forEach(function(it){
@@ -1606,43 +1611,7 @@ async function checkCommandesFournisseursBadge(){
   try{
     var byFourn=await loadCommandesFournisseursData();
     updateCommandesBadge(byFourn);
-    logCommandesNonValideesSiRetard(byFourn); // fire-and-forget : ne bloque jamais l'affichage du badge
   }catch(e){console.error('checkCommandesFournisseursBadge',e);}
-}
-// Journalise automatiquement, une seule fois par jour métier et par fournisseur, les commandes jamais
-// envoyées après l'heure limite — sans ça, un fournisseur oublié disparaît silencieusement de l'historique
-// dès qu'il est recompté le lendemain (aucune trace qu'un jour a été manqué). N'envoie rien sur WhatsApp,
-// ne touche à aucun comptage : uniquement une ligne dans commandes_fournisseurs_envois avec statut
-// 'non_validee', pour que le Suivi (admin) et l'historique (ici) gardent la trace du jour manqué.
-async function logCommandesNonValideesSiRetard(byFourn){
-  try{
-    var enRetardKeys=Object.keys(byFourn).filter(function(k){
-      var g=byFourn[k];return g.items.length&&fournisseurEnRetard(g.sup);
-    });
-    if(!enRetardKeys.length)return;
-    var since=new Date();since.setDate(since.getDate()-1); // marge large, filtré ensuite par jour métier exact
-    var existRes=await db.from('commandes_fournisseurs_envois').select('fournisseur_id,fournisseur_nom,envoye_le').eq('statut','non_validee').gte('envoye_le',since.toISOString());
-    if(existRes.error)throw existRes.error;
-    var todayKey=bizDateKey();
-    var dejaLogge={};
-    (existRes.data||[]).forEach(function(r){
-      if(bizDateKey(r.envoye_le)===todayKey)dejaLogge[r.fournisseur_id||r.fournisseur_nom]=true;
-    });
-    for(var i=0;i<enRetardKeys.length;i++){
-      var k=enRetardKeys[i],g=byFourn[k];
-      var dedupKey=(g.sup?g.sup.id:null)||k;
-      if(dejaLogge[dedupKey])continue;
-      try{
-        await db.from('commandes_fournisseurs_envois').insert({
-          fournisseur_id:g.sup?g.sup.id:null,
-          fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
-          items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.restoTag||RESTAURANT_ID,valeur:it.valeur,suggestion:it.suggestion,typeSuivi:it.typeSuivi,uniteComptage:it.uniteComptage};}),
-          envoye_par_nom:null,
-          statut:'non_validee'
-        });
-      }catch(e){console.error('logCommandesNonValideesSiRetard insert',e);}
-    }
-  }catch(e){console.error('logCommandesNonValideesSiRetard',e);}
 }
 async function menuCommandesFournisseurs(){
   ss('commandes');
@@ -1804,7 +1773,7 @@ function renderCommandesFournisseursList(byFourn){
       .concat(adresseLivraison?['Adresse de livraison : '+adresseLivraison]:[])
       .concat(['──────────────'])
       .concat(its.map(function(it){
-        return '- '+it.nom+(it.restoTag?(' ['+it.restoTag+']'):'')+' — '+(it.suggestion?('Commander : '+it.suggestion):fournLabelValeur(it.typeSuivi,it.valeur,it.uniteComptage));
+        return '- '+it.nom+(it.restoTag?(' ['+it.restoTag+']'):'')+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
       }))
       .concat(['──────────────','Merci de nous prévenir en cas de rupture de stock.']);
     var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
@@ -1827,12 +1796,8 @@ function renderCommandesFournisseursList(byFourn){
       }).join('')
       +'</div>'):'';
     var itemsHtml=its.map(function(it){
-      var raisonHtml=it.raison==='urgence'
-        ?'<div style="font-size:9px;color:#FCA5A5;margin:0 0 4px 12px;">&#9888; Hors jour prévu — signalé en urgence (rupture totale)</div>'
-        :(it.raison==='sans_calendrier'?'<div style="font-size:9px;color:rgba(255,255,255,.45);margin:0 0 4px 12px;">&#8505; Aucun calendrier de livraison configuré pour ce fournisseur — signalé dès que sous le seuil, sans jour fixe</div>':'');
-      return '<div style="font-size:11px;color:rgba(255,255,255,.85);padding:2px 0;">&#8226; '+escCpt(it.nom)+(it.restoTag?(' <span style="color:#6EE7B7;">['+escCpt(it.restoTag)+']</span>'):'')+(it.suggestion?(' — Commander : '+escCpt(it.suggestion)):(' — '+escCpt(fournLabelValeur(it.typeSuivi,it.valeur,it.uniteComptage))))
+      return '<div style="font-size:11px;color:rgba(255,255,255,.85);padding:2px 0;">&#8226; '+escCpt(it.nom)+(it.restoTag?(' <span style="color:#6EE7B7;">['+escCpt(it.restoTag)+']</span>'):'')+(it.suggestion?(' — '+escCpt(it.suggestion)):(' — '+escCpt(String(it.valeur))))
         +(it.compteLabel?('<div style="font-size:10px;color:rgba(255,255,255,.5);margin:0 0 4px 12px;">'+escCpt(it.compteLabel)+'</div>'):'')
-        +raisonHtml
         +'</div>';
     }).join('');
     return '<div class="cbtn" onclick="cmdfShowPreview(\''+key+'\')" style="cursor:pointer;text-align:left;margin-bottom:12px;'+(enRetard?'border:2px solid #C0392B;box-shadow:0 0 0 3px rgba(192,57,43,.25);':'')+'">'
@@ -1905,9 +1870,8 @@ async function marquerEtOuvrirWhatsappPointage(fournKey){
         await db.from('commandes_fournisseurs_envois').insert({
           fournisseur_id:g.sup?g.sup.id:null,
           fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
-          items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.restoTag||RESTAURANT_ID,valeur:it.valeur,suggestion:it.suggestion,typeSuivi:it.typeSuivi,uniteComptage:it.uniteComptage};}),
-          envoye_par_nom:emp?(emp.prenom+' '+emp.nom):'?',
-          statut:'envoyee'
+          items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.restoTag||RESTAURANT_ID,valeur:it.valeur,suggestion:it.suggestion};}),
+          envoye_par_nom:emp?(emp.prenom+' '+emp.nom):'?'
         });
       }catch(e){console.error('log commandes_fournisseurs_envois',e);}
       menuCommandesFournisseurs(); // recharge : ces articles disparaissent de la liste seulement maintenant
@@ -1944,30 +1908,24 @@ async function menuCmdfHistory(){
 function renderCmdfHistoryList(envois){
   var box=document.getElementById('cmdf-history-list');if(!box)return;
   if(!envois.length){
-    box.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.7);padding:20px;font-size:13px;">Aucune commande envoyée (ni manquée) ces 30 derniers jours pour ce restaurant.</div>';
+    box.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.7);padding:20px;font-size:13px;">Aucune commande envoyée ces 30 derniers jours pour ce restaurant.</div>';
     return;
   }
   box.innerHTML=envois.map(function(envoi){
-    var nonValidee=envoi.statut==='non_validee';
     var d=new Date(envoi.envoye_le);
     var when=d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     var itemsHtml=(envoi.items||[]).map(function(it){
       return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:rgba(255,255,255,.85);padding:3px 0">'
         +'<span>'+escCpt(it.nom)+(it.resto?(' <span style="color:rgba(255,255,255,.5)">('+escCpt(it.resto)+')</span>'):'')+'</span>'
-        +'<span style="color:rgba(255,255,255,.6)">'+escCpt(it.suggestion?('Commander : '+it.suggestion):fournLabelValeur(it.typeSuivi,it.valeur,it.uniteComptage))+'</span>'
+        +'<span style="color:rgba(255,255,255,.6)">'+escCpt(it.suggestion||it.valeur||'')+'</span>'
         +'</div>';
     }).join('');
-    // Une commande "non validée" a été détectée en retard (heure limite dépassée) mais jamais réellement
-    // envoyée sur WhatsApp — loggée automatiquement pour qu'elle ne disparaisse pas silencieusement de
-    // l'historique ; distincte visuellement (bandeau orange, pas de "Envoyé par").
-    return '<div style="background:'+(nonValidee?'rgba(217,119,6,.18)':'rgba(255,255,255,.08)')+';border-radius:12px;padding:12px;margin-bottom:10px;'+(nonValidee?'border:1px solid rgba(217,119,6,.5);':'')+'">'
+    return '<div style="background:rgba(255,255,255,.08);border-radius:12px;padding:12px;margin-bottom:10px">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px">'
       +'<div style="font-size:15px;font-weight:800;color:#fff">'+escCpt(envoi.fournisseur_nom||'Fournisseur')+'</div>'
       +'<div style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap">'+when+'</div>'
       +'</div>'
-      +(nonValidee
-        ?'<div style="font-size:11px;font-weight:700;color:#FCD34D;margin-bottom:6px">&#9888; Non validée — heure limite dépassée sans envoi</div>'
-        :'<div style="font-size:10px;color:rgba(255,255,255,.6);margin-bottom:6px">Envoyé par '+escCpt(envoi.envoye_par_nom||'?')+'</div>')
+      +'<div style="font-size:10px;color:rgba(255,255,255,.6);margin-bottom:6px">Envoyé par '+escCpt(envoi.envoye_par_nom||'?')+'</div>'
       +itemsHtml
       +'</div>';
   }).join('');
@@ -2064,6 +2022,13 @@ function renderLaboPrepListPointage(){
       (lignesByCat[cat]=lignesByCat[cat]||[]).push(l);
     });
     var catNames=Object.keys(lignesByCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+    // Une commande où AUCUNE ligne n'a de lot candidat (produit_code introuvable dans labo_lots) est très
+    // probablement une commande "cassée" créée avant que ses produits soient reliés au catalogue Labo — les
+    // cases à cocher ne peuvent alors jamais apparaître pour elle, quoi qu'on fasse ("je ne peux pas cocher
+    // les lots"). On le signale explicitement, avec le moyen de la clôturer sans passer par un compte admin.
+    var aucuneCorrespondance=(c.lignes||[]).length>0&&(c.lignes||[]).every(function(l){
+      return !lpLotsCache.some(function(lot){return lot.produit_code===l.produit_code;});
+    });
     var lignesHtml=catNames.map(function(cat){
       var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
         var restant=l.quantite_demandee-(l.quantite_couverte||0);
@@ -2071,22 +2036,25 @@ function renderLaboPrepListPointage(){
         var selected=lpSelections[c.id][l.id]||[];
         var lotsHtml=candidats.length?candidats.map(function(lot){
           var checked=selected.indexOf(lot.id)>=0?' checked':'';
-          return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:rgba(255,255,255,.85);">'
+          return '<label class="lp-lot-label">'
             +'<input type="checkbox"'+checked+' onchange="toggleLpLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
             +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg'
             +'</label>';
-        }).join(''):'<div style="font-size:10px;color:rgba(255,255,255,.5);">Aucun lot en stock pour ce produit — cr&eacute;e-le ci-dessous.</div>';
-        return '<div style="margin:6px 0;padding:8px;background:rgba(255,255,255,.08);border-radius:8px;">'
-          +'<div style="font-weight:600;font-size:12px;color:#fff;">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+l.quantite_demandee+', couvert '+(l.quantite_couverte||0)+(selected.length?' <span style="color:#6EE7B7;">+ '+selected.length+' coch&eacute;(s)</span>':'')+(restant>0?' <span style="color:#FCA5A5;">(reste '+restant+')</span>':' ✓')+'</div>'
+        }).join(''):'<div class="lp-empty-lot">Aucun lot en stock pour ce produit — cr&eacute;e-le avec le bouton "Cr&eacute;er un lot" ci-dessous.</div>';
+        return '<div class="lp-ligne">'
+          +'<div class="lp-ligne-title">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+l.quantite_demandee+', couvert '+(l.quantite_couverte||0)+(selected.length?' <span class="lp-ok">+ '+selected.length+' coch&eacute;(s)</span>':'')+(restant>0?' <span class="lp-restant">(reste '+restant+')</span>':' <span class="lp-ok">&#10003;</span>')+'</div>'
           +lotsHtml
           +'</div>';
       }).join('');
-      return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:rgba(255,255,255,.55);margin:10px 0 2px;">'+escCpt(cat)+'</div>'+lignesCatHtml;
+      return '<div class="lp-cat-hdr">'+escCpt(cat)+'</div>'+lignesCatHtml;
     }).join('');
-    return '<div style="border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;margin-bottom:10px;">'
-      +'<div style="font-weight:700;color:#fff;margin-bottom:4px;font-size:13px;">Commande #'+(c.numero||c.id)+' — '+(LP_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,.6);">('+new Date(c.created_at).toLocaleDateString('fr-FR')+')</span></div>'
+    var alerteHtml=aucuneCorrespondance?('<div style="font-size:11px;color:#C0392B;font-weight:700;background:#FDEDEC;border-radius:8px;padding:7px 9px;margin:6px 0;">&#9888; Aucun lot possible pour cette commande — elle a probablement &eacute;t&eacute; cr&eacute;&eacute;e avant que ses produits soient reli&eacute;s au catalogue Labo. Utilise "Annuler cette commande" ci-dessous pour l\'archiver.</div>'):'';
+    return '<div class="lp-card">'
+      +'<div class="lp-card-title">Commande #'+(c.numero||c.id)+' — '+(LP_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span class="lp-card-sub">('+new Date(c.created_at).toLocaleDateString('fr-FR')+')</span></div>'
+      +alerteHtml
       +lignesHtml
-      +'<button class="nb" style="width:100%;margin-top:6px;padding:10px;font-size:13px;" onclick="envoyerLaboCommandePointage(\''+c.id+'\')">&#128228; Envoyer les lots coch&eacute;s</button>'
+      +'<button type="button" class="lp-send-btn" onclick="envoyerLaboCommandePointage(\''+c.id+'\')">&#128228; Envoyer les lots coch&eacute;s</button>'
+      +'<button type="button" class="lp-cancel-btn" onclick="annulerLaboCommandePointage(\''+c.id+'\')">&#10005; Annuler cette commande (cass&eacute;e / obsol&egrave;te)</button>'
       +'</div>';
   }).join('');
 }
@@ -2098,6 +2066,35 @@ function toggleLpLotSel(commandeId,ligneId,lotId,checked){
   if(checked&&idx<0)arr.push(lotId);
   if(!checked&&idx>=0)arr.splice(idx,1);
   renderLaboPrepListPointage();
+}
+// Clôture une commande Labo cassée/obsolète (même mécanisme que "annulerLaboCommande" côté Admin) — la fait
+// passer en statut 'cloturee', qui la retire de la liste active (loadLaboPrepData ne charge que
+// en_attente/partiellement_envoyee). Utile en particulier pour les commandes créées avant que leurs produits
+// soient reliés au catalogue Labo, pour lesquelles aucune case à cocher ne peut jamais apparaître.
+async function annulerLaboCommandePointage(commandeId){
+  if(!confirm('Annuler cette commande ? Utile pour les commandes cassées créées avant que les produits soient reliés au catalogue Labo. Cette action ne peut pas être annulée.'))return;
+  try{
+    var upd=await db.from('labo_commandes').update({statut:'cloturee'}).eq('id',commandeId);
+    if(upd.error){alert('Erreur : '+upd.error.message);return;}
+  }catch(e){alert('Erreur : '+e.message);return;}
+  delete lpSelections[commandeId];
+  await loadLaboPrepData();
+  renderLaboPrepListPointage();
+  var badge=document.getElementById('laboprep-badge');
+  if(badge){
+    if(lpCommandesCache.length){badge.style.display='flex';badge.textContent=lpCommandesCache.length;}
+    else badge.style.display='none';
+  }
+}
+// Pop-up "Créer un lot" — remplace l'ancien formulaire toujours visible sous la liste (encombrant l'écran
+// principal en permanence) par un simple bouton qui l'ouvre à la demande.
+function lpOpenNewLotModal(){
+  var ov=document.getElementById('lp-new-lot-overlay');
+  if(ov)ov.classList.add('on');
+}
+function lpCloseNewLotModal(){
+  var ov=document.getElementById('lp-new-lot-overlay');
+  if(ov)ov.classList.remove('on');
 }
 async function createLaboLotPointage(){
   var selEl=document.getElementById('lp-new-produit');
@@ -2114,6 +2111,7 @@ async function createLaboLotPointage(){
     if(ins.error){alert('Erreur : '+ins.error.message);return;}
   }catch(e){alert('Erreur lors de la création du lot : '+e.message);return;}
   poidsEl.value='';srcEl.value='';
+  lpCloseNewLotModal();
   await loadLaboPrepData();
   renderLaboPrepListPointage();
 }
