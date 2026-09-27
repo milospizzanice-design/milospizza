@@ -1,6 +1,3 @@
-</div>
-      </div>
-    </div>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1387,6 +1384,13 @@ function handleLogoTap(){
 
 function openAdmin(){
   window.scrollTo(0,0);
+  // Toute entrée dans l'admin passe désormais par le mode brouillon, quel que soit le
+  // chemin d'accès (login.html direct, ou triple-tap secret sur le site déjà chargé en direct).
+  // Ça garantit que "Publier" copie toujours un brouillon à jour (basé sur l'état réellement
+  // affiché) vers le site live, au lieu d'un fichier brouillon obsolète sans rapport avec la
+  // session en cours — et que les sauvegardes en cours de frappe utilisent le même fichier
+  // (et donc le même suivi de version) que le bouton "Enregistrer".
+  if(!isDraftMode) enterDraftMode();
   currentAdminTab='sections';
   renderAdminContent();
   document.getElementById('adminOverlay').classList.add('open');
@@ -3473,13 +3477,14 @@ async function saveAll(){
   collectUpsellEdits();
   const btn=document.querySelector('.admin-save-btn');
   if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
-  let saveSuccess;
-  if (isDraftMode) {
-    const result = await saveKeyToGithub(DRAFT_FILE, {cats, items, upsells});
-    saveSuccess = !!(result && result.content && result.content.sha);
-  } else {
-    saveSuccess = await saveToGithub();
-  }
+  // Toujours passer par saveKeyToGithub (comme autoSaveItems et l'upload photo), pour que
+  // le suivi de version (githubShas) reste unique et cohérent quel que soit le point d'entrée
+  // de la sauvegarde. L'ancien chemin saveToGithub()/githubSha (variable séparée, jamais mise
+  // à jour par les sauvegardes automatiques) provoquait un faux "Échec de la sauvegarde" dès
+  // qu'une modif de prix en ligne (auto-save) précédait un clic sur "Enregistrer".
+  const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
+  const result = await saveKeyToGithub(targetFile, {cats, items, upsells});
+  const saveSuccess = !!(result && result.content && result.content.sha);
   renderMenu();
   if(btn){btn.textContent='✓ Enregistrer tout';btn.disabled=false;}
   showToast(saveSuccess ? '✓ Tout est sauvegardé !' : '❌ Échec de la sauvegarde - réessayez');
@@ -4163,27 +4168,33 @@ function initDesignPanel() {
 const MAX_HISTORY = 5;
 const HISTORY_FILE = 'history.json';
 
+// Renvoie true/false (avant : ne renvoyait jamais rien, donc un échec silencieux — ex. lecture de
+// DATA_FILE impossible, ou écriture de HISTORY_FILE refusée — ne remontait jamais jusqu'à
+// publishDraft(), qui affichait "Publié !" même quand aucune version n'avait été archivée.
 async function saveVersionToHistory() {
   try {
     // Load current published version
     const current = await loadKeyFromGithub(DATA_FILE);
-    if (!current) return;
-    
+    if (!current) { console.error('saveVersionToHistory: lecture de', DATA_FILE, 'impossible'); return false; }
+
     // Load existing history
     let history = await loadKeyFromGithub(HISTORY_FILE) || [];
-    
+
     // Add current as new history entry
     const entry = {
       date: new Date().toISOString(),
       label: new Date().toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
       data: current
     };
-    
+
     // Prepend and keep only MAX_HISTORY
     history = [entry, ...history].slice(0, MAX_HISTORY);
-    
-    await saveKeyToGithub(HISTORY_FILE, history);
-  } catch(e) { console.log('History save error', e); }
+
+    const saved = await saveKeyToGithub(HISTORY_FILE, history);
+    const ok = !!(saved && saved.content && saved.content.sha);
+    if (!ok) console.error('saveVersionToHistory: écriture de', HISTORY_FILE, 'refusée', saved);
+    return ok;
+  } catch(e) { console.error('History save error', e); return false; }
 }
 
 // ═══════════════════════════════════════
@@ -4609,39 +4620,68 @@ async function publishDraft() {
   if (barBtn) barBtn.textContent = '⏳ Publication...';
   showToast('⏳ Publication en cours...');
 
-  try {
-    const files = [
-      [DRAFT_FILE, DATA_FILE],
-      [DRAFT_HOME, 'home.json'],
-      [DRAFT_DESIGN, 'design.json'],
-      [DRAFT_POPUP, 'popup.json'],
-      [DRAFT_SOCIAL, 'social.json'],
-      [DRAFT_SECTIONS, 'sections.json'],
-    ];
+  const files = [
+    [DRAFT_FILE, DATA_FILE],
+    [DRAFT_HOME, 'home.json'],
+    [DRAFT_DESIGN, 'design.json'],
+    [DRAFT_POPUP, 'popup.json'],
+    [DRAFT_SOCIAL, 'social.json'],
+    [DRAFT_SECTIONS, 'sections.json'],
+  ];
 
-    // Tout en parallèle (au lieu d'un par un) + sécurité 20s anti-blocage
-    await withTimeout(Promise.all([
-      saveVersionToHistory(),
-      ...files.map(async ([src, dest]) => {
-        const data = await loadKeyFromGithub(src);
-        if (data) await saveKeyToGithub(dest, data);
-      })
-    ]), 20000);
-    
-    showToast('✅ Publié ! Les clients voient la nouvelle version.');
-    if (barBtn) barBtn.textContent = '✅ Publié !';
+  try {
+    const run = async () => {
+      // 1) Snapshot de l'état live AVANT de l'écraser. Avant : ce snapshot (saveVersionToHistory)
+      //    tournait EN PARALLÈLE avec l'écrasement du même fichier juste en dessous (course entre
+      //    la lecture "avant" et l'écriture qui la rend déjà obsolète) — d'où un historique qui
+      //    pouvait capturer la version déjà écrasée, ou rien du tout.
+      const historyOk = await saveVersionToHistory();
+
+      // 2) Copie brouillon → live, fichier par fichier, en gardant le résultat de CHAQUE fichier.
+      //    Avant : le résultat de saveKeyToGithub() n'était jamais vérifié ici — un échec de
+      //    lecture OU d'écriture sur un seul fichier (ex. menudata.json, qui contient les photos
+      //    et les prix) passait totalement inaperçu, et "✅ Publié !" s'affichait quand même.
+      const results = await Promise.all(files.map(async ([src, dest]) => {
+        try {
+          const data = await loadKeyFromGithub(src);
+          if (!data) return {dest, ok:false, reason:'lecture du brouillon impossible'};
+          const saved = await saveKeyToGithub(dest, data);
+          const ok = !!(saved && saved.content && saved.content.sha);
+          return {dest, ok, reason: ok ? null : 'écriture refusée par GitHub'};
+        } catch(e) {
+          return {dest, ok:false, reason:(e && e.message) || 'erreur réseau'};
+        }
+      }));
+      return {historyOk, results};
+    };
+
+    const {historyOk, results} = await withTimeout(run(), 25000);
+    const failed = results.filter(r => !r.ok);
+
+    if (failed.length === 0) {
+      showToast('✅ Publié ! Les clients voient la nouvelle version.' + (historyOk ? '' : ' (⚠️ historique non enregistré, à vérifier)'));
+      if (barBtn) barBtn.textContent = '✅ Publié !';
+    } else {
+      const detail = failed.map(f => f.dest + ' : ' + f.reason).join(' — ');
+      showToast('⚠️ Publication incomplète — échec sur ' + detail + '. Rien n\'a été perdu, réessayez.');
+      if (barBtn) barBtn.textContent = '⚠️ Incomplet';
+      console.error('publishDraft: fichiers en échec', failed);
+    }
+
     setTimeout(() => {
       if (barBtn) barBtn.textContent = '✅ Publier';
       btns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
-      // On reste en mode brouillon pour pouvoir continuer à éditer/publier dans la même session
-      if (!window.cameFromDirectLogin) {
+      // On reste en mode brouillon pour pouvoir continuer à éditer/publier dans la même session,
+      // et surtout pour ne PAS perdre le brouillon si la publication était incomplète.
+      if (failed.length === 0 && !window.cameFromDirectLogin) {
         exitDraftMode();
       }
-    }, 2000);
+    }, failed.length ? 6000 : 2000);
   } catch(e) {
-    showToast('❌ Erreur lors de la publication - réessayez');
+    showToast('❌ Erreur lors de la publication (' + ((e && e.message) || e) + ') - réessayez');
     if (barBtn) barBtn.textContent = '✅ Publier';
     btns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+    console.error('publishDraft error', e);
   }
 }
 
