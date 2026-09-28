@@ -1294,8 +1294,9 @@ async function loadCommandesFournisseursData(){
     var sup=suppliersById[s.fournisseur_id];
     if(!sup||sup.is_labo_interne||sup.is_cuisine_interne)return; // Labo/Cuisine interne : déjà gérés automatiquement au comptage
     var d=dernierByRestoCode[s.restaurant_id+'|'+s.ingredient_code];
-    // Un dernier comptage n'est valable que jusqu'à la prochaine échéance de comptage du produit.
-    if(!d||joursComptageExpire(cmdfJoursEffectifs(s),d.compte_le))return;
+    // Uniquement les produits comptés AUJOURD'HUI (journée métier) : un comptage d'un jour précédent ne génère
+    // plus de ligne de commande (RG.estComptageDuJour).
+    if(!d||!RG.estComptageDuJour(d.compte_le))return;
     if(d.commande_envoyee)return; // déjà signalé dans un message précédent
     // Calcul unique (RG.besoin) : stock négatif ramené à 0 ; sans cible, on remonte jusqu'au seuil.
     var b=RG.besoin(s,d.valeur);

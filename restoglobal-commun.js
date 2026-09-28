@@ -128,6 +128,14 @@
     return false;
   };
 
+  // Une commande fournisseur ne se base QUE sur les comptages de la journée en cours (décision du 28/09/2026) :
+  // un comptage d'un jour précédent, même encore « valable » pour l'écran Comptage, ne génère plus de commande.
+  // Avant, un produit compté plusieurs jours plus tôt (règle propre, règles de commande) réapparaissait dans la
+  // commande du jour sans avoir été recompté — avec son vieux stock (souvent 0).
+  RG.estComptageDuJour=function(compteLe){
+    return !!compteLe&&RG.bizDateKey(compteLe)===RG.bizDateKey();
+  };
+
   // ── Calcul de ce qu'il faut commander ──────────────────────────────────────────────────────────────────
   RG.estSignaleNonQty=function(typeSuivi,valeur){
     if(typeSuivi==='two')return valeur==='commander';

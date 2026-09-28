@@ -9846,10 +9846,10 @@ async function openBesoinsComptageModal(){
         var sup=s.fournisseur_id?suppliersById[s.fournisseur_id]:null;
         var ownRules=(rctIngredientRegles[resto]||{})[code]||[];
         var estLabo=!!(sup&&sup.is_labo_interne);
-        // Fournisseurs externes : même péremption du comptage que sur la tablette (un vieux comptage n'est plus
-        // proposé une fois la prochaine échéance de comptage passée). Les articles Labo ne sont pas concernés :
-        // un article Labo encore non marqué comme envoyé n'est jamais arrivé au Labo et doit rester visible.
-        if(!estLabo&&RG.joursComptageExpire(RG.joursComptageEffectifs(s,ownRules,suppliersById).jours,d.compte_le))return;
+        // Fournisseurs externes : même règle que la tablette — uniquement les produits comptés AUJOURD'HUI
+        // (RG.estComptageDuJour). Les articles Labo ne sont pas concernés : un article Labo encore non marqué
+        // comme envoyé n'est jamais arrivé au Labo et doit rester visible.
+        if(!estLabo&&!RG.estComptageDuJour(d.compte_le))return;
         // Calcul unique partagé avec la tablette (RG.besoin) : stock négatif ramené à 0, sans cible → jusqu'au seuil.
         var b=RG.besoin(s,d.valeur);
         if(!b.signale)return;
