@@ -1129,7 +1129,6 @@ var cptLaboInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "�
 var cptCuisineInterneSupplierIds=new Set(); // ids fournisseurs_stock marqués "🍳 Interne"
 var cptSuppliersById={}; // id -> {nom,is_labo_interne,is_cuisine_interne,jours_livraison,delai_commande_jours} — pour afficher le nom du fournisseur sur le tag de routage + calculer les règles "veille de livraison"
 var cptReglesByCode={}; // ingredient_code -> [règles ingredient_regles_commande] pour CE restaurant — verrouillage par jour fixe / veille de livraison
-var cptLaboUpstreamByCode={}; // ingredient_code -> {fournisseurId, rules} — sourcing amont du Labo pour ce code (chargé seulement si ce restaurant n'est pas le Labo), pour faire descendre le calendrier du fournisseur externe du Labo (ex: Carrefour) jusqu'au Port/Dabray
 var cptAllRoleObjs=[]; // [{id,nom}] tous les rôles du salarié connecté (rechargé à chaque ouverture de Comptage)
 var cptSelectedRoleIds=null; // sous-ensemble de rôles retenu pour CETTE session ("postes réellement occupés aujourd'hui") — null = pas encore demandé, on prend tout
 var cptRoleChoixDone=false; // le choix des postes du jour a déjà été posé/validé cette session (évite de redemander à chaque ouverture de l'onglet)
@@ -2222,26 +2221,14 @@ async function menuComptage(){
       cptSuppliersById={};
       (fournRes.data||[]).forEach(function(f){cptSuppliersById[f.id]=f;});
     }catch(e){console.warn('fournisseurs_stock indisponible',e);cptLaboInterneSupplierIds=new Set();cptCuisineInterneSupplierIds=new Set();cptSuppliersById={};}
-    // Règles de commande (jours fixes / veille de livraison) pour ce restaurant — sert à verrouiller
-    // l'auto-commande Labo (cptAutoCommandeLaboSiNecessaire) sur les jours prévus uniquement.
+    // Règles de commande (jours fixes / veille de livraison) pour ce restaurant — servent à déduire les jours
+    // de comptage attendus (cptDerivedComptageJours). Elles ne bloquent plus l'envoi au Labo (voir
+    // cptAutoCommandeLaboSiNecessaire).
     try{
       var reglesRes=await db.from('ingredient_regles_commande').select('*').eq('restaurant_id',RESTAURANT_ID);
       cptReglesByCode={};
       (reglesRes.data||[]).forEach(function(r){(cptReglesByCode[r.ingredient_code]=cptReglesByCode[r.ingredient_code]||[]).push(r);});
     }catch(e){console.warn('ingredient_regles_commande indisponible',e);cptReglesByCode={};}
-    // Sourcing amont du Labo (uniquement si CE restaurant n'est pas le Labo) : pour chaque code, quel
-    // fournisseur EXTERNE le Labo utilise réellement + ses propres règles — pour faire descendre le
-    // calendrier du fournisseur externe (ex: Carrefour livré le mercredi) jusqu'au Port/Dabray quand le
-    // produit est sourcé au Labo sans règle individuelle ici.
-    cptLaboUpstreamByCode={};
-    if(RESTAURANT_ID!=='labo'){
-      try{
-        var laboSeuilsRes=await db.from('ingredient_seuils').select('ingredient_code,fournisseur_id').eq('restaurant_id','labo');
-        var laboReglesRes=await db.from('ingredient_regles_commande').select('*').eq('restaurant_id','labo');
-        var laboReglesByCode={};(laboReglesRes.data||[]).forEach(function(r){(laboReglesByCode[r.ingredient_code]=laboReglesByCode[r.ingredient_code]||[]).push(r);});
-        (laboSeuilsRes.data||[]).forEach(function(s){cptLaboUpstreamByCode[s.ingredient_code]={fournisseurId:s.fournisseur_id||null,rules:laboReglesByCode[s.ingredient_code]||[]};});
-      }catch(e){console.warn('sourcing amont Labo indisponible',e);cptLaboUpstreamByCode={};}
-    }
     var seuilsByCode={};
     (seuilsRes.data||[]).forEach(function(s){seuilsByCode[s.ingredient_code]=s;});
     var dernierByCode={};
@@ -2726,27 +2713,20 @@ async function saveComptage(code,choiceVal){
 // Déclenche/actualise automatiquement une commande Labo dès que le comptage fait passer un ingrédient sous
 // son seuil ET que son fournisseur est marqué "🏭 Interne" — pas besoin de repasser par Admin > Besoins.
 // Réutilise une commande déjà ouverte pour ce restaurant (en_attente/partiellement_envoyee) au lieu d'en créer
-// une par ingrédient, pour éviter de multiplier les commandes. Échoue silencieusement : le comptage lui-même
-// est déjà enregistré, on ne veut pas bloquer l'employé pour un souci sur cette étape annexe.
+// une par ingrédient, pour éviter de multiplier les commandes. Ne bloque jamais l'écran de comptage (le
+// comptage lui-même est déjà enregistré), mais tout échec est désormais AFFICHÉ — avant, une erreur sur cette
+// étape passait inaperçue et le Labo ne recevait rien sans que personne ne le sache.
+//
+// Pas de verrouillage par jour pour le Labo (décision du 28/09/2026) : un article sourcé au Labo part dès
+// qu'il passe sous son seuil, quel que soit le jour. Avant, le calendrier des règles "jours fixes / veille de
+// livraison" (ou celui du fournisseur externe du Labo, par cascade) bloquait l'envoi en silence les autres
+// jours, et comme rien ne réévaluait ce comptage le bon jour, l'article n'arrivait jamais au Labo sans
+// recomptage. Les règles de calendrier continuent de s'appliquer aux fournisseurs EXTERNES (écran
+// Commandes fournisseurs), qui ne sont pas concernés par ce changement.
 async function cptAutoCommandeLaboSiNecessaire(i){
   if(!i.fournisseur_id||!cptLaboInterneSupplierIds.has(i.fournisseur_id))return;
   var st=cptStatus(i);
   if(!st||st.cls==='ok')return;
-  // Verrouillage par règle jour fixe / veille de livraison (ex: poulet rôti produit 2x/semaine) : priorité
-  // à une règle explicite sur CE restaurant pour cet ingrédient ; sinon on descend voir avec quel
-  // fournisseur EXTERNE le Labo se procure ce même ingrédient (ex: Carrefour livré le mercredi) et on
-  // applique son calendrier — sinon ce produit remonterait tous les jours alors que le Labo ne peut
-  // l'obtenir que selon le calendrier de son propre fournisseur. Sauf rupture totale (garde-fou), toujours signalée.
-  var ownRules=cptReglesByCode[i.code]||[];
-  var gate;
-  if(ownRules.length){
-    gate=reglesGateStatus(ownRules,cptSuppliersById[i.fournisseur_id],cptSuppliersById);
-  }else{
-    var upstream=cptLaboUpstreamByCode[i.code];
-    var upstreamSupplier=upstream&&upstream.fournisseurId?cptSuppliersById[upstream.fournisseurId]:null;
-    gate=reglesGateStatus(upstream?upstream.rules:[],upstreamSupplier,cptSuppliersById);
-  }
-  if(gate.gated&&!gate.matches&&!isRuptureTotale(i.type_suivi,i.dernier?i.dernier.valeur:null))return;
   var qte=1;
   if(i.type_suivi==='qty'&&i.cible!=null&&i.dernier){
     var val=parseFloat(i.dernier.valeur);
@@ -2756,7 +2736,11 @@ async function cptAutoCommandeLaboSiNecessaire(i){
     }
   }
   try{
+    // Chaque appel vérifie son .error : avant, seule la création de commande était contrôlée — un échec sur la
+    // lecture de la commande ouverte ou sur l'ajout de la ligne passait inaperçu, et le message "Ajouté" s'affichait
+    // quand même alors que rien n'était arrivé au Labo.
     var openRes=await db.from('labo_commandes').select('id').eq('restaurant_id',RESTAURANT_ID).in('statut',['en_attente','partiellement_envoyee']).order('created_at',{ascending:false}).limit(1).maybeSingle();
+    if(openRes.error)throw openRes.error;
     var commandeId=openRes.data?openRes.data.id:null;
     if(!commandeId){
       var creePar=(emp?(emp.prenom+' '+emp.nom):'Comptage')+' (auto)';
@@ -2765,17 +2749,35 @@ async function cptAutoCommandeLaboSiNecessaire(i){
       commandeId=cmd.data.id;
     }
     var ligneRes=await db.from('labo_commandes_lignes').select('id,quantite_demandee').eq('commande_id',commandeId).eq('produit_code',i.code).limit(1).maybeSingle();
+    if(ligneRes.error)throw ligneRes.error;
     if(ligneRes.data){
-      if(qte!==ligneRes.data.quantite_demandee)await db.from('labo_commandes_lignes').update({quantite_demandee:qte}).eq('id',ligneRes.data.id);
+      if(qte!==ligneRes.data.quantite_demandee){
+        var lUpd=await db.from('labo_commandes_lignes').update({quantite_demandee:qte}).eq('id',ligneRes.data.id);
+        if(lUpd.error)throw lUpd.error;
+      }
     }else{
-      await db.from('labo_commandes_lignes').insert({commande_id:commandeId,produit_code:i.code,produit_nom:i.nom,restaurant_produit_id:null,quantite_demandee:qte});
+      var lIns=await db.from('labo_commandes_lignes').insert({commande_id:commandeId,produit_code:i.code,produit_nom:i.nom,restaurant_produit_id:null,quantite_demandee:qte});
+      if(lIns.error)throw lIns.error;
+    }
+    // Marque ce comptage comme "déjà signalé", comme le fait l'envoi WhatsApp côté fournisseurs externes —
+    // sinon Admin > 🛒 Besoins (comptage) le proposait encore et pouvait créer une 2e commande Labo en
+    // doublon. Non bloquant : la commande Labo, elle, est déjà bien créée à ce stade.
+    if(i.dernier&&i.dernier.id){
+      try{
+        var mk=await db.from('ingredient_comptages').update({commande_envoyee:true}).eq('id',i.dernier.id);
+        if(mk.error)console.warn('cptAutoCommandeLabo: marquage commande_envoyee',mk.error);
+      }catch(e2){console.warn('cptAutoCommandeLabo: marquage commande_envoyee',e2);}
     }
     cptToast('🏭 Ajouté à la commande Labo : '+i.nom);
-  }catch(e){console.error('cptAutoCommandeLaboSiNecessaire',e);}
+  }catch(e){
+    console.error('cptAutoCommandeLaboSiNecessaire',e);
+    cptToast('❌ Pas envoyé au Labo : '+i.nom+' ('+((e&&e.message)||'erreur')+'). Préviens un responsable.',8000);
+  }
 }
 // Petit message flottant en bas d'écran, pour rendre visible ce qui se passe en silence (auto-commande Labo
 // ou tâche cuisine) — avant, rien ne le montrait à l'écran et ça donnait l'impression que rien ne se passait.
-function cptToast(msg){
+// dureeMs optionnel : les messages d'erreur restent affichés plus longtemps que les confirmations.
+function cptToast(msg,dureeMs){
   var t=document.getElementById('cpt-toast');
   if(!t){
     t=document.createElement('div');
@@ -2786,7 +2788,7 @@ function cptToast(msg){
   t.textContent=msg;
   t.style.opacity='1';
   clearTimeout(t._hideTimer);
-  t._hideTimer=setTimeout(function(){t.style.opacity='0';},2500);
+  t._hideTimer=setTimeout(function(){t.style.opacity='0';},dureeMs||2500);
 }
 // ── CUISINE INTERNE : même principe que le Labo mais sans expédition entre deux endroits (le comptage et la
 // préparation se font dans le même restaurant) — juste une liste "à préparer" que l'équipe coche au fur et à
