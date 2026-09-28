@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Admin RH</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="restoglobal-commun.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -449,6 +450,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txm);white-space:nowrap;">
           <input type="checkbox" id="rct-ing-show-unlinked" onchange="renderIngredientsList()"> Sans prix seulement
         </label>
+        <select class="fi" id="rct-ing-filtre-cmd" onchange="renderIngredientsList()" style="max-width:190px;font-size:11px;" title="Filtres liés au comptage et aux commandes (restaurant choisi en haut, ou tous)">
+          <option value="">Tous les produits</option>
+          <option value="regles">📅 Règles propres (jours ou règles de commande)</option>
+          <option value="sanscible">🎯 Sans cible (à renseigner)</option>
+        </select>
       </div>
       <button class="btn bs sm" onclick="openNewIngredientModal()" style="margin-bottom:6px;">+ Ajouter un ingrédient manuellement</button>
       <button class="btn ba sm" onclick="openBlImportModal()" style="margin-bottom:6px;">📷 Importer un BL / catalogue fournisseur</button>
@@ -955,6 +961,18 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Alimente le s&#233;lecteur de restaurant en haut de l'admin (RH, Recettes, Labo…). Apr&#232;s ajout, pensez &#224; configurer les ingr&#233;dients suivis pour ce point de vente dans Recettes &gt; Ingr&#233;dients.</div>
       <div id="pm-restos"></div>
     </div>
+    <div class="card">
+      <div class="sec-title">&#9993;&#65039; Message type de commande fournisseur</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Un seul mod&egrave;le pour tous les fournisseurs, utilis&eacute; partout : tablette (Commandes fournisseurs), admin (Besoins, Renvoyer). Modifie-le ici, tout suit automatiquement.<br>Variables &mdash; en-t&ecirc;te et pied : <b>{fournisseur}</b> <b>{restaurant}</b> <b>{par}</b> <b>{date}</b> <b>{adresse}</b> &middot; ligne produit : <b>{produit}</b> <b>{restos}</b> <b>{stock}</b> <b>{commande}</b>.<br>Une ligne dont toutes les variables sont vides dispara&icirc;t (ex. adresse non renseign&eacute;e). {commande} s'&eacute;crit tout seul &agrave; partir du colisage et de l'unit&eacute; de commande de la fiche produit (ex. &laquo;&nbsp;2 packs de 6&nbsp;&raquo;).</div>
+      <div class="fr"><label class="fl2">En-t&ecirc;te</label><textarea class="fi" id="modele-msg-entete" rows="6" oninput="apercuModeleMessage()" style="font-family:inherit;"></textarea></div>
+      <div class="fr"><label class="fl2">Ligne produit (r&eacute;p&eacute;t&eacute;e pour chaque produit)</label><input type="text" class="fi" id="modele-msg-ligne" oninput="apercuModeleMessage()"></div>
+      <div class="fr"><label class="fl2">Pied</label><textarea class="fi" id="modele-msg-pied" rows="3" oninput="apercuModeleMessage()" style="font-family:inherit;"></textarea></div>
+      <div class="fr"><label class="fl2">Aper&ccedil;u (exemple)</label><pre id="modele-msg-apercu" style="white-space:pre-wrap;font-family:inherit;font-size:12px;background:#F7F5F0;border-radius:8px;padding:10px;margin:0;"></pre></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn bp sm" onclick="sauverModeleMessage()">Enregistrer le message type</button>
+        <button class="btn bs sm" onclick="reinitModeleMessage()">Revenir au mod&egrave;le par d&eacute;faut</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1226,6 +1244,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 <script>
 var db=supabase.createClient(SURL,SKEY);
+// Logique métier partagée avec la tablette (restoglobal-commun.js) : une seule copie de chaque règle.
+if(!window.RG){alert('Fichier restoglobal-commun.js introuvable : il doit être mis en ligne à côté de admin.html. Les besoins, messages de commande et le Labo ne fonctionneront pas correctement sans lui.');}
+else{RG.chargerModeleMessage(db);} // message type prêt dès l'ouverture de l'admin
 // Même Worker Cloudflare que le site public (index.html/emporter.html), route à ajouter : /admin/extract-invoice
 var BL_PROXY_URL='https://milos-github-proxy.milospizza-nice.workers.dev';
 // Doit être IDENTIQUE à la valeur du secret Cloudflare EXTRACT_INVOICE_SECRET (voir worker.js).
@@ -1383,6 +1404,48 @@ function goModule(name){
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
   if(name==='caisse')loadCaisseModule();
+  if(name==='reglages')renderModeleMessageEditor();
+}
+// ── Message type de commande (Réglages) — stocké dans app_config, lu par la tablette et l'admin via
+// restoglobal-commun.js (RG.chargerModeleMessage / RG.construireMessage). ──
+async function renderModeleMessageEditor(){
+  if(!window.RG)return;
+  var m=await RG.chargerModeleMessage(db,true);
+  var e=document.getElementById('modele-msg-entete'),l=document.getElementById('modele-msg-ligne'),p=document.getElementById('modele-msg-pied');
+  if(!e||!l||!p)return;
+  e.value=m.entete;l.value=m.ligne;p.value=m.pied;
+  apercuModeleMessage();
+}
+function modeleMessageDepuisFormulaire(){
+  return {entete:document.getElementById('modele-msg-entete').value,ligne:document.getElementById('modele-msg-ligne').value,pied:document.getElementById('modele-msg-pied').value};
+}
+function apercuModeleMessage(){
+  var box=document.getElementById('modele-msg-apercu');
+  if(!box||!window.RG)return;
+  // Exemple fictif, uniquement pour visualiser la mise en forme.
+  var exS1={type_suivi:'qty',seuil_min:10,cible:24,colisage:6,unite_commande:'pack',unite_comptage:'piece'};
+  var exS2={type_suivi:'qty',seuil_min:2,cible:4,colisage:50,unite_commande:'carton',unite_comptage:'piece'};
+  var l1=RG.arrondirCommande(RG.besoin(exS1,'4').besoin,exS1),l2=RG.arrondirCommande(RG.besoin(exS2,'1').besoin,exS2);
+  box.textContent=RG.construireMessage(modeleMessageDepuisFormulaire(),
+    {fournisseur:'Fournisseur exemple',restaurant:'Restaurant exemple',par:'Prénom Nom',date:RG.dateCommande(),adresse:'1 rue Exemple'},
+    [{produit:'Boisson 1,5 L',restos:'',stock:RG.texteStock(exS1,'4'),commande:l1.texte},{produit:'Serviettes',restos:'',stock:RG.texteStock(exS2,'1'),commande:l2.texte}]);
+}
+async function sauverModeleMessage(){
+  var m=modeleMessageDepuisFormulaire();
+  if(!m.ligne.trim()){alert('La ligne produit ne peut pas être vide.');return;}
+  if(m.ligne.indexOf('{produit}')<0||m.ligne.indexOf('{commande}')<0){
+    if(!confirm('La ligne produit ne contient pas {produit} ou {commande} : le fournisseur ne saura pas quoi livrer. Enregistrer quand même ?'))return;
+  }
+  try{await RG.enregistrerModeleMessage(db,m);alert('✅ Message type enregistré. Il s\'applique tout de suite partout.');}
+  catch(e){alert('Erreur : '+e.message);}
+}
+function reinitModeleMessage(){
+  if(!confirm('Remettre le message type par défaut dans le formulaire ? (il faudra cliquer sur Enregistrer pour l\'appliquer)'))return;
+  var d=RG.MODELE_MESSAGE_DEFAUT;
+  document.getElementById('modele-msg-entete').value=d.entete;
+  document.getElementById('modele-msg-ligne').value=d.ligne;
+  document.getElementById('modele-msg-pied').value=d.pied;
+  apercuModeleMessage();
 }
 function goHome(){
   var pages=['page-rh','page-recettes','page-menu','page-labo','page-caisse','page-reglages'];
@@ -6166,52 +6229,8 @@ let rctStockProduits=[];    // catalogue stock (table 'produits') DU RESTAURANT 
 let rctIngredientCouts={}; // {ingredient_code: {mode_prix,prix_unitaire,prix_kilo,prix_litre,poids_net_g,fournisseur_id,prix_source_code}} — prix commun à tous les restaurants (achat au même prix partout), stocké avec restaurant_id=RCT_GLOBAL. Remplace l'ancien système par restaurant.
 let rctIngredientSeuilsAll={}; // {restaurant_id: {ingredient_code: {fournisseur_id,type_suivi,seuil_min,colisage,unite_commande,actif}}} — table 'ingredient_seuils', chargée pour tous les restaurants pour édition côte à côte. Remplacera le catalogue codé en dur de milos-pizza-port/dabray.html.
 let rctIngredientRegles={}; // {ingredient_code: [regle,...]} — table 'ingredient_regles_commande' : variations de seuil/cible par jour fixe ou par veille de livraison fournisseur, prioritaires sur le seuil par défaut d'ingredient_seuils.
-// Un ingrédient avec au moins une règle "jours fixes"/"veille de livraison" (pour UN restaurant donné) ne
-// doit être signalé comme "à commander" QUE les jours qui correspondent à une de ses règles — sinon il
-// remonterait tous les jours malgré une production/livraison qui n'a lieu que 1 ou 2 fois par semaine
-// (ex: poulet rôti fait au Labo 2x/semaine). Un ingrédient SANS règle n'est jamais verrouillé.
-//
-// "supplier" = le fournisseur RÉELLEMENT assigné à cet ingrédient sur ce restaurant (celui qu'on livre,
-// ou le Labo si sourcé en interne — voir le paramètre à l'appel pour la cascade Labo → fournisseur externe).
-// Sert à deux choses :
-//  1. Mode "veille_livraison" explicite : le nombre de jours avant livraison vient de supplier.delai_commande_jours
-//     (au lieu d'être toujours "la veille" — 1 jour fixe). Défaut à 1 si le délai n'est pas renseigné.
-//  2. Règle PAR DÉFAUT sans avoir à créer de règle par ingrédient : si aucune règle explicite n'existe pour
-//     cet ingrédient mais que le fournisseur assigné a lui-même un délai de commande ET des jours de
-//     livraison renseignés sur sa fiche, ce délai s'applique automatiquement à tous ses produits.
-function reglesGateStatus(rules,supplier,suppliersById,refDate){
-  var d=refDate||new Date();
-  var todayIdx=d.getDay();
-  function matchesVeille(sup){
-    if(!sup||!Array.isArray(sup.jours_livraison)||!sup.jours_livraison.length)return false;
-    var n=(sup.delai_commande_jours!=null&&sup.delai_commande_jours>0)?sup.delai_commande_jours:1;
-    var targetIdx=((todayIdx+n)%7+7)%7;
-    return sup.jours_livraison.indexOf(targetIdx)>=0;
-  }
-  if(rules&&rules.length){
-    var matches=rules.some(function(r){
-      if(r.mode==='jours_fixes')return Array.isArray(r.jours)&&r.jours.indexOf(todayIdx)>=0;
-      if(r.mode==='veille_livraison')return matchesVeille(r.fournisseur_id?(suppliersById||{})[r.fournisseur_id]:supplier);
-      return false;
-    });
-    return{gated:true,matches:matches};
-  }
-  // Pas de règle explicite : règle par défaut du fournisseur, automatique dès que délai + jours de livraison
-  // sont renseignés sur sa fiche (rien à configurer produit par produit).
-  if(supplier&&supplier.delai_commande_jours!=null&&Array.isArray(supplier.jours_livraison)&&supplier.jours_livraison.length){
-    return{gated:true,matches:matchesVeille(supplier)};
-  }
-  return{gated:false,matches:true};
-}
-// Garde-fou d'urgence : même verrouillé par une règle jour fixe, un ingrédient en RUPTURE TOTALE (pas juste
-// bas) reste signalé — pour 'yn'/'two' (binaires, pas de granularité) le signal "à commander" EST déjà le
-// signal le plus grave possible, donc toujours considéré comme urgence.
-function isRuptureTotale(typeSuivi,valeur){
-  if(typeSuivi==='qty'){var v=parseFloat(valeur);return !isNaN(v)&&v<=0;}
-  if(typeSuivi==='rup')return valeur==='rupture';
-  if(typeSuivi==='level'){var lv=parseFloat(valeur);return !isNaN(lv)&&lv<=0;}
-  return true;
-}
+// Calendrier fournisseur / règles de commande / rupture totale : RG.reglesGateStatus et RG.isRuptureTotale
+// (restoglobal-commun.js), partagés avec la tablette.
 let rctSuppliers=[]; // fournisseurs du restaurant courant (depuis stock_catalogue.suppliers)
 let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR restaurant (ex: pas de sur-place à Dabray)
 let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons — niveau au-dessus des catégories, commun
@@ -6853,7 +6872,7 @@ async function envoyerLaboCommande(commandeId){
     var countByLigne={};
     pairs.forEach(function(p){countByLigne[p.ligneId]=(countByLigne[p.ligneId]||0)+1;});
     for(var ligneId in countByLigne){
-      var ligne=(commande.lignes||[]).find(function(l){return l.id===ligneId;});
+      var ligne=(commande.lignes||[]).find(function(l){return String(l.id)===String(ligneId);}); // clés d'objet = texte : comparaison en texte pour ne jamais rater la ligne
       if(!ligne)continue;
       var nouvelleCouverture=(ligne.quantite_couverte||0)+countByLigne[ligneId];
       sbCheck(await db.from('labo_commandes_lignes').update({quantite_couverte:nouvelleCouverture}).eq('id',ligneId));
@@ -6867,6 +6886,19 @@ async function envoyerLaboCommande(commandeId){
     alert('Erreur lors de l\'envoi : '+e.message);
     return;
   }
+  // Trace permanente de l'expédition (📜 Historique de la tablette du restaurant destinataire).
+  // (calculé tout de suite : la liste des lots est rechargée juste après)
+  var evtsEnvoi=[];
+  (function(){
+    var parLigne={};
+    pairs.forEach(function(p){(parLigne[p.ligneId]=parLigne[p.ligneId]||[]).push(p.lotId);});
+    Object.keys(parLigne).forEach(function(ligneId){
+      var ligne=(commande.lignes||[]).find(function(l){return String(l.id)===String(ligneId);});
+      var poids=0;parLigne[ligneId].forEach(function(lotId){var lot=laboLotsCache.find(function(x){return x.id===lotId;});if(lot)poids+=Number(lot.poids_reel_g)||0;});
+      evtsEnvoi.push({type:'labo_envoi',restaurant_id:commande.restaurant_id,ingredient_code:ligne?ligne.produit_code:null,produit_nom:ligne?(ligne.produit_nom||ligne.produit_code):null,quantite:parLigne[ligneId].length,detail:parLigne[ligneId].length+' lot(s)'+(poids?(' — '+RG.formatNombre(poids/1000)+' kg'):''),ref_id:commandeId});
+    });
+  })();
+  laboCurrentUserNom().then(function(parNom){evtsEnvoi.forEach(function(ev){ev.par_nom=parNom;RG.journal(db,ev);});});
   delete laboPrepSelections[commandeId];
   alert('✅ '+pairs.length+' lot(s) envoyé(s) pour la commande #'+commande.numero+'.\nStatut : '+(toutesCouvertes?'commande complète':'commande partiellement couverte, il en reste à envoyer'));
   loadLaboModule();
@@ -7016,13 +7048,15 @@ function renvoyerFournSuivi(envoiId){
   if(!items.length){alert('Aucun article dans cet envoi.');return;}
   var restos={};items.forEach(function(it){if(it.resto)restos[it.resto]=true;});
   var restoKeys=Object.keys(restos);
-  var restoLabel=restoKeys.length===1?(LABO_SUIVI_RESTO_LABELS[restoKeys[0]]||restoKeys[0]):(restoKeys.length>1?'Plusieurs restaurants':'');
-  var dateLabel=new Date(f.envoye_le).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  var headerLine='📦 Commande '+(f.fournisseur_nom||'Fournisseur')+(restoLabel?(' — '+restoLabel):'');
-  var msgLines=[headerLine,'👤 '+(f.envoye_par_nom||'—')+' · 📅 '+dateLabel,'──────────────'].concat(items.map(function(it){
-    return '- '+it.nom+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
-  }));
-  window.open('https://wa.me/?text='+encodeURIComponent(msgLines.join('\n')),'_blank');
+  var nomResto=function(r){var rd=(typeof restosData!=='undefined'?restosData:[]).find(function(x){return x.id===r;});return rd?(rd.nom||rd.id):r;};
+  // Même MESSAGE TYPE que la tablette et que Besoins (Réglages). Les anciens envois (avant le 28/09/2026)
+  // n'ont pas de stock/commande séparés : on retombe sur ce qui avait été enregistré.
+  // Modèle déjà chargé au démarrage de l'admin (pas d'attente ici : window.open doit partir directement du clic,
+  // sinon certains navigateurs bloquent l'ouverture de WhatsApp).
+  var texteMsg=RG.construireMessage(RG._modeleMessage||RG.MODELE_MESSAGE_DEFAUT,
+    {fournisseur:f.fournisseur_nom||'Fournisseur',restaurant:restoKeys.map(nomResto).join(' + '),par:f.envoye_par_nom||'',date:RG.dateCommande(f.envoye_le),adresse:''},
+    items.map(function(it){return {produit:it.nom,restos:restoKeys.length>1&&it.resto?(' ['+nomResto(it.resto)+']'):'',stock:it.stock||it.valeur||'',commande:it.commande||it.suggestion||''};}));
+  window.open('https://wa.me/?text='+encodeURIComponent(texteMsg),'_blank');
 }
 function renderLaboSuiviList(){
   var box=document.getElementById('lsuivi-list');
@@ -8893,9 +8927,29 @@ function renderIngredientsList(){
   var search=(searchEl.value||'').toLowerCase();
   var onlyUnlinked=unlinkedEl.checked;
   function statutIngredient(i){return ingStatutIngredient(i);}
+  // Filtres comptage/commandes : sur le restaurant choisi en haut, ou sur tous si « Tous les restaurants ».
+  var filtreCmdEl=document.getElementById('rct-ing-filtre-cmd');
+  var filtreCmd=filtreCmdEl?filtreCmdEl.value:'';
+  var restosFiltre=(rctRestoSelRaw()==='tous')?((typeof restosData!=='undefined'&&restosData.length)?restosData.map(function(r){return r.id;}):[rctResto()]):[rctResto()];
+  function aDesReglesPropres(code){
+    return restosFiltre.some(function(r){
+      var s=(rctIngredientSeuilsAll[r]||{})[code];
+      if(s&&s.actif!==false&&Array.isArray(s.comptage_jours)&&s.comptage_jours.length)return true;
+      var rules=(rctIngredientRegles[r]||{})[code];
+      return !!(rules&&rules.length);
+    });
+  }
+  function estSansCible(code){
+    return restosFiltre.some(function(r){
+      var s=(rctIngredientSeuilsAll[r]||{})[code];
+      return !!(s&&s.actif!==false&&(s.type_suivi||'qty')==='qty'&&s.seuil_min!=null&&s.cible==null);
+    });
+  }
   var list=rctIngredients.filter(function(i){
     if(search&&i.nom.toLowerCase().indexOf(search)<0)return false;
     if(onlyUnlinked&&statutIngredient(i).ok)return false;
+    if(filtreCmd==='regles'&&!aDesReglesPropres(i.code))return false;
+    if(filtreCmd==='sanscible'&&!estSansCible(i.code))return false;
     return true;
   });
   if(!list.length){
@@ -9024,20 +9078,30 @@ function renderIngredientsList(){
       +'</div>';
   }
   var COMPTAGE_JOUR_LABELS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-  // Jours de comptage : par défaut (tableau vide/absent) un ingrédient se compte tous les jours, comme avant.
-  // Cocher des jours précis restreint le comptage à CES jours-là uniquement — utile pour un produit qui
-  // bouge peu et n'a pas besoin d'être recompté quotidiennement, même si son fournisseur livre tous les jours.
-  function ingredientComptageJoursHtml(code,restoId,jours){
-    jours=jours||[];
-    var tousLesJours=!jours.length;
+  // Jours de comptage : affiche les jours RÉELLEMENT appliqués et d'où ils viennent (même calcul que la
+  // tablette, RG.joursComptageEffectifs). Par défaut un produit suit le calendrier de son fournisseur ;
+  // cocher des jours crée une règle propre au produit (exception), qu'on peut retirer d'un clic.
+  // Avant, une case vide affichait « tous les jours » alors que la tablette appliquait le calendrier du fournisseur.
+  function ingredientComptageJoursHtml(code,restoId,s){
+    s=s||{};
+    var suppliersById={};rctSuppliers.forEach(function(x){suppliersById[x.id]=x;});
+    var eff=RG.joursComptageEffectifs(s,(rctIngredientRegles[restoId]||{})[code]||[],suppliersById);
+    var explicite=eff.source==='produit';
+    var supNom=eff.fournisseur?eff.fournisseur.nom:null;
+    var origine=explicite?'<b style="color:#B45309;">règle propre au produit</b>'
+      :eff.source==='regle'?'suit ses <b>règles de commande</b> : <b>'+RG.libelleJours(eff.jours)+'</b>'
+      :eff.source==='fournisseur'?'suit le calendrier de <b>'+esc(supNom||'son fournisseur')+'</b> : <b>'+RG.libelleJours(eff.jours)+'</b>'
+      :'<b>tous les jours</b>'+(supNom?' (le fournisseur '+esc(supNom)+' n\'a pas de calendrier)':'');
     return '<div style="margin-top:4px;">'
-      +'<span style="font-size:9px;color:var(--txm);margin-right:4px;">📅 Jours de comptage : '+(tousLesJours?'<b>tous les jours</b>':'')+'</span>'
+      +'<span style="font-size:9px;color:var(--txm);margin-right:4px;">📅 Jours de comptage : '+origine+'</span>'
       +'<div style="display:inline-flex;gap:3px;flex-wrap:wrap;vertical-align:middle;">'
       +COMPTAGE_JOUR_LABELS.map(function(lbl,idx){
-        var on=jours.indexOf(idx)>=0;
-        return '<span onclick="toggleIngredientComptageJour(\''+code+'\',\''+restoId+'\','+idx+')" style="cursor:pointer;font-size:9px;padding:2px 6px;border-radius:6px;border:1px solid '+(on?'var(--bx)':'var(--bd)')+';background:'+(on?'var(--bx)':'transparent')+';color:'+(on?'#fff':'var(--txm)')+';">'+lbl+'</span>';
+        var on=explicite&&eff.jours.indexOf(idx)>=0;
+        var implicite=!explicite&&eff.jours.indexOf(idx)>=0;
+        return '<span onclick="toggleIngredientComptageJour(\''+code+'\',\''+restoId+'\','+idx+')" title="'+(explicite?'Cocher/décocher ce jour':'Cocher un jour crée une règle propre à ce produit (il ne suivra plus le fournisseur)')+'" style="cursor:pointer;font-size:9px;padding:2px 6px;border-radius:6px;border:1px '+(implicite?'dashed':'solid')+' '+(on||implicite?'var(--bx)':'var(--bd)')+';background:'+(on?'var(--bx)':'transparent')+';color:'+(on?'#fff':(implicite?'var(--bx)':'var(--txm)'))+';">'+lbl+'</span>';
       }).join('')
       +'</div>'
+      +(explicite?' <button type="button" class="btn bs sm" style="font-size:9px;padding:2px 7px;margin-left:4px;" onclick="clearIngredientComptageJours(\''+code+'\',\''+restoId+'\')">↺ Suivre le fournisseur</button>':'')
       +'</div>';
   }
   function oneRestoSeuilHtml(i,r,isCurrent,tousMode){
@@ -9073,7 +9137,7 @@ function renderIngredientsList(){
       +'<span id="ucmd-prev-'+i.code+'-'+r.id+'" style="font-size:8px;color:var(--txm);white-space:nowrap;">'+(s.unite_commande?('= '+esc(s.unite_commande)+' de '+esc(i.nom)):'')+'</span>'
       +'</div>'
       +'</div>'
-      +ingredientComptageJoursHtml(i.code,r.id,s.comptage_jours)
+      +ingredientComptageJoursHtml(i.code,r.id,s)
       +((isCurrent||tousMode)?'<div style="margin-top:4px;"><button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+(((rctIngredientRegles[r.id]||{})[i.code]&&(rctIngredientRegles[r.id]||{})[i.code].length)?' ('+(rctIngredientRegles[r.id]||{})[i.code].length+')':'')+'</button></div>'
         :'<div style="margin-top:4px;font-size:9px;color:var(--txm);">📅 Règles de commande avancées : change de restaurant en haut de page (ou choisis "🌍 Tous les restaurants") pour celles de '+esc(r.nom||r.id)+'.</div>')
       +'</div>';
@@ -9754,7 +9818,12 @@ async function openBesoinsComptageModal(){
   box.innerHTML='<div style="font-size:11px;color:var(--txm);">Chargement…</div>';
   openM('mbesoinscpt');
   try{
-    var restos=['port','dabray','labo'];
+    // Restaurants lus depuis Réglages > Établissements (plus de liste écrite en dur).
+    var restosList=(typeof restosData!=='undefined'&&restosData.length)?restosData:[];
+    var restos=restosList.map(function(r){return r.id;});
+    var restoLabels={};restosList.forEach(function(r){restoLabels[r.id]=r.nom||r.label||r.id;});
+    var restoAdresses={};restosList.forEach(function(r){restoAdresses[r.id]=r.adresse||'';});
+    if(!restos.length){box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucun établissement configuré (Réglages).</div>';return;}
     var comptagesRes=await db.from('ingredient_comptages').select('id,restaurant_id,ingredient_code,valeur,compte_le,commande_envoyee').in('restaurant_id',restos).order('compte_le',{ascending:false});
     if(comptagesRes.error)throw comptagesRes.error;
     var dernierByRestoCode={};
@@ -9762,14 +9831,9 @@ async function openBesoinsComptageModal(){
       var k=c.restaurant_id+'|'+c.ingredient_code;
       if(!dernierByRestoCode[k])dernierByRestoCode[k]=c; // déjà trié desc par compte_le -> le 1er par clé est le plus récent
     });
-    function flaggedNonQty(typeSuivi,valeur){
-      if(typeSuivi==='two')return valeur==='commander';
-      if(typeSuivi==='rup')return valeur==='rupture'||valeur==='faible';
-      if(typeSuivi==='yn')return valeur==='non';
-      if(typeSuivi==='level'){var v=parseFloat(valeur);return !isNaN(v)&&v<=25;}
-      return false;
-    }
     var suppliersById={};rctSuppliers.forEach(function(s){suppliersById[s.id]=s;});
+    await RG.chargerModeleMessage(db,true); // message type à jour (Réglages)
+    var parNom=await laboCurrentUserNom();
     var items=[];
     restos.forEach(function(resto){
       var seuils=(rctIngredientSeuilsAll&&rctIngredientSeuilsAll[resto])||{};
@@ -9778,59 +9842,41 @@ async function openBesoinsComptageModal(){
         if(!s||s.actif===false)return;
         var d=dernierByRestoCode[resto+'|'+code];
         if(!d)return; // jamais compté sur ce restaurant
-        if(d.commande_envoyee)return; // déjà signalé dans un message précédent — attend un nouveau comptage pour revenir
-        var flagged=false,suggestion='',qteACommander=1;
-        if(s.type_suivi==='qty'){
-          var val=parseFloat(d.valeur);
-          if(!isNaN(val)&&s.seuil_min!=null&&val<s.seuil_min){
-            flagged=true;
-            if(s.cible!=null){
-              var manque=s.cible-val;
-              if(manque>0){
-                if(s.colisage&&s.colisage>0){
-                  var nbColis=Math.ceil(manque/s.colisage);
-                  qteACommander=nbColis*s.colisage;
-                  suggestion='~'+qteACommander+(s.unite_comptage?(' '+s.unite_comptage):'')+' ('+nbColis+' × '+(s.unite_commande||'colis')+')';
-                }else{
-                  qteACommander=Math.round(manque*100)/100;
-                  suggestion='~'+qteACommander+(s.unite_comptage?(' '+s.unite_comptage):'');
-                }
-              }
-            }
-          }
-        }else{
-          flagged=flaggedNonQty(s.type_suivi,d.valeur);
+        if(d.commande_envoyee)return; // déjà signalé — attend un nouveau comptage pour revenir
+        var sup=s.fournisseur_id?suppliersById[s.fournisseur_id]:null;
+        var ownRules=(rctIngredientRegles[resto]||{})[code]||[];
+        var estLabo=!!(sup&&sup.is_labo_interne);
+        // Fournisseurs externes : même péremption du comptage que sur la tablette (un vieux comptage n'est plus
+        // proposé une fois la prochaine échéance de comptage passée). Les articles Labo ne sont pas concernés :
+        // un article Labo encore non marqué comme envoyé n'est jamais arrivé au Labo et doit rester visible.
+        if(!estLabo&&RG.joursComptageExpire(RG.joursComptageEffectifs(s,ownRules,suppliersById).jours,d.compte_le))return;
+        // Calcul unique partagé avec la tablette (RG.besoin) : stock négatif ramené à 0, sans cible → jusqu'au seuil.
+        var b=RG.besoin(s,d.valeur);
+        if(!b.signale)return;
+        // Calendrier du fournisseur pour les fournisseurs EXTERNES (règle du produit prioritaire). Sauf rupture
+        // totale, toujours signalée. Les articles Labo ne sont jamais bloqués par jour (décision du 28/09/2026).
+        if(!estLabo){
+          var gate=RG.reglesGateStatus(ownRules,sup,suppliersById);
+          if(gate.gated&&!gate.matches&&!RG.isRuptureTotale(s.type_suivi,d.valeur))return;
         }
-        if(!flagged)return;
-        var sup=s.fournisseur_id?rctSuppliers.find(function(x){return x.id===s.fournisseur_id;}):null;
-        // Verrouillage jour fixe / veille de livraison pour les fournisseurs EXTERNES — règle explicite sur CE
-        // restaurant, sinon calendrier par défaut du fournisseur. Sauf rupture totale, toujours signalée.
-        //
-        // Exception (décision du 28/09/2026) : un article sourcé au Labo (fournisseur "🏭 Interne") n'est plus
-        // jamais verrouillé par le calendrier — il remonte dès qu'il passe sous son seuil, quel que soit le jour,
-        // exactement comme l'envoi automatique au comptage dans pointage.html. Avant, un comptage fait un jour
-        // "hors calendrier" n'arrivait jamais au Labo : bloqué au comptage ET masqué ici.
-        if(!(sup&&sup.is_labo_interne)){
-          var ownRules=(rctIngredientRegles[resto]||{})[code]||[];
-          var gate=reglesGateStatus(ownRules,sup,suppliersById);
-          if(gate.gated&&!gate.matches&&!isRuptureTotale(s.type_suivi,d.valeur))return;
-        }
+        var cmd=RG.arrondirCommande(b.besoin,s);
         var ing=rctIngredients.find(function(p){return p.code===code;});
-        items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,suggestion:suggestion,qteACommander:qteACommander,compteLe:d.compte_le,valeur:d.valeur,typeSuivi:s.type_suivi,comptageId:d.id});
+        items.push({resto:resto,code:code,nom:ing?ing.nom:code,fournisseurId:sup?sup.id:null,fournisseurNom:sup?sup.nom:null,
+          stock:RG.texteStock(s,d.valeur),commande:cmd.texte,suggestion:cmd.texte,qteACommander:(cmd.quantite>0?cmd.quantite:1),
+          sansCible:b.sansCible,compteLe:d.compte_le,valeur:RG.texteStock(s,d.valeur),typeSuivi:s.type_suivi,comptageId:d.id});
       });
     });
     if(!items.length){
       box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Rien à signaler pour l\'instant d\'après les derniers comptages. 👍</div>';
       return;
     }
-    var restoLabels={port:'Port',dabray:'Dabray',labo:'Labo'};
     var byFourn={}; // clé = fournisseur_id (ou '_sans_fournisseur') -> {sup, items}
     items.forEach(function(it){
       var key=it.fournisseurId||'_sans_fournisseur';
-      byFourn[key]=byFourn[key]||{sup:it.fournisseurId?rctSuppliers.find(function(x){return x.id===it.fournisseurId;}):null,items:[]};
+      byFourn[key]=byFourn[key]||{sup:it.fournisseurId?suppliersById[it.fournisseurId]:null,items:[]};
       byFourn[key].items.push(it);
     });
-    besoinsComptageByFourn=byFourn; // conservé pour le bouton "Créer la commande Labo", cliqué après ce rendu
+    besoinsComptageByFourn=byFourn; // conservé pour les boutons, cliqués après ce rendu
     var groupKeys=Object.keys(byFourn).sort(function(a,b){
       var na=(byFourn[a].sup?byFourn[a].sup.nom:'⚠️ Fournisseur non précisé');
       var nb=(byFourn[b].sup?byFourn[b].sup.nom:'⚠️ Fournisseur non précisé');
@@ -9840,13 +9886,12 @@ async function openBesoinsComptageModal(){
       var g=byFourn[key];
       var groupName=g.sup?g.sup.nom:'⚠️ Fournisseur non précisé';
       var its=g.items.slice().sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
-      // Message WhatsApp pré-rempli : même principe que le bouton "Ouvrir WhatsApp" de l'écran Stocks
-      // (lien wa.me/?text=... — l'utilisateur choisit lui-même le contact/groupe et appuie sur envoyer,
-      // rien n'est envoyé automatiquement et rien ne touche la table 'fournisseurs').
-      var msgLines=['📦 Commande '+groupName].concat(its.map(function(it){
-        return '- '+it.nom+' ('+restoLabels[it.resto]+')'+(it.suggestion?(' : '+it.suggestion):(' : '+it.valeur));
-      }));
-      var waUrl='https://wa.me/?text='+encodeURIComponent(msgLines.join('\n'));
+      // Message construit avec le MESSAGE TYPE (Réglages) — le même que sur la tablette.
+      var restosGroupe=its.map(function(it){return it.resto;}).filter(function(r,idx,arr){return arr.indexOf(r)===idx;});
+      var texteMsg=RG.construireMessage(RG._modeleMessage,
+        {fournisseur:groupName,restaurant:restosGroupe.map(function(r){return restoLabels[r]||r;}).join(' + '),par:parNom,date:RG.dateCommande(),adresse:restosGroupe.map(function(r){return restoAdresses[r];}).filter(Boolean)[0]||''},
+        its.map(function(it){return {produit:it.nom,restos:restosGroupe.length>1?(' ['+(restoLabels[it.resto]||it.resto)+']'):'',stock:it.stock,commande:it.commande};}));
+      var waUrl='https://wa.me/?text='+encodeURIComponent(texteMsg);
       besoinsComptageWaUrls[key]=waUrl; // lu par marquerBesoinsEnvoyesEtOuvrirWhatsapp au clic
       var isLaboInterne=!!(g.sup&&g.sup.is_labo_interne);
       var waBtn=isLaboInterne
@@ -9864,13 +9909,15 @@ async function openBesoinsComptageModal(){
         +its.map(function(it){
           var when=new Date(it.compteLe).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
           return '<div class="card" style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;gap:8px;">'
-            +'<span>'+esc(it.nom)+'<div style="font-size:10px;color:var(--txm);">'+restoLabels[it.resto]+' · compté le '+when+(it.suggestion?(' · '+esc(it.suggestion)):'')+'</div></span>'
-            +'<span style="color:#C0392B;font-weight:700;font-size:11px;white-space:nowrap;">⚠️ '+esc(String(it.valeur))+'</span>'
+            +'<span>'+esc(it.nom)+'<div style="font-size:10px;color:var(--txm);">'+esc(restoLabels[it.resto]||it.resto)+' · compté le '+when+' · stock : '+esc(it.stock)+'</div>'
+            +(it.sansCible?'<div style="font-size:10px;color:#B45309;font-weight:700;">🎯 Cible à renseigner sur la fiche — quantité calculée jusqu\'au seuil</div>':'')
+            +'</span>'
+            +'<span style="color:#C0392B;font-weight:700;font-size:11px;white-space:nowrap;">'+esc(it.commande)+'</span>'
             +'</div>';
         }).join('')
         +'</div></div>';
     }).join('');
-  }catch(e){console.error('openBesoinsComptageModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+e.message+'</div>';}
+  }catch(e){console.error('openBesoinsComptageModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+esc(e.message)+'</div>';}
 }
 // Crée une vraie commande numérique vers le Labo (labo_commandes + labo_commandes_lignes) à partir des
 // ingrédients signalés pour un fournisseur marqué "🏭 Interne". Une commande par restaurant concerné (le
@@ -9925,7 +9972,7 @@ async function marquerBesoinsEnvoyesEtOuvrirWhatsapp(fournKey){
         await db.from('commandes_fournisseurs_envois').insert({
           fournisseur_id:g.sup?g.sup.id:null,
           fournisseur_nom:g.sup?g.sup.nom:'Sans fournisseur précisé',
-          items:g.items.map(function(it){return{code:it.code,nom:it.nom,resto:it.resto,valeur:it.valeur,suggestion:it.suggestion};}),
+          items:g.items.map(function(it){var rd=(typeof restosData!=='undefined'?restosData:[]).find(function(r){return r.id===it.resto;});return{code:it.code,nom:it.nom,resto:rd?(rd.nom||rd.id):it.resto,valeur:it.valeur,suggestion:it.suggestion,stock:it.stock,commande:it.commande};}),
           envoye_par_nom:creePar
         });
       }catch(e){console.error('log commandes_fournisseurs_envois',e);}
@@ -9940,8 +9987,8 @@ async function creerCommandeLaboDepuisBesoins(fournKey){
   var byResto={};
   g.items.forEach(function(it){(byResto[it.resto]=byResto[it.resto]||[]).push(it);});
   var restos=Object.keys(byResto);
-  var restoLabels={port:'Port',dabray:'Dabray',labo:'Labo'};
-  if(!confirm('Créer '+(restos.length>1?(restos.length+' commandes Labo'):'la commande Labo')+' pour : '+restos.map(function(r){return restoLabels[r]+' ('+byResto[r].length+' ingrédient(s))';}).join(', ')+' ?\n\nElle apparaîtra dans Admin > Labo, prête à préparer.'))return;
+  var restoLabels={};(typeof restosData!=='undefined'?restosData:[]).forEach(function(r){restoLabels[r.id]=r.nom||r.id;});
+  if(!confirm('Créer '+(restos.length>1?(restos.length+' commandes Labo'):'la commande Labo')+' pour : '+restos.map(function(r){return (restoLabels[r]||r)+' ('+byResto[r].length+' ingrédient(s))';}).join(', ')+' ?\n\nElle apparaîtra dans Admin > Labo et sur la tablette du Labo, prête à préparer.'))return;
   try{
     var creePar=await laboCurrentUserNom();
     var numeroCommandes=[];
@@ -9954,9 +10001,20 @@ async function creerCommandeLaboDepuisBesoins(fournKey){
         return {commande_id:commandeId,produit_code:it.code,produit_nom:it.nom,restaurant_produit_id:null,quantite_demandee:it.qteACommander||1};
       });
       sbCheck(await db.from('labo_commandes_lignes').insert(rows));
+      // Trace permanente (📜 Historique de la tablette), comme pour un envoi automatique au comptage.
+      byResto[resto].forEach(function(it){
+        RG.journal(db,{type:'labo_demande',restaurant_id:resto,ingredient_code:it.code,produit_nom:it.nom,quantite:it.qteACommander||1,detail:'stock '+it.stock+' → demandé '+it.commande+' (depuis l\'admin)',par_nom:creePar,ref_id:commandeId});
+      });
     }
-    alert('✅ Commande(s) Labo créée(s) : #'+numeroCommandes.join(', #')+'.\nÀ retrouver dans Admin > Labo.');
-    openBesoinsComptageModal(); // recharge la liste (les ingrédients commandés restent affichés tant qu'un nouveau comptage ne repasse pas au-dessus du seuil — c'est juste informatif, ça n'empêche pas la recréation d'une commande)
+    // Comptages inclus marqués « déjà signalés » (comme pour un envoi WhatsApp) : un second clic ne crée plus
+    // une commande Labo en double. Un nouveau comptage sous le seuil les fera revenir normalement.
+    var ids=g.items.map(function(it){return it.comptageId;}).filter(Boolean);
+    if(ids.length){
+      try{sbCheck(await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids));}
+      catch(e2){console.error('creerCommandeLaboDepuisBesoins: marquage',e2);alert('Commande créée, mais les comptages n\'ont pas pu être marqués comme envoyés : ne recrée pas la commande. ('+e2.message+')');}
+    }
+    alert('✅ Commande(s) Labo créée(s) : #'+numeroCommandes.join(', #')+'.\nÀ retrouver dans Admin > Labo et sur la tablette du Labo.');
+    openBesoinsComptageModal();
   }catch(e){
     console.error('creerCommandeLaboDepuisBesoins',e);
     alert('Erreur lors de la création de la commande Labo : '+e.message+'\n\n(Vérifie que restaurant_produit_id accepte NULL dans labo_commandes_lignes — sinon dis-le moi, il faudra ajuster.)');
@@ -10062,6 +10120,12 @@ async function handlePriceFieldChange(ingredientCode,field,value){
 async function toggleIngredientComptageJour(ingredientCode,restoId,dayIdx){
   var cached=(rctIngredientSeuilsAll[restoId]||{})[ingredientCode]||{};
   var jours=(cached.comptage_jours||[]).slice();
+  // Première règle propre : on part des jours actuellement appliqués (fournisseur/règles), puis on
+  // ajoute/retire le jour cliqué — cliquer un jour en pointillé le retire, cliquer un jour vide l'ajoute.
+  if(!jours.length){
+    var supById={};rctSuppliers.forEach(function(x){supById[x.id]=x;});
+    jours=RG.joursComptageEffectifs(cached,(rctIngredientRegles[restoId]||{})[ingredientCode]||[],supById).jours.slice();
+  }
   var idx=jours.indexOf(dayIdx);
   if(idx>=0)jours.splice(idx,1);else jours.push(dayIdx);
   try{
@@ -10071,6 +10135,17 @@ async function toggleIngredientComptageJour(ingredientCode,restoId,dayIdx){
     rctIngredientSeuilsAll[restoId][ingredientCode]=Object.assign({},rctIngredientSeuilsAll[restoId][ingredientCode]||{},payload);
     renderIngredientsList();
   }catch(e){console.error('toggleIngredientComptageJour',e);alert('Erreur : '+e.message);}
+}
+// Retire la règle propre (jours cochés à la main) : le produit suit de nouveau le calendrier de son fournisseur.
+async function clearIngredientComptageJours(ingredientCode,restoId){
+  var cached=(rctIngredientSeuilsAll[restoId]||{})[ingredientCode]||{};
+  try{
+    var payload={restaurant_id:restoId,ingredient_code:ingredientCode,type_suivi:cached.type_suivi||'qty',comptage_jours:[]};
+    sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
+    rctIngredientSeuilsAll[restoId]=rctIngredientSeuilsAll[restoId]||{};
+    rctIngredientSeuilsAll[restoId][ingredientCode]=Object.assign({},rctIngredientSeuilsAll[restoId][ingredientCode]||{},payload);
+    renderIngredientsList();
+  }catch(e){console.error('clearIngredientComptageJours',e);alert('Erreur : '+e.message);}
 }
 function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
   var resto=restoIdOverride||rctResto();
