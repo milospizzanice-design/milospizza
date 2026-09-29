@@ -1467,6 +1467,11 @@ async function loadCommandesFournisseursData(){
     var allFournCodes=new Set();
     Object.keys(codesByFourn).forEach(function(fid){codesByFourn[fid].forEach(function(c){allFournCodes.add(c);});});
     var itemsByCode={};
+    // Ce que le salarié connecté avait réellement dans SON écran Comptage (ses postes du jour) — pour séparer
+    // « oublié dans ton comptage » de « à compter par un autre poste » et de « compté par personne ».
+    // Avant, tout était mélangé : on demandait à quelqu'un de compter des produits qu'il n'avait jamais vus.
+    var maCouverture=null;
+    try{if(emp)maCouverture=await comptageCatsForEmployee();}catch(eCov){console.warn('couverture comptage salarié',eCov);}
     allFournCodes.forEach(function(code){
       var s=seuilByRestoCode[RESTAURANT_ID+'|'+code];
       if(!s||s.actif===false)return; // pas suivi ici (probablement l'autre restaurant fusionné)
@@ -1480,7 +1485,10 @@ async function loadCommandesFournisseursData(){
       if(!due)return;
       if(countedTodayThisResto.has(code))return;
       var ing=ingByCode[code];
-      var categorie=ing&&ing.categorie?ing.categorie:'Autre';
+      // Ingrédient désactivé (ou supprimé) : il n'apparaît jamais dans l'écran Comptage, il ne doit pas non
+      // plus être réclamé ici.
+      if(!ing)return;
+      var categorie=ing.categorie?ing.categorie:'Autre';
       var postes=[];
       empsEffectifs.forEach(function(e){
         if(!couvertParEmploye(e,code,categorie))return;
@@ -1492,7 +1500,9 @@ async function loadCommandesFournisseursData(){
           if(postes.indexOf(label)<0)postes.push(label);
         }
       });
-      itemsByCode[code]={code:code,nom:ing?ing.nom:code,categorie:categorie,sousCategorie:ing&&ing.sous_categorie?ing.sous_categorie:null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',postes:postes.sort(function(a,b){return a.localeCompare(b,'fr');})};
+      var dansMonComptage=!!(maCouverture&&!maCouverture.ingExclude.has(code)&&(maCouverture.ingInclude.has(code)||maCouverture.cats.indexOf(categorie)>=0));
+      var groupe=dansMonComptage?'moi':(postes.length?'autre':'aucun');
+      itemsByCode[code]={code:code,groupe:groupe,nom:ing?ing.nom:code,categorie:categorie,sousCategorie:ing&&ing.sous_categorie?ing.sous_categorie:null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',postes:postes.sort(function(a,b){return a.localeCompare(b,'fr');})};
     });
     var items=Object.keys(itemsByCode).map(function(c){return itemsByCode[c];});
     items.sort(function(a,b){
@@ -1572,7 +1582,7 @@ function renderCmdfMissingPopup(){
     box.innerHTML='<div style="font-size:13px;color:#16A34A;font-weight:600;text-align:center">&#10003; Tout est à jour !</div>';
     return;
   }
-  var html='<div style="font-size:13px;color:#555;margin-bottom:10px">Avant de passer les commandes, il manque le comptage de :</div>';
+  var html='<div style="font-size:13px;color:#555;margin-bottom:10px">Pas encore compt&eacute;s aujourd\'hui. <b>Sans comptage du jour, un produit n\'est pas command&eacute;.</b> Tu peux les compter directement ici.</div>';
   if(cmdfMissingPostesList.length>1){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee">';
     cmdfMissingPostesList.forEach(function(p){
@@ -1592,8 +1602,22 @@ function renderCmdfMissingPopup(){
     // Jamais en vrac : toujours regroupé par catégorie puis sous-catégorie, comme sur l'écran Comptage
     // principal — un sous-en-tête à chaque changement de catégorie ou de sous-catégorie dans la liste déjà
     // triée en amont.
-    var lastCat=null,lastSous=undefined;
+    // Trois groupes, pour savoir tout de suite à qui s'adresser : oubli dans TON comptage, produit d'un autre
+    // poste, ou produit que personne n'a dans son comptage (réglage des rôles à corriger dans l'admin).
+    var GROUPES=[
+      {id:'moi',titre:'&#9888;&#65039; Dans ton comptage (oubli&eacute;s ?)',couleur:'#B91E26'},
+      {id:'autre',titre:'&#128101; Pas dans ton comptage &mdash; &agrave; compter par un autre poste',couleur:'#92400E'},
+      {id:'aucun',titre:'&#10067; Personne n\'a ces produits dans son comptage &mdash; &agrave; rattacher &agrave; un r&ocirc;le (Admin &gt; R&ocirc;les)',couleur:'#6B7280'}
+    ];
+    var lastCat=null,lastSous=undefined,lastGroupe=null;
+    var ordreG={moi:0,autre:1,aucun:2};
+    visibles=visibles.slice().sort(function(a,b){return (ordreG[a.groupe]||0)-(ordreG[b.groupe]||0);}); // tri stable : l'ordre catégorie/sous-catégorie est conservé dans chaque groupe
     visibles.forEach(function(it){
+      if(it.groupe!==lastGroupe){
+        var g=GROUPES.find(function(x){return x.id===it.groupe;})||GROUPES[1];
+        html+='<div style="font-size:11px;font-weight:800;color:'+g.couleur+';margin:14px 0 4px;padding-top:6px;border-top:2px solid '+g.couleur+'">'+g.titre+'</div>';
+        lastGroupe=it.groupe;lastCat=null;lastSous=undefined;
+      }
       if(it.categorie!==lastCat){
         html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#B91E26;margin:10px 0 2px">'+escCpt(it.categorie)+'</div>';
         lastCat=it.categorie;lastSous=undefined;
