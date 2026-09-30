@@ -1265,7 +1265,7 @@ async function loadCommandesFournisseursData(){
   }catch(e){console.warn('adresse(s) restaurant indisponible(s)',e);}
   var seuilsRes=await db.from('ingredient_seuils').select('*').in('restaurant_id',mergeScope);
   if(seuilsRes.error)throw seuilsRes.error;
-  var comptagesRes=await db.from('ingredient_comptages').select('id,ingredient_code,restaurant_id,valeur,compte_le,commande_envoyee,compte_par_id,compte_par_nom').in('restaurant_id',mergeScope).order('compte_le',{ascending:false});
+  var comptagesRes=await cptToutesLignes(function(){return db.from('ingredient_comptages').select('id,ingredient_code,restaurant_id,valeur,compte_le,commande_envoyee,compte_par_id,compte_par_nom').in('restaurant_id',mergeScope).order('compte_le',{ascending:false}).order('id',{ascending:false});});
   if(comptagesRes.error)throw comptagesRes.error;
   var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,is_cuisine_interne,whatsapp_groupe,heure_limite,jours_livraison,delai_commande_jours');
   var suppliersById={};(fournRes.data||[]).forEach(function(f){suppliersById[f.id]=f;});
@@ -1693,8 +1693,7 @@ async function cmdfQuickSave(code,valeur){
   try{
     var found=cmdfMissingItems.find(function(it){return it.code===code;});
     var typeSuivi=found?found.type_suivi:'qty';
-    var payload={restaurant_id:RESTAURANT_ID,ingredient_code:code,type_suivi:typeSuivi,valeur:String(valeur),compte_par_id:emp?emp.id:null,compte_par_nom:emp?(emp.prenom+' '+emp.nom):null,compte_le:new Date().toISOString()};
-    var ins=await db.from('ingredient_comptages').insert(payload).select().single();
+    var ins=await cptEcrireComptage(code,typeSuivi,valeur);
     if(ins.error){alert('Erreur : '+ins.error.message);return;}
     cmdfMissingItems=cmdfMissingItems.filter(function(it){return it.code!==code;});
     renderCmdfMissingPopup();
@@ -1924,24 +1923,24 @@ async function chargerHistorique(){
   var box=document.getElementById('hist-list');
   var bornes=RG.bizJourneeBornes(histDateRef());
   var dateLbl=bornes.debut.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  document.getElementById('hist-date').textContent=(histDayOffset===0?'Aujourd\'hui — ':(histDayOffset===1?'Hier — ':''))+dateLbl;
+  document.getElementById('hist-date').textContent=(restoNamesById[RESTAURANT_ID]||RESTAURANT_ID)+' · '+(histDayOffset===0?'Aujourd\'hui — ':(histDayOffset===1?'Hier — ':''))+dateLbl;
   var nextBtn=document.getElementById('hist-next');if(nextBtn)nextBtn.style.visibility=histDayOffset===0?'hidden':'visible';
   box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
   var debutIso=bornes.debut.toISOString(),finIso=bornes.fin.toISOString();
   var entrees=[];
   try{
     // Noms et réglages des produits (pour afficher le nom et l'unité d'un comptage).
-    var ingRes=await db.from('ingredients').select('code,nom').eq('restaurant_id','global');
-    var nomByCode={};(ingRes.data||[]).forEach(function(i){nomByCode[i.code]=i.nom;});
+    var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id','global');
+    var nomByCode={},catByCode={};(ingRes.data||[]).forEach(function(i){nomByCode[i.code]=i.nom;catByCode[i.code]=i.categorie||'Autre';});
     var seuilsRes=await db.from('ingredient_seuils').select('*').eq('restaurant_id',RESTAURANT_ID);
     var seuilByCode={};(seuilsRes.data||[]).forEach(function(x){seuilByCode[x.ingredient_code]=x;});
     // 1. Comptages de ce restaurant
-    var cRes=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).gte('compte_le',debutIso).lt('compte_le',finIso).order('compte_le',{ascending:true});
+    var cRes=await cptToutesLignes(function(){return db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).gte('compte_le',debutIso).lt('compte_le',finIso).order('compte_le',{ascending:true}).order('id',{ascending:true});});
     if(cRes.error)throw cRes.error;
     (cRes.data||[]).forEach(function(c){
       var s=seuilByCode[c.ingredient_code]||{type_suivi:c.type_suivi};
       var b=RG.besoin(s,c.valeur);
-      entrees.push({type:'comptage',le:c.compte_le,produit:nomByCode[c.ingredient_code]||c.ingredient_code,texte:RG.texteStock(s,c.valeur),alerte:b.signale?'sous le seuil':null,par:c.compte_par_nom});
+      entrees.push({type:'comptage',le:c.compte_le,code:c.ingredient_code,categorie:catByCode[c.ingredient_code]||'Autre',produit:nomByCode[c.ingredient_code]||c.ingredient_code,texte:RG.texteStock(s,c.valeur),alerte:b.signale?'sous le seuil':null,par:c.compte_par_nom});
     });
     // 2. Journal (demandes Labo/Cuisine, faits, envois du Labo)
     histJournalAbsent=false;
@@ -1975,42 +1974,108 @@ async function chargerHistorique(){
 }
 function renderHistorique(){
   var filtresBox=document.getElementById('hist-filtres');
-  var compte={tout:histEntrees.length,comptage:0,labo:0,cuisine:0,fournisseur:0};
-  histEntrees.forEach(function(e){var t=HIST_TYPES[e.type];if(t)compte[t.filtre]++;});
+  // Les comptages sont regroupés : un produit = une ligne par journée (le dernier chiffre saisi), même si
+  // l'ancien fonctionnement avait créé une ligne à chaque clic sur + / −.
+  var comptages=histComptagesParProduit();
+  var autres=histEntrees.filter(function(e){return e.type!=='comptage';});
+  var compte={tout:comptages.length+autres.length,comptage:comptages.length,labo:0,cuisine:0,fournisseur:0};
+  autres.forEach(function(e){var t=HIST_TYPES[e.type];if(t)compte[t.filtre]++;});
   var filtres=[['tout','Tout'],['comptage','Comptages'],['labo','Labo'],['cuisine','Cuisine'],['fournisseur','Fournisseurs']];
   filtresBox.innerHTML=filtres.map(function(f){
     var on=histFiltre===f[0];
     return '<button type="button" onclick="histSetFiltre(\''+f[0]+'\')" style="font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.35);background:'+(on?'#fff':'rgba(255,255,255,.12)')+';color:'+(on?'var(--bx)':'#fff')+';font-weight:700;cursor:pointer">'+f[1]+' ('+compte[f[0]]+')</button>';
   }).join('');
   var box=document.getElementById('hist-list');
-  var visibles=histEntrees.filter(function(e){return histFiltre==='tout'||(HIST_TYPES[e.type]&&HIST_TYPES[e.type].filtre===histFiltre);});
   var html='';
   if(histJournalAbsent)html+='<div style="background:#FEF3C7;color:#92400E;border-radius:10px;padding:9px 11px;font-size:11px;margin-bottom:8px;">&#9888; Journal des demandes Labo/Cuisine pas encore activ&eacute; (script SQL &agrave; ex&eacute;cuter par un responsable). Seuls les comptages et les commandes fournisseurs sont affich&eacute;s.</div>';
-  if(!visibles.length){
+  var voirComptages=histFiltre==='tout'||histFiltre==='comptage';
+  var autresVisibles=autres.filter(function(e){return histFiltre==='tout'||(HIST_TYPES[e.type]&&HIST_TYPES[e.type].filtre===histFiltre);});
+  if((!voirComptages||!comptages.length)&&!autresVisibles.length){
     html+='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Rien pour cette journ&eacute;e.</div>';
     box.innerHTML=html;return;
   }
-  html+=visibles.map(function(e){
-    var t=HIST_TYPES[e.type]||{icone:'&#8226;',label:e.type};
-    var heure=new Date(e.le).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    var itemsHtml='';
-    if(e.type==='fournisseur'&&e.items.length){
-      itemsHtml='<div style="margin-top:4px;">'+e.items.map(function(it){
-        var detail=it.commande?('stock : '+(it.stock||it.valeur||'?')+' — commande : '+it.commande):(it.suggestion||it.valeur||'');
-        return '<div style="font-size:11px;color:#555;padding:1px 0;">&#8226; '+escCpt(it.nom)+(it.resto?(' <span style="color:#999">('+escCpt(it.resto)+')</span>'):'')+' — '+escCpt(detail)+'</div>';
-      }).join('')+'</div>';
-    }
-    return '<div style="background:#fff;border-radius:10px;padding:9px 11px;margin-bottom:6px;">'
-      +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">'
-        +'<div style="font-size:10px;font-weight:800;color:var(--bx);text-transform:uppercase;letter-spacing:.03em;">'+t.icone+' '+t.label+(e.resto?(' — '+escCpt(e.resto)):'')+'</div>'
-        +'<div style="font-size:11px;font-weight:700;color:#1A1008;white-space:nowrap;">'+heure+'</div>'
-      +'</div>'
-      +'<div style="font-size:13px;font-weight:700;color:#1A1008;margin-top:2px;">'+escCpt(e.produit)+(e.texte?(' <span style="font-weight:400;color:#555;">— '+escCpt(e.texte)+'</span>'):'')+(e.alerte?(' <span style="font-size:10px;font-weight:700;color:#C0392B;">('+escCpt(e.alerte)+')</span>'):'')+'</div>'
-      +(e.par?('<div style="font-size:10px;color:#8a7f70;margin-top:1px;">par '+escCpt(e.par)+'</div>'):'')
-      +itemsHtml
-      +'</div>';
-  }).join('');
+  if(voirComptages&&comptages.length)html+=histComptagesHtml(comptages);
+  if(autresVisibles.length){
+    html+='<div style="color:#fff;font-size:12px;font-weight:800;margin:12px 2px 6px;">&#128203; Demandes, pr&eacute;parations et commandes</div>';
+    html+=autresVisibles.map(histCarteHtml).join('');
+  }
   box.innerHTML=html;
+}
+var histCatsOuvertes=new Set();
+function histToggleCat(cat){if(histCatsOuvertes.has(cat))histCatsOuvertes.delete(cat);else histCatsOuvertes.add(cat);renderHistorique();}
+function histHeure(le){return new Date(le).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}
+// Un produit par ligne : dernière valeur de la journée, qui l'a comptée et à quelle heure, nombre de corrections.
+function histComptagesParProduit(){
+  var par={};
+  histEntrees.forEach(function(e){
+    if(e.type!=='comptage')return;
+    var o=par[e.code];
+    if(!o){o=par[e.code]={code:e.code,produit:e.produit,categorie:e.categorie,n:0,noms:[],premier:e.le,dernier:null};}
+    o.n++;
+    if(e.par&&o.noms.indexOf(e.par)<0)o.noms.push(e.par);
+    if(new Date(e.le)<new Date(o.premier))o.premier=e.le;
+    if(!o.dernier||new Date(e.le)>=new Date(o.dernier.le))o.dernier=e;
+  });
+  return Object.keys(par).map(function(k){return par[k];});
+}
+function histComptagesHtml(liste){
+  var parCat={};
+  liste.forEach(function(o){(parCat[o.categorie]=parCat[o.categorie]||[]).push(o);});
+  var cats=Object.keys(parCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+  var ouvrirTout=cats.length===1;
+  return '<div style="color:#fff;font-size:12px;font-weight:800;margin:4px 2px 6px;">&#129518; Comptages ('+liste.length+' produit'+(liste.length>1?'s':'')+')</div>'
+    +cats.map(function(cat){
+      var items=parCat[cat].sort(function(a,b){return a.produit.localeCompare(b.produit,'fr');});
+      var noms=[],debut=null,fin=null,alertes=0;
+      items.forEach(function(o){
+        o.noms.forEach(function(n){if(noms.indexOf(n)<0)noms.push(n);});
+        if(!debut||new Date(o.premier)<new Date(debut))debut=o.premier;
+        if(!fin||new Date(o.dernier.le)>new Date(fin))fin=o.dernier.le;
+        if(o.dernier.alerte)alertes++;
+      });
+      var ouvert=ouvrirTout||histCatsOuvertes.has(cat);
+      var catJs=cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      var lignes=ouvert?items.map(function(o){
+        var d=o.dernier;
+        return '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid #F1EAE0;">'
+          +'<div style="min-width:0;"><div style="font-size:13px;font-weight:700;color:#1A1008;">'+escCpt(o.produit)+'</div>'
+          +'<div style="font-size:12px;color:#555;">'+escCpt(d.texte||'')+(d.alerte?' <span style="font-size:10px;font-weight:700;color:#C0392B;">('+escCpt(d.alerte)+')</span>':'')+'</div>'
+          +(o.n>1?'<div style="font-size:10px;color:#8a7f70;">corrig&eacute; '+(o.n-1)+' fois, premi&egrave;re saisie &agrave; '+histHeure(o.premier)+'</div>':'')
+          +'</div>'
+          +'<div style="text-align:right;white-space:nowrap;"><div style="font-size:11px;font-weight:700;color:#1A1008;">'+histHeure(d.le)+'</div>'
+          +'<div style="font-size:11px;font-weight:700;color:var(--bx);">&#128100; '+escCpt(d.par||'nom non enregistré')+'</div></div>'
+          +'</div>';
+      }).join(''):'';
+      return '<div style="background:#fff;border-radius:10px;margin-bottom:6px;overflow:hidden;">'
+        +'<div onclick="histToggleCat(\''+catJs+'\')" style="display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:pointer;border-left:6px solid '+cptCatColor(cat)+';">'
+          +'<div style="flex:1;min-width:0;">'
+            +'<div style="font-size:13px;font-weight:800;color:#1A1008;">'+escCpt(cat)+' <span style="font-weight:600;color:#8a7f70;font-size:11px;">&middot; '+items.length+' produit'+(items.length>1?'s':'')+(alertes?' &middot; <span style="color:#C0392B;">'+alertes+' sous le seuil</span>':'')+'</span></div>'
+            +'<div style="font-size:11px;color:#555;margin-top:1px;">&#128100; <b>'+escCpt(noms.length?noms.join(', '):'nom non enregistré')+'</b> &middot; '+histHeure(debut)+(histHeure(fin)!==histHeure(debut)?' &rarr; '+histHeure(fin):'')+'</div>'
+          +'</div>'
+          +'<span style="color:#8a7f70;font-size:12px;">'+(ouvert?'&#9662;':'&#9656;')+'</span>'
+        +'</div>'
+        +(ouvert?'<div style="padding:0 11px 6px;">'+lignes+'</div>':'')
+        +'</div>';
+    }).join('');
+}
+function histCarteHtml(e){
+  var t=HIST_TYPES[e.type]||{icone:'&#8226;',label:e.type};
+  var itemsHtml='';
+  if(e.type==='fournisseur'&&e.items.length){
+    itemsHtml='<div style="margin-top:4px;">'+e.items.map(function(it){
+      var detail=it.commande?('stock : '+(it.stock||it.valeur||'?')+' — commande : '+it.commande):(it.suggestion||it.valeur||'');
+      return '<div style="font-size:11px;color:#555;padding:1px 0;">&#8226; '+escCpt(it.nom)+(it.resto?(' <span style="color:#999">('+escCpt(it.resto)+')</span>'):'')+' — '+escCpt(detail)+'</div>';
+    }).join('')+'</div>';
+  }
+  return '<div style="background:#fff;border-radius:10px;padding:9px 11px;margin-bottom:6px;">'
+    +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">'
+      +'<div style="font-size:10px;font-weight:800;color:var(--bx);text-transform:uppercase;letter-spacing:.03em;">'+t.icone+' '+t.label+(e.resto?(' — '+escCpt(e.resto)):'')+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:#1A1008;white-space:nowrap;">'+histHeure(e.le)+'</div>'
+    +'</div>'
+    +'<div style="font-size:13px;font-weight:700;color:#1A1008;margin-top:2px;">'+escCpt(e.produit)+(e.texte?(' <span style="font-weight:400;color:#555;">— '+escCpt(e.texte)+'</span>'):'')+(e.alerte?(' <span style="font-size:10px;font-weight:700;color:#C0392B;">('+escCpt(e.alerte)+')</span>'):'')+'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--bx);margin-top:2px;">&#128100; '+escCpt(e.par||'nom non enregistré')+'</div>'
+    +itemsHtml
+    +'</div>';
 }
 
 // ── À PRÉPARER / EXPÉDIER (Labo) — porté depuis Admin > Labo pour que toute l'équipe Labo y accède sans
@@ -2019,7 +2084,8 @@ var lpCommandesCache=[]; // commandes en_attente/partiellement_envoyee avec .lig
 var lpLotsCache=[]; // lots en_stock (candidats à cocher)
 var lpIngredientsCache=[]; // pour le menu déroulant "Nouveau lot"
 var lpSelections={}; // {commandeId:{ligneId:[lotId,...]}}
-var LP_RESTO_LABELS={port:'Port',dabray:'Dabray'};
+var LP_RESTO_LABELS={port:'Port',dabray:'Dabray'}; // repli seulement : noms lus dans la table restaurants (restoNamesById)
+var lpUniteByRestoCode={}; // 'restaurant|code' -> unité de comptage du restaurant demandeur
 async function lpCurrentUserNom(){return emp?(emp.prenom+' '+emp.nom):'Labo';}
 async function loadLaboPrepData(){
   var lotsRes=await db.from('labo_lots').select('*').eq('statut','en_stock');
@@ -2039,6 +2105,16 @@ async function loadLaboPrepData(){
     commandes.forEach(function(c){c.lignes=lignes.filter(function(l){return l.commande_id===c.id;});});
   }
   lpCommandesCache=commandes;
+  // Unités de comptage des restaurants demandeurs (un lot compte pour son poids si la demande est en kg/g/L…,
+  // sinon pour 1 — RG.valeurLotDansUnite).
+  lpUniteByRestoCode={};
+  try{
+    var restosCmd=commandes.map(function(c){return c.restaurant_id;}).filter(function(r,i,a){return r&&a.indexOf(r)===i;});
+    if(restosCmd.length){
+      var ru=await db.from('ingredient_seuils').select('restaurant_id,ingredient_code,unite_comptage,type_suivi').in('restaurant_id',restosCmd);
+      (ru.data||[]).forEach(function(r){lpUniteByRestoCode[r.restaurant_id+'|'+r.ingredient_code]=((r.type_suivi||'qty')==='qty'?(r.unite_comptage||'piece'):'piece');});
+    }
+  }catch(e){console.warn('unités de comptage (Labo)',e);}
   return commandes;
 }
 async function checkLaboPrepBadge(){
@@ -2113,26 +2189,36 @@ function renderLaboPrepListPointage(){
     });
     var lignesHtml=catNames.map(function(cat){
       var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
-        var restant=l.quantite_demandee-(l.quantite_couverte||0);
+        var u=lpUniteByRestoCode[c.restaurant_id+'|'+l.produit_code]||'piece';
         var candidats=lpLotsCache.filter(function(lot){return lot.produit_code===l.produit_code;});
-        var selected=lpSelections[c.id][l.id]||[];
+        // Identifiants comparés en TEXTE (la case cochée est mémorisée en texte, l'id d'un lot peut être un
+        // nombre) — avant, la case se décochait aussitôt après le clic.
+        var selected=(lpSelections[c.id][l.id]||[]).map(String);
+        var coche=0;candidats.forEach(function(lot){if(selected.indexOf(String(lot.id))>=0)coche+=RG.valeurLotDansUnite(lot.poids_reel_g,u);});
+        var restant=RG.arrondiQte(l.quantite_demandee-(l.quantite_couverte||0)-coche);
         var lotsHtml=candidats.length?candidats.map(function(lot){
-          var checked=selected.indexOf(lot.id)>=0?' checked':'';
+          var checked=selected.indexOf(String(lot.id))>=0?' checked':'';
           return '<label class="lp-lot-label">'
             +'<input type="checkbox"'+checked+' onchange="toggleLpLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
             +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg'
             +'</label>';
-        }).join(''):'<div class="lp-empty-lot">Aucun lot en stock pour ce produit — cr&eacute;e-le avec le bouton "Cr&eacute;er un lot" ci-dessous.</div>';
+        }).join(''):'<div class="lp-empty-lot">Aucun lot en stock pour ce produit : p&egrave;se-le juste en dessous, il sera coch&eacute; automatiquement.</div>';
+        // Pesée directement sur la ligne : crée le lot ET le coche.
+        var peserHtml='<div style="display:flex;gap:6px;align-items:center;margin-top:6px;">'
+          +'<input type="number" inputmode="decimal" class="lp-modal-inp" style="margin:0;width:130px;padding:7px 8px;font-size:13px;" min="0" step="0.001" id="lpq-'+l.id+'" placeholder="Poids (kg)">'
+          +'<button type="button" style="flex:1;padding:8px;font-size:12px;background:#fff;border:1.5px solid var(--bx);color:var(--bx);border-radius:8px;font-weight:700;cursor:pointer" onclick="lpPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">&#9878;&#65039; Peser et cocher</button>'
+          +'</div>';
         return '<div class="lp-ligne">'
-          +'<div class="lp-ligne-title">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+l.quantite_demandee+', couvert '+(l.quantite_couverte||0)+(selected.length?' <span class="lp-ok">+ '+selected.length+' coch&eacute;(s)</span>':'')+(restant>0?' <span class="lp-restant">(reste '+restant+')</span>':' <span class="lp-ok">&#10003;</span>')+'</div>'
+          +'<div class="lp-ligne-title">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+escCpt(RG.libelleQuantite(l.quantite_demandee,u))+', envoy&eacute; '+escCpt(RG.libelleQuantite(l.quantite_couverte||0,u))+(coche?' <span class="lp-ok">+ '+escCpt(RG.libelleQuantite(RG.arrondiQte(coche),u))+' coch&eacute;</span>':'')+(restant>0?' <span class="lp-restant">(reste '+escCpt(RG.libelleQuantite(restant,u))+')</span>':' <span class="lp-ok">&#10003;</span>')+'</div>'
           +lotsHtml
+          +peserHtml
           +'</div>';
       }).join('');
       return '<div class="lp-cat-hdr">'+escCpt(cat)+'</div>'+lignesCatHtml;
     }).join('');
     var alerteHtml=aucuneCorrespondance?('<div style="font-size:11px;color:#C0392B;font-weight:700;background:#FDEDEC;border-radius:8px;padding:7px 9px;margin:6px 0;">&#9888; Aucun lot possible pour cette commande — elle a probablement &eacute;t&eacute; cr&eacute;&eacute;e avant que ses produits soient reli&eacute;s au catalogue Labo. Utilise "Annuler cette commande" ci-dessous pour l\'archiver.</div>'):'';
     return '<div class="lp-card">'
-      +'<div class="lp-card-title">Commande #'+(c.numero||c.id)+' — '+(LP_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span class="lp-card-sub">('+new Date(c.created_at).toLocaleDateString('fr-FR')+')</span></div>'
+      +'<div class="lp-card-title">Commande #'+(c.numero||c.id)+' — '+escCpt(restoNamesById[c.restaurant_id]||LP_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span class="lp-card-sub">('+new Date(c.created_at).toLocaleDateString('fr-FR')+')</span></div>'
       +alerteHtml
       +lignesHtml
       +'<button type="button" class="lp-send-btn" onclick="envoyerLaboCommandePointage(\''+c.id+'\')">&#128228; Envoyer les lots coch&eacute;s</button>'
@@ -2144,10 +2230,26 @@ function toggleLpLotSel(commandeId,ligneId,lotId,checked){
   if(!lpSelections[commandeId])lpSelections[commandeId]={};
   if(!lpSelections[commandeId][ligneId])lpSelections[commandeId][ligneId]=[];
   var arr=lpSelections[commandeId][ligneId];
-  var idx=arr.indexOf(lotId);
+  lotId=String(lotId);
+  var idx=arr.map(String).indexOf(lotId);
   if(checked&&idx<0)arr.push(lotId);
   if(!checked&&idx>=0)arr.splice(idx,1);
   renderLaboPrepListPointage();
+}
+// Pèse un lot directement depuis une ligne de commande : le crée (en stock) et le coche pour l'envoi.
+async function lpPeserLotPourLigne(commandeId,ligneId){
+  var commande=lpCommandesCache.find(function(c){return String(c.id)===String(commandeId);});
+  var ligne=commande?(commande.lignes||[]).find(function(l){return String(l.id)===String(ligneId);}):null;
+  var inp=document.getElementById('lpq-'+ligneId);
+  if(!ligne||!inp)return;
+  var poidsKg=parseFloat(String(inp.value).replace(',','.'));
+  if(!(poidsKg>0)){alert('Indique le poids réel du lot (en kg).');return;}
+  try{
+    var ins=await db.from('labo_lots').insert({produit_code:ligne.produit_code,produit_nom:ligne.produit_nom||ligne.produit_code,poids_reel_g:Math.round(poidsKg*1000),statut:'en_stock',cree_par_nom:await lpCurrentUserNom(),source_bloc_ref:null}).select().single();
+    if(ins.error){alert('Erreur : '+ins.error.message);return;}
+    lpLotsCache.unshift(ins.data);
+    toggleLpLotSel(commandeId,ligneId,ins.data.id,true);
+  }catch(e){alert('Erreur lors de la création du lot : '+e.message);}
 }
 // Clôture une commande Labo cassée/obsolète (même mécanisme que "annulerLaboCommande" côté Admin) — la fait
 // passer en statut 'cloturee', qui la retire de la liste active (loadLaboPrepData ne charge que
@@ -2202,11 +2304,18 @@ async function envoyerLaboCommandePointage(commandeId){
   var pairs=[];
   Object.keys(sel).forEach(function(ligneId){(sel[ligneId]||[]).forEach(function(lotId){pairs.push({ligneId:ligneId,lotId:lotId});});});
   if(!pairs.length){alert('Coche au moins un lot avant d\'envoyer.');return;}
-  var commande=lpCommandesCache.find(function(c){return c.id===commandeId;});
+  var commande=lpCommandesCache.find(function(c){return String(c.id)===String(commandeId);});
   if(!commande)return;
+  // Ce que chaque lot coché couvre, dans l'unité de la demande (poids si kg/g/L…, sinon 1 par lot).
+  function couvertureLot(ligneId,lotId){
+    var l=(commande.lignes||[]).find(function(x){return String(x.id)===String(ligneId);});
+    var lot=lpLotsCache.find(function(x){return String(x.id)===String(lotId);});
+    var u=l?(lpUniteByRestoCode[commande.restaurant_id+'|'+l.produit_code]||'piece'):'piece';
+    return RG.valeurLotDansUnite(lot?lot.poids_reel_g:0,u);
+  }
   var countByLigneProj={};
-  pairs.forEach(function(p){countByLigneProj[p.ligneId]=(countByLigneProj[p.ligneId]||0)+1;});
-  var toutesCouvertesProj=(commande.lignes||[]).every(function(l){return (l.quantite_couverte||0)+(countByLigneProj[l.id]||0)>=l.quantite_demandee;});
+  pairs.forEach(function(p){countByLigneProj[p.ligneId]=(countByLigneProj[p.ligneId]||0)+couvertureLot(p.ligneId,p.lotId);});
+  var toutesCouvertesProj=(commande.lignes||[]).every(function(l){return RG.arrondiQte((l.quantite_couverte||0)+(countByLigneProj[l.id]||0))>=RG.arrondiQte(l.quantite_demandee);});
   var commentaire='';
   if(!toutesCouvertesProj){
     commentaire=prompt('Cet envoi ne couvre pas toute la commande — un reliquat restera en attente.\nCommentaire (optionnel) :')||'';
@@ -2224,16 +2333,16 @@ async function envoyerLaboCommandePointage(commandeId){
     var lotUpd=await db.from('labo_lots').update({statut:'envoye'}).in('id',lotIds);
     if(lotUpd.error)throw lotUpd.error;
     var countByLigne={};
-    pairs.forEach(function(p){countByLigne[p.ligneId]=(countByLigne[p.ligneId]||0)+1;});
+    pairs.forEach(function(p){countByLigne[p.ligneId]=(countByLigne[p.ligneId]||0)+couvertureLot(p.ligneId,p.lotId);});
     for(var ligneId in countByLigne){
       var ligne=(commande.lignes||[]).find(function(l){return String(l.id)===String(ligneId);}); // clés d'objet = texte : comparaison en texte pour ne jamais rater la ligne
       if(!ligne)continue;
-      var nouvelleCouverture=(ligne.quantite_couverte||0)+countByLigne[ligneId];
+      var nouvelleCouverture=RG.arrondiQte((ligne.quantite_couverte||0)+countByLigne[ligneId]);
       var lUpd=await db.from('labo_commandes_lignes').update({quantite_couverte:nouvelleCouverture}).eq('id',ligneId);
       if(lUpd.error)throw lUpd.error;
       ligne.quantite_couverte=nouvelleCouverture;
     }
-    toutesCouvertes=(commande.lignes||[]).every(function(l){return (l.quantite_couverte||0)>=l.quantite_demandee;});
+    toutesCouvertes=(commande.lignes||[]).every(function(l){return RG.arrondiQte(l.quantite_couverte||0)>=RG.arrondiQte(l.quantite_demandee);});
     var cUpd=await db.from('labo_commandes').update({statut:toutesCouvertes?'envoyee':'partiellement_envoyee'}).eq('id',commandeId);
     if(cUpd.error)throw cUpd.error;
   }catch(e){
@@ -2248,7 +2357,7 @@ async function envoyerLaboCommandePointage(commandeId){
     pairs.forEach(function(p){(parLigne[p.ligneId]=parLigne[p.ligneId]||[]).push(p.lotId);});
     Object.keys(parLigne).forEach(function(ligneId){
       var ligne=(commande.lignes||[]).find(function(l){return String(l.id)===String(ligneId);});
-      var poids=0;parLigne[ligneId].forEach(function(lotId){var lot=lpLotsCache.find(function(x){return x.id===lotId;});if(lot)poids+=Number(lot.poids_reel_g)||0;});
+      var poids=0;parLigne[ligneId].forEach(function(lotId){var lot=lpLotsCache.find(function(x){return String(x.id)===String(lotId);});if(lot)poids+=Number(lot.poids_reel_g)||0;});
       RG.journal(db,{type:'labo_envoi',restaurant_id:commande.restaurant_id,ingredient_code:ligne?ligne.produit_code:null,produit_nom:ligne?(ligne.produit_nom||ligne.produit_code):null,quantite:parLigne[ligneId].length,detail:parLigne[ligneId].length+' lot(s)'+(poids?(' — '+RG.formatNombre(poids/1000)+' kg'):''),par_nom:creeParNom,ref_id:commandeId});
     });
   })();
@@ -2310,7 +2419,7 @@ async function menuComptage(){
     if(ingRes.error)throw ingRes.error;
     var seuilsRes=await db.from('ingredient_seuils').select('*').eq('restaurant_id',RESTAURANT_ID);
     if(seuilsRes.error)throw seuilsRes.error;
-    var comptagesRes=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).order('compte_le',{ascending:false});
+    var comptagesRes=await cptToutesLignes(function(){return db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).order('compte_le',{ascending:false}).order('id',{ascending:false});});
     if(comptagesRes.error)throw comptagesRes.error;
     // Fournisseurs marqués "🏭 Interne" (Labo) ou "🍳 Interne" (Cuisine) : sert à déclencher automatiquement
     // la commande Labo / la tâche cuisine au moment du comptage, sans passer par l'écran admin.
@@ -2728,15 +2837,62 @@ async function cptUndoLast(code){
   var toDelete=i.dernier?i.dernier.id:null;
   cptSaving[code]=true;
   try{
+    if(i._undoMode==='update'&&i._undoPrev&&toDelete){
+      // La ligne du jour existait déjà : on lui rend sa valeur d'avant (même ligne, pas de suppression).
+      var av=i._undoPrev;
+      var rb=await db.from('ingredient_comptages').update({valeur:av.valeur,type_suivi:av.type_suivi,compte_par_id:av.compte_par_id,compte_par_nom:av.compte_par_nom,compte_le:av.compte_le,commande_envoyee:!!av.commande_envoyee}).eq('id',toDelete).select().single();
+      if(rb.error){alert('Erreur : '+rb.error.message);return;}
+      i.dernier=rb.data;
+      i._canUndo=false;i._undoPrev=null;i._undoMode=null;
+      renderComptageList();
+      return;
+    }
     if(toDelete){
       var del=await db.from('ingredient_comptages').delete().eq('id',toDelete);
       if(del.error){alert('Erreur : '+del.error.message);return;}
     }
+    i._undoMode=null;
     i.dernier=i._undoPrev||null;
     i._canUndo=false;i._undoPrev=null;
     renderComptageList();
   }catch(e){console.error('cptUndoLast',e);alert('Erreur : '+e.message);}
   finally{cptSaving[code]=false;}
+}
+// Supabase ne renvoie que 1000 lignes par requête : on lit par pages pour ne jamais perdre les comptages les
+// plus récents d'un restaurant très actif (fabrique() doit renvoyer une requête NEUVE à chaque appel).
+async function cptToutesLignes(fabrique){
+  var tout=[],page=1000;
+  for(var debut=0;debut<50000;debut+=page){
+    var r=await fabrique().range(debut,debut+page-1);
+    if(r.error)return {data:null,error:r.error};
+    var lot=r.data||[];
+    tout=tout.concat(lot);
+    if(lot.length<page)break;
+  }
+  return {data:tout,error:null};
+}
+// Un seul comptage par produit, par restaurant et par journée (7h → 7h) : chaque clic sur + / − ou chaque
+// correction MET À JOUR la ligne du jour au lieu d'en créer une nouvelle (avant, chaque clic ajoutait une ligne
+// dans l'historique). La ligne garde le dernier chiffre, l'heure et le nom de la dernière personne qui a compté.
+// Renvoie {data:ligne enregistrée, mode:'insert'|'update', avant:ligne avant modification (update)}.
+async function cptEcrireComptage(code,typeSuivi,valeur){
+  var bornes=RG.bizJourneeBornes();
+  var nom=emp?((emp.prenom||'')+' '+(emp.nom||'')).trim():null;
+  var champs={type_suivi:typeSuivi,valeur:String(valeur),compte_par_id:emp?emp.id:null,compte_par_nom:nom||null,compte_le:new Date().toISOString(),commande_envoyee:false};
+  var ex=await db.from('ingredient_comptages').select('*').eq('restaurant_id',RESTAURANT_ID).eq('ingredient_code',code)
+    .gte('compte_le',bornes.debut.toISOString()).lt('compte_le',bornes.fin.toISOString()).order('compte_le',{ascending:false}).limit(1);
+  if(ex.error)return {error:ex.error};
+  var ligne=ex.data&&ex.data[0];
+  if(ligne){
+    var up=await db.from('ingredient_comptages').update(champs).eq('id',ligne.id).select().single();
+    if(up.error)return {error:up.error};
+    return {data:up.data,mode:'update',avant:ligne};
+  }
+  var payload=Object.assign({restaurant_id:RESTAURANT_ID,ingredient_code:code},champs);
+  delete payload.commande_envoyee; // valeur par défaut de la table pour une nouvelle ligne
+  var ins=await db.from('ingredient_comptages').insert(payload).select().single();
+  if(ins.error)return {error:ins.error};
+  return {data:ins.data,mode:'insert',avant:null};
 }
 async function saveComptage(code,choiceVal){
   var i=cptIngredients.find(function(x){return x.code===code;});
@@ -2755,11 +2911,12 @@ async function saveComptage(code,choiceVal){
   cptSaving[code]=true;
   try{
     var prevDernier=i.dernier?JSON.parse(JSON.stringify(i.dernier)):null;
-    var payload={restaurant_id:RESTAURANT_ID,ingredient_code:code,type_suivi:i.type_suivi,valeur:String(valeur),compte_par_id:emp?emp.id:null,compte_par_nom:emp?(emp.prenom+' '+emp.nom):null,compte_le:new Date().toISOString()};
-    var ins=await db.from('ingredient_comptages').insert(payload).select().single();
-    if(ins.error){alert('Erreur : '+ins.error.message);return;}
-    i.dernier=ins.data;
-    i._undoPrev=prevDernier;i._canUndo=true;
+    var ecr=await cptEcrireComptage(code,i.type_suivi,valeur);
+    if(ecr.error){alert('Erreur : '+ecr.error.message);return;}
+    i.dernier=ecr.data;
+    // Annuler : une ligne créée est supprimée ; une ligne du jour modifiée retrouve sa valeur d'avant.
+    i._undoMode=ecr.mode;
+    i._undoPrev=ecr.mode==='update'?ecr.avant:prevDernier;i._canUndo=true;
     renderComptageList();
     cptAutoCommandeLaboSiNecessaire(i); // pas de await : ne bloque jamais l'écran de comptage, juste en tâche de fond
     cptAutoCommandeCuisineSiNecessaire(i);
