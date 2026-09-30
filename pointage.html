@@ -1174,9 +1174,12 @@ async function comptageCatsForEmployee(){
   var catsRemove=(fresh&&fresh.data&&Array.isArray(fresh.data.comptage_cats_remove))?fresh.data.comptage_cats_remove:[];
   var rolesFull=[];
   if(roleIds.length){
-    var rolesRes=await db.from('roles').select('id,nom,comptage_categories,comptage_ingredients_include,comptage_ingredients_exclude').in('id',roleIds);
+    // select('*') : la colonne « restaurants » (rôle limité à certains restaurants) peut ne pas encore exister
+    // côté Supabase — une requête qui la nomme échouerait entièrement.
+    var rolesRes=await db.from('roles').select('*').in('id',roleIds);
     if(rolesRes.error)throw rolesRes.error;
-    rolesFull=rolesRes.data||[];
+    // Seuls les rôles valables dans le restaurant où l'on compte (Admin > Rôles > Restaurants).
+    rolesFull=(rolesRes.data||[]).filter(function(r){return RG.roleValablePour(r,RESTAURANT_ID);});
   }
   cptAllRoleObjs=rolesFull.map(function(r){return{id:r.id,nom:r.nom};});
   var effectiveRoles=(cptSelectedRoleIds&&cptSelectedRoleIds.length)?rolesFull.filter(function(r){return cptSelectedRoleIds.indexOf(r.id)>=0;}):rolesFull;
@@ -1363,8 +1366,9 @@ async function loadCommandesFournisseursData(){
   // tout le monde a fait sa part avant d'envoyer, même les articles déjà recomptés au-dessus du seuil et
   // donc plus affichés dans la liste "à commander".
   try{
-    var rolesRes=await db.from('roles').select('id,nom,comptage_categories,comptage_ingredients_include,comptage_ingredients_exclude');
-    var rolesList=rolesRes.data||[];
+    var rolesRes=await db.from('roles').select('*');
+    // Seuls les rôles valables dans le(s) restaurant(s) de cet écran (Admin > Rôles > Restaurants).
+    var rolesList=(rolesRes.data||[]).filter(function(r){return RG.roleValablePour(r,mergeScope);});
     var rolesById={};rolesList.forEach(function(r){rolesById[r.id]=r;});
     // Un poste (rôle) n'est "concerné" (pour la pastille par fournisseur ci-dessous) que s'il est réellement
     // tenu par au moins un salarié DE CE restaurant (ou de l'autre restaurant fusionné pour Dabray/Labo) —
@@ -2278,10 +2282,15 @@ async function menuComptage(){
       var roleCheckRes=await db.from('employees').select('roles').eq('id',emp.id).single();
       var roleIdsCheck=(roleCheckRes&&roleCheckRes.data&&Array.isArray(roleCheckRes.data.roles))?roleCheckRes.data.roles:[];
       if(roleIdsCheck.length>1){
-        var rolesNomRes=await db.from('roles').select('id,nom').in('id',roleIdsCheck);
-        cptAllRoleObjs=(rolesNomRes.data||[]).map(function(r){return{id:r.id,nom:r.nom};});
-        cptRenderPosteChoix();
-        return;
+        // On ne propose que les postes valables dans CE restaurant : un rôle limité à d'autres restaurants
+        // n'apparaît pas dans le choix (ex. au Labo, seuls les postes du Labo).
+        var rolesNomRes=await db.from('roles').select('*').in('id',roleIdsCheck);
+        var rolesIci=(rolesNomRes.data||[]).filter(function(r){return RG.roleValablePour(r,RESTAURANT_ID);});
+        if(rolesIci.length>1){
+          cptAllRoleObjs=rolesIci.map(function(r){return{id:r.id,nom:r.nom};});
+          cptRenderPosteChoix();
+          return;
+        }
       }
       cptRoleChoixDone=true;
     }
@@ -2420,6 +2429,8 @@ function openComptageRestaurantSwitcher(){
   restos=restos.filter(function(r,idx){return restos.indexOf(r)===idx;});
   if(restos.length<=1)return; // rien à choisir
   renderRestoPicker(restos,function(rid){
+    // Les postes proposés dépendent du restaurant (rôles limités à certains restaurants) : on redemande.
+    if(rid!==RESTAURANT_ID){cptSelectedRoleIds=null;cptRoleChoixDone=false;}
     RESTAURANT_ID=rid;
     applyRestaurantMenuVisibility();
     try{checkCommandesFournisseursBadge();checkCuisineTachesBadge();if(RESTAURANT_ID==='labo')checkLaboPrepBadge();}catch(e){}

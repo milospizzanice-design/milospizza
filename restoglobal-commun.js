@@ -298,6 +298,17 @@
     return (d?new Date(d):new Date()).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   };
 
+  // ── Rôles (postes) valables selon le restaurant ────────────────────────────────────────────────────────
+  // roles.restaurants = liste des restaurants où le rôle s'applique ; vide ou absent = tous les restaurants.
+  // Ex. un salarié « Pizzaiolo + Labo » qui se connecte au Labo ne se voit proposer que le poste Labo.
+  RG.roleValablePour=function(role,restoIds){
+    if(!role)return false;
+    var liste=Array.isArray(role.restaurants)?role.restaurants:[];
+    if(!liste.length)return true;
+    var ids=Array.isArray(restoIds)?restoIds:[restoIds];
+    return ids.some(function(r){return liste.indexOf(r)>=0;});
+  };
+
   // ── Journal des opérations (jamais modifié ni effacé) ─────────────────────────────────────────────────
   // Sert de preuve : « à 17h05, 4 chèvre ont été demandés en cuisine », « fait par X à 18h10 »…
   // Ne bloque jamais l'action en cours : en cas d'échec (table absente…), renvoie false et l'écrit en console.

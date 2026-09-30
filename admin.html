@@ -57,11 +57,31 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .iba{color:#991B1B;font-size:11px}
 .fl{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
 .fs{background:#fff;border:1px solid var(--bd);border-radius:7px;padding:6px 9px;font-size:12px;color:var(--tx);outline:none}
-.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600}
-.bp{background:var(--bx);color:#fff}
-.bs{background:#FAF4EC;color:var(--tx);border:1px solid var(--bd)}
-.bg2{background:#276749;color:#fff}
-.ba{background:#92610A;color:#fff}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;
+  /* Relief : léger dégradé clair en haut + ombre portée + liseré sombre en bas ; s'enfonce au clic. */
+  background-image:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0) 55%);
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.16),0 2px 4px rgba(0,0,0,.14);
+  transition:transform .08s ease,box-shadow .08s ease,filter .12s ease}
+.btn:hover{filter:brightness(1.04)}
+.btn:active{transform:translateY(1px);box-shadow:inset 0 1px 2px rgba(0,0,0,.2),0 1px 1px rgba(0,0,0,.1)}
+.btn:disabled{opacity:.55;cursor:default;transform:none}
+.bp{background-color:var(--bx);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+.bs{background-color:#FFFBF5;color:var(--tx);border:1px solid var(--bd)}
+.bg2{background-color:#276749;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+.ba{background-color:#92610A;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+/* Gros bouton « Ajouter » et carte « Importer un bon de livraison » (liste des ingrédients) */
+.btn-xl{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;font-size:15px;font-weight:800;border-radius:12px;flex:1;min-width:180px}
+.bl-card{flex:1;min-width:220px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:none;cursor:pointer;text-align:left;color:#fff;
+  background:linear-gradient(135deg,#1F4E79 0%,#2E75B6 100%);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2),0 3px 8px rgba(31,78,121,.3);transition:transform .08s ease,box-shadow .08s ease}
+.bl-card:active{transform:translateY(1px);box-shadow:inset 0 1px 2px rgba(0,0,0,.25),0 1px 2px rgba(0,0,0,.15)}
+.bl-card .bl-ico{font-size:26px;line-height:1;background:rgba(255,255,255,.18);border-radius:10px;padding:8px}
+.bl-card .bl-t1{font-size:13px;font-weight:800}
+.bl-card .bl-t2{font-size:10px;opacity:.85;margin-top:2px}
+.gadd-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:12px 14px;margin-bottom:8px;border-radius:10px;border:1px solid var(--bd);background:#FFFBF5;cursor:pointer;text-align:left;
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.08)}
+.gadd-tile:active{transform:translateY(1px)}
+.gadd-tile b{font-size:14px;color:var(--tx)}
+.gadd-tile span{font-size:11px;color:var(--txm)}
 .sm{padding:4px 9px;font-size:11px}
 .mb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:14px}
 #modal-dem.op,#modal-aco.op,#modal-pinreset.op{z-index:250}
@@ -456,13 +476,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
           <option value="sanscible">🎯 Sans cible (à renseigner)</option>
         </select>
       </div>
-      <button class="btn bs sm" onclick="openNewIngredientModal()" style="margin-bottom:6px;">+ Ajouter un ingrédient manuellement</button>
-      <button class="btn ba sm" onclick="openBlImportModal()" style="margin-bottom:6px;">📷 Importer un BL / catalogue fournisseur</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn bp btn-xl" onclick="openGuidedAdd()">&#10133; Ajouter</button>
+        <button type="button" class="bl-card" onclick="openBlImportModal()">
+          <span class="bl-ico">&#128247;</span>
+          <span><div class="bl-t1">Importer un bon de livraison</div><div class="bl-t2">Photo ou PDF &mdash; produits et prix lus automatiquement, &agrave; valider ligne par ligne</div></span>
+        </button>
+      </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-        <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvelle section</button>
-        <button class="btn bs sm" onclick="openCategoryEditModal(null)">+ Nouvelle catégorie</button>
         <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
-        <button class="btn bs sm" onclick="mergeOldPerRestoPrices()" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;" title="Utile une seule fois : fusionne les anciens prix qui étaient enregistrés séparément par restaurant, en un seul prix commun">🔀 Fusionner les anciens prix par restaurant</button>
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
         <button class="btn bs sm" onclick="openBesoinsComptageModal()">🛒 Besoins (comptage)</button>
         <button class="btn bp sm" id="ing-tree-toggle-btn" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
@@ -649,6 +671,16 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 </div>
 
 <!-- Modal menu contextuel "+" -->
+<!-- « ➕ Ajouter » guidé (liste des ingrédients) : un seul bouton, puis choix de ce qu'on ajoute avec les
+     sections / catégories / sous-catégories / ingrédients existants proposés. -->
+<div class="mb" id="mgadd">
+  <div class="md" style="max-width:420px;">
+    <div class="mdt" id="gadd-title">Ajouter</div>
+    <div id="gadd-body"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('mgadd')">Annuler</button></div>
+  </div>
+</div>
+
 <div class="mb" id="qam">
   <div class="md" style="max-width:340px;">
     <div class="mdt" id="qam-title">Ajouter</div>
@@ -2746,7 +2778,8 @@ async function loadRoles(){
     var nCptCats=(ro.comptage_categories||[]).length;
     h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">';
     h+='<span style="width:14px;height:14px;border-radius:50%;background:'+(ro.couleur||'#B91E26')+';flex-shrink:0"></span>';
-    h+='<span style="flex:1;font-size:13px;font-weight:600">'+ro.nom+'<div style="font-size:10px;font-weight:400;color:var(--txm)">'+(nCptCats?nCptCats+' cat\u00e9gorie(s) comptage':'aucun acc\u00e8s comptage')+'</div></span>';
+    var restosRole=Array.isArray(ro.restaurants)&&ro.restaurants.length?ro.restaurants.map(function(id){var rd=(typeof restosData!=='undefined'?restosData:[]).find(function(x){return x.id===id;});return rd?(rd.nom||rd.id):id;}).join(', '):'tous les restaurants';
+    h+='<span style="flex:1;font-size:13px;font-weight:600">'+ro.nom+'<div style="font-size:10px;font-weight:400;color:var(--txm)">'+(nCptCats?nCptCats+' cat\u00e9gorie(s) comptage':'aucun acc\u00e8s comptage')+' &middot; &#128205; '+esc(restosRole)+'</div></span>';
     h+='<button class="btn bs sm" onclick="openEditRole('+ro.id+')">\u270E</button>';
     h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="delRole('+ro.id+')">\u{1F5D1}</button>';
     h+='</div>';
@@ -3017,23 +3050,21 @@ function computeIngredientRoleCoverage(tree,actifMap){
       c.sousCats.forEach(function(sc){sc.ingredients.forEach(function(ig){codeToCategory[ig.code]=c.nom;});});
     });
   });
-  var coveredByCode={};
-  (rolesData||[]).forEach(function(r){
-    var cats=r.comptage_categories||[];
-    var inc=new Set(r.comptage_ingredients_include||[]);
-    var exc=new Set(r.comptage_ingredients_exclude||[]);
-    Object.keys(codeToCategory).forEach(function(code){
-      if(coveredByCode[code])return;
-      var byCat=cats.indexOf(codeToCategory[code])>=0&&!exc.has(code);
-      var byInc=inc.has(code);
-      if(byCat||byInc)coveredByCode[code]=true;
+  // Couverture PAR restaurant : un rôle limité à certains restaurants (roles.restaurants) ne couvre un
+  // produit que dans ces restaurants-là (même règle que la tablette, RG.roleValablePour).
+  function couvert(code,restoId){
+    return (rolesData||[]).some(function(r){
+      if(!RG.roleValablePour(r,restoId))return false;
+      var byCat=(r.comptage_categories||[]).indexOf(codeToCategory[code])>=0&&(r.comptage_ingredients_exclude||[]).indexOf(code)<0;
+      var byInc=(r.comptage_ingredients_include||[]).indexOf(code)>=0;
+      return byCat||byInc;
     });
-  });
+  }
   var byCode={};
   Object.keys(codeToCategory).forEach(function(code){
     var m={};
     Object.keys(actifMap).forEach(function(restoId){
-      if(actifMap[restoId][code])m[restoId]=!!coveredByCode[code];
+      if(actifMap[restoId][code])m[restoId]=couvert(code,restoId);
     });
     if(Object.keys(m).length)byCode[code]=m;
   });
@@ -3098,11 +3129,27 @@ function readRoleIngredientOverrides(comptageCats){
   });
   return{include:include,exclude:exclude};
 }
+// Restaurants où un rôle s'applique (roles.restaurants, vide = tous) — lu par la tablette via
+// RG.roleValablePour (restoglobal-commun.js).
+function renderRoleRestosCheckboxes(selected){
+  var box=document.getElementById('role-restos');if(!box)return;
+  selected=selected||[];
+  var restos=(typeof restosData!=='undefined'?restosData:[]);
+  box.innerHTML=restos.length?restos.map(function(r){
+    return '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:5px 10px;border:1px solid var(--bd);border-radius:20px;cursor:pointer;">'
+      +'<input type="checkbox" class="role-resto-chk" value="'+esc(r.id)+'"'+(selected.indexOf(r.id)>=0?' checked':'')+'> '+esc(r.nom||r.id)+'</label>';
+  }).join(''):'<span style="font-size:11px;color:var(--txm)">Aucun établissement configuré.</span>';
+}
+function readRoleRestosCheckboxes(){
+  var box=document.getElementById('role-restos');if(!box)return[];
+  return Array.prototype.slice.call(box.querySelectorAll('input.role-resto-chk:checked')).map(function(i){return i.value;});
+}
 function openAddRole(){
   roleEditId=null;
   document.getElementById('role-modal-title').textContent='Nouveau r\u00f4le';
   document.getElementById('role-nom').value='';
   document.getElementById('role-couleur').value='#B91E26';
+  renderRoleRestosCheckboxes([]);
   roleComptageFilterRestos=[];
   renderRoleComptageRestoFilter();
   renderRoleComptageCatsCheckboxes([],[],[]);
@@ -3116,6 +3163,7 @@ function openEditRole(id){
   document.getElementById('role-modal-title').textContent='Modifier le r\u00f4le';
   document.getElementById('role-nom').value=ro.nom;
   document.getElementById('role-couleur').value=ro.couleur||'#B91E26';
+  renderRoleRestosCheckboxes(Array.isArray(ro.restaurants)?ro.restaurants:[]);
   roleComptageFilterRestos=[];
   renderRoleComptageRestoFilter();
   renderRoleComptageCatsCheckboxes(ro.comptage_categories||[],ro.comptage_ingredients_include||[],ro.comptage_ingredients_exclude||[]);
@@ -3128,14 +3176,19 @@ async function saveRole(){
   var comptageCats=readRoleComptageCatsCheckboxes();
   var ingOverrides=readRoleIngredientOverrides(comptageCats);
   if(!nom){alert('Indiquez un nom');return;}
-  var payload={nom:nom,couleur:couleur,comptage_categories:comptageCats,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude};
-  if(roleEditId){
-    var r=await db.from('roles').update(payload).eq('id',roleEditId);
-    if(r.error){alert('Erreur: '+r.error.message);return;}
-  }else{
-    var r2=await db.from('roles').insert(payload);
-    if(r2.error){alert('Erreur: '+r2.error.message);return;}
+  var payload={nom:nom,couleur:couleur,comptage_categories:comptageCats,comptage_ingredients_include:ingOverrides.include,comptage_ingredients_exclude:ingOverrides.exclude,restaurants:readRoleRestosCheckboxes()};
+  async function ecrire(pl){
+    return roleEditId?await db.from('roles').update(pl).eq('id',roleEditId):await db.from('roles').insert(pl);
   }
+  var r=await ecrire(payload);
+  // Repli si la colonne « restaurants » n'existe pas encore (script SQL pas exécuté) : on enregistre le reste
+  // et on prévient, plutôt que de tout perdre.
+  if(r.error&&(r.error.message||'').indexOf('restaurants')>=0){
+    var sansRestos=Object.assign({},payload);delete sansRestos.restaurants;
+    r=await ecrire(sansRestos);
+    if(!r.error)alert('Rôle enregistré, mais pas les restaurants : le script SQL « roles_restaurants » doit d\'abord être exécuté dans Supabase.');
+  }
+  if(r.error){alert('Erreur: '+r.error.message);return;}
   closeM('modal-role');loadRoles();
 }
 async function delRole(id){
@@ -4421,7 +4474,9 @@ async function renderComptageApercuList(preserveScroll){
     return e.actif!==false&&!e.archive&&(e.restaurant_id===restoId||(e.restaurants_secondaires||[]).indexOf(restoId)>=0);
   });
   var rolesAtResto={};
-  empsAtResto.forEach(function(e){(e.roles||[]).forEach(function(rid){rolesAtResto[rid]=true;});});
+  // Seuls les rôles valables dans ce restaurant (Admin > Rôles > Restaurants).
+  var roleValideIci={};(rolesData||[]).forEach(function(r){roleValideIci[r.id]=RG.roleValablePour(r,restoId);});
+  empsAtResto.forEach(function(e){(e.roles||[]).forEach(function(rid){if(roleValideIci[rid])rolesAtResto[rid]=true;});});
   var rolesById={};
   (rolesData||[]).forEach(function(r){rolesById[r.id]=r;});
   if(legend){
@@ -4547,10 +4602,11 @@ function flattenComptageTree(tree){
 // Reprend exactement la logique de comptageCatsForEmployee + filtre cptIngredients côté pointage.html :
 // catégories couvertes par le(s) rôle(s) + exceptions catégorie de l'employé, plus/moins les exceptions
 // fines par ingrédient (rôle puis employé, l'employé ayant le dernier mot).
-function employeeComptageDetailList(em,rolesById,flatIngredients,activeCodes){
+function employeeComptageDetailList(em,rolesById,flatIngredients,activeCodes,restoId){
   var catsSet={},ingInclude={},ingExclude={};
   (em.roles||[]).forEach(function(rid){
     var r=rolesById[rid];if(!r)return;
+    if(restoId&&!RG.roleValablePour(r,restoId))return; // rôle limité à d'autres restaurants
     (r.comptage_categories||[]).forEach(function(c){catsSet[c]=true;});
     (r.comptage_ingredients_include||[]).forEach(function(code){ingInclude[code]=true;});
     (r.comptage_ingredients_exclude||[]).forEach(function(code){ingExclude[code]=true;});
@@ -4589,7 +4645,7 @@ async function renderPlanningComptageList(){
       if(!em||em.archive)return null; // salarié archivé : ignoré même s'il reste un créneau planning résiduel
       var crs=byEmp[eid].slice().sort(function(a,b){return (a.heure_debut||'').localeCompare(b.heure_debut||'');});
       var horaire=crs.map(function(c){return (c.heure_debut||'').slice(0,5)+'\u2013'+(c.heure_fin||'').slice(0,5);}).join(', ');
-      var ings=employeeComptageDetailList(em,rolesById,flat,activeCodes);
+      var ings=employeeComptageDetailList(em,rolesById,flat,activeCodes,restoId);
       return {emp:em,horaire:horaire,ings:ings};
     }).filter(Boolean).sort(function(a,b){return (a.emp.prenom+a.emp.nom).localeCompare(b.emp.prenom+b.emp.nom,'fr');});
     if(!rows.length){
@@ -4880,7 +4936,8 @@ async function salDiagnostiquerProduit(){
   resDiv.innerHTML='Calcul en cours...';
   var ing=salDiagIngredientsCache.find(function(i){return i.code===code;});
   var cat=(ing&&ing.categorie)||'Autre';
-  var roleObjs=(tmpSalRoles||[]).map(function(rid){return (rolesData||[]).find(function(r){return r.id===rid;});}).filter(Boolean);
+  var roleObjs=(tmpSalRoles||[]).map(function(rid){return (rolesData||[]).find(function(r){return r.id===rid;});}).filter(Boolean)
+    .filter(function(r){return RG.roleValablePour(r,restoId);}); // rôles limités à d'autres restaurants : sans effet ici
   var roleCatsSet={},roleInc=new Set(),roleExc=new Set();
   roleObjs.forEach(function(r){
     (r.comptage_categories||[]).forEach(function(c){roleCatsSet[c]=true;});
@@ -6236,6 +6293,13 @@ let rctProduitDispo={}; // {produit_vendu_code: actif} — disponibilité PAR re
 let rctOngletsOrdre={};          // {nom_onglet: ordre} — ex: Food, Boissons — niveau au-dessus des catégories, commun
 let rctCategoriesOrdre={};       // {nom_categorie: {ordre, onglet, unite_defaut_mesure}} — commun à Produits&recettes ET Coûts
 let rctSousCategoriesOrdre={};   // {nom_categorie: {nom_sous_categorie: ordre}}
+let rctSousCategoriesFournisseur={}; // {nom_categorie: {nom_sous_categorie: fournisseur_defaut_id}} — fournisseur par défaut de la sous-catégorie
+// Fournisseur par défaut d'un ingrédient = celui de sa sous-catégorie (réglé dans la fiche catégorie).
+function fournisseurDefautPourIngredient(code){
+  var ing=rctIngredients.find(function(x){return x.code===code;});
+  if(!ing||!ing.sous_categorie)return null;
+  return (rctSousCategoriesFournisseur[ing.categorie]||{})[ing.sous_categorie]||null;
+}
 let rctIngredientComposition={}; // {ingredient_code: [{sub_ingredient_code,quantite,unite}]} — composé d'autres ingrédients directement, propre au restaurant courant
 let rctPendingSeuilSaves=[]; // promesses updateIngredientSeuil en cours — permet à un rechargement (ex: changement de restaurant) d'attendre la fin des sauvegardes avant de re-fetcher, pour ne pas écraser un changement pas encore commité côté serveur
 let rctCurrentSub='list';
@@ -6348,10 +6412,11 @@ async function loadCaisseModule(){
     (ongOrd.data||[]).forEach(function(r){rctOngletsOrdre[r.nom]=r.ordre;});
     rctCategoriesOrdre={};
     (catOrd.data||[]).forEach(function(r){rctCategoriesOrdre[r.nom]={ordre:r.ordre,onglet:r.onglet||null,unite_defaut_mesure:r.unite_defaut_mesure||null};});
-    rctSousCategoriesOrdre={};
+    rctSousCategoriesOrdre={};rctSousCategoriesFournisseur={};
     (subOrd.data||[]).forEach(function(r){
       rctSousCategoriesOrdre[r.categorie]=rctSousCategoriesOrdre[r.categorie]||{};
       rctSousCategoriesOrdre[r.categorie][r.nom]=r.ordre;
+      if(r.fournisseur_defaut_id){rctSousCategoriesFournisseur[r.categorie]=rctSousCategoriesFournisseur[r.categorie]||{};rctSousCategoriesFournisseur[r.categorie][r.nom]=r.fournisseur_defaut_id;}
     });
   }
   // Idem pour les produits vendus (avec recette) — nécessaires pour détecter une recette déjà
@@ -7707,10 +7772,11 @@ async function loadRecettesModule(){
     (ongOrd.data||[]).forEach(function(r){rctOngletsOrdre[r.nom]=r.ordre;});
     rctCategoriesOrdre={};
     (catOrd.data||[]).forEach(function(r){rctCategoriesOrdre[r.nom]={ordre:r.ordre,onglet:r.onglet||null,unite_defaut_mesure:r.unite_defaut_mesure||null};});
-    rctSousCategoriesOrdre={};
+    rctSousCategoriesOrdre={};rctSousCategoriesFournisseur={};
     (subOrd.data||[]).forEach(function(r){
       rctSousCategoriesOrdre[r.categorie]=rctSousCategoriesOrdre[r.categorie]||{};
       rctSousCategoriesOrdre[r.categorie][r.nom]=r.ordre;
+      if(r.fournisseur_defaut_id){rctSousCategoriesFournisseur[r.categorie]=rctSousCategoriesFournisseur[r.categorie]||{};rctSousCategoriesFournisseur[r.categorie][r.nom]=r.fournisseur_defaut_id;}
     });
     rctIngredientComposition={};
     (ic.data||[]).forEach(function(r){
@@ -8171,7 +8237,144 @@ async function quickAddSubcat(cat,name){
 }
 function qamAddIngredient(){
   closeM('qam');
-  openNewIngredientModal(qamCat);
+  openGuidedAdd('ingredient',qamCat);
+}
+// ── « ➕ Ajouter » guidé ────────────────────────────────────────────────────────────────────────────
+// Remplace les anciens boutons séparés (nouvelle section, nouvelle catégorie, ajouter un ingrédient) :
+// on choisit ce qu'on ajoute, puis l'emplacement parmi ce qui existe déjà (aucune saisie libre de catégorie
+// → plus de doublons « Fromage » / « Fromages »), avec les produits déjà existants signalés.
+var gaddPresetCat=null,gaddPresetSub=null;
+function openGuidedAdd(etape,presetCat,presetSub){
+  gaddPresetCat=presetCat||null;gaddPresetSub=presetSub||null;
+  gaddRender(etape||'type');
+  openM('mgadd');
+}
+function gaddCategoriesOptions(selected){
+  var byOng={};
+  Object.keys(rctCategoriesOrdre).forEach(function(c){var o=rctCategoriesOrdre[c].onglet||'Sans section';(byOng[o]=byOng[o]||[]).push(c);});
+  var ongs=Object.keys(byOng).sort(function(a,b){var oa=rctOngletsOrdre[a]!=null?rctOngletsOrdre[a]:9999,ob=rctOngletsOrdre[b]!=null?rctOngletsOrdre[b]:9999;return oa!==ob?oa-ob:a.localeCompare(b,'fr');});
+  return ongs.map(function(o){
+    return '<optgroup label="'+esc(o)+'">'+byOng[o].sort(function(a,b){var oa=rctCategoriesOrdre[a].ordre||0,ob=rctCategoriesOrdre[b].ordre||0;return oa!==ob?oa-ob:a.localeCompare(b,'fr');}).map(function(c){return '<option value="'+esc(c)+'"'+(c===selected?' selected':'')+'>'+esc(c)+'</option>';}).join('')+'</optgroup>';
+  }).join('');
+}
+function gaddSousCatsOptions(cat,selected){
+  var subs=rctSousCategoriesOrdre[cat]||{};
+  return '<option value="">— aucune —</option>'+Object.keys(subs).sort(function(a,b){return (subs[a]||0)-(subs[b]||0);}).map(function(n){return '<option value="'+esc(n)+'"'+(n===selected?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+}
+function gaddRender(etape){
+  var body=document.getElementById('gadd-body'),title=document.getElementById('gadd-title');
+  if(etape==='type'){
+    title.textContent='Que veux-tu ajouter ?';
+    body.innerHTML='<button type="button" class="gadd-tile" onclick="gaddRender(\'ingredient\')"><b>🧾 Un ingrédient / produit</b><span>Rangé dans une catégorie et une sous-catégorie existantes</span></button>'
+      +'<button type="button" class="gadd-tile" onclick="gaddRender(\'souscat\')"><b>📁 Une sous-catégorie</b><span>Dans une catégorie existante (ex. « Fromages » › « Burratas »)</span></button>'
+      +'<button type="button" class="gadd-tile" onclick="gaddRender(\'categorie\')"><b>📂 Une catégorie</b><span>Dans une section existante (ex. « Food »)</span></button>'
+      +'<button type="button" class="gadd-tile" onclick="closeM(\'mgadd\');openOngletEditModal(null);"><b>🗂 Une section</b><span>Le niveau le plus haut (ex. « Food », « Boissons », « Hygiène »)</span></button>';
+    return;
+  }
+  var retour='<button type="button" class="btn bs sm" style="margin-bottom:10px;" onclick="gaddRender(\'type\')">← Retour</button>';
+  if(etape==='ingredient'){
+    title.textContent='Nouvel ingrédient / produit';
+    var cat0=gaddPresetCat||Object.keys(rctCategoriesOrdre)[0]||'';
+    body.innerHTML=retour
+      +'<div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="gadd-nom" placeholder="Ex: Burrata 125 g" oninput="gaddSuggestIngredients()"></div>'
+      +'<div id="gadd-sugg" style="margin:-4px 0 8px;"></div>'
+      +'<div class="fr"><label class="fl2">Catégorie</label><select class="fi" id="gadd-cat" onchange="gaddMajSousCats()">'+gaddCategoriesOptions(cat0)+'</select></div>'
+      +'<div class="fr"><label class="fl2">Sous-catégorie</label><select class="fi" id="gadd-sub" onchange="gaddMajFournDefaut()">'+gaddSousCatsOptions(cat0,gaddPresetSub)+'</select></div>'
+      +'<div id="gadd-fourn" style="font-size:11px;color:var(--txm);margin:-4px 0 8px;"></div>'
+      +'<button class="btn bp" style="width:100%;justify-content:center;" onclick="gaddCreerIngredient()">Créer</button>';
+    gaddMajFournDefaut();
+    setTimeout(function(){var n=document.getElementById('gadd-nom');if(n)n.focus();},100);
+    return;
+  }
+  if(etape==='souscat'){
+    title.textContent='Nouvelle sous-catégorie';
+    body.innerHTML=retour
+      +'<div class="fr"><label class="fl2">Dans la catégorie</label><select class="fi" id="gadd-cat" onchange="gaddSuggestSousCats()">'+gaddCategoriesOptions(gaddPresetCat)+'</select></div>'
+      +'<div class="fr"><label class="fl2">Nom de la sous-catégorie</label><input type="text" class="fi" id="gadd-nom" oninput="gaddSuggestSousCats()"></div>'
+      +'<div id="gadd-sugg" style="margin:-4px 0 8px;"></div>'
+      +'<button class="btn bp" style="width:100%;justify-content:center;" onclick="gaddCreerSousCat()">Créer</button>';
+    gaddSuggestSousCats();
+    return;
+  }
+  if(etape==='categorie'){
+    title.textContent='Nouvelle catégorie';
+    var ongs=Object.keys(rctOngletsOrdre).sort(function(a,b){return (rctOngletsOrdre[a]||0)-(rctOngletsOrdre[b]||0);});
+    body.innerHTML=retour
+      +'<div class="fr"><label class="fl2">Dans la section</label><select class="fi" id="gadd-ong">'+ongs.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+'</option>';}).join('')+'</select></div>'
+      +'<div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Catégories existantes dans les sections : '+esc(Object.keys(rctCategoriesOrdre).sort(function(a,b){return a.localeCompare(b,'fr');}).join(', '))+'</div>'
+      +'<button class="btn bp" style="width:100%;justify-content:center;" onclick="gaddCreerCategorie()">Continuer</button>';
+    return;
+  }
+}
+function gaddMajSousCats(){
+  var cat=document.getElementById('gadd-cat').value;
+  document.getElementById('gadd-sub').innerHTML=gaddSousCatsOptions(cat,null);
+  gaddMajFournDefaut();
+}
+function gaddMajFournDefaut(){
+  var el=document.getElementById('gadd-fourn');if(!el)return;
+  var cat=document.getElementById('gadd-cat').value,sub=document.getElementById('gadd-sub').value;
+  var fd=sub?(rctSousCategoriesFournisseur[cat]||{})[sub]:null;
+  var fs=fd?rctSuppliers.find(function(x){return String(x.id)===String(fd);}):null;
+  el.innerHTML=fs?('🚚 Fournisseur par défaut de cette sous-catégorie : <b>'+esc(fs.nom)+'</b> (appliqué au premier réglage de stock)'):'';
+}
+function gaddNorm(t){return (t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+function gaddSuggestIngredients(){
+  var q=gaddNorm(document.getElementById('gadd-nom').value);
+  var box=document.getElementById('gadd-sugg');
+  if(q.length<2){box.innerHTML='';return;}
+  var found=rctIngredients.filter(function(i){return gaddNorm(i.nom).indexOf(q)>=0;}).slice(0,6);
+  box.innerHTML=found.length?('<div style="font-size:10px;color:#92400E;font-weight:700;margin-bottom:3px;">Existe déjà :</div>'+found.map(function(i){
+    return '<div style="font-size:11px;padding:3px 0;cursor:pointer;color:var(--tx);" onclick="gaddOuvrirIngredient(\''+i.code+'\')">• '+esc(i.nom)+' <span style="color:var(--txm)">('+esc(i.categorie||'')+(i.sous_categorie?' › '+esc(i.sous_categorie):'')+')</span></div>';
+  }).join('')):'';
+}
+function gaddOuvrirIngredient(code){
+  var ing=rctIngredients.find(function(i){return i.code===code;});
+  closeM('mgadd');
+  if(!ing)return;
+  rctIngExpanded[code]=true;
+  var se=document.getElementById('rct-ing-search');if(se)se.value=ing.nom;
+  renderIngredientsList();
+}
+function gaddSuggestSousCats(){
+  var cat=document.getElementById('gadd-cat').value;
+  var box=document.getElementById('gadd-sugg');if(!box)return;
+  var subs=Object.keys(rctSousCategoriesOrdre[cat]||{});
+  box.innerHTML=subs.length?('<div style="font-size:11px;color:var(--txm);">Déjà dans « '+esc(cat)+' » : '+esc(subs.join(', '))+'</div>'):'<div style="font-size:11px;color:var(--txm);">Aucune sous-catégorie dans « '+esc(cat)+' » pour l\'instant.</div>';
+}
+async function gaddCreerIngredient(){
+  var nom=(document.getElementById('gadd-nom').value||'').trim();
+  var cat=document.getElementById('gadd-cat').value;
+  var sub=document.getElementById('gadd-sub').value||null;
+  if(!nom){alert('Indique un nom.');return;}
+  if(!cat){alert('Choisis une catégorie.');return;}
+  var code=slugify(nom);
+  // Un ingrédient avec le même code OU le même nom (accents/majuscules ignorés) existe déjà : on ne crée pas
+  // de doublon et on ne l'écrase pas (avant, l'ajout manuel le remplaçait silencieusement, catégorie comprise).
+  var exist=rctIngredients.find(function(i){return i.code===code||gaddNorm(i.nom)===gaddNorm(nom);});
+  if(exist){alert('« '+exist.nom+' » existe déjà ('+(exist.categorie||'')+(exist.sous_categorie?' › '+exist.sous_categorie:'')+').');gaddOuvrirIngredient(exist.code);return;}
+  try{
+    sbCheck(await db.from('ingredients').insert([{restaurant_id:RCT_GLOBAL,code:code,nom:nom,categorie:cat,sous_categorie:sub,actif:true}]));
+    closeM('mgadd');
+    await loadRecettesModule();
+    rctIngExpanded[code]=true;
+    var se=document.getElementById('rct-ing-search');if(se)se.value=nom;
+    renderIngredientsList();
+  }catch(e){console.error('gaddCreerIngredient',e);alert('Erreur lors de la création : '+e.message);}
+}
+async function gaddCreerSousCat(){
+  var cat=document.getElementById('gadd-cat').value;
+  var nom=(document.getElementById('gadd-nom').value||'').trim();
+  if(!cat||!nom){alert('Choisis une catégorie et indique un nom.');return;}
+  if((rctSousCategoriesOrdre[cat]||{})[nom]!=null){alert('« '+nom+' » existe déjà dans « '+cat+' ».');return;}
+  closeM('mgadd');
+  await quickAddSubcat(cat,nom);
+}
+function gaddCreerCategorie(){
+  var ong=document.getElementById('gadd-ong').value;
+  closeM('mgadd');
+  openCategoryEditModal(null);
+  if(ong)setTimeout(function(){var el=document.getElementById('mcat-onglet');if(el)el.value=ong;},50);
 }
 
 var rctPvSubMode='plats'; // 'plats' | 'boissons' — sous-onglet interne à Produits & recettes
@@ -9095,12 +9298,14 @@ function renderIngredientsList(){
     return '<div style="margin-top:4px;">'
       +'<span style="font-size:9px;color:var(--txm);margin-right:4px;">📅 Jours de comptage : '+origine+'</span>'
       +'<div style="display:inline-flex;gap:3px;flex-wrap:wrap;vertical-align:middle;">'
+      // Code couleur unique et lisible : fond ROUGE = jour où l'on compte, fond BLANC = jour où l'on ne compte pas
+      // (qu'il vienne du fournisseur ou d'une règle propre — l'origine est écrite juste avant).
       +COMPTAGE_JOUR_LABELS.map(function(lbl,idx){
-        var on=explicite&&eff.jours.indexOf(idx)>=0;
-        var implicite=!explicite&&eff.jours.indexOf(idx)>=0;
-        return '<span onclick="toggleIngredientComptageJour(\''+code+'\',\''+restoId+'\','+idx+')" title="'+(explicite?'Cocher/décocher ce jour':'Cocher un jour crée une règle propre à ce produit (il ne suivra plus le fournisseur)')+'" style="cursor:pointer;font-size:9px;padding:2px 6px;border-radius:6px;border:1px '+(implicite?'dashed':'solid')+' '+(on||implicite?'var(--bx)':'var(--bd)')+';background:'+(on?'var(--bx)':'transparent')+';color:'+(on?'#fff':(implicite?'var(--bx)':'var(--txm)'))+';">'+lbl+'</span>';
+        var compte=!eff.jours.length||eff.jours.indexOf(idx)>=0; // aucun jour précis = tous les jours comptés
+        return '<span onclick="toggleIngredientComptageJour(\''+code+'\',\''+restoId+'\','+idx+')" title="'+(compte?'Compté ce jour — cliquer pour ne plus compter ce jour':'Pas compté ce jour — cliquer pour compter ce jour')+(explicite?'':' (crée une règle propre à ce produit)')+'" style="cursor:pointer;user-select:none;font-size:11px;font-weight:700;padding:4px 8px;border-radius:7px;border:1px solid '+(compte?'var(--bx)':'var(--bd)')+';background:'+(compte?'var(--bx)':'#fff')+';color:'+(compte?'#fff':'var(--txm)')+';box-shadow:inset 0 -2px 0 rgba(0,0,0,'+(compte?'.2':'.06')+');">'+lbl+'</span>';
       }).join('')
       +'</div>'
+      +'<div style="font-size:9px;color:var(--txm);margin-top:2px;"><span style="display:inline-block;width:9px;height:9px;background:var(--bx);border-radius:2px;vertical-align:middle;"></span> compté &nbsp; <span style="display:inline-block;width:9px;height:9px;background:#fff;border:1px solid var(--bd);border-radius:2px;vertical-align:middle;"></span> pas compté</div>'
       +(explicite?' <button type="button" class="btn bs sm" style="font-size:9px;padding:2px 7px;margin-left:4px;" onclick="clearIngredientComptageJours(\''+code+'\',\''+restoId+'\')">↺ Suivre le fournisseur</button>':'')
       +'</div>';
   }
@@ -9123,7 +9328,7 @@ function renderIngredientsList(){
         +'<option value="rup"'+(type==='rup'?' selected':'')+'>🚦 OK / faible / rupture</option>'
       +'</select>'
       +'<select class="fi" style="font-size:10px;max-width:120px;" title="Fournisseur pour la commande" onchange="updateIngredientSeuil(\''+i.code+'\',\'fournisseur_id\',this.value,\''+r.id+'\')">'
-        +'<option value="">🚚 Fournisseur…</option>'
+        +'<option value="">🚚 Fournisseur…'+(function(){var fd=fournisseurDefautPourIngredient(i.code);var fs=fd?rctSuppliers.find(function(x){return String(x.id)===String(fd);}):null;return fs?(' (défaut : '+esc(fs.nom)+')'):'';})()+'</option>'
         +rctSuppliers.map(function(sup){return '<option value="'+esc(sup.id)+'"'+(s.fournisseur_id===sup.id?' selected':'')+'>'+(sup.is_labo_interne?'🏭 ':sup.is_cuisine_interne?'🍳 ':'')+esc(sup.nom)+'</option>';}).join('')
       +'</select>'
       +'<input type="number" class="fi" style="width:60px;font-size:10px;" step="0.1" placeholder="Seuil" title="Quantité en dessous de laquelle on repasse commande" value="'+(s.seuil_min!=null?s.seuil_min:'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'seuil_min\',this.value,\''+r.id+'\')">'
@@ -10125,6 +10330,7 @@ async function toggleIngredientComptageJour(ingredientCode,restoId,dayIdx){
   if(!jours.length){
     var supById={};rctSuppliers.forEach(function(x){supById[x.id]=x;});
     jours=RG.joursComptageEffectifs(cached,(rctIngredientRegles[restoId]||{})[ingredientCode]||[],supById).jours.slice();
+    if(!jours.length)jours=[0,1,2,3,4,5,6]; // « tous les jours » : cliquer un jour le retire
   }
   var idx=jours.indexOf(dayIdx);
   if(idx>=0)jours.splice(idx,1);else jours.push(dayIdx);
@@ -10165,11 +10371,15 @@ function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
         // "Quantité" bien configurée repassait toute seule à "OK / à commander" après avoir juste modifié le
         // Seuil ou le Fournisseur). On revérifie donc la valeur réelle en base juste avant d'écrire.
         var freshType=cached.type_suivi;
+        var freshFourn=cached.fournisseur_id||null;
         try{
-          var freshRes=await db.from('ingredient_seuils').select('type_suivi').eq('restaurant_id',resto).eq('ingredient_code',ingredientCode).maybeSingle();
+          var freshRes=await db.from('ingredient_seuils').select('type_suivi,fournisseur_id').eq('restaurant_id',resto).eq('ingredient_code',ingredientCode).maybeSingle();
           if(freshRes&&freshRes.data&&freshRes.data.type_suivi)freshType=freshRes.data.type_suivi;
+          if(freshRes&&freshRes.data)freshFourn=freshRes.data.fournisseur_id||null;
         }catch(e){/* vérif indisponible (offline, etc.) : on retombe sur le cache local plutôt que de bloquer la sauvegarde du champ demandé */}
         payload.type_suivi=freshType||'qty';
+        // Pas encore de fournisseur sur ce restaurant : on applique celui de la sous-catégorie, s'il y en a un.
+        if(field!=='fournisseur_id'&&!freshFourn){var fDef=fournisseurDefautPourIngredient(ingredientCode);if(fDef)payload.fournisseur_id=fDef;}
       }
       if(field==='actif')payload.actif=!!value;
       else if(field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
@@ -11077,8 +11287,50 @@ function renderCategoryEditSubcats(){
       +'<button class="btn bs sm" onclick="deleteSubcatRow(this)" style="padding:6px 8px;background:#FEE2E2;color:#991B1B;">✕</button>'
       +'<select class="fi" style="font-size:11px;max-width:140px;" onchange="if(this.value)moveSousCategorieToCategorie(\''+esc(cat)+'\',\''+esc(n)+'\',this.value);this.selectedIndex=0;">'+otherCatsOpts+'</select>'
       +'<button class="btn bs sm" onclick="promoteSubcatToCategorie(\''+esc(cat)+'\',\''+esc(n)+'\')" style="padding:6px 8px;" title="En faire une catégorie indépendante">⬆️ Promouvoir</button>'
+      // Fournisseur par défaut : appliqué automatiquement aux produits de cette sous-catégorie qui n'ont pas
+      // encore de fournisseur (au premier réglage d'un seuil), et, sur demande, à ceux déjà configurés sans fournisseur.
+      +'<div style="flex-basis:100%;display:flex;align-items:center;gap:6px;margin:2px 0 6px;">'
+        +'<span style="font-size:10px;color:var(--txm);white-space:nowrap;">🚚 Fournisseur par défaut :</span>'
+        +'<select class="fi" style="font-size:11px;max-width:200px;" onchange="saveSubcatFournisseur(\''+esc(cat)+'\',\''+esc(n)+'\',this.value)">'
+          +'<option value="">— aucun —</option>'
+          +rctSuppliers.map(function(sup){var sel=(String((rctSousCategoriesFournisseur[cat]||{})[n])===String(sup.id))?' selected':'';return '<option value="'+esc(sup.id)+'"'+sel+'>'+(sup.is_labo_interne?'🏭 ':sup.is_cuisine_interne?'🍳 ':'')+esc(sup.nom)+'</option>';}).join('')
+        +'</select>'
+      +'</div>'
       +'</div>';
   }).join('');
+}
+// Enregistre le fournisseur par défaut d'une sous-catégorie, puis propose de l'appliquer aux produits de
+// cette sous-catégorie déjà configurés sur un restaurant mais sans fournisseur (jamais d'écrasement d'un
+// fournisseur déjà choisi).
+async function saveSubcatFournisseur(cat,sub,fournisseurId){
+  try{
+    var r=await db.from('sous_categories_ordre').update({fournisseur_defaut_id:fournisseurId||null}).eq('restaurant_id',RCT_GLOBAL).eq('categorie',cat).eq('nom',sub);
+    if(r.error){
+      if((r.error.message||'').indexOf('fournisseur_defaut_id')>=0){alert('Le script SQL « fournisseur par défaut » doit d\'abord être exécuté dans Supabase.');return;}
+      throw r.error;
+    }
+    rctSousCategoriesFournisseur[cat]=rctSousCategoriesFournisseur[cat]||{};
+    if(fournisseurId)rctSousCategoriesFournisseur[cat][sub]=fournisseurId;else delete rctSousCategoriesFournisseur[cat][sub];
+    if(!fournisseurId)return;
+    var codes=rctIngredients.filter(function(i){return i.categorie===cat&&i.sous_categorie===sub;}).map(function(i){return i.code;});
+    var aCompleter=[];
+    Object.keys(rctIngredientSeuilsAll||{}).forEach(function(resto){
+      codes.forEach(function(code){
+        var sl=rctIngredientSeuilsAll[resto][code];
+        if(sl&&!sl.fournisseur_id)aCompleter.push({resto:resto,code:code});
+      });
+    });
+    if(!aCompleter.length)return;
+    var sup=rctSuppliers.find(function(x){return String(x.id)===String(fournisseurId);});
+    if(!confirm(aCompleter.length+' réglage(s) de produits de « '+sub+' » n\'ont pas encore de fournisseur. Leur attribuer '+(sup?sup.nom:'ce fournisseur')+' ?\n\n(Les produits qui ont déjà un fournisseur ne sont pas modifiés.)'))return;
+    for(var k=0;k<aCompleter.length;k++){
+      var a=aCompleter[k];
+      sbCheck(await db.from('ingredient_seuils').update({fournisseur_id:fournisseurId}).eq('restaurant_id',a.resto).eq('ingredient_code',a.code).is('fournisseur_id',null));
+      rctIngredientSeuilsAll[a.resto][a.code].fournisseur_id=fournisseurId;
+    }
+    renderIngredientsList();
+    alert('✅ Fournisseur attribué à '+aCompleter.length+' réglage(s).');
+  }catch(e){console.error('saveSubcatFournisseur',e);alert('Erreur : '+e.message);}
 }
 async function promoteSubcatToCategorie(parentCat,subName){
   if(rctCategoriesOrdre[subName]){alert('Une catégorie "'+subName+'" existe déjà.');return;}
@@ -11199,9 +11451,15 @@ async function saveSubcatRow(btn){
       rctStockProduits.forEach(function(p){if(p.cout_categorie===cat&&p.cout_sous_categorie===oldName)p.cout_sous_categorie=newName;});
       if(rctSousCategoriesOrdre[cat]){delete rctSousCategoriesOrdre[cat][oldName];}
     }
-    sbCheck(await db.from('sous_categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,categorie:cat,nom:newName,ordre:ordre}],{onConflict:'restaurant_id,categorie,nom'}));
+    var ligneSub={restaurant_id:RCT_GLOBAL,categorie:cat,nom:newName,ordre:ordre};
+    // Renommage = suppression + recréation : on garde le fournisseur par défaut (seulement s'il existe, pour
+    // ne pas casser l'enregistrement si la colonne n'a pas encore été créée).
+    var fDefSub=(rctSousCategoriesFournisseur[cat]||{})[oldName];
+    if(fDefSub)ligneSub.fournisseur_defaut_id=fDefSub;
+    sbCheck(await db.from('sous_categories_ordre').upsert([ligneSub],{onConflict:'restaurant_id,categorie,nom'}));
     rctSousCategoriesOrdre[cat]=rctSousCategoriesOrdre[cat]||{};
     rctSousCategoriesOrdre[cat][newName]=ordre;
+    if(fDefSub&&newName!==oldName){rctSousCategoriesFournisseur[cat][newName]=fDefSub;delete rctSousCategoriesFournisseur[cat][oldName];}
     renderCategoryEditSubcats();
     renderMcatConvertZone();
     renderMcatAssignDest();
@@ -12093,6 +12351,9 @@ async function init(){
       <input type="text" class="fi" id="role-nom" placeholder="Ex: Pizzaiolo"></div>
     <div class="fr"><label class="fl2">Couleur</label>
       <input type="color" class="fi" id="role-couleur" value="#B91E26" style="height:42px"></div>
+    <div class="fr"><label class="fl2">Restaurants o&ugrave; ce r&ocirc;le s'applique</label>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:4px">Aucune case coch&eacute;e = tous les restaurants. Si des restaurants sont coch&eacute;s, ce poste n'est propos&eacute; (et ne fait compter) que dans ces restaurants &mdash; ex. un poste &laquo;&nbsp;Labo&nbsp;&raquo; qui n'appara&icirc;t pas quand le salari&eacute; compte au Port.</div>
+      <div id="role-restos" style="display:flex;flex-wrap:wrap;gap:6px"></div></div>
     <div class="fr"><label class="fl2">Cat&#233;gories comptage rapide accessibles</label>
       <div style="font-size:10px;color:var(--txm);margin-bottom:4px">Les salari&#233;s avec ce r&#244;le ne verront que ces cat&#233;gories dans "Comptage rapide". Aucune case coch&#233;e = aucun acc&#232;s tant que ce n'est pas configur&#233;.</div>
       <div id="role-comptage-resto-filter" style="display:flex;flex-wrap:wrap;margin:2px 0 6px"></div>
