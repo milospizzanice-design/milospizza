@@ -1091,40 +1091,65 @@ async function saveToGithub() {
 }
 
 // Generic save any config file to GitHub
+// GitHub sert ses lectures depuis un cache (~60 s) : juste après une écriture, relire le fichier peut encore
+// renvoyer l'ANCIEN sha, et réécrire avec est refusé (HTTP 409 « does not match »). On retient donc les sha
+// que nos propres écritures ont remplacés pour ne jamais les réutiliser, et on réessaie en cas de conflit.
 const githubShas = {};
+const githubShasPerimes = {}; // {fichier:{sha:true}}
 async function saveKeyToGithub(filename, data) {
+  let jsonStr, b64;
   try {
-    // Get current SHA via proxy
-    const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`);
-    if (res.ok) {
-      const d = await res.json();
-      if (d.sha) githubShas[filename] = d.sha;
-    }
-  } catch(e){}
-  try {
-    const jsonStr = JSON.stringify(data, null, 2);
+    jsonStr = JSON.stringify(data, null, 2);
     // Properly encode UTF-8 to base64
     const bytes = new TextEncoder().encode(jsonStr);
     let binary = '';
     bytes.forEach(b => binary += String.fromCharCode(b));
-    const b64 = btoa(binary);
-    const body = {
-      message: 'Update ' + filename,
-      content: b64,
-      ...(githubShas[filename] ? {sha: githubShas[filename]} : {})
-    };
-    const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    });
-    const d2 = await res2.json();
-    if (d2.content && d2.content.sha) githubShas[filename] = d2.content.sha;
-    return d2;
+    b64 = btoa(binary);
   } catch(e) {
-    console.error('saveKeyToGithub error', filename, e);
+    console.error('saveKeyToGithub encode error', filename, e);
     return null;
   }
+  let last = null;
+  for (let essai = 0; essai < 4; essai++) {
+    if (essai > 0) await new Promise(r => setTimeout(r, 1500 * essai));
+    try {
+      // Get current SHA via proxy
+      const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`);
+      if (res.ok) {
+        const d = await res.json();
+        const perimes = githubShasPerimes[filename] || {};
+        if (d.sha && !perimes[d.sha]) githubShas[filename] = d.sha;
+      }
+    } catch(e){}
+    try {
+      const shaEnvoye = githubShas[filename];
+      const body = {
+        message: 'Update ' + filename,
+        content: b64,
+        ...(shaEnvoye ? {sha: shaEnvoye} : {})
+      };
+      const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const d2 = await res2.json();
+      last = d2;
+      if (d2.content && d2.content.sha) {
+        if (shaEnvoye) (githubShasPerimes[filename] = githubShasPerimes[filename] || {})[shaEnvoye] = true;
+        githubShas[filename] = d2.content.sha;
+        return d2;
+      }
+      if (res2.status !== 409) return d2; // seul un conflit de version justifie un nouvel essai
+      // Conflit : le sha connu n'est plus le bon, on l'oublie et on relit
+      if (shaEnvoye) (githubShasPerimes[filename] = githubShasPerimes[filename] || {})[shaEnvoye] = true;
+      delete githubShas[filename];
+    } catch(e) {
+      console.error('saveKeyToGithub error', filename, e);
+      return null;
+    }
+  }
+  return last;
 }
 
 
@@ -1134,7 +1159,7 @@ async function loadKeyFromGithub(filename) {
     );
     if (!res.ok) return null;
     const data = await res.json();
-    githubShas[filename] = data.sha;
+    if (!(githubShasPerimes[filename] || {})[data.sha]) githubShas[filename] = data.sha;
     return JSON.parse(new TextDecoder('utf-8').decode((s=>{const b=atob(s.replace(/\\n/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;})(data.content.replace(/\n/g,''))));
   } catch(e){ return null; }
 }
@@ -4544,10 +4569,15 @@ async function restoreVersion(idx) {
   if (data.items) items = data.items;
   if (data.upsells) upsells = data.upsells;
   
-  await saveToGithub();
+  // Même chemin d'écriture que "Enregistrer" (fichier brouillon en mode brouillon), avec contrôle du résultat —
+  // l'ancien saveToGithub() écrivait la carte en ligne avec le sha du brouillon et échouait sans le dire.
+  const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
+  const result = await saveKeyToGithub(targetFile, {cats, items, upsells});
+  const ok = !!(result && result.content && result.content.sha);
   renderMenu();
   closeAdmin();
-  showToast('↩ Version du ' + entry.label + ' restaurée !');
+  showToast(ok ? ('↩ Version du ' + entry.label + ' restaurée' + (isDraftMode ? ' dans le brouillon — publie pour la mettre en ligne' : ' !'))
+               : '❌ Restauration non enregistrée — réessaie dans une minute');
 }
 
 // ═══════════════════════════════════════
@@ -5099,6 +5129,19 @@ function goHome() {
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
+function afficherConnexionMenuRequise(){
+  const box = document.createElement('div');
+  box.id = 'menuConnexionRequise';
+  box.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#F5F0E8;display:flex;align-items:center;justify-content:center;padding:20px;font-family:inherit;';
+  box.innerHTML = '<div style="background:#fff;border-radius:16px;padding:26px 22px;max-width:420px;width:100%;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.12);">'
+    + '<div style="font-size:34px;margin-bottom:8px;">🔐</div>'
+    + '<div style="font-weight:800;font-size:17px;margin-bottom:8px;">Connexion à l\'édition du menu requise</div>'
+    + '<div style="font-size:13px;color:#666;line-height:1.5;margin-bottom:18px;">Ce navigateur n\'a plus la connexion à l\'administration du menu (déconnexion, ou données du site effacées par le navigateur). Connecte-toi, puis reviens ici et appuie sur « Réessayer ».</div>'
+    + '<a href="login.html" target="_blank" rel="noopener" style="display:block;background:#9B1C1C;color:#fff;border-radius:10px;padding:12px;font-weight:700;text-decoration:none;margin-bottom:10px;">Se connecter</a>'
+    + '<button type="button" onclick="location.href=location.pathname+\'?admin=1\'" style="width:100%;background:#fff;border:2px solid #9B1C1C;color:#9B1C1C;border-radius:10px;padding:11px;font-weight:700;cursor:pointer;">↻ Réessayer</button>'
+    + '</div>';
+  document.body.appendChild(box);
+}
 async function init(){
   // Load local first for instant display
   loadDesign();
@@ -5112,6 +5155,13 @@ async function init(){
   const fromUrl = urlParams.get('admin') === '1' && !!localStorage.getItem('milos_token');
   const fromSession = sessionStorage.getItem('milos_admin_active') === '1' && !!localStorage.getItem('milos_token');
   const goStraightToAdmin = fromUrl || fromSession;
+  // Admin demandé (?admin=1, ex. onglet Menu de admin.html) mais pas de jeton de connexion au menu dans ce
+  // navigateur (déconnexion, données du site effacées, ou Safari qui les purge après quelques jours) :
+  // avant, la page affichait silencieusement la carte client. On dit clairement quoi faire à la place.
+  if (urlParams.get('admin') === '1' && !localStorage.getItem('milos_token')) {
+    afficherConnexionMenuRequise();
+    return;
+  }
   if (goStraightToAdmin) {
     isDraftMode = true;
     sessionStorage.setItem('milos_admin_active', '1'); // persiste pendant la session

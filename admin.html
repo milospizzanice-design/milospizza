@@ -533,13 +533,14 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bp" onclick="syncHiboutikVentes()" id="rct-hib-btn" style="width:100%;">Synchroniser cette période</button>
         <div id="rct-hib-status" style="font-size:11px;color:var(--txm);margin-top:8px;"></div>
       </div>
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Ou, sans passer par Hiboutik : exporte depuis la caisse la liste des articles vendus sur une période, puis importe le fichier ici. Le fichier n'a pas de date : indique la période correspondant à l'export choisi.
-      </div>
       <div class="card">
+        <div class="mdt" style="font-size:14px;margin-bottom:6px;">📥 Importer un fichier de ventes</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Accepte l'export caisse des articles vendus, le rapport « articles vendus » d'Uber Eats / Deliveroo (plusieurs établissements dans le même fichier possibles) et l'historique des commandes d'une plateforme. Le type de fichier est reconnu tout seul ; la période est lue dans le nom du fichier quand elle y figure.</div>
+        <div class="fr"><label class="fl2">Provenance</label><select class="fi" id="rct-imp-source"></select></div>
+        <div class="fr"><label class="fl2">Fichier CSV</label><input type="file" class="fi" id="rct-imp-file" accept=".csv,text/csv" style="padding:5px" onchange="ventesFichierChoisi()"></div>
+        <div id="rct-imp-fichier-info" style="font-size:11px;color:#065F46;margin:-4px 0 6px;"></div>
         <div class="fr"><label class="fl2">Début de période</label><input type="date" class="fi" id="rct-imp-debut"></div>
         <div class="fr"><label class="fl2">Fin de période</label><input type="date" class="fi" id="rct-imp-fin"></div>
-        <div class="fr"><label class="fl2">Fichier CSV caisse</label><input type="file" class="fi" id="rct-imp-file" accept=".csv,text/csv" style="padding:5px"></div>
         <button class="btn bp" onclick="previewVentesImport()" style="width:100%;">Analyser le fichier</button>
       </div>
       <div id="rct-imp-preview"></div>
@@ -549,6 +550,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bs" onclick="calculerConsommationTheorique()" style="width:100%;">Calculer pour cette période</button>
       </div>
       <div id="rct-conso-result"></div>
+      <div class="card" style="margin-top:14px;">
+        <div class="mdt" style="font-size:14px;margin-bottom:6px;">🛵 Commandes des plateformes</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Synthèse des historiques de commandes importés pour la période ci-dessus : nombre de commandes, chiffre d'affaires, panier moyen, annulations, temps de préparation et d'attente des coursiers, heures de pointe.</div>
+        <button class="btn bs" onclick="afficherSyntheseCommandesPlateformes()" style="width:100%;">Voir la synthèse des commandes</button>
+      </div>
+      <div id="rct-cmdplat-result"></div>
     </div>
 
     <!-- Sous-onglet: commandes internes vers le Labo -->
@@ -909,33 +916,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
 
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
-        <div style="font-weight:700;">🗂 Catégories &amp; produits Labo</div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn bs" onclick="importLaboCatalogueDepuisStocks()">🔄 Actualiser depuis Stocks</button>
-          <button class="btn bs" onclick="toggleLaboCatalogueEditor()">Gérer</button>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">"Actualiser" importe les catégories et produits de Port + Dabray sans dupliquer ce qui existe déjà — utilise-le à tout moment pour récupérer les nouveautés.</div>
-      <div id="labo-catalogue-editor" style="display:none;">
-        <div class="fr" style="display:flex;gap:8px;align-items:flex-end;">
-          <div style="flex:1;">
-            <label class="fl2">Nouvelle catégorie</label>
-            <input type="text" class="fi" id="labo-new-cat-nom" placeholder="Ex: Légumes">
-          </div>
-          <button class="btn bp" onclick="createLaboCategorie()">Ajouter</button>
-        </div>
-        <div id="labo-cat-editor-list"></div>
-      </div>
-    </div>
-
-    <div class="card" id="labo-orphans-card" style="display:none;border:1px solid #E67E22;">
-      <div style="font-weight:700;margin-bottom:8px;color:#E67E22;">⚠️ Produits à vérifier</div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Ces produits sont dans le catalogue Labo mais ne sont plus marqués "fournisseur = Labo" sur Port ni Dabray. Vérifie si c'est normal, puis désactive si besoin.</div>
-      <div id="labo-orphans-list"></div>
-    </div>
-
-    <div class="card">
       <div style="font-weight:700;margin-bottom:10px;">➕ Nouveau lot</div>
       <div class="fr">
         <label class="fl2">Produit</label>
@@ -1254,7 +1234,20 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <div style="flex:1"><label style="font-size:10px;color:var(--txm);display:block;margin-bottom:3px">Du</label><input type="date" class="fi" id="dupli-date-from"></div>
         <div style="flex:1"><label style="font-size:10px;color:var(--txm);display:block;margin-bottom:3px">Au</label><input type="date" class="fi" id="dupli-date-to"></div>
       </div>
-      <div style="font-size:10px;color:var(--txm);margin-top:4px">Les semaines comprises dans cette plage seront remplac&#233;es</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <button type="button" class="btn bs sm" onclick="planDupliPlage('sem')">Semaine suivante</button>
+        <button type="button" class="btn bs sm" onclick="planDupliPlage('4sem')">4 semaines</button>
+        <button type="button" class="btn bs sm" onclick="planDupliPlage('annee')">Jusqu'au 31/12</button>
+        <button type="button" class="btn bs sm" onclick="planDupliPlage('12mois')">12 mois</button>
+      </div>
+      <div style="font-size:10px;color:var(--txm);margin-top:4px">Les jours de cette plage sont remplac&#233;s par la semaine source. Les absences d&#233;j&#224; pos&#233;es (cong&#233;s, arr&#234;ts&#8230;) sont conserv&#233;es et ces jours-l&#224; ne re&#231;oivent pas d'horaires.</div>
+    </div>
+    <div class="fr">
+      <label class="fl2">Restaurants</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:6px 10px;border:1px solid var(--bd);border-radius:20px;cursor:pointer"><input type="radio" name="plan-dupli-scope" value="resto" checked onchange="openPlanDupli(this.value,true)"> Restaurant affich&#233;</label>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:6px 10px;border:1px solid var(--bd);border-radius:20px;cursor:pointer"><input type="radio" name="plan-dupli-scope" value="tous" onchange="openPlanDupli(this.value,true)"> Tous les restaurants</label>
+      </div>
     </div>
     <p style="font-size:12px;color:var(--txm);margin-bottom:8px">Salari&#233;s :</p>
     <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -2292,25 +2285,53 @@ async function savePl(){
 }
 
 // Duplication planning
-function openPlanDupli(){
-  var filtered=planGetFiltered();var h='';
-  filtered.forEach(function(em){
-    h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">';
-    h+='<input type="checkbox" id="pdup-'+em.id+'" checked style="width:16px;height:16px;accent-color:var(--bx)">';
-    h+='<label for="pdup-'+em.id+'" style="font-size:13px;cursor:pointer">'+em.prenom+' '+em.nom+'</label>';
-    h+='</div>';
+// scope : 'resto' (restaurant affiché, comme avant) ou 'tous' (tous les restaurants, salariés regroupés par
+// restaurant). garderPlage : true quand on change seulement le périmètre (on ne réinitialise pas les dates).
+function openPlanDupli(scope,garderPlage){
+  scope=scope||'resto';
+  var weekDates=planGetWeekDates();
+  var weekStart=planDs(weekDates[0]),weekEnd=planDs(weekDates[6]);
+  var list=scope==='tous'
+    ?emps.filter(function(e){
+        if(e.actif===false&&!e.archive)return false;
+        if(e.archive&&e.date_fin&&weekStart>e.date_fin)return false;
+        if(e.date_debut&&weekEnd<e.date_debut)return false;
+        return true;
+      })
+    :planGetFiltered();
+  var nomResto=function(id){var rd=(typeof restosData!=='undefined'?restosData:[]).find(function(r){return r.id===id;});return rd?(rd.nom||rd.id):(id||'Sans restaurant');};
+  var groupes={};
+  list.forEach(function(em){var k=scope==='tous'?(em.restaurant_id||''):'_';(groupes[k]=groupes[k]||[]).push(em);});
+  var h='';
+  Object.keys(groupes).sort(function(a,b){return nomResto(a).localeCompare(nomResto(b),'fr');}).forEach(function(k){
+    if(scope==='tous')h+='<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--bx);margin:10px 0 2px">'+esc(nomResto(k))+' ('+groupes[k].length+')</div>';
+    groupes[k].sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'','fr');}).forEach(function(em){
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">';
+      h+='<input type="checkbox" id="pdup-'+em.id+'" checked style="width:16px;height:16px;accent-color:var(--bx)">';
+      h+='<label for="pdup-'+em.id+'" style="font-size:13px;cursor:pointer">'+esc(em.prenom+' '+em.nom)+'</label>';
+      h+='</div>';
+    });
   });
-  document.getElementById('plan-dupli-list').innerHTML=h;
-  // Afficher la semaine source
-  var dates=planGetWeekDates();
-  var srcLabel='Sem. du '+dates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+dates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('plan-dupli-list').innerHTML=h||'<div style="font-size:12px;color:var(--txm)">Aucun salarié.</div>';
+  var srcLabel='Sem. du '+weekDates[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' au '+weekDates[6].toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   document.getElementById('plan-dupli-src').textContent=srcLabel;
-  // Par défaut: semaine suivante
-  var nextMon=planAddD(planWkStart,7);
-  var nextSun=planAddD(planWkStart,13);
-  document.getElementById('dupli-date-from').value=planDs(nextMon);
-  document.getElementById('dupli-date-to').value=planDs(nextSun);
+  if(!garderPlage){
+    planDupliPlage('sem');
+    var radios=document.querySelectorAll('input[name="plan-dupli-scope"]');
+    radios.forEach(function(r){r.checked=(r.value===scope);});
+  }
   openM('modal-plan-dupli');
+}
+// Raccourcis de plage cible, toujours à partir du lundi qui suit la semaine source.
+function planDupliPlage(type){
+  var debut=planAddD(planWkStart,7);
+  var fin;
+  if(type==='4sem')fin=planAddD(planWkStart,7*4+6);
+  else if(type==='annee')fin=new Date(debut.getFullYear(),11,31,12,0,0);
+  else if(type==='12mois')fin=planAddD(planWkStart,7*52+6);
+  else fin=planAddD(planWkStart,13);
+  document.getElementById('dupli-date-from').value=planDs(debut);
+  document.getElementById('dupli-date-to').value=planDs(fin);
 }
 function planChkAll(v){document.querySelectorAll('#plan-dupli-list input').forEach(function(cb){cb.checked=v;});}
 
@@ -2330,44 +2351,82 @@ function confirmPlanDupli(){
   closeM('modal-plan-dupli');openM('modal-plan-confirm');
 }
 
+// Copie la semaine affichée (source) sur la plage cible, jour par jour, pour les salariés cochés.
+// Réécrit pour tenir sur une année entière et plusieurs restaurants : par salarié, UNE suppression par plage
+// et des insertions groupées (avant : une requête par jour et par créneau, soit des milliers de requêtes sur
+// un an). Règles :
+//  - la semaine source n'est jamais effacée, même si elle est dans la plage ;
+//  - les absences déjà posées (créneaux d'absence, absences_planning) sont conservées, et ces jours-là ne
+//    reçoivent pas d'horaires ; les absences de la semaine source ne sont pas recopiées ;
+//  - rien n'est créé avant la date d'entrée ni après la date de sortie d'un salarié.
 async function doPlanDupli(){
   closeM('modal-plan-confirm');
   var srcDates=planGetWeekDates(); // 7 jours de la semaine source (lundi->dimanche)
+  var srcKeys=srcDates.map(planDs);
   var fromVal=document.getElementById('dupli-date-from').value;
   var toVal=document.getElementById('dupli-date-to').value;
-  if(!fromVal||!toVal){alert('Indiquez la p\u00e9riode cible');return;}
-  if(toVal<fromVal){alert('La date de fin doit \u00eatre apr\u00e8s le d\u00e9but');return;}
-  // Construire un index du planning source par jour de semaine (0=lundi..6=dimanche)
-  // srcDates[i] correspond au jour de semaine i (0=lundi)
-  var err=0;var copied=0;
-  for(var si=0;si<planDupliIds.length;si++){
-    var eid=planDupliIds[si];
-    // Parcourir chaque jour de la plage cible
-    var cur=new Date(fromVal+'T12:00:00');
-    var end=new Date(toVal+'T12:00:00');
+  if(!fromVal||!toVal){alert('Indiquez la période cible');return;}
+  if(toVal<fromVal){alert('La date de fin doit être après le début');return;}
+  // Plages à effacer = plage cible moins la semaine source.
+  var plages=[];
+  (function(){
+    var cur=new Date(fromVal+'T12:00:00'),end=new Date(toVal+'T12:00:00'),debut=null,prec=null;
     while(planDs(cur)<=planDs(end)){
-      var dstDate=planDs(cur);
-      // Jour de la semaine du jour cible (0=lundi..6=dimanche)
-      var dow=(cur.getDay()===0?6:cur.getDay()-1);
-      var srcDate=planDs(srcDates[dow]);
-      // Ne pas copier un jour source sur lui-même
-      if(dstDate!==srcDate){
-        var crs=(planData[eid]&&planData[eid][srcDate])||[];
-        // Écraser le jour cible
-        var rd=await db.from('planning_creneaux').delete().eq('employee_id',eid).eq('date',dstDate);
-        if(rd.error)err++;
-        for(var ci=0;ci<crs.length;ci++){
-          if(!crs[ci]._del){
-            var ri=await db.from('planning_creneaux').insert({employee_id:eid,date:dstDate,heure_debut:crs[ci].start,heure_fin:crs[ci].end,restaurant_id:crs[ci].restaurant_id||planResto,postes:crs[ci].postes?JSON.stringify(crs[ci].postes):null});
-            if(ri.error)err++;else copied++;
-          }
-        }
-      }
+      var k=planDs(cur);
+      if(srcKeys.indexOf(k)<0){if(!debut)debut=k;prec=k;}
+      else if(debut){plages.push([debut,prec]);debut=null;}
       cur=planAddD(cur,1);
     }
-  }
-  if(err>0)alert(err+' erreur(s) lors de la duplication.');
-  else alert('Planning dupliqu\u00e9 ! ('+copied+' cr\u00e9neaux copi\u00e9s)');
+    if(debut)plages.push([debut,prec]);
+  })();
+  if(!plages.length){alert('La plage choisie ne contient que la semaine source.');return;}
+  var prog=document.getElementById('plan-dupli-progress');
+  if(!prog){prog=document.createElement('div');prog.id='plan-dupli-progress';prog.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1A1008;color:#fff;padding:10px 16px;border-radius:20px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3)';document.body.appendChild(prog);}
+  prog.style.display='block';
+  var err=0,copied=0,erreurs=[];
+  try{
+    // Absences déjà posées sur la plage (à conserver, jours sans horaires)
+    var absJour={};
+    var ra=await db.from('absences_planning').select('employee_id,date').in('employee_id',planDupliIds).gte('date',fromVal).lte('date',toVal);
+    (ra.data||[]).forEach(function(a){absJour[a.employee_id+'|'+a.date]=true;});
+    var rc=await db.from('planning_creneaux').select('employee_id,date,absence_code').in('employee_id',planDupliIds).gte('date',fromVal).lte('date',toVal).not('absence_code','is',null);
+    (rc.data||[]).forEach(function(a){if(a.absence_code)absJour[a.employee_id+'|'+a.date]=true;});
+    for(var si=0;si<planDupliIds.length;si++){
+      var eid=planDupliIds[si];
+      var em=emps.find(function(e){return String(e.id)===String(eid);})||{};
+      prog.textContent='Duplication en cours… '+(si+1)+'/'+planDupliIds.length+' salarié(s)';
+      // 1. Effacer les horaires (pas les absences) de la plage, hors semaine source
+      for(var pi=0;pi<plages.length;pi++){
+        var rd=await db.from('planning_creneaux').delete().eq('employee_id',eid).gte('date',plages[pi][0]).lte('date',plages[pi][1]).is('absence_code',null);
+        if(rd.error){err++;erreurs.push(rd.error.message);}
+      }
+      // 2. Recréer à partir de la semaine source
+      var rows=[];
+      plages.forEach(function(pl){
+        var cur=new Date(pl[0]+'T12:00:00'),end=new Date(pl[1]+'T12:00:00');
+        while(planDs(cur)<=planDs(end)){
+          var dstDate=planDs(cur);
+          var okDates=!(em.date_debut&&dstDate<em.date_debut)&&!(em.date_fin&&dstDate>em.date_fin);
+          if(okDates&&!absJour[eid+'|'+dstDate]){
+            var dow=(cur.getDay()===0?6:cur.getDay()-1);
+            var crs=(planData[eid]&&planData[eid][srcKeys[dow]])||[];
+            crs.forEach(function(cr){
+              if(cr._del||cr.absence_code)return; // une absence de la semaine source n'est pas recopiée
+              rows.push({employee_id:eid,date:dstDate,heure_debut:cr.start,heure_fin:cr.end,restaurant_id:cr.restaurant_id||em.restaurant_id||planResto,postes:cr.postes&&cr.postes.length?JSON.stringify(cr.postes):null});
+            });
+          }
+          cur=planAddD(cur,1);
+        }
+      });
+      for(var ci=0;ci<rows.length;ci+=400){
+        var ri=await db.from('planning_creneaux').insert(rows.slice(ci,ci+400));
+        if(ri.error){err++;erreurs.push(ri.error.message);}else copied+=Math.min(400,rows.length-ci);
+      }
+    }
+  }catch(e){err++;erreurs.push(e.message);}
+  prog.style.display='none';
+  if(err>0)alert(err+' erreur(s) lors de la duplication :\n'+erreurs.slice(0,3).join('\n'));
+  else alert('Planning dupliqué ! ('+copied+' créneaux copiés pour '+planDupliIds.length+' salarié(s))');
   await loadPl();
 }
 
@@ -6758,10 +6817,29 @@ async function caisseIgnorer(hiboutikProductId){
 var laboLotsCache=[];
 var laboCommandesCache=[]; // commandes en_attente / partiellement_envoyee, avec .lignes[]
 var laboPrepSelections={}; // {commandeId: {ligneId: [lotId,...]}}
-var laboCatCache=[]; // catalogue partagé : catégories (ancien système, gardé pour l'écran "Gérer le catalogue Labo")
-var laboProdCache=[]; // catalogue partagé : produits (ancien système, idem)
 var laboIngredientsCache=[]; // ingrédients (table 'ingredients', restaurant_id='global') — SOURCE désormais utilisée pour la création de lots et le matching des commandes Labo. Chargée indépendamment de l'onglet Recettes (Labo est un onglet séparé, rctIngredients peut être vide si Recettes n'a jamais été ouvert).
-var LABO_RESTO_LABELS={port:'Port',dabray:'Dabray'};
+var LABO_RESTO_LABELS={port:'Port',dabray:'Dabray'}; // repli seulement : les noms viennent de Réglages > Établissements
+var laboUniteByRestoCode={}; // 'restaurant|code' -> unité de comptage du restaurant demandeur (pour compter les lots)
+function laboNomResto(id){
+  var rd=(typeof restosData!=='undefined'?restosData:[]).find(function(r){return r.id===id;});
+  return rd?(rd.nom||rd.id):(LABO_RESTO_LABELS[id]||id);
+}
+// Pèse un lot directement depuis une ligne de commande : le crée (en stock) et le coche pour l'envoi.
+async function laboPeserLotPourLigne(commandeId,ligneId){
+  var commande=laboCommandesCache.find(function(c){return String(c.id)===String(commandeId);});
+  var ligne=commande?(commande.lignes||[]).find(function(l){return String(l.id)===String(ligneId);}):null;
+  var inp=document.getElementById('lotpoids-'+ligneId);
+  if(!ligne||!inp)return;
+  var poidsKg=parseFloat(String(inp.value).replace(',','.'));
+  if(!(poidsKg>0)){alert('Indique le poids réel du lot (en kg).');return;}
+  var creePar=await laboCurrentUserNom();
+  try{
+    var ins=sbCheck(await db.from('labo_lots').insert({produit_code:ligne.produit_code,produit_nom:ligne.produit_nom||ligne.produit_code,poids_reel_g:Math.round(poidsKg*1000),statut:'en_stock',cree_par_nom:creePar,source_bloc_ref:null}).select().single());
+    laboLotsCache.unshift(ins.data);
+    toggleLaboLotSel(commandeId,ligneId,ins.data.id,true);
+    renderLaboLots();
+  }catch(e){alert('Erreur lors de la création du lot : '+e.message);}
+}
 async function loadLaboModule(){
   try{
     var r=sbCheck(await db.from('labo_lots').select('*').order('created_at',{ascending:false}));
@@ -6769,15 +6847,6 @@ async function loadLaboModule(){
   }catch(e){
     console.error('Erreur chargement labo_lots',e);
     laboLotsCache=[];
-  }
-  try{
-    var rcat=sbCheck(await db.from('labo_categories').select('*').order('ordre',{ascending:true}));
-    laboCatCache=rcat.data||[];
-    var rprod=sbCheck(await db.from('labo_produits').select('*').order('ordre',{ascending:true}));
-    laboProdCache=rprod.data||[];
-  }catch(e){
-    console.error('Erreur chargement catalogue Labo',e);
-    laboCatCache=[];laboProdCache=[];
   }
   try{
     var ring=sbCheck(await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).order('categorie').order('nom'));
@@ -6802,9 +6871,16 @@ async function loadLaboModule(){
     console.error('Erreur chargement labo_commandes',e);
     laboCommandesCache=[];
   }
+  // Unités de comptage des restaurants demandeurs (pour savoir si un lot compte pour son poids ou pour 1).
+  laboUniteByRestoCode={};
+  try{
+    var restosCmd=laboCommandesCache.map(function(c){return c.restaurant_id;}).filter(function(r,i,a){return r&&a.indexOf(r)===i;});
+    if(restosCmd.length){
+      var ru=await db.from('ingredient_seuils').select('restaurant_id,ingredient_code,unite_comptage,type_suivi').in('restaurant_id',restosCmd);
+      (ru.data||[]).forEach(function(r){laboUniteByRestoCode[r.restaurant_id+'|'+r.ingredient_code]=((r.type_suivi||'qty')==='qty'?(r.unite_comptage||'piece'):'piece');});
+    }
+  }catch(e){console.warn('unités de comptage (Labo)',e);}
   renderLaboProduitsList();
-  renderLaboCatalogueEditor();
-  renderLaboOrphans();
   renderLaboLots();
   renderLaboPrepList();
   maybeShowLaboPopup();
@@ -6858,25 +6934,38 @@ function renderLaboPrepList(){
     var catNames=Object.keys(lignesByCat).sort(function(a,b){return a.localeCompare(b,'fr');});
     var lignesHtml=catNames.map(function(cat){
       var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
-        var restant=l.quantite_demandee-(l.quantite_couverte||0);
+        // Unité de la demande (unité de comptage du restaurant demandeur) : un lot compte pour son poids si la
+        // demande est en kg/g/L…, sinon pour 1 (RG.valeurLotDansUnite).
+        var u=laboUniteByRestoCode[c.restaurant_id+'|'+l.produit_code]||'piece';
         var candidats=laboLotsCache.filter(function(lot){return lot.statut==='en_stock'&&lot.produit_code===l.produit_code;});
-        var selected=laboPrepSelections[c.id][l.id]||[];
+        // Identifiants comparés en TEXTE : la case cochée est mémorisée en texte (onchange), alors qu'un id de lot
+        // peut être un nombre — avant, la case se décochait aussitôt après le clic.
+        var selected=(laboPrepSelections[c.id][l.id]||[]).map(String);
+        var coche=0;candidats.forEach(function(lot){if(selected.indexOf(String(lot.id))>=0)coche+=RG.valeurLotDansUnite(lot.poids_reel_g,u);});
+        var restant=RG.arrondiQte(l.quantite_demandee-(l.quantite_couverte||0)-coche);
         var lotsHtml=candidats.length?candidats.map(function(lot){
-          var checked=selected.indexOf(lot.id)>=0?' checked':'';
-          return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;">'
-            +'<input type="checkbox" '+checked+' onchange="toggleLaboLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
+          var checked=selected.indexOf(String(lot.id))>=0?' checked':'';
+          return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;">'
+            +'<input type="checkbox" style="width:20px;height:20px;accent-color:var(--bx);" '+checked+' onchange="toggleLaboLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
             +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg — créé le '+fmtD(lot.created_at)
             +'</label>';
-        }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit — transforme-le d\'abord ci-dessous.</div>';
+        }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit : pèse-le ci-dessous, il sera coché automatiquement.</div>';
+        // Pesée directement sur la ligne : crée le lot ET le coche (avant, il fallait descendre dans « Nouveau lot »,
+        // choisir le produit dans une longue liste, puis revenir cocher).
+        var peserHtml='<div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;">'
+          +'<input type="number" class="fi" min="0" step="0.001" id="lotpoids-'+l.id+'" placeholder="Poids du lot (kg)" style="width:140px;font-size:12px;" onkeydown="if(event.key===\'Enter\')laboPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">'
+          +'<button type="button" class="btn bs sm" onclick="laboPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">⚖️ Peser et cocher un lot</button>'
+          +'</div>';
         return '<div style="margin:8px 0;padding:8px;background:#FAF4EC;border-radius:8px;">'
-          +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+l.quantite_demandee+', déjà couvert '+(l.quantite_couverte||0)+(selected.length?' <span style="color:#1ABC9C;">+ '+selected.length+' coché(s) maintenant</span>':'')+(restant>0?' <span style="color:#C0392B;">(reste '+restant+')</span>':' ✓')+'</div>'
+          +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+RG.libelleQuantite(l.quantite_demandee,u)+', déjà envoyé '+RG.libelleQuantite(l.quantite_couverte||0,u)+(coche?' <span style="color:#1ABC9C;">+ '+RG.libelleQuantite(RG.arrondiQte(coche),u)+' coché</span>':'')+(restant>0?' <span style="color:#C0392B;">(reste '+RG.libelleQuantite(restant,u)+')</span>':' ✓')+'</div>'
           +lotsHtml
+          +peserHtml
           +'</div>';
       }).join('');
       return '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--bx);margin:10px 0 2px;">'+esc(cat)+'</div>'+lignesCatHtml;
     }).join('');
     return '<div style="border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:10px;">'
-      +'<div style="font-weight:700;margin-bottom:4px;">Commande #'+c.numero+' — '+(LABO_RESTO_LABELS[c.restaurant_id]||c.restaurant_id)+' <span style="font-weight:400;font-size:11px;color:var(--txm);">('+fmtD(c.created_at)+')</span></div>'
+      +'<div style="font-weight:700;margin-bottom:4px;">Commande #'+c.numero+' — '+esc(laboNomResto(c.restaurant_id))+' <span style="font-weight:400;font-size:11px;color:var(--txm);">('+fmtD(c.created_at)+')</span></div>'
       +lignesHtml
       +'<button class="btn bp" style="width:100%;margin-top:6px;" onclick="envoyerLaboCommande(\''+c.id+'\')">📤 Envoyer les lots cochés</button>'
       +'<button class="btn bs" style="width:100%;margin-top:6px;color:#C0392B;" onclick="annulerLaboCommande(\''+c.id+'\')">✕ Annuler cette commande (cassée / obsolète)</button>'
@@ -6898,7 +6987,8 @@ function toggleLaboLotSel(commandeId,ligneId,lotId,checked){
   if(!laboPrepSelections[commandeId])laboPrepSelections[commandeId]={};
   if(!laboPrepSelections[commandeId][ligneId])laboPrepSelections[commandeId][ligneId]=[];
   var arr=laboPrepSelections[commandeId][ligneId];
-  var idx=arr.indexOf(lotId);
+  lotId=String(lotId);
+  var idx=arr.map(String).indexOf(lotId);
   if(checked&&idx<0)arr.push(lotId);
   if(!checked&&idx>=0)arr.splice(idx,1);
   renderLaboPrepList(); // retour visuel immédiat (compteur "coché maintenant")
@@ -6910,14 +7000,21 @@ async function envoyerLaboCommande(commandeId){
     (sel[ligneId]||[]).forEach(function(lotId){pairs.push({ligneId:ligneId,lotId:lotId});});
   });
   if(!pairs.length){alert('Coche au moins un lot avant d\'envoyer.');return;}
-  var commande=laboCommandesCache.find(function(c){return c.id===commandeId;});
+  var commande=laboCommandesCache.find(function(c){return String(c.id)===String(commandeId);});
   if(!commande)return;
+  // Ce que chaque lot coché couvre, dans l'unité de la demande (poids si kg/g/L…, sinon 1 par lot).
+  function couvertureLot(ligneId,lotId){
+    var l=(commande.lignes||[]).find(function(x){return String(x.id)===String(ligneId);});
+    var lot=laboLotsCache.find(function(x){return String(x.id)===String(lotId);});
+    var u=l?(laboUniteByRestoCode[commande.restaurant_id+'|'+l.produit_code]||'piece'):'piece';
+    return RG.valeurLotDansUnite(lot?lot.poids_reel_g:0,u);
+  }
   // Projection de couverture AVANT écriture, pour savoir s'il faut demander un commentaire de reliquat.
   var countByLigneProj={};
-  pairs.forEach(function(p){countByLigneProj[p.ligneId]=(countByLigneProj[p.ligneId]||0)+1;});
+  pairs.forEach(function(p){countByLigneProj[p.ligneId]=(countByLigneProj[p.ligneId]||0)+couvertureLot(p.ligneId,p.lotId);});
   var toutesCouvertesProj=(commande.lignes||[]).every(function(l){
-    var proj=(l.quantite_couverte||0)+(countByLigneProj[l.id]||0);
-    return proj>=l.quantite_demandee;
+    var proj=RG.arrondiQte((l.quantite_couverte||0)+(countByLigneProj[l.id]||0));
+    return proj>=RG.arrondiQte(l.quantite_demandee);
   });
   var commentaire='';
   if(!toutesCouvertesProj){
@@ -6933,18 +7030,18 @@ async function envoyerLaboCommande(commandeId){
     // Marquer les lots comme envoyés
     var lotIds=pairs.map(function(p){return p.lotId;});
     sbCheck(await db.from('labo_lots').update({statut:'envoye'}).in('id',lotIds));
-    // Mettre à jour quantite_couverte par ligne
+    // Mettre à jour quantite_couverte par ligne (dans l'unité de la demande)
     var countByLigne={};
-    pairs.forEach(function(p){countByLigne[p.ligneId]=(countByLigne[p.ligneId]||0)+1;});
+    pairs.forEach(function(p){countByLigne[p.ligneId]=(countByLigne[p.ligneId]||0)+couvertureLot(p.ligneId,p.lotId);});
     for(var ligneId in countByLigne){
       var ligne=(commande.lignes||[]).find(function(l){return String(l.id)===String(ligneId);}); // clés d'objet = texte : comparaison en texte pour ne jamais rater la ligne
       if(!ligne)continue;
-      var nouvelleCouverture=(ligne.quantite_couverte||0)+countByLigne[ligneId];
+      var nouvelleCouverture=RG.arrondiQte((ligne.quantite_couverte||0)+countByLigne[ligneId]);
       sbCheck(await db.from('labo_commandes_lignes').update({quantite_couverte:nouvelleCouverture}).eq('id',ligneId));
       ligne.quantite_couverte=nouvelleCouverture; // maj locale pour le check ci-dessous
     }
     // Déterminer le nouveau statut de la commande
-    toutesCouvertes=(commande.lignes||[]).every(function(l){return (l.quantite_couverte||0)>=l.quantite_demandee;});
+    toutesCouvertes=(commande.lignes||[]).every(function(l){return RG.arrondiQte(l.quantite_couverte||0)>=RG.arrondiQte(l.quantite_demandee);});
     var nouveauStatut=toutesCouvertes?'envoyee':'partiellement_envoyee';
     sbCheck(await db.from('labo_commandes').update({statut:nouveauStatut}).eq('id',commandeId));
   }catch(e){
@@ -6959,7 +7056,7 @@ async function envoyerLaboCommande(commandeId){
     pairs.forEach(function(p){(parLigne[p.ligneId]=parLigne[p.ligneId]||[]).push(p.lotId);});
     Object.keys(parLigne).forEach(function(ligneId){
       var ligne=(commande.lignes||[]).find(function(l){return String(l.id)===String(ligneId);});
-      var poids=0;parLigne[ligneId].forEach(function(lotId){var lot=laboLotsCache.find(function(x){return x.id===lotId;});if(lot)poids+=Number(lot.poids_reel_g)||0;});
+      var poids=0;parLigne[ligneId].forEach(function(lotId){var lot=laboLotsCache.find(function(x){return String(x.id)===String(lotId);});if(lot)poids+=Number(lot.poids_reel_g)||0;});
       evtsEnvoi.push({type:'labo_envoi',restaurant_id:commande.restaurant_id,ingredient_code:ligne?ligne.produit_code:null,produit_nom:ligne?(ligne.produit_nom||ligne.produit_code):null,quantite:parLigne[ligneId].length,detail:parLigne[ligneId].length+' lot(s)'+(poids?(' — '+RG.formatNombre(poids/1000)+' kg'):''),ref_id:commandeId});
     });
   })();
@@ -7270,197 +7367,8 @@ async function createLaboLot(){
   loadLaboModule();
 }
 
-// ══ Catalogue partagé Labo (catégories + produits) ══
-function toggleLaboCatalogueEditor(){
-  var el=document.getElementById('labo-catalogue-editor');
-  if(!el)return;
-  el.style.display=(el.style.display==='none')?'block':'none';
-}
-function renderLaboCatalogueEditor(){
-  var el=document.getElementById('labo-cat-editor-list');
-  if(!el)return;
-  if(!laboCatCache.length){
-    el.innerHTML='<div style="font-size:12px;color:var(--txm);margin-top:8px;">Aucune catégorie — ajoute-en une ci-dessus.</div>';
-    return;
-  }
-  el.innerHTML=laboCatCache.map(function(cat,idx){
-    var prods=laboProdCache.filter(function(p){return p.categorie_code===cat.code;});
-    var prodsHtml=prods.map(function(p){
-      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;flex-wrap:wrap;">'
-        +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+p.ordre+'" onchange="moveLaboProduitToPosition(\''+p.code+'\',this.value)">'
-        +'<input type="text" class="fi" style="flex:1;min-width:100px;padding:4px;" value="'+esc(p.nom)+'" onchange="renameLaboProduit(\''+p.code+'\',this.value)">'
-        +'<input type="text" class="fi" style="width:110px;padding:4px;" placeholder="Origine (ex: Carrefour)" value="'+esc(p.origine||'')+'" onchange="updateLaboProduitOrigine(\''+p.code+'\',this.value)">'
-        +'<label style="font-size:10px;display:flex;align-items:center;gap:2px;"><input type="checkbox" '+(p.actif!==false?'checked':'')+' onchange="toggleLaboProduitActif(\''+p.code+'\',this.checked)">actif</label>'
-        +'<button class="btn bs" style="padding:4px 8px;" onclick="deleteLaboProduit(\''+p.code+'\')">🗑️</button>'
-        +'</div>';
-    }).join('');
-    return '<div style="border:1px solid var(--bd);border-radius:8px;padding:8px;margin-top:8px;">'
-      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
-      +'<input type="number" class="fi" style="width:44px;padding:4px;" value="'+cat.ordre+'" onchange="moveLaboCategorieToPosition(\''+cat.code+'\',this.value)">'
-      +'<input type="text" class="fi" style="flex:1;padding:4px;font-weight:700;" value="'+esc(cat.label)+'" onchange="renameLaboCategorie(\''+cat.code+'\',this.value)">'
-      +'<button class="btn bs" style="padding:4px 8px;" onclick="deleteLaboCategorie(\''+cat.code+'\')">🗑️</button>'
-      +'</div>'
-      +prodsHtml
-      +'<div style="display:flex;gap:6px;margin-top:6px;">'
-      +'<input type="text" class="fi" style="flex:1;padding:5px;" id="labo-new-prod-'+cat.code+'" placeholder="Nouveau produit dans cette catégorie">'
-      +'<button class="btn bp" style="padding:5px 10px;" onclick="createLaboProduit(\''+cat.code+'\')">+</button>'
-      +'</div>'
-      +'</div>';
-  }).join('');
-}
-async function createLaboCategorie(){
-  var inp=document.getElementById('labo-new-cat-nom');
-  var label=inp.value.trim();
-  if(!label){alert('Indique un nom de catégorie.');return;}
-  var code=slugify(label);
-  var maxOrdre=laboCatCache.reduce(function(m,c){return Math.max(m,c.ordre||0);},0);
-  try{
-    sbCheck(await db.from('labo_categories').insert({code:code,label:label,ordre:maxOrdre+10}));
-  }catch(e){alert('Erreur : '+e.message);return;}
-  inp.value='';
-  loadLaboModule();
-}
-async function renameLaboCategorie(code,label){
-  label=label.trim();
-  if(!label)return;
-  try{sbCheck(await db.from('labo_categories').update({label:label}).eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadLaboModule();
-}
-async function moveLaboCategorieToPosition(code,val){
-  var ordre=parseInt(val,10);
-  if(isNaN(ordre))return;
-  try{sbCheck(await db.from('labo_categories').update({ordre:ordre}).eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadLaboModule();
-}
-async function deleteLaboCategorie(code){
-  if(!confirm('Supprimer cette catégorie ? Les produits qu\'elle contient passeront en "Non classé".'))return;
-  try{sbCheck(await db.from('labo_categories').delete().eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadLaboModule();
-}
-async function createLaboProduit(catCode){
-  var inp=document.getElementById('labo-new-prod-'+catCode);
-  if(!inp)return;
-  var nom=inp.value.trim();
-  if(!nom){alert('Indique un nom de produit.');return;}
-  var code=slugify(nom);
-  var maxOrdre=laboProdCache.filter(function(p){return p.categorie_code===catCode;}).reduce(function(m,p){return Math.max(m,p.ordre||0);},0);
-  try{
-    sbCheck(await db.from('labo_produits').insert({code:code,nom:nom,categorie_code:catCode,ordre:maxOrdre+10,actif:true}));
-  }catch(e){alert('Erreur (le code "'+code+'" existe peut-être déjà) : '+e.message);return;}
-  inp.value='';
-  loadLaboModule();
-}
-async function renameLaboProduit(code,nom){
-  nom=nom.trim();
-  if(!nom)return;
-  try{sbCheck(await db.from('labo_produits').update({nom:nom}).eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadLaboModule();
-}
-async function updateLaboProduitOrigine(code,origine){
-  try{sbCheck(await db.from('labo_produits').update({origine:origine.trim()||null}).eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadLaboModule();
-}
-async function moveLaboProduitToPosition(code,val){
-  var ordre=parseInt(val,10);
-  if(isNaN(ordre))return;
-  try{sbCheck(await db.from('labo_produits').update({ordre:ordre}).eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadLaboModule();
-}
-async function toggleLaboProduitActif(code,checked){
-  try{sbCheck(await db.from('labo_produits').update({actif:checked}).eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadLaboModule();
-}
-async function deleteLaboProduit(code){
-  if(!confirm('Supprimer ce produit du catalogue Labo ?'))return;
-  try{sbCheck(await db.from('labo_produits').delete().eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);}
-  loadLaboModule();
-}
-
-// ══ Import / Actualisation depuis les catalogues Stock (Port + Dabray) ══
-// Ne récupère QUE les produits dont le fournisseur est marqué "Labo" sur Port ou Dabray
-// (pas tout le catalogue Stock) — c'est le seul critère de pertinence pour ce catalogue.
-var laboOrphanCache=[];
-async function importLaboCatalogueDepuisStocks(){
-  var btn=event&&event.target;
-  if(btn)btn.disabled=true;
-  try{
-    var r=sbCheck(await db.from('stock_catalogue').select('restaurant_id,cats,products,suppliers').in('restaurant_id',['port','dabray']));
-    var rows=r.data||[];
-    if(!rows.length){
-      alert('Aucun catalogue Stock trouvé dans le cloud pour Port/Dabray.\nOuvre d\'abord l\'admin de Port ou Dabray et clique sur "☁️ Sync cloud" pour qu\'il y ait quelque chose à importer.');
-      return;
-    }
-    var catsByCode={};
-    var prodsByCode={};
-    var relevantCodes={};
-    rows.forEach(function(row){
-      var suppliers=row.suppliers||{};
-      var laboSupIds=Object.keys(suppliers).filter(function(sid){return suppliers[sid]&&suppliers[sid].isLabo;});
-      if(!laboSupIds.length)return; // aucun fournisseur "Labo" configuré sur ce restaurant
-      var catsById={};
-      (row.cats||[]).forEach(function(c){if(c&&c.id)catsById[c.id]=c;});
-      (row.products||[]).forEach(function(p){
-        if(!p||!p.name)return;
-        if(laboSupIds.indexOf(p.sup)<0)return; // pas fourni par le Labo sur ce restaurant
-        var code=slugify(p.name);
-        if(!code)return;
-        relevantCodes[code]=true;
-        if(!prodsByCode[code])prodsByCode[code]={code:code,nom:p.name,categorie_code:p.cat||null};
-        var cat=catsById[p.cat];
-        if(cat&&!catsByCode[cat.id])catsByCode[cat.id]={code:cat.id,label:cat.label||cat.id};
-      });
-    });
-    var catRows=Object.values(catsByCode);
-    var prodRows=Object.values(prodsByCode);
-    if(catRows.length){
-      var insCat=await db.from('labo_categories').upsert(catRows,{onConflict:'code'});
-      if(insCat.error)throw new Error(insCat.error.message);
-    }
-    if(prodRows.length){
-      var insProd=await db.from('labo_produits').upsert(prodRows,{onConflict:'code'});
-      if(insProd.error)throw new Error(insProd.error.message);
-    }
-    // Produits déjà présents dans le catalogue Labo mais plus "Labo-pertinents" nulle part
-    laboOrphanCache=laboProdCache.filter(function(p){return p.actif!==false&&!relevantCodes[p.code];});
-    var msg='✅ Import terminé : '+catRows.length+' catégorie(s), '+prodRows.length+' produit(s) fournis par le Labo (Port + Dabray fusionnés, sans doublons).';
-    if(laboOrphanCache.length)msg+='\n⚠️ '+laboOrphanCache.length+' produit(s) déjà dans le catalogue Labo ne sont plus fournis par le Labo nulle part — vois la liste "à vérifier" ci-dessous.';
-    alert(msg);
-  }catch(e){
-    alert('Erreur lors de l\'import : '+e.message);
-  }finally{
-    if(btn)btn.disabled=false;
-  }
-  await loadLaboModule();
-  renderLaboOrphans();
-}
-function renderLaboOrphans(){
-  var card=document.getElementById('labo-orphans-card');
-  var el=document.getElementById('labo-orphans-list');
-  if(!card||!el)return;
-  if(!laboOrphanCache.length){card.style.display='none';return;}
-  card.style.display='block';
-  el.innerHTML=laboOrphanCache.map(function(p){
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd);">'
-      +'<span>'+esc(p.nom)+'</span>'
-      +'<button class="btn bs" onclick="desactiverLaboOrphan(\''+p.code+'\')">Désactiver</button>'
-      +'</div>';
-  }).join('');
-}
-async function desactiverLaboOrphan(code){
-  try{sbCheck(await db.from('labo_produits').update({actif:false}).eq('code',code));}
-  catch(e){alert('Erreur : '+e.message);return;}
-  laboOrphanCache=laboOrphanCache.filter(function(p){return p.code!==code;});
-  loadLaboModule();
-  renderLaboOrphans();
-}
+// (Ancien catalogue Labo « labo_categories / labo_produits » importé depuis l'ancien module Stocks : retiré le
+// 30/09/2026. Les lots et les commandes Labo utilisent directement le catalogue d'ingrédients.)
 function renderLaboLots(){
   var enStock=laboLotsCache.filter(function(l){return l.statut==='en_stock';});
   var groups={};
@@ -7538,6 +7446,7 @@ function goRecettesSub(name){
   document.body.classList.toggle('ing-tree-active',name==='ingredients'); // pilote le décalage de la colonne fixe (desktop) — voir #ing-tree-panel
   if(name==='inv')loadInventairesList();
   if(name==='interne')loadInterneList();
+  if(name==='import')ventesInitProvenance();
   ['list','ingredients','couts','inv','import','interne'].forEach(function(k){
     var b=document.getElementById('rctbtn-'+k);
     if(!b)return;
@@ -8855,9 +8764,194 @@ function csvColIndex(headers,name,occurrence){
   }
   return -1;
 }
-function parseVentesCsv(text){
-  var rows=parseCsvSemicolon(text);
-  if(!rows.length)return [];
+// ── Import des ventes : caisse, rapports d'articles vendus et historiques de commandes des plateformes ──
+// Le format est reconnu d'après les en-têtes du fichier (séparateur « ; », « , » ou tabulation détecté) :
+//  • 'caisse'    : export caisse (colonnes « Produit ID », « Produit », « Quantité », « Total TTC »)
+//  • 'articles'  : rapport « articles vendus » d'une plateforme (« Nom du restaurant », « Nom du produit »,
+//                  « Quantité », « Sous-total ») — un fichier peut contenir plusieurs établissements
+//  • 'commandes' : historique des commandes d'une plateforme (une ligne par commande : montant, statut,
+//                  horaires, temps de préparation…) — pas de détail des produits
+// Les noms d'établissements des plateformes (« Milo's Pizza 2 »…) sont rattachés une fois à un restaurant ;
+// ce rattachement est mémorisé dans app_config (clé VENTES_MAGASINS_CLE), rien n'est codé en dur.
+var VENTES_SOURCES=[
+  {id:'caisse',label:'Caisse (sur place / à emporter)'},
+  {id:'uber_eats',label:'Uber Eats'},
+  {id:'deliveroo',label:'Deliveroo'},
+  {id:'autre_plateforme',label:'Autre plateforme de livraison'}
+];
+var VENTES_SOURCES_PLATEFORMES=['uber_eats','deliveroo','autre_plateforme'];
+var VENTES_MAGASINS_CLE='ventes_magasins_plateformes';
+var VENTES_COMMANDES_TABLE='ventes_commandes';
+var rctVentesMagasins=null; // {"source|nom établissement": restaurant_id}
+
+function ventesInitProvenance(){
+  var sel=document.getElementById('rct-imp-source');
+  if(!sel||String(sel.innerHTML).indexOf('<option')>=0)return;
+  sel.innerHTML=VENTES_SOURCES.map(function(s){return '<option value="'+s.id+'">'+esc(s.label)+'</option>';}).join('');
+}
+function ventesSourceLabel(id){
+  var s=VENTES_SOURCES.find(function(x){return x.id===id;});
+  return s?s.label:(id||'?');
+}
+// Lecteur CSV générique : BOM, séparateur auto, guillemets (y compris retours à la ligne entre guillemets).
+function parseCsvAuto(text){
+  text=String(text||'').replace(/^﻿/,'');
+  var premiere=text.split(/\r?\n/)[0]||'';
+  var compte=function(ch){var n=0,q=false;for(var i=0;i<premiere.length;i++){var c=premiere[i];if(c==='"')q=!q;else if(c===ch&&!q)n++;}return n;};
+  var sep=[';',',','\t'].sort(function(a,b){return compte(b)-compte(a);})[0];
+  var rows=[],row=[],cur='',inQ=false;
+  for(var i=0;i<text.length;i++){
+    var ch=text[i];
+    if(inQ){
+      if(ch==='"'){if(text[i+1]==='"'){cur+='"';i++;}else inQ=false;}
+      else cur+=ch;
+    }else if(ch==='"')inQ=true;
+    else if(ch===sep){row.push(cur);cur='';}
+    else if(ch==='\n'||ch==='\r'){
+      if(ch==='\r'&&text[i+1]==='\n')i++;
+      row.push(cur);cur='';
+      if(row.some(function(c){return String(c).trim()!=='';}))rows.push(row);
+      row=[];
+    }else cur+=ch;
+  }
+  row.push(cur);
+  if(row.some(function(c){return String(c).trim()!=='';}))rows.push(row);
+  return rows;
+}
+// En-têtes comparés sans accents/casse/espaces insécables ; plusieurs libellés possibles par colonne.
+function ventesNormEntete(h){return normText(String(h||'').replace(/ /g,' '));}
+function ventesCol(headers,noms){
+  var hs=headers.map(ventesNormEntete);
+  for(var k=0;k<noms.length;k++){var i=hs.indexOf(ventesNormEntete(noms[k]));if(i>=0)return i;}
+  return -1;
+}
+function ventesNum(v){
+  if(v==null)return 0;
+  var s=String(v).trim();
+  if(!s||s==='-')return 0;
+  var n=parseFloat(s.replace(/\s/g,'').replace(',','.'));
+  return isFinite(n)?n:0;
+}
+function ventesNumOuNull(v){
+  var s=v==null?'':String(v).trim();
+  if(!s||s==='-')return null;
+  var n=parseFloat(s.replace(/\s/g,'').replace(',','.'));
+  return isFinite(n)?n:null;
+}
+var VENTES_COLS={
+  articles:{
+    magasin:['Nom du restaurant','Restaurant','Restaurant name','Site'],
+    categorie:['Catégorie','Category'],
+    produit:['Nom du produit','Produit','Item name','Item'],
+    quantite:['Quantité','Quantity'],
+    ca:['Sous-total','Sous total','Subtotal','Total TTC','Montant'],
+    qteFormule:['Quantité vendue dans une formule'],
+    prixHorsFormule:['Prix hors formule']
+  },
+  commandes:{
+    magasin:['Restaurant','Nom du restaurant'],
+    id:['UUID de la commande','Id. de la commande','Order ID'],
+    ref:['Id. de la commande'],
+    statut:['Statut de la commande','Status'],
+    annuleePar:['Annulée par'],
+    planifiee:['Planifiée ?','Planifiée'],
+    nbArticles:['Nombre de plats du menu','Nombre d\'articles'],
+    montant:['Montant moyen des commandes','Montant de la commande','Montant','Sous-total'],
+    date:['Date de la commande','Date'],
+    heure:['Heure de la commande'],
+    heureAnnulation:['Heure d\'annulation'],
+    tempsPrep:['Temps de préparation initial'],
+    prepRallonge:['Temps de préparation plus long'],
+    attenteCoursier:['Temps d\'attente du coursier (restaurant)'],
+    attenteEvitable:['Temps d\'attente du coursier pouvant être évité (restaurant)'],
+    delaiLivraison:['Délai de livraison total'],
+    dureeTotale:['Durée de la commande'],
+    typeCommande:['Type de commande honorée'],
+    canal:['Canal de commande'],
+    marque:['Marque Eats'],
+    abonnement:['Pass Abonnement']
+  }
+};
+function ventesDetecterFormat(headers){
+  if(ventesCol(headers,['Produit ID'])>=0&&ventesCol(headers,['Total TTC'])>=0)return 'caisse';
+  var c=VENTES_COLS.commandes;
+  if(ventesCol(headers,c.id)>=0&&ventesCol(headers,c.statut)>=0)return 'commandes';
+  var a=VENTES_COLS.articles;
+  if(ventesCol(headers,a.produit)>=0&&ventesCol(headers,a.quantite)>=0&&ventesCol(headers,a.ca)>=0)return 'articles';
+  return null;
+}
+// Période lue dans le nom du fichier : « …_2026-09-21_2026-09-27.csv » ou « …_21-09-2026_27-09-2026.csv ».
+function ventesPeriodeDepuisNomFichier(nom){
+  nom=String(nom||'');
+  var m=nom.match(/(\d{4})-(\d{2})-(\d{2})[_ ](\d{4})-(\d{2})-(\d{2})/);
+  if(m)return {debut:m[1]+'-'+m[2]+'-'+m[3],fin:m[4]+'-'+m[5]+'-'+m[6]};
+  m=nom.match(/(\d{2})-(\d{2})-(\d{4})[_ ](\d{2})-(\d{2})-(\d{4})/);
+  if(m)return {debut:m[3]+'-'+m[2]+'-'+m[1],fin:m[6]+'-'+m[5]+'-'+m[4]};
+  return null;
+}
+function ventesFichierChoisi(){
+  var fi=document.getElementById('rct-imp-file');
+  if(!fi||!fi.files.length)return;
+  var per=ventesPeriodeDepuisNomFichier(fi.files[0].name);
+  if(per){
+    document.getElementById('rct-imp-debut').value=per.debut;
+    document.getElementById('rct-imp-fin').value=per.fin;
+  }
+  var info=document.getElementById('rct-imp-fichier-info');
+  if(info)info.textContent=per?('Période lue dans le nom du fichier : du '+per.debut+' au '+per.fin+' (modifiable).'):'';
+}
+
+async function ventesChargerMagasins(){
+  if(rctVentesMagasins)return rctVentesMagasins;
+  rctVentesMagasins={};
+  try{
+    var r=await db.from('app_config').select('value').eq('key',VENTES_MAGASINS_CLE).maybeSingle();
+    if(r&&!r.error&&r.data&&r.data.value){var v=JSON.parse(r.data.value);if(v&&typeof v==='object')rctVentesMagasins=v;}
+  }catch(e){console.error('ventesChargerMagasins',e);}
+  return rctVentesMagasins;
+}
+async function ventesEnregistrerMagasins(mapping,source){
+  await ventesChargerMagasins();
+  Object.keys(mapping).forEach(function(nom){if(mapping[nom])rctVentesMagasins[source+'|'+nom]=mapping[nom];});
+  sbCheck(await db.from('app_config').upsert({key:VENTES_MAGASINS_CLE,value:JSON.stringify(rctVentesMagasins)},{onConflict:'key'}));
+}
+// Proposition de rattachement : d'abord ce qui a déjà été choisi, sinon un restaurant dont le nom apparaît
+// clairement dans celui de l'établissement (« … - Port » → Port). Sinon rien : c'est à l'utilisateur de choisir.
+function ventesDevinerResto(source,nom){
+  var memo=rctVentesMagasins&&rctVentesMagasins[source+'|'+nom];
+  if(memo&&restosData.some(function(r){return r.id===memo;}))return memo;
+  var nn=' '+normText(nom)+' ',trouves=[];
+  restosData.forEach(function(r){
+    [r.nom,r.id].forEach(function(lib){
+      var nl=normText(lib);
+      if(nl&&nn.indexOf(' '+nl+' ')>=0&&trouves.indexOf(r.id)<0)trouves.push(r.id);
+    });
+  });
+  return trouves.length===1?trouves[0]:'';
+}
+function ventesRestoOptions(sel){
+  return '<option value="">— Choisir le restaurant —</option>'+restosData.map(function(r){
+    return '<option value="'+esc(r.id)+'"'+(r.id===sel?' selected':'')+'>'+esc(r.nom||r.id)+'</option>';
+  }).join('')+'<option value="__ignorer"'+(sel==='__ignorer'?' selected':'')+'>🚫 Ne pas importer cet établissement</option>';
+}
+
+// ── Parseurs ────────────────────────────────────────────────────────────────
+function ventesRapprocher(list){
+  // Rapprochement flou avec les produits déjà existants dans la carte admin : le nom exporté ne correspond pas
+  // toujours exactement (accents, émojis, abréviations...) à celui de la fiche produit.
+  list.forEach(function(r){
+    var best=null,bestScore=-1;
+    rctProduitsVendus.forEach(function(p){
+      var sc=matchScore(r.nom,p.nom);
+      if(sc>bestScore){bestScore=sc;best=p;}
+    });
+    r.matchedCode=(best&&bestScore>=70)?best.code:null;
+    r.matchScore=bestScore<0?0:bestScore;
+    r.matchedNom=best?best.nom:null;
+  });
+  return list;
+}
+function parseVentesCaisse(rows){
   var headers=rows[0];
   var idxId=csvColIndex(headers,'Produit ID',0);
   var idxProduit=csvColIndex(headers,'Produit',0);
@@ -8873,9 +8967,9 @@ function parseVentesCsv(text){
     if(id==='0')continue; // ligne remise/avoir/bon cadeau, pas un vrai produit
     var nom=(row[idxProduit]||'').trim();
     if(!nom)continue;
-    var qty=parseFloat((row[idxQty]||'0').replace(',','.'))||0;
+    var qty=ventesNum(row[idxQty]);
     if(qty<=0)continue;
-    var ttc=parseFloat((row[idxTTC]||'0').replace(',','.'))||0;
+    var ttc=ventesNum(row[idxTTC]);
     var catFull=(idxCatFull>=0?row[idxCatFull]:'')||'';
     var catShort=(idxCatShort>=0?row[idxCatShort]:'')||'';
     var cat=catFull.trim();
@@ -8883,83 +8977,422 @@ function parseVentesCsv(text){
     if(!cat)cat=catShort.trim();
     if(!cat||cat==='N/A')cat='Sans catégorie';
     var code=slugify(nom);
-    if(!byCode[code])byCode[code]={code:code,nom:nom,categorie:cat,quantite:0,ca_ttc:0};
+    if(!byCode[code])byCode[code]={magasin:'',code:code,nom:nom,categorie:cat,quantite:0,ca_ttc:0,ignorer:false};
     byCode[code].quantite+=qty;
     byCode[code].ca_ttc+=ttc;
   }
-  var list=Object.keys(byCode).map(function(k){return byCode[k];});
-  // Rapprochement flou avec les produits déjà existants dans la carte admin : le nom exporté par la caisse
-  // ne correspond pas toujours exactement (accents, majuscules, abréviations...) à celui de la fiche produit,
-  // ce qui créait silencieusement des doublons sans recette et faussait tout le calcul de consommation.
-  list.forEach(function(r){
-    var best=null,bestScore=-1;
-    rctProduitsVendus.forEach(function(p){
-      var sc=matchScore(r.nom,p.nom);
-      if(sc>bestScore){bestScore=sc;best=p;}
-    });
-    r.matchedCode=(best&&bestScore>=70)?best.code:null;
-    r.matchScore=bestScore<0?0:bestScore;
-    r.matchedNom=best?best.nom:null;
+  return ventesRapprocher(Object.keys(byCode).map(function(k){return byCode[k];}));
+}
+// Rapport « articles vendus » : Quantité et Sous-total incluent déjà les articles vendus dans une formule.
+// Les options gratuites (« Pizza coupée », « Origan »… à 0 €) ne sont pas des produits : ignorées par défaut.
+function parseVentesArticles(rows){
+  var h=rows[0],C=VENTES_COLS.articles;
+  var iMag=ventesCol(h,C.magasin),iCat=ventesCol(h,C.categorie),iProd=ventesCol(h,C.produit),iQte=ventesCol(h,C.quantite),iCa=ventesCol(h,C.ca),iForm=ventesCol(h,C.qteFormule),iPrix=ventesCol(h,C.prixHorsFormule);
+  var par={};
+  for(var r=1;r<rows.length;r++){
+    var row=rows[r];
+    var nom=String(row[iProd]||'').trim();
+    if(!nom)continue;
+    var qte=ventesNum(row[iQte]);
+    if(qte<=0)continue;
+    var mag=iMag>=0?String(row[iMag]||'').trim():'';
+    var ca=ventesNum(row[iCa]);
+    var code=slugify(nom);
+    var cle=mag+'|'+code;
+    if(!par[cle])par[cle]={magasin:mag,code:code,nom:nom,categorie:iCat>=0?String(row[iCat]||'').trim()||'Sans catégorie':'Sans catégorie',quantite:0,ca_ttc:0,qteFormule:0,prixHorsFormule:null};
+    var o=par[cle];
+    o.quantite+=qte;o.ca_ttc+=ca;
+    if(iForm>=0)o.qteFormule+=ventesNum(row[iForm]);
+    if(iPrix>=0&&o.prixHorsFormule==null)o.prixHorsFormule=ventesNumOuNull(row[iPrix]);
+  }
+  var list=Object.keys(par).map(function(k){return par[k];});
+  list.forEach(function(o){o.optionGratuite=o.ca_ttc===0&&!o.prixHorsFormule;o.ignorer=o.optionGratuite;});
+  ventesRapprocher(list);
+  // Catégorie d'options/suppléments (« Modifiers ») : on y trouve à la fois des produits vendus dans une formule
+  // (« Pizza Reine » → nom identique à la carte) et des suppléments (« Burrata » à 5 €) qui ressemblent seulement
+  // à un produit (« Pizza Burrata »). Seule une correspondance exacte est proposée d'office ; le reste est à choisir.
+  list.forEach(function(o){
+    var cat=normText(o.categorie);
+    if(!o.ignorer&&/modifier|supplement|option|extra/.test(cat)&&o.matchScore<100){o.supplement=true;o.matchedCode=null;}
   });
-  return list.sort(function(a,b){return b.quantite-a.quantite;});
+  return list;
+}
+function ventesHeureSql(v){
+  var s=String(v||'').trim();
+  var m=s.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/);
+  return m?(m[1]+' '+m[2]+(m[3]?'':':00')):null;
+}
+function parseVentesCommandes(rows){
+  var h=rows[0],C=VENTES_COLS.commandes,I={};
+  Object.keys(C).forEach(function(k){I[k]=ventesCol(h,C[k]);});
+  var get=function(row,k){return I[k]>=0?String(row[I[k]]==null?'':row[I[k]]).trim():'';};
+  var out=[],vus={};
+  for(var r=1;r<rows.length;r++){
+    var row=rows[r];
+    var id=get(row,'id');
+    if(!id||vus[id])continue;
+    vus[id]=true;
+    var statut=get(row,'statut').toLowerCase();
+    var heure=ventesHeureSql(get(row,'heure'));
+    var date=get(row,'date').slice(0,10)||(heure?heure.slice(0,10):null);
+    var prep=ventesNumOuNull(get(row,'tempsPrep'));
+    var rallonge=ventesNumOuNull(get(row,'prepRallonge'));
+    out.push({
+      magasin:get(row,'magasin'),commande_id:id,commande_ref:get(row,'ref')||null,
+      statut:statut||null,
+      annulee:/cancel|annul|refus|reject/.test(statut),
+      annulee_par:get(row,'annuleePar')||null,
+      planifiee:get(row,'planifiee')==='1',
+      nb_articles:ventesNumOuNull(get(row,'nbArticles')),
+      montant_ttc:ventesNumOuNull(get(row,'montant')),
+      date_commande:date,heure_commande:heure,
+      heure_annulation:ventesHeureSql(get(row,'heureAnnulation')),
+      temps_preparation_min:prep==null?null:Math.round((prep+(rallonge||0))*100)/100,
+      attente_coursier_min:ventesNumOuNull(get(row,'attenteCoursier')),
+      attente_evitable_min:ventesNumOuNull(get(row,'attenteEvitable')),
+      delai_livraison_min:ventesNumOuNull(get(row,'delaiLivraison')),
+      duree_totale_min:ventesNumOuNull(get(row,'dureeTotale')),
+      type_commande:get(row,'typeCommande')||null,
+      canal:get(row,'canal')||null,
+      abonnement:get(row,'abonnement')||null,
+      marque:get(row,'marque')||null
+    });
+  }
+  return out;
+}
+function ventesSourceDepuisMarque(commandes){
+  var m=commandes.map(function(c){return normText(c.marque);}).filter(Boolean)[0]||'';
+  if(m.indexOf('uber')>=0)return 'uber_eats';
+  if(m.indexOf('deliveroo')>=0)return 'deliveroo';
+  return null;
 }
 
+// ── Lecture du fichier et aperçu ────────────────────────────────────────────
 function previewVentesImport(){
   var fileInput=document.getElementById('rct-imp-file');
-  var debut=document.getElementById('rct-imp-debut').value;
-  var fin=document.getElementById('rct-imp-fin').value;
   if(!fileInput.files.length){alert('Choisis un fichier CSV.');return;}
-  if(!debut||!fin){alert('Indique la période (début et fin).');return;}
   var file=fileInput.files[0];
   var reader=new FileReader();
-  reader.onload=function(e){
-    var parsed;
-    try{parsed=parseVentesCsv(e.target.result);}
-    catch(err){console.error(err);alert('Le fichier n\'a pas pu être lu. Vérifie que c\'est bien un export CSV de la caisse.');return;}
-    if(!parsed.length){alert('Aucune ligne de vente exploitable trouvée dans ce fichier.');return;}
-    rctPendingImport={debut:debut,fin:fin,rows:parsed};
+  reader.onload=async function(e){
+    var rows;
+    try{rows=parseCsvAuto(e.target.result);}
+    catch(err){console.error(err);alert('Le fichier n\'a pas pu être lu.');return;}
+    if(rows.length<2){alert('Le fichier est vide.');return;}
+    var format=ventesDetecterFormat(rows[0]);
+    if(!format){alert('Format de fichier non reconnu. Colonnes trouvées : '+rows[0].slice(0,8).join(', ')+'…\nFormats acceptés : export caisse, rapport « articles vendus » ou historique des commandes d\'une plateforme.');return;}
+    var sourceSel=document.getElementById('rct-imp-source');
+    var source=sourceSel?sourceSel.value:'caisse';
+    var debut=document.getElementById('rct-imp-debut').value;
+    var fin=document.getElementById('rct-imp-fin').value;
+    await ventesChargerMagasins();
+    if(format==='commandes'){
+      var cmds=parseVentesCommandes(rows);
+      if(!cmds.length){alert('Aucune commande trouvée dans ce fichier.');return;}
+      var src=ventesSourceDepuisMarque(cmds)||(source==='caisse'?null:source);
+      if(!src){alert('Ce fichier est un historique de commandes de plateforme : choisis la plateforme dans « Provenance ».');return;}
+      if(sourceSel)sourceSel.value=src;
+      var dates=cmds.map(function(c){return c.date_commande;}).filter(Boolean).sort();
+      rctPendingImport={format:'commandes',source:src,debut:dates[0]||debut,fin:dates[dates.length-1]||fin,commandes:cmds,mapping:{},nomFichier:file.name};
+    }else{
+      if(!debut||!fin){alert('Indique la période (début et fin) : ce fichier ne contient pas de dates.');return;}
+      if(format==='articles'&&source==='caisse'){alert('Ce fichier est un rapport d\'articles vendus d\'une plateforme : choisis la plateforme dans « Provenance » (Uber Eats, Deliveroo…).');return;}
+      if(format==='caisse'&&source!=='caisse'){if(sourceSel)sourceSel.value='caisse';source='caisse';}
+      var list=format==='caisse'?parseVentesCaisse(rows):parseVentesArticles(rows);
+      if(!list.length){alert('Aucune ligne de vente exploitable trouvée dans ce fichier.');return;}
+      rctPendingImport={format:format,source:source,debut:debut,fin:fin,rows:list,mapping:{},nomFichier:file.name};
+    }
+    ventesMagasinsDuFichier().forEach(function(nom){rctPendingImport.mapping[nom]=ventesDevinerResto(rctPendingImport.source,nom);});
     renderVentesPreview();
   };
   reader.onerror=function(){alert('Erreur de lecture du fichier.');};
   reader.readAsText(file,'UTF-8');
 }
-
-function ventesImportProdOptions(selectedCode){
-  var opts='<option value=""'+(!selectedCode?' selected':'')+'>➕ Nouveau produit</option>';
+function ventesMagasinsDuFichier(){
+  var p=rctPendingImport;if(!p||p.format==='caisse')return [];
+  var liste=(p.format==='commandes'?p.commandes:p.rows).map(function(x){return x.magasin||'';});
+  return liste.filter(function(n,i,a){return a.indexOf(n)===i;});
+}
+function ventesSetMapping(i,val){
+  var noms=ventesMagasinsDuFichier();
+  rctPendingImport.mapping[noms[i]]=val;
+  renderVentesPreview();
+}
+function ventesImportProdOptions(selectedCode,ignorer){
+  var opts='<option value=""'+(!selectedCode&&!ignorer?' selected':'')+'>➕ Nouveau produit</option>'
+    +'<option value="__ignorer"'+(ignorer?' selected':'')+'>🚫 Ignorer (option, pas un produit)</option>';
   rctProduitsVendus.slice().sort(function(a,b){return a.nom.localeCompare(b.nom);}).forEach(function(p){
-    opts+='<option value="'+p.code+'"'+(p.code===selectedCode?' selected':'')+'>'+esc(p.nom)+'</option>';
+    opts+='<option value="'+p.code+'"'+(!ignorer&&p.code===selectedCode?' selected':'')+'>'+esc(p.nom)+'</option>';
   });
   return opts;
 }
+function ventesSetProduit(i,val){
+  var r=rctPendingImport.rows[i];
+  if(val==='__ignorer'){r.ignorer=true;}
+  else{r.ignorer=false;r.matchedCode=val||null;r.matchScore=val?100:0;}
+  renderVentesPreview();
+}
+function ventesMagasinsHtml(){
+  var noms=ventesMagasinsDuFichier();
+  if(!noms.length)return '';
+  var p=rctPendingImport;
+  return '<div class="card" style="background:#FFF9EC;">'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:4px;">🏪 Établissements présents dans le fichier</div>'
+    +'<div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Indique à quel restaurant correspond chaque nom utilisé par '+esc(ventesSourceLabel(p.source))+'. Ce choix est retenu pour les prochains imports.</div>'
+    +noms.map(function(nom,i){
+      return '<div class="fr" style="align-items:center;"><label class="fl2" style="min-width:140px;">'+esc(nom||'(sans nom)')+'</label>'
+        +'<select class="fi" onchange="ventesSetMapping('+i+',this.value)">'+ventesRestoOptions(p.mapping[nom]||'')+'</select></div>';
+    }).join('')
+    +'</div>';
+}
 function renderVentesPreview(){
-  if(!rctPendingImport){document.getElementById('rct-imp-preview').innerHTML='';return;}
-  var totalQty=0,totalTTC=0,newCount=0,ambiguousCount=0;
-  var rowsHtml=rctPendingImport.rows.map(function(r,i){
-    totalQty+=r.quantite;totalTTC+=r.ca_ttc;
-    var isNew=!r.matchedCode;
-    var ambiguous=!isNew&&r.matchScore<90;
-    if(isNew)newCount++;
-    if(ambiguous)ambiguousCount++;
-    return '<tr'+(ambiguous?' style="background:#FFF9EC;"':'')+'>'
-      +'<td style="padding:4px 6px;font-size:12px;">'+esc(r.nom)+'<div style="font-size:10px;color:var(--txm);">'+esc(r.categorie)+'</div></td>'
+  var el=document.getElementById('rct-imp-preview');
+  var p=rctPendingImport;
+  if(!p){el.innerHTML='';return;}
+  if(p.format==='commandes'){renderVentesCommandesPreview();return;}
+  var totalQty=0,totalTTC=0,newCount=0,ambiguousCount=0,ignCount=0;
+  var parMagasin=p.format==='articles';
+  var ordre=p.rows.map(function(r,i){return i;}).sort(function(a,b){
+    var ra=p.rows[a],rb=p.rows[b];
+    if(parMagasin&&ra.magasin!==rb.magasin)return ra.magasin.localeCompare(rb.magasin);
+    if(ra.ignorer!==rb.ignorer)return ra.ignorer?1:-1;
+    return rb.quantite-ra.quantite;
+  });
+  var dernierMag=null;
+  var rowsHtml=ordre.map(function(i){
+    var r=p.rows[i];
+    var entete='';
+    if(parMagasin&&r.magasin!==dernierMag){
+      dernierMag=r.magasin;
+      var dest=p.mapping[r.magasin];
+      entete='<tr><td colspan="4" style="padding:8px 6px 4px;font-weight:800;font-size:12px;background:#F3EDE4;">'+esc(r.magasin||'(sans nom)')+' → '
+        +(dest==='__ignorer'?'<span style="color:#991B1B;">non importé</span>':dest?esc(rctRestoLabel(dest)):'<span style="color:#991B1B;">restaurant à choisir ci-dessus</span>')+'</td></tr>';
+    }
+    if(r.ignorer){ignCount++;}
+    else{
+      totalQty+=r.quantite;totalTTC+=r.ca_ttc;
+      if(!r.matchedCode){newCount++;if(r.supplement)ambiguousCount++;}
+      else if(r.matchScore<90)ambiguousCount++;
+    }
+    var ambiguous=!r.ignorer&&((r.matchedCode&&r.matchScore<90)||(r.supplement&&!r.matchedCode));
+    var formule=r.qteFormule?'<div style="font-size:10px;color:var(--txm);">dont '+r.qteFormule+' dans une formule</div>':'';
+    return entete+'<tr style="'+(r.ignorer?'opacity:.5;':'')+(ambiguous?'background:#FFF9EC;':'')+'">'
+      +'<td style="padding:4px 6px;font-size:12px;">'+esc(r.nom)+'<div style="font-size:10px;color:var(--txm);">'+esc(r.categorie)+(r.optionGratuite?' · option gratuite':'')+'</div>'+formule+'</td>'
       +'<td style="padding:4px 6px;font-size:11px;text-align:right;">'+r.quantite+'</td>'
       +'<td style="padding:4px 6px;font-size:11px;text-align:right;">'+r.ca_ttc.toFixed(2)+' €</td>'
-      +'<td style="padding:4px 6px;"><select class="fi" style="font-size:11px;min-width:150px;" onchange="rctPendingImport.rows['+i+'].matchedCode=this.value||null;renderVentesPreview();">'
-        +ventesImportProdOptions(r.matchedCode)
+      +'<td style="padding:4px 6px;"><select class="fi" style="font-size:11px;min-width:150px;" onchange="ventesSetProduit('+i+',this.value)">'
+        +ventesImportProdOptions(r.matchedCode,r.ignorer)
       +'</select>'
-      +(ambiguous?'<div style="font-size:9px;color:#92400E;">🟠 correspondance incertaine, vérifie</div>':'')
-      +'</td>'
-      +'</tr>';
+      +(ambiguous?'<div style="font-size:9px;color:#92400E;">'+(r.supplement&&!r.matchedCode?'🟠 supplément ou option ? choisis « Ignorer » ou le bon produit':'🟠 correspondance incertaine, vérifie')+'</div>':'')
+      +'</td></tr>';
   }).join('');
-  var html='<div class="card">'
-    +'<div style="font-size:12px;color:var(--txm);margin-bottom:8px;">Période du '+rctPendingImport.debut+' au '+rctPendingImport.fin+' — '+rctPendingImport.rows.length+' produits, '+totalQty+' unités vendues, '+totalTTC.toFixed(2)+' € TTC'+(newCount?' — '+newCount+' nouveau(x) produit(s) seront créés':'')+(ambiguousCount?' — 🟠 '+ambiguousCount+' correspondance(s) incertaine(s) à vérifier ci-dessous':'')+'.</div>'
-    +'<div style="max-height:360px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">'
-    +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:4px 6px;">Produit caisse</th><th style="padding:4px 6px;text-align:right;">Qté</th><th style="padding:4px 6px;text-align:right;">CA TTC</th><th style="padding:4px 6px;">Correspond à</th></tr></thead>'
+  var html=ventesMagasinsHtml()+'<div class="card">'
+    +'<div style="font-size:12px;color:var(--txm);margin-bottom:8px;"><b>'+esc(ventesSourceLabel(p.source))+'</b> — période du '+p.debut+' au '+p.fin+' — '+(p.rows.length-ignCount)+' produits, '+Math.round(totalQty*100)/100+' unités vendues, '+totalTTC.toFixed(2)+' € TTC'
+      +(newCount?' — '+newCount+' nouveau(x) produit(s) seront créés':'')+(ambiguousCount?' — '+ambiguousCount+' correspondance(s) à vérifier':'')+(ignCount?' — '+ignCount+' ligne(s) ignorée(s)':'')+'</div>'
+    +'<div style="max-height:420px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;">'
+    +'<thead><tr style="text-align:left;font-size:10px;text-transform:uppercase;color:var(--txm);"><th style="padding:4px 6px;">Produit du fichier</th><th style="padding:4px 6px;text-align:right;">Qté</th><th style="padding:4px 6px;text-align:right;">CA TTC</th><th style="padding:4px 6px;">Produit de la carte</th></tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table></div>'
-    +'<div style="font-size:11px;color:var(--txm);margin:10px 0;">⚠️ Si un import existe déjà pour cette période exacte, il sera remplacé par celui-ci. Vérifie surtout les lignes 🟠 : une mauvaise correspondance fausse le calcul de consommation théorique.</div>'
+    +'<div style="font-size:11px;color:var(--txm);margin:10px 0;">⚠️ Un import déjà fait pour cette même période et cette même provenance ('+esc(ventesSourceLabel(p.source))+') sera remplacé ; les ventes des autres provenances ne sont pas touchées. Vérifie surtout les lignes 🟠 : une mauvaise correspondance fausse le calcul de consommation théorique.</div>'
     +'<button class="btn bp" onclick="confirmVentesImport()" style="width:100%;">Confirmer l\'import</button>'
     +'</div>';
-  document.getElementById('rct-imp-preview').innerHTML=html;
+  el.innerHTML=html;
+}
+
+// ── Synthèse d'un historique de commandes (aperçu avant import, et relecture depuis la base) ──
+function ventesMoy(arr){var v=arr.filter(function(x){return x!=null&&isFinite(x);});return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null;}
+function ventesFmtMin(v){return v==null?'—':(Math.round(v*10)/10).toString().replace('.',',')+' min';}
+function ventesFmtEur(v){return v==null?'—':v.toFixed(2).replace('.',',')+' €';}
+function ventesSyntheseCommandes(cmds){
+  var ok=cmds.filter(function(c){return !c.annulee;});
+  var ann=cmds.filter(function(c){return c.annulee;});
+  var ca=ok.reduce(function(a,c){return a+(c.montant_ttc||0);},0);
+  var heures={},jours={},canaux={},abos=0;
+  ok.forEach(function(c){
+    if(c.heure_commande){var hh=parseInt(c.heure_commande.slice(11,13),10);heures[hh]=(heures[hh]||0)+1;}
+    if(c.date_commande){var jd=new Date(c.date_commande+'T12:00:00').getDay();jours[jd]=(jours[jd]||0)+1;}
+    if(c.canal)canaux[c.canal]=(canaux[c.canal]||0)+1;
+    if(c.abonnement)abos++;
+  });
+  return {
+    nb:ok.length,nbAnnulees:ann.length,
+    annuleesPar:ann.reduce(function(a,c){var k=c.annulee_par||'?';a[k]=(a[k]||0)+1;return a;},{}),
+    ca:ca,panier:ok.length?ca/ok.length:null,
+    articles:ventesMoy(ok.map(function(c){return c.nb_articles;})),
+    prep:ventesMoy(ok.map(function(c){return c.temps_preparation_min;})),
+    attente:ventesMoy(ok.map(function(c){return c.attente_coursier_min;})),
+    attenteEvitable:ventesMoy(ok.map(function(c){return c.attente_evitable_min;})),
+    livraison:ventesMoy(ok.map(function(c){return c.delai_livraison_min;})),
+    duree:ventesMoy(ok.map(function(c){return c.duree_totale_min;})),
+    heures:heures,jours:jours,canaux:canaux,
+    partAbo:ok.length?Math.round(100*abos/ok.length):null,
+    planifiees:ok.filter(function(c){return c.planifiee;}).length
+  };
+}
+function ventesSyntheseHtml(titre,s){
+  var JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  var maxH=Math.max.apply(null,[1].concat(Object.keys(s.heures).map(function(k){return s.heures[k];})));
+  var barres=Object.keys(s.heures).map(Number).sort(function(a,b){return a-b;}).map(function(hh){
+    var n=s.heures[hh];
+    return '<div style="display:flex;align-items:center;gap:6px;font-size:11px;"><span style="width:34px;color:var(--txm);">'+hh+'h</span>'
+      +'<span style="height:10px;border-radius:3px;background:var(--bx);width:'+Math.max(4,Math.round(160*n/maxH))+'px;"></span><span>'+n+'</span></div>';
+  }).join('');
+  var jours=[1,2,3,4,5,6,0].filter(function(j){return s.jours[j];}).map(function(j){return JOURS[j]+' '+s.jours[j];}).join(' · ');
+  var canaux=Object.keys(s.canaux).map(function(k){return esc(k)+' '+s.canaux[k];}).join(' · ');
+  var ann=Object.keys(s.annuleesPar).map(function(k){return esc(k)+' '+s.annuleesPar[k];}).join(', ');
+  var ligne=function(l,v){return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #F1EAE0;"><span style="color:var(--txm);">'+l+'</span><b>'+v+'</b></div>';};
+  return '<div class="card">'
+    +'<div style="font-weight:800;font-size:14px;margin-bottom:8px;">'+esc(titre)+'</div>'
+    +ligne('Commandes livrées',s.nb)
+    +ligne('Chiffre d\'affaires (montant des commandes)',ventesFmtEur(s.ca))
+    +ligne('Panier moyen',ventesFmtEur(s.panier))
+    +ligne('Articles par commande',s.articles==null?'—':(Math.round(s.articles*10)/10).toString().replace('.',','))
+    +ligne('Annulées',s.nbAnnulees+(ann?' ('+ann+')':''))
+    +ligne('Préparation moyenne',ventesFmtMin(s.prep))
+    +ligne('Attente du coursier au resto',ventesFmtMin(s.attente)+(s.attenteEvitable!=null?' (dont évitable '+ventesFmtMin(s.attenteEvitable)+')':''))
+    +ligne('Livraison (départ → client)',ventesFmtMin(s.livraison))
+    +ligne('Durée totale commande → client',ventesFmtMin(s.duree))
+    +(s.partAbo!=null?ligne('Clients avec abonnement',s.partAbo+' %'):'')
+    +(s.planifiees?ligne('Commandes planifiées',s.planifiees):'')
+    +(canaux?ligne('Canal',canaux):'')
+    +(jours?'<div style="font-size:11px;color:var(--txm);margin-top:8px;">Par jour : '+jours+'</div>':'')
+    +(barres?'<div style="font-size:11px;color:var(--txm);margin:8px 0 4px;">Commandes par heure :</div>'+barres:'')
+    +'</div>';
+}
+function renderVentesCommandesPreview(){
+  var p=rctPendingImport;
+  var noms=ventesMagasinsDuFichier();
+  var blocs=noms.map(function(nom){
+    var dest=p.mapping[nom];
+    var titre=(nom||'(sans nom)')+' → '+(dest==='__ignorer'?'non importé':dest?rctRestoLabel(dest):'restaurant à choisir');
+    return ventesSyntheseHtml(titre,ventesSyntheseCommandes(p.commandes.filter(function(c){return c.magasin===nom;})));
+  }).join('');
+  document.getElementById('rct-imp-preview').innerHTML=ventesMagasinsHtml()
+    +'<div class="card" style="font-size:12px;color:var(--txm);"><b>'+esc(ventesSourceLabel(p.source))+'</b> — historique de '+p.commandes.length+' commande(s) du '+p.debut+' au '+p.fin+'. Ce fichier ne détaille pas les produits vendus : il sert à suivre le volume, le panier, les annulations et les temps. Pour la consommation d\'ingrédients, importe aussi le rapport « articles vendus » de la même période.</div>'
+    +blocs
+    +'<div class="card"><div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Les commandes déjà importées (même numéro) sont mises à jour, jamais dupliquées.</div>'
+    +'<button class="btn bp" onclick="confirmVentesImport()" style="width:100%;">Enregistrer ces commandes</button></div>';
+}
+
+// ── Enregistrement ──────────────────────────────────────────────────────────
+function ventesVerifierMapping(){
+  var p=rctPendingImport;
+  var manquants=ventesMagasinsDuFichier().filter(function(n){return !p.mapping[n];});
+  if(manquants.length){alert('Choisis le restaurant correspondant à : '+manquants.join(', ')+' (ou « Ne pas importer »).');return false;}
+  return true;
+}
+async function confirmVentesImport(){
+  var p=rctPendingImport;
+  if(!p)return;
+  var el=document.getElementById('rct-imp-preview');
+  if(p.format!=='caisse'&&!ventesVerifierMapping())return;
+  try{
+    if(p.format!=='caisse')await ventesEnregistrerMagasins(p.mapping,p.source);
+    var bilan;
+    if(p.format==='commandes')bilan=await ventesEnregistrerCommandes(p);
+    else bilan=await ventesEnregistrerProduits(p);
+    rctPendingImport=null;
+    el.innerHTML='<div class="card" style="background:#ECFDF5;color:#065F46;">✅ '+bilan+'</div>';
+    document.getElementById('rct-imp-file').value='';
+    var info=document.getElementById('rct-imp-fichier-info');if(info)info.textContent='';
+    if(p.format!=='commandes')await loadRecettesModule();
+  }catch(e){
+    console.error('confirmVentesImport',e);
+    var msg=e.message||String(e);
+    if(p.format==='commandes'&&/relation|does not exist|schema cache|Could not find the table/i.test(msg))
+      msg='la table « '+VENTES_COMMANDES_TABLE+' » n\'existe pas encore — exécute le script ventes_commandes.sql dans Supabase, puis recommence. ('+msg+')';
+    el.insertAdjacentHTML('beforeend','<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import : '+esc(msg)+'</div>');
+  }
+}
+async function ventesEnregistrerProduits(p){
+  var existingCodes={};
+  rctProduitsVendus.forEach(function(x){existingCodes[x.code]=true;});
+  // Restaurant de chaque ligne : celui choisi en haut de page pour la caisse, le rattachement de l'établissement sinon.
+  var lignes=p.rows.filter(function(r){return !r.ignorer;}).map(function(r){
+    var resto=p.format==='caisse'?rctResto():p.mapping[r.magasin];
+    return {r:r,resto:resto};
+  }).filter(function(x){return x.resto&&x.resto!=='__ignorer';});
+  if(!lignes.length)throw new Error('aucune ligne à importer (tout est ignoré).');
+  // On ne crée un nouveau produit que pour les lignes où aucune correspondance n'a été choisie.
+  var aCreer={};
+  // Les plateformes décorent les noms d'émojis (« Pizza Burrata 🇮🇹 ») : on les retire pour la fiche créée.
+  var propre=function(t){return String(t||'').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu,'').replace(/\s+/g,' ').trim().replace(/[\s.\/]+$/,'')||String(t||'').trim();};
+  lignes.forEach(function(x){if(!x.r.matchedCode&&!existingCodes[x.r.code])aCreer[x.r.code]={restaurant_id:RCT_GLOBAL,code:x.r.code,nom:propre(x.r.nom),categorie:propre(x.r.categorie)||null,actif:true};});
+  var toCreate=Object.keys(aCreer).map(function(k){return aCreer[k];});
+  if(toCreate.length)sbCheck(await db.from('produits_vendus').upsert(toCreate,{onConflict:'restaurant_id,code'}));
+  // Regroupement par restaurant + produit de la carte (deux lignes du fichier peuvent viser le même produit).
+  var parResto={};
+  lignes.forEach(function(x){
+    var code=x.r.matchedCode||x.r.code;
+    var g=parResto[x.resto]=parResto[x.resto]||{};
+    if(!g[code])g[code]={restaurant_id:x.resto,produit_vendu_code:code,periode_debut:p.debut,periode_fin:p.fin,quantite:0,ca_ttc:0,source:p.source};
+    g[code].quantite+=x.r.quantite;
+    g[code].ca_ttc=Math.round((g[code].ca_ttc+x.r.ca_ttc)*100)/100;
+  });
+  var total=0,restos=Object.keys(parResto);
+  for(var k=0;k<restos.length;k++){
+    var resto=restos[k];
+    var del=db.from('ventes').delete().eq('restaurant_id',resto).eq('periode_debut',p.debut).eq('periode_fin',p.fin);
+    // Remplace seulement l'import précédent de la même provenance (la caisse garde son comportement : tout ce
+    // qui n'est pas une plateforme, y compris les anciennes lignes sans provenance).
+    if(p.source==='caisse')del=del.or('source.is.null,source.not.in.('+VENTES_SOURCES_PLATEFORMES.join(',')+')');
+    else del=del.eq('source',p.source);
+    sbCheck(await del);
+    var rowsIns=Object.keys(parResto[resto]).map(function(c){return parResto[resto][c];});
+    sbCheck(await db.from('ventes').insert(rowsIns));
+    total+=rowsIns.length;
+  }
+  return 'Import réussi ('+ventesSourceLabel(p.source)+') : '+total+' ligne(s) produit enregistrée(s) pour '+restos.map(rctRestoLabel).join(', ')+', période du '+p.debut+' au '+p.fin+'.';
+}
+async function ventesEnregistrerCommandes(p){
+  var rows=p.commandes.filter(function(c){var d=p.mapping[c.magasin];return d&&d!=='__ignorer';}).map(function(c){
+    return {
+      source:p.source,restaurant_id:p.mapping[c.magasin],magasin_nom:c.magasin||null,
+      commande_id:c.commande_id,commande_ref:c.commande_ref,statut:c.statut,annulee:c.annulee,annulee_par:c.annulee_par,
+      planifiee:c.planifiee,nb_articles:c.nb_articles,montant_ttc:c.montant_ttc,
+      date_commande:c.date_commande,heure_commande:c.heure_commande,heure_annulation:c.heure_annulation,
+      temps_preparation_min:c.temps_preparation_min,attente_coursier_min:c.attente_coursier_min,attente_evitable_min:c.attente_evitable_min,
+      delai_livraison_min:c.delai_livraison_min,duree_totale_min:c.duree_totale_min,
+      type_commande:c.type_commande,canal:c.canal,abonnement:c.abonnement,
+      fichier:p.nomFichier||null
+    };
+  });
+  if(!rows.length)throw new Error('aucune commande à importer (tous les établissements sont ignorés).');
+  for(var i=0;i<rows.length;i+=400){
+    sbCheck(await db.from(VENTES_COMMANDES_TABLE).upsert(rows.slice(i,i+400),{onConflict:'source,commande_id'}));
+  }
+  return rows.length+' commande(s) '+ventesSourceLabel(p.source)+' enregistrée(s) (du '+p.debut+' au '+p.fin+'). Retrouve la synthèse avec « Voir la synthèse des commandes ».';
+}
+// Relit les commandes déjà importées pour la période choisie (restaurant du haut de page, ou tous).
+async function afficherSyntheseCommandesPlateformes(){
+  var debut=document.getElementById('rct-imp-debut').value;
+  var fin=document.getElementById('rct-imp-fin').value;
+  var el=document.getElementById('rct-cmdplat-result');
+  if(!debut||!fin){alert('Indique la période (début et fin) ci-dessus.');return;}
+  el.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">⏳ Chargement…</div>';
+  try{
+    var q=db.from(VENTES_COMMANDES_TABLE).select('*').gte('date_commande',debut).lte('date_commande',fin);
+    var tous=rctRestoSelRaw()==='tous';
+    if(!tous)q=q.eq('restaurant_id',rctResto());
+    var r=sbCheck(await q);
+    var cmds=r.data||[];
+    if(!cmds.length){el.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">Aucune commande de plateforme importée sur cette période'+(tous?'':' pour '+esc(rctRestoLabel(rctResto())))+'.</div>';return;}
+    var groupes={};
+    cmds.forEach(function(c){var k=c.restaurant_id+'|'+c.source;(groupes[k]=groupes[k]||[]).push(c);});
+    el.innerHTML=Object.keys(groupes).sort().map(function(k){
+      var parts=k.split('|');
+      var NUMS=['montant_ttc','nb_articles','temps_preparation_min','attente_coursier_min','attente_evitable_min','delai_livraison_min','duree_totale_min'];
+      return ventesSyntheseHtml(rctRestoLabel(parts[0])+' — '+ventesSourceLabel(parts[1])+' ('+debut+' → '+fin+')',ventesSyntheseCommandes(groupes[k].map(function(c){
+        var o=Object.assign({},c);
+        NUMS.forEach(function(f){o[f]=o[f]==null||o[f]===''?null:Number(o[f]);});
+        o.heure_commande=o.heure_commande?String(o.heure_commande).replace('T',' '):null;
+        return o;
+      })));
+    }).join('');
+  }catch(e){
+    console.error('afficherSyntheseCommandesPlateformes',e);
+    var msg=e.message||String(e);
+    if(/relation|does not exist|schema cache|Could not find the table/i.test(msg))msg='la table « '+VENTES_COMMANDES_TABLE+' » n\'existe pas encore — exécute le script ventes_commandes.sql dans Supabase. ('+msg+')';
+    el.innerHTML='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur : '+esc(msg)+'</div>';
+  }
 }
 
 async function calculerConsommationTheorique(){
@@ -9023,33 +9456,6 @@ async function syncHiboutikVentes(){
     statusEl.innerHTML='<span style="color:#C0392B;">❌ Erreur : '+esc(e.message)+'</span>';
   }finally{btn.disabled=false;}
 }
-async function confirmVentesImport(){
-  if(!rctPendingImport)return;
-  var resto=rctResto();
-  var debut=rctPendingImport.debut, fin=rctPendingImport.fin, rows=rctPendingImport.rows;
-  try{
-    var existingCodes={};
-    rctProduitsVendus.forEach(function(p){existingCodes[p.code]=true;});
-    // On ne crée un nouveau produit que pour les lignes où aucune correspondance n'a été choisie —
-    // toutes les autres se rattachent au code du produit existant sélectionné/validé dans l'aperçu.
-    var toCreate=rows.filter(function(r){return !r.matchedCode&&!existingCodes[r.code];})
-      .map(function(r){return {restaurant_id:RCT_GLOBAL,code:r.code,nom:r.nom,categorie:r.categorie,actif:true};});
-    if(toCreate.length)sbCheck(await db.from('produits_vendus').upsert(toCreate,{onConflict:'restaurant_id,code'}));
-
-    sbCheck(await db.from('ventes').delete().eq('restaurant_id',resto).eq('periode_debut',debut).eq('periode_fin',fin));
-    var ventesRows=rows.map(function(r){return {restaurant_id:resto,produit_vendu_code:r.matchedCode||r.code,periode_debut:debut,periode_fin:fin,quantite:r.quantite,ca_ttc:r.ca_ttc,source:'caisse'};});
-    sbCheck(await db.from('ventes').insert(ventesRows));
-
-    rctPendingImport=null;
-    document.getElementById('rct-imp-preview').innerHTML='<div class="card" style="background:#ECFDF5;color:#065F46;">✅ Import réussi : '+ventesRows.length+' produits importés pour la période du '+debut+' au '+fin+'.</div>';
-    document.getElementById('rct-imp-file').value='';
-    await loadRecettesModule();
-  }catch(e){
-    console.error('confirmVentesImport',e);
-    document.getElementById('rct-imp-preview').innerHTML+='<div class="card" style="background:#FEE2E2;color:#991B1B;">Erreur lors de l\'import : '+esc(e.message)+'</div>';
-  }
-}
-
 // ── Ingrédients de la carte ──────────────────────────────────────────────────
 function fmtPrixCourt(v){
   if(v==null)return '';
@@ -11931,17 +12337,58 @@ function openPrixRevientDetailModal(code){
 // Lit/écrit le même fichier menudata.json que le site public (index.html/emporter.html), via le même Worker.
 var rctMenuData=null; // {items:[...références réelles des objets plat...], sha:"..."}
 var rctMenuPricesLoading=null;
-async function fetchMenuDataRaw(){
-  var res=await fetch(BL_PROXY_URL+'?file=menudata.json');
-  if(!res.ok)throw new Error('HTTP '+res.status);
-  var wrapper=await res.json(); // réponse de l'API GitHub : {content:"<base64>", sha:"...", ...}, pas le JSON brut
-  if(!wrapper||!wrapper.content)throw new Error('réponse inattendue du proxy (pas de champ content)');
+// GitHub (API contents) sert ses lectures depuis un cache d'environ 60 s : juste après une écriture, une
+// relecture peut encore renvoyer l'ANCIENNE version et son ancien sha. Réécrire avec ce sha périmé est refusé
+// (HTTP 409 « menudata.json does not match … ») — c'est ce qui faisait échouer la 2e catégorie de TVA d'affilée.
+// On mémorise donc, par fichier, le sha et le contenu de notre dernière écriture ainsi que les sha remplacés.
+var menuFichiersEcrits={}; // {fichier:{sha, json, perimes:{sha:true}}}
+function decodeContenuGithub(wrapper){
   var b64=wrapper.content.replace(/\n/g,'');
   var binStr=atob(b64);
   var bytes=new Uint8Array(binStr.length);
   for(var bi=0;bi<binStr.length;bi++)bytes[bi]=binStr.charCodeAt(bi);
-  var jsonStr=new TextDecoder('utf-8').decode(bytes);
-  return {json:JSON.parse(jsonStr),sha:wrapper.sha};
+  return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+}
+async function fetchMenuFichier(fichier,optionnel){
+  var res=await fetch(BL_PROXY_URL+'?file='+encodeURIComponent(fichier));
+  if(!res.ok){if(optionnel&&res.status===404)return null;throw new Error('HTTP '+res.status);}
+  var wrapper=await res.json(); // réponse de l'API GitHub : {content:"<base64>", sha:"...", ...}, pas le JSON brut
+  if(!wrapper||!wrapper.content){if(optionnel)return null;throw new Error('réponse inattendue du proxy (pas de champ content)');}
+  var r={json:decodeContenuGithub(wrapper),sha:wrapper.sha};
+  var memo=menuFichiersEcrits[fichier];
+  // Lecture venue du cache (sha qu'on a nous-mêmes remplacé) : notre dernière écriture est la vraie version.
+  if(memo&&r.sha!==memo.sha&&memo.perimes[r.sha])r={json:JSON.parse(JSON.stringify(memo.json)),sha:memo.sha};
+  return r;
+}
+async function fetchMenuDataRaw(){return fetchMenuFichier('menudata.json',false);}
+// Lit le fichier à jour, applique la modification, l'écrit ; en cas de conflit (409) relit et réessaie.
+async function ecrireMenuFichier(fichier,modifier,message,optionnel){
+  var derniereErreur=null;
+  for(var essai=0;essai<4;essai++){
+    if(essai>0)await new Promise(function(r){setTimeout(r,1500*essai);});
+    var fresh=await fetchMenuFichier(fichier,optionnel);
+    if(!fresh)return null; // fichier facultatif absent (ex. pas de brouillon en cours)
+    modifier(fresh.json);
+    var contentB64=btoa(unescape(encodeURIComponent(JSON.stringify(fresh.json,null,2))));
+    var res=await fetch(BL_PROXY_URL+'?file='+encodeURIComponent(fichier),{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:message,content:contentB64,sha:fresh.sha})
+    });
+    if(res.ok){
+      var d=null;try{d=await res.json();}catch(e){}
+      var nouveauSha=d&&d.content&&d.content.sha;
+      var memo=menuFichiersEcrits[fichier]||{perimes:{}};
+      memo.perimes[fresh.sha]=true;
+      if(nouveauSha){memo.sha=nouveauSha;memo.json=JSON.parse(JSON.stringify(fresh.json));}
+      menuFichiersEcrits[fichier]=memo;
+      return {json:fresh.json,sha:nouveauSha||null};
+    }
+    var t=await res.text();
+    derniereErreur=new Error('HTTP '+res.status+' '+t.slice(0,200));
+    if(res.status!==409)throw derniereErreur; // seul le conflit de version vaut un nouvel essai
+  }
+  throw new Error('La carte a été modifiée ailleurs pendant l\'enregistrement et reste en conflit après plusieurs essais. Attends une minute puis recommence. ('+derniereErreur.message+')');
 }
 async function loadMenuPricesFromSite(){
   if(rctMenuData)return rctMenuData; // déjà en cache
@@ -11957,33 +12404,34 @@ async function loadMenuPricesFromSite(){
   })();
   return rctMenuPricesLoading;
 }
-// Écrit le fichier menudata.json avec les modifications faites en mémoire. Re-télécharge un sha frais
-// juste avant (plutôt que de réutiliser celui du chargement initial) pour limiter le risque de conflit
-// si la carte a été modifiée entre-temps depuis index.html.
+// Écrit les modifications faites en mémoire (prix/TVA) dans menudata.json (carte en ligne) ET dans
+// menudata_draft.json s'il existe : sinon la prochaine publication du brouillon depuis l'écran Menu
+// écraserait silencieusement ces changements. On ne touche qu'aux produits réellement modifiés ici.
 var rctMenuDirtyNames={}; // noms des produits modifiés localement depuis "Prix de revient", à resynchroniser à l'enregistrement
 async function saveMenuData(){
-  var fresh=await fetchMenuDataRaw();
   var dirtyNames=Object.keys(rctMenuDirtyNames);
+  if(!dirtyNames.length)return;
+  var locaux={};
   (rctMenuData.json.items||[]).forEach(function(localIt){
     var nom=(localIt.name&&(localIt.name.fr||localIt.name))||'';
-    if(dirtyNames.indexOf(nom)<0)return; // on ne touche qu'aux produits réellement modifiés ici
-    var freshIt=(fresh.json.items||[]).find(function(x){return ((x.name&&(x.name.fr||x.name))||'')===nom;});
-    if(freshIt){
+    if(dirtyNames.indexOf(nom)>=0)locaux[nom]=localIt;
+  });
+  function appliquer(json){
+    (json.items||[]).forEach(function(freshIt){
+      var nom=(freshIt.name&&(freshIt.name.fr||freshIt.name))||'';
+      var localIt=locaux[nom];
+      if(!localIt)return;
       freshIt.price=localIt.price;
       freshIt.priceEmporter=localIt.priceEmporter;
       freshIt.tva=localIt.tva;
-    }
-  });
-  var contentStr=JSON.stringify(fresh.json,null,2);
-  var contentB64=btoa(unescape(encodeURIComponent(contentStr)));
-  var res=await fetch(BL_PROXY_URL+'?file=menudata.json',{
-    method:'PUT',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({message:'Mise à jour prix/TVA depuis admin.html',content:contentB64,sha:fresh.sha})
-  });
-  if(!res.ok){var t=await res.text();throw new Error('HTTP '+res.status+' '+t.slice(0,200));}
-  rctMenuData=fresh; // resynchronise le cache local (et son nouveau sha) avec ce qui vient d'être écrit
+    });
+  }
+  var ecrit=await ecrireMenuFichier('menudata.json',appliquer,'Mise à jour prix/TVA depuis admin.html',false);
+  rctMenuData={json:ecrit.json,sha:ecrit.sha}; // resynchronise le cache local avec ce qui vient d'être écrit
+  rctMenuData.json.items=rctMenuData.json.items||[];
   rctMenuDirtyNames={};
+  try{await ecrireMenuFichier('menudata_draft.json',appliquer,'Mise à jour prix/TVA depuis admin.html (brouillon)',true);}
+  catch(e){console.error('saveMenuData brouillon',e);alert('⚠️ Carte en ligne enregistrée, mais le brouillon du menu n\'a pas pu être mis à jour ('+e.message+'). Si tu publies le brouillon depuis l\'onglet Menu, vérifie ces prix/TVA avant.');}
 }
 function parsePrixVente(str){
   if(str==null||str==='')return null;
