@@ -8,20 +8,21 @@
 <script src="restoglobal-commun.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{--bx:#B91E26;--cr:#F2E0C0}
+:root{--bx:#B91E26;--cr:#F2E0C0;--panel:#3A2A24}
+/* --panel : fond des écrans (sobre, pour la lecture) ; --bx : couleur d'accent de la marque (boutons, titres). */
 html,body{width:100%;height:100%;overflow:hidden}
 body{background:var(--cr);display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;min-height:100vh}
 .wrap{width:100%;max-width:400px;padding:16px;max-height:100vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .clock{text-align:center;font-size:52px;font-weight:700;color:var(--bx);line-height:1;margin-bottom:3px;font-variant-numeric:tabular-nums}
 .datef{text-align:center;color:#7A4A35;font-size:13px;margin-bottom:18px;text-transform:capitalize}
-.panel{background:var(--bx);border-radius:20px;padding:18px}
-.panel-title{text-align:center;color:rgba(255,255,255,.65);font-size:11px;font-weight:700;margin-bottom:12px;letter-spacing:.5px;text-transform:uppercase}
+.panel{background:var(--panel);border-radius:20px;padding:18px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.panel-title{text-align:center;color:rgba(255,255,255,.82);font-size:11px;font-weight:700;margin-bottom:12px;letter-spacing:.5px;text-transform:uppercase}
 .cbtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:17px 14px;text-align:center;cursor:pointer;margin-bottom:10px}
 .cbtn:last-child{margin-bottom:0}
 .cbtn:active{background:rgba(255,255,255,.25)}
 .ci{font-size:28px;margin-bottom:4px}
 .cl{color:#fff;font-size:15px;font-weight:700}
-.cs{color:rgba(255,255,255,.6);font-size:10px;margin-top:2px}
+.cs{color:rgba(255,255,255,.8);font-size:10px;margin-top:2px}
 .screen{display:none}
 .screen.on{display:block}
 #s-start.on{display:flex}
@@ -33,15 +34,15 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .nb{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:13px;font-size:20px;font-weight:600;color:#fff;cursor:pointer}
 .nb:active{background:rgba(255,255,255,.3)}
 .nb.rdy{background:#fff;color:var(--bx)}
-.canc{width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer}
+.canc{width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:rgba(255,255,255,.85);font-size:13px;cursor:pointer}
 .cficon{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 12px}
 .ok{background:linear-gradient(135deg,#276749,#38a169);box-shadow:0 6px 20px rgba(56,161,105,.4)}
 .ko{background:linear-gradient(135deg,#991B1B,#dc2626)}
 .cfname{color:#fff;font-size:17px;font-weight:700;text-align:center;margin-bottom:4px}
-.cfdet{color:rgba(255,255,255,.7);font-size:12px;text-align:center}
-.albl{color:rgba(255,255,255,.7);font-size:10px;font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px}
+.cfdet{color:rgba(255,255,255,.85);font-size:12px;text-align:center}
+.albl{color:rgba(255,255,255,.85);font-size:10px;font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px}
 .ainp{width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:7px 9px;font-size:13px;color:#fff;outline:none}
-.ainp option{background:var(--bx)}
+.ainp option{background:var(--panel)}
 .af{margin-bottom:9px}
 .rgpd{color:#B08060;font-size:10px;text-align:center;margin-top:12px;line-height:1.5}
 
@@ -102,9 +103,9 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
    Barre du haut + en-têtes de catégorie collants (comme le <header> et les .sec-hdr de l'écran Stocks), plus
    d'infos par ligne (seuil/cible/colisage, fournisseur), boutons/pastilles agrandis. La liste ne défile plus
    dans une boîte à part : c'est toute la page (.wrap) qui défile, comme sur l'écran Stocks. */
-.cpt-topbar{position:sticky;top:0;z-index:30;background:var(--bx);margin:-18px -18px 10px;padding:14px 18px 12px;box-shadow:0 4px 10px rgba(0,0,0,.18)}
+.cpt-topbar{position:sticky;top:0;z-index:30;background:var(--panel);margin:-18px -18px 10px;padding:14px 18px 12px;box-shadow:0 4px 10px rgba(0,0,0,.18)}
 .cpt-topbar-title{display:flex;align-items:center;gap:8px;margin-bottom:9px}
-.cpt-topbar-title-text{flex:1;color:rgba(255,255,255,.65);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.cpt-topbar-title-text{flex:1;color:rgba(255,255,255,.82);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .cpt-back-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:28px;height:28px;border-radius:50%;font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0}
 .cpt-back-btn:active{background:rgba(255,255,255,.3)}
 .cpt-topbar-count{font-size:10px;background:#fff;color:#C0392B;border-radius:20px;padding:2px 8px;font-weight:700;display:none}
@@ -186,7 +187,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
   <div class="datef" id="datef"></div>
   <div class="panel">
     <div class="screen on" id="s-idle">
-      <button id="pin-retour-badge" onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer;display:none">&#8592; Retour au badge</button>
+      <button id="pin-retour-badge" onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.85);font-size:13px;cursor:pointer;display:none">&#8592; Retour au badge</button>
       <div class="pl">Entrez votre code PIN</div>
       <div class="pd"><div id="d0"></div><div id="d1"></div><div id="d2"></div><div id="d3"></div></div>
       <div class="np">
@@ -197,16 +198,16 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <button class="nb" onclick="pk('0')">0</button>
         <button class="nb" onclick="pk('back')" style="font-size:18px">&#9003;</button>
       </div>
-      <button onclick="pinOublie()" style="margin-top:18px;background:transparent;border:none;color:rgba(255,255,255,.6);font-size:13px;text-decoration:underline;cursor:pointer">Code oubli&eacute; ?</button>
+      <button onclick="pinOublie()" style="margin-top:18px;background:transparent;border:none;color:rgba(255,255,255,.8);font-size:13px;text-decoration:underline;cursor:pointer">Code oubli&eacute; ?</button>
     </div>
     <div class="screen" id="s-pinname">
-      <button onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer">&#8592; Retour au badge</button>
+      <button onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.85);font-size:13px;cursor:pointer">&#8592; Retour au badge</button>
       <div class="pl" style="margin-top:20px">Tapez votre nom</div>
       <input type="text" id="pinname-input" autocomplete="off" oninput="pinNameSearch()" placeholder="Nom ou pr&eacute;nom" style="width:90%;max-width:340px;padding:16px;font-size:18px;border:none;border-radius:12px;margin:16px 0;text-align:center">
       <div id="pinname-suggest" style="width:90%;max-width:340px;display:flex;flex-direction:column;gap:8px"></div>
     </div>
     <div class="screen" id="s-pincreate">
-      <button onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer">&#8592; Retour</button>
+      <button onclick="retourBadge()" style="position:absolute;top:16px;left:16px;background:transparent;border:none;color:rgba(255,255,255,.85);font-size:13px;cursor:pointer">&#8592; Retour</button>
       <div class="pl" id="pincreate-title" style="margin-top:20px">Cr&eacute;ez votre code</div>
       <div id="pincreate-sub" style="color:rgba(255,255,255,.75);font-size:13px;margin:6px 0 14px;text-align:center;max-width:300px">Choisissez un code &agrave; 4 chiffres que vous seul connaissez</div>
       <div class="pd"><div id="c0"></div><div id="c1"></div><div id="c2"></div><div id="c3"></div></div>
@@ -224,14 +225,14 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="pl" style="font-size:24px;font-weight:700;margin-bottom:8px">Milo's Pizza</div>
       <div style="color:rgba(255,255,255,.75);font-size:15px;margin-bottom:40px;text-align:center;max-width:300px">Pointage par badge</div>
       <button onclick="demarrerBadgeage()" style="background:#fff;color:#B91E26;border:none;border-radius:16px;padding:20px 50px;font-size:20px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2)">D&eacute;marrer</button>
-      <div style="color:rgba(255,255,255,.55);font-size:12px;margin-top:24px;text-align:center;max-width:280px">&#224; appuyer une fois en allumant la tablette</div>
+      <div style="color:rgba(255,255,255,.78);font-size:12px;margin-top:24px;text-align:center;max-width:280px">&#224; appuyer une fois en allumant la tablette</div>
     </div>
     <div class="screen" id="s-nfc" onclick="ensureNfcScan()">
       <div style="font-size:64px;margin:30px 0 14px;animation:pulse 1.6s ease-in-out infinite">&#128241;</div>
       <div class="pl" style="font-size:22px;font-weight:700">Scannez votre badge</div>
       <div style="color:rgba(255,255,255,.75);font-size:14px;margin:12px 0 24px;text-align:center;max-width:300px;line-height:1.5">Posez votre badge contre <b>l'arri&egrave;re du t&eacute;l&eacute;phone</b> pour pointer</div>
       <div id="nfc-status" style="font-size:14px;padding:10px 16px;border-radius:10px;min-height:20px;text-align:center;max-width:320px"></div>
-      <button onclick="nfcUsePin()" style="margin-top:36px;background:transparent;border:none;color:rgba(255,255,255,.65);font-size:13px;text-decoration:underline;cursor:pointer;padding:8px">Passer au code PIN</button>
+      <button onclick="nfcUsePin()" style="margin-top:36px;background:transparent;border:none;color:rgba(255,255,255,.82);font-size:13px;text-decoration:underline;cursor:pointer;padding:8px">Passer au code PIN</button>
     </div>
     <div class="screen" id="s-restopicker">
       <div class="panel-title" style="font-size:16px;color:#fff;margin-bottom:6px">&#128075; Salut <span id="resto-picker-prenom"></span> !</div>
@@ -300,14 +301,14 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     
     <div class="screen" id="s-cuisine">
       <div class="panel-title" style="margin-bottom:10px">&#127859; &Agrave; pr&eacute;parer (cuisine)</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Produits pr&eacute;par&eacute;s en interne par la cuisine de ce restaurant, signal&eacute;s bas lors d'un comptage. Coche une fois pr&eacute;par&eacute;.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:10px">Produits pr&eacute;par&eacute;s en interne par la cuisine de ce restaurant, signal&eacute;s bas lors d'un comptage. Coche une fois pr&eacute;par&eacute;.</div>
       <div id="cuisine-list" style="max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
       <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
     </div>
 
     <div class="screen" id="s-commandes">
       <div class="panel-title" style="margin-bottom:10px">&#128228; Commandes fournisseurs</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Regroup&eacute; par fournisseur, d'apr&egrave;s les derniers comptages de ce restaurant. Un seul message par fournisseur &mdash; attends que tout le monde ait fini de compter avant d'envoyer.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:10px">Regroup&eacute; par fournisseur, d'apr&egrave;s les derniers comptages de ce restaurant. Un seul message par fournisseur &mdash; attends que tout le monde ait fini de compter avant d'envoyer.</div>
       <button type="button" class="nb" style="font-size:11px;padding:6px 12px;margin-bottom:10px" onclick="menuCmdfHistory()">&#128337; Commandes pass&eacute;es</button>
       <div id="cmdf-list"></div>
       <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
@@ -315,14 +316,15 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 
     <div class="screen" id="s-cmdf-history">
       <div class="panel-title" style="margin-bottom:10px">&#128337; Commandes pass&eacute;es</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Les 30 derniers jours, les plus r&eacute;centes en premier.</div>
+ <div style="font-size:11px;color:rgba(255,255,255,.82);margin-bottom:10px">Envoy&eacute;es ces 30 derniers jours, et commandes qui auraient d&ucirc; partir mais n'ont pas &eacute;t&eacute; envoy&eacute;es (14 derniers jours).</div>
+      <div id="cmdf-history-filtres" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
       <div id="cmdf-history-list" style="max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
       <button class="canc" onclick="ss('commandes')" style="margin-top:10px">Retour</button>
     </div>
 
     <div class="screen" id="s-laboprep">
       <div class="panel-title" style="margin-bottom:10px">&#127859; &Agrave; pr&eacute;parer / exp&eacute;dier</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px">Visible par toute l'&eacute;quipe Labo tant qu'une commande n'est pas enti&egrave;rement exp&eacute;di&eacute;e.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:10px">Visible par toute l'&eacute;quipe Labo tant qu'une commande n'est pas enti&egrave;rement exp&eacute;di&eacute;e.</div>
       <div id="laboprep-list" style="max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px"></div>
       <button type="button" class="lp-create-btn" onclick="lpOpenNewLotModal()">&#10133; Cr&eacute;er un lot</button>
       <button class="canc" onclick="backToMenu()">Retour au menu</button>
@@ -388,7 +390,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div class="af"><label class="albl">Message</label>
         <textarea id="abs-msg" rows="2" class="ainp" style="resize:none" placeholder="Optionnel..."></textarea></div>
       <div class="af"><label class="albl">Justificatif</label>
-        <label style="display:block;background:rgba(255,255,255,.12);border:1px dashed rgba(255,255,255,.3);border-radius:8px;padding:9px;text-align:center;cursor:pointer;color:rgba(255,255,255,.65);font-size:12px">
+        <label style="display:block;background:rgba(255,255,255,.12);border:1px dashed rgba(255,255,255,.3);border-radius:8px;padding:9px;text-align:center;cursor:pointer;color:rgba(255,255,255,.82);font-size:12px">
           <span id="abs-file-lbl">&#128247; Ajouter un justificatif</span>
           <input type="file" id="abs-file" accept="image/*,application/pdf" style="display:none" onchange="absFileChg(this)">
         </label></div>
@@ -950,7 +952,7 @@ function pinNameSearch(){
     var nom=(e.nom||'').toLowerCase();var pre=(e.prenom||'').toLowerCase();
     return nom.indexOf(q)>=0||pre.indexOf(q)>=0||(pre+' '+nom).indexOf(q)>=0;
   }).slice(0,5);
-  if(!res.length){box.innerHTML='<div style="color:rgba(255,255,255,.6);font-size:13px;text-align:center;padding:10px">Aucun salari\u00e9 trouv\u00e9</div>';return;}
+  if(!res.length){box.innerHTML='<div style="color:rgba(255,255,255,.8);font-size:13px;text-align:center;padding:10px">Aucun salari\u00e9 trouv\u00e9</div>';return;}
   box.innerHTML='';
   res.forEach(function(e){
     var btn=document.createElement('button');
@@ -1209,7 +1211,7 @@ function cptRenderPosteChoix(){
   var preSelected=cptSelectedRoleIds;
   box.innerHTML='<div style="padding:16px 4px;">'
     +'<div style="color:#fff;font-weight:700;font-size:14px;margin-bottom:4px;">Quels postes fais-tu aujourd\'hui ?</div>'
-    +'<div style="color:rgba(255,255,255,.7);font-size:12px;margin-bottom:14px;">Tout est coch&eacute; par d&eacute;faut. D&eacute;coche un poste que tu n\'occupes pas aujourd\'hui pour ne pas avoir &agrave; compter ce qui va avec.</div>'
+    +'<div style="color:rgba(255,255,255,.85);font-size:12px;margin-bottom:14px;">Tout est coch&eacute; par d&eacute;faut. D&eacute;coche un poste que tu n\'occupes pas aujourd\'hui pour ne pas avoir &agrave; compter ce qui va avec.</div>'
     +cptAllRoleObjs.map(function(r){
       var checked=(!preSelected||preSelected.indexOf(r.id)>=0)?' checked':'';
       return '<label style="display:flex;align-items:center;gap:10px;padding:10px 4px;color:#fff;font-size:14px;border-bottom:1px solid rgba(255,255,255,.12);">'
@@ -1742,14 +1744,14 @@ function renderCommandesFournisseursList(byFourn){
     var heureLimiteHtml=enRetard
       ?('<div style="font-size:11px;color:#fff;font-weight:700;margin-top:6px;background:#C0392B;border-radius:8px;padding:5px 9px;">&#9200; En retard — devait &ecirc;tre envoy&eacute; avant '+escCpt(g.sup.heure_limite.slice(0,5))+'</div>')
       :((g.sup&&g.sup.heure_limite)?('<div style="font-size:10px;color:#FEF3C7;font-weight:700;margin-top:2px;">&#9200; Heure limite : '+escCpt(g.sup.heure_limite.slice(0,5))+'</div>'):'');
-    var groupeHtml=(g.sup&&g.sup.whatsapp_groupe)?('<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:2px;">&#128241; Groupe : '+escCpt(g.sup.whatsapp_groupe)+'</div>'):'';
-    var collabHtml=(g.collabNoms&&g.collabNoms.length)?('<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:1px;">&#128100; Compt&eacute; par : '+escCpt(g.collabNoms.join(', '))+'</div>'):'';
+    var groupeHtml=(g.sup&&g.sup.whatsapp_groupe)?('<div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px;">&#128241; Groupe : '+escCpt(g.sup.whatsapp_groupe)+'</div>'):'';
+    var collabHtml=(g.collabNoms&&g.collabNoms.length)?('<div style="font-size:11px;color:rgba(255,255,255,.82);margin-top:1px;">&#128100; Compt&eacute; par : '+escCpt(g.collabNoms.join(', '))+'</div>'):'';
     // Postes censés compter pour ce fournisseur, chacun avec une coche verte dès qu'il a compté aujourd'hui
     // — permet de valider d'un coup d'œil que tout le monde a fait sa part avant d'envoyer la commande.
     var postesHtml=(g.postesStatus&&g.postesStatus.length)?('<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">'
       +g.postesStatus.map(function(p){
         return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;'
-          +(p.done?'background:#1E8449;color:#fff;':'background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);')
+          +(p.done?'background:#1E8449;color:#fff;':'background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);')
           +'">'+(p.done?'&#10003;':'&#9675;')+' '+escCpt(p.nom)+'</span>';
       }).join('')
       +'</div>'):'';
@@ -1757,7 +1759,7 @@ function renderCommandesFournisseursList(byFourn){
       return '<div style="font-size:11px;color:rgba(255,255,255,.85);padding:2px 0;">&#8226; '+escCpt(it.nom)+(it.restoTag?(' <span style="color:#6EE7B7;">['+escCpt(it.restoTag)+']</span>'):'')
         +' — stock : '+escCpt(it.stock)+' — <b>commande : '+escCpt(it.commande)+'</b>'
         +(it.sansCible?'<div style="font-size:10px;color:#FDE68A;margin:0 0 2px 12px;">&#9888; Pas de cible sur la fiche : quantit&eacute; calcul&eacute;e jusqu\'au seuil</div>':'')
-        +(it.compteLabel?('<div style="font-size:10px;color:rgba(255,255,255,.5);margin:0 0 4px 12px;">'+escCpt(it.compteLabel)+'</div>'):'')
+        +(it.compteLabel?('<div style="font-size:10px;color:rgba(255,255,255,.75);margin:0 0 4px 12px;">'+escCpt(it.compteLabel)+'</div>'):'')
         +'</div>';
     }).join('');
     return '<div class="cbtn" onclick="cmdfShowPreview(\''+key+'\')" style="cursor:pointer;text-align:left;margin-bottom:12px;'+(enRetard?'border:2px solid #C0392B;box-shadow:0 0 0 3px rgba(192,57,43,.25);':'')+'">'
@@ -1771,7 +1773,7 @@ function renderCommandesFournisseursList(byFourn){
       +postesHtml
       +heureLimiteHtml+groupeHtml
       +'<div style="margin-top:8px;">'+itemsHtml+'</div>'
-      +'<div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:6px;">&#128065; Toucher pour l\'aper&ccedil;u du message</div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,.72);margin-top:6px;">&#128065; Toucher pour l\'aper&ccedil;u du message</div>'
       +'</div>';
   }).join('');
 }
@@ -1859,16 +1861,125 @@ async function menuCmdfHistory(){
         return noms.some(function(n){return resto.indexOf(n)>=0;});
       });
     });
-    renderCmdfHistoryList(envois);
+    cmdfHistEnvois=envois;
+    cmdfHistNonEnvoyees=[];
+    try{cmdfHistNonEnvoyees=await cmdfChargerNonEnvoyees(mergeScope,14);}
+    catch(e2){console.error('cmdfChargerNonEnvoyees',e2);cmdfHistErreurNon=e2.message||String(e2);}
+    renderCmdfHistory();
   }catch(e){
     console.error('menuCmdfHistory',e);
     box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(e.message)+'</div>';
   }
 }
+var cmdfHistEnvois=[],cmdfHistNonEnvoyees=[],cmdfHistFiltre='non',cmdfHistErreurNon=null;
+function cmdfHistSetFiltre(f){cmdfHistFiltre=f;renderCmdfHistory();}
+function renderCmdfHistory(){
+  var fb=document.getElementById('cmdf-history-filtres');
+  var nNon=cmdfHistNonEnvoyees.reduce(function(a,j){return a+j.fournisseurs.reduce(function(b,f){return b+f.items.length;},0);},0);
+  if(fb)fb.innerHTML=[['non','⚠️ Non envoyées ('+nNon+')'],['envoyees','✅ Envoyées ('+cmdfHistEnvois.length+')']].map(function(f){
+    var on=cmdfHistFiltre===f[0];
+    return '<button type="button" onclick="cmdfHistSetFiltre(\''+f[0]+'\')" style="font-size:12px;padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.4);background:'+(on?'#fff':'rgba(255,255,255,.12)')+';color:'+(on?'#1A1008':'#fff')+';font-weight:700;cursor:pointer">'+f[1]+'</button>';
+  }).join('');
+  if(cmdfHistFiltre==='non')renderCmdfNonEnvoyees();
+  else renderCmdfHistoryList(cmdfHistEnvois);
+}
+// Commandes qui AURAIENT DÛ partir : produits comptés sous le seuil (fournisseur externe, jour de commande
+// respecté — mêmes règles que l'écran « Commande fournisseur ») mais jamais inclus dans un message envoyé.
+// Une ligne par produit et par journée. Si le produit a ensuite été recompté au-dessus du seuil, c'est indiqué
+// (« plus nécessaire depuis… ») ; s'il a été envoyé plus tard, il n'apparaît plus ici.
+async function cmdfChargerNonEnvoyees(mergeScope,nbJours){
+  cmdfHistErreurNon=null;
+  var depuis=RG.bizJourneeBornes(new Date(Date.now()-nbJours*86400000)).debut;
+  var seuilsRes=await db.from('ingredient_seuils').select('*').in('restaurant_id',mergeScope);
+  if(seuilsRes.error)throw seuilsRes.error;
+  var seuilBy={};(seuilsRes.data||[]).forEach(function(x){seuilBy[x.restaurant_id+'|'+x.ingredient_code]=x;});
+  var fournRes=await db.from('fournisseurs_stock').select('id,nom,is_labo_interne,is_cuisine_interne,jours_livraison,delai_commande_jours');
+  var supBy={};(fournRes.data||[]).forEach(function(f){supBy[f.id]=f;});
+  var ingRes=await db.from('ingredients').select('code,nom').eq('restaurant_id','global');
+  var nomBy={};(ingRes.data||[]).forEach(function(i){nomBy[i.code]=i.nom;});
+  var reglesRes=await db.from('ingredient_regles_commande').select('*').in('restaurant_id',mergeScope);
+  var reglesBy={};(reglesRes.data||[]).forEach(function(r){var k=r.restaurant_id+'|'+r.ingredient_code;(reglesBy[k]=reglesBy[k]||[]).push(r);});
+  var cRes=await cptToutesLignes(function(){return db.from('ingredient_comptages').select('id,ingredient_code,restaurant_id,valeur,compte_le,commande_envoyee,compte_par_nom').in('restaurant_id',mergeScope).gte('compte_le',depuis.toISOString()).order('compte_le',{ascending:true}).order('id',{ascending:true});});
+  if(cRes.error)throw cRes.error;
+  // Dernier comptage de chaque produit, chaque journée (les anciens doublons du bouton + sont fusionnés).
+  var parJour={},parProduit={};
+  (cRes.data||[]).forEach(function(c){
+    var k=c.restaurant_id+'|'+c.ingredient_code;
+    var j=RG.bizDateKey(c.compte_le);
+    var cle=k+'|'+j;
+    var prec=parJour[cle];
+    // une journée dont UNE des lignes a été envoyée compte comme envoyée
+    c._envoye=!!c.commande_envoyee||(prec&&prec._envoye);
+    parJour[cle]=c;
+    (parProduit[k]=parProduit[k]||[]).push({jour:j,c:c});
+  });
+  var jours={};
+  Object.keys(parJour).forEach(function(cle){
+    var c=parJour[cle];
+    var k=c.restaurant_id+'|'+c.ingredient_code;
+    var sd=seuilBy[k];
+    if(!sd||sd.actif===false||!sd.fournisseur_id)return;
+    var sup=supBy[sd.fournisseur_id];
+    if(!sup||sup.is_labo_interne||sup.is_cuisine_interne)return; // Labo/Cuisine : envoyés automatiquement au comptage
+    if(c._envoye)return;
+    var b=RG.besoin(sd,c.valeur);
+    if(!b.signale)return;
+    var jourKey=RG.bizDateKey(c.compte_le);
+    var p=jourKey.split('-');
+    var refDate=new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),12);
+    var gate=reglesGateStatus(reglesBy[k]||[],sup,supBy,refDate);
+    if(gate.gated&&!gate.matches&&!isRuptureTotale(sd.type_suivi,c.valeur))return; // pas un jour de commande pour ce fournisseur
+    // Suite : envoyé plus tard → n'a finalement pas manqué ; recompté au-dessus du seuil → plus nécessaire.
+    var suite=(parProduit[k]||[]).filter(function(x){return x.jour>jourKey;});
+    var envoyePlusTard=suite.some(function(x){return x.c.commande_envoyee;});
+    if(envoyePlusTard)return;
+    var okPlusTard=null;
+    suite.some(function(x){if(!RG.besoin(sd,x.c.valeur).signale){okPlusTard=x.c.compte_le;return true;}return false;});
+    var cmd=RG.arrondirCommande(b.besoin,sd);
+    var jour=jours[jourKey]=jours[jourKey]||{jour:jourKey,fournisseurs:{}};
+    var f=jour.fournisseurs[sup.id]=jour.fournisseurs[sup.id]||{nom:sup.nom||'Fournisseur',items:[]};
+    f.items.push({nom:nomBy[c.ingredient_code]||c.ingredient_code,resto:mergeScope.length>1?(restoNamesById[c.restaurant_id]||c.restaurant_id):null,
+      stock:RG.texteStock(sd,c.valeur),commande:cmd.texte,par:c.compte_par_nom||null,le:c.compte_le,okPlusTard:okPlusTard});
+  });
+  return Object.keys(jours).sort().reverse().map(function(j){
+    var o=jours[j];
+    return {jour:j,fournisseurs:Object.keys(o.fournisseurs).map(function(id){return o.fournisseurs[id];}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');})};
+  });
+}
+function renderCmdfNonEnvoyees(){
+  var box=document.getElementById('cmdf-history-list');if(!box)return;
+  if(cmdfHistErreurNon){box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(cmdfHistErreurNon)+'</div>';return;}
+  if(!cmdfHistNonEnvoyees.length){
+    box.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.85);padding:20px;font-size:13px;">✅ Aucune commande oubliée ces 14 derniers jours.</div>';
+    return;
+  }
+  var aujourdhui=RG.bizDateKey();
+  box.innerHTML=cmdfHistNonEnvoyees.map(function(j){
+    var p=j.jour.split('-');
+    var d=new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),12);
+    var titre=j.jour===aujourdhui?'Aujourd\'hui — pas encore envoyée':d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    return '<div style="color:#fff;font-size:12px;font-weight:800;margin:10px 2px 6px;text-transform:capitalize;">'+escCpt(titre)+'</div>'
+      +j.fournisseurs.map(function(f){
+        return '<div style="background:#FFF8EC;border-radius:12px;padding:10px 12px;margin-bottom:8px;border-left:5px solid #D97706;">'
+          +'<div style="font-size:14px;font-weight:800;color:#1A1008;margin-bottom:4px;">'+escCpt(f.nom)+' <span style="font-size:10px;font-weight:700;color:#B45309;">· non envoyée</span></div>'
+          +f.items.map(function(it){
+            return '<div style="padding:5px 0;border-top:1px solid #F1E4CF;">'
+              +'<div style="display:flex;justify-content:space-between;gap:8px;">'
+                +'<span style="font-size:13px;font-weight:700;color:#1A1008;">'+escCpt(it.nom)+(it.resto?' <span style="font-weight:400;color:#7A6A55;">('+escCpt(it.resto)+')</span>':'')+'</span>'
+                +'<span style="font-size:12px;font-weight:700;color:#1A1008;white-space:nowrap;">'+escCpt(it.commande||'')+'</span>'
+              +'</div>'
+              +'<div style="font-size:11px;color:#5C4A32;">stock compté : '+escCpt(it.stock||'')+' · &#128100; '+escCpt(it.par||'nom non enregistré')+' à '+new Date(it.le).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>'
+              +(it.okPlusTard?'<div style="font-size:11px;color:#276749;font-weight:700;">plus nécessaire : recompté au-dessus du seuil le '+new Date(it.okPlusTard).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</div>':'')
+              +'</div>';
+          }).join('')
+          +'</div>';
+      }).join('');
+  }).join('');
+}
 function renderCmdfHistoryList(envois){
   var box=document.getElementById('cmdf-history-list');if(!box)return;
   if(!envois.length){
-    box.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.7);padding:20px;font-size:13px;">Aucune commande envoyée ces 30 derniers jours pour ce restaurant.</div>';
+    box.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.85);padding:20px;font-size:13px;">Aucune commande envoyée ces 30 derniers jours pour ce restaurant.</div>';
     return;
   }
   box.innerHTML=envois.map(function(envoi){
@@ -1876,16 +1987,16 @@ function renderCmdfHistoryList(envois){
     var when=d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     var itemsHtml=(envoi.items||[]).map(function(it){
       return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:rgba(255,255,255,.85);padding:3px 0">'
-        +'<span>'+escCpt(it.nom)+(it.resto?(' <span style="color:rgba(255,255,255,.5)">('+escCpt(it.resto)+')</span>'):'')+'</span>'
-        +'<span style="color:rgba(255,255,255,.6)">'+escCpt(it.suggestion||it.valeur||'')+'</span>'
+        +'<span>'+escCpt(it.nom)+(it.resto?(' <span style="color:rgba(255,255,255,.75)">('+escCpt(it.resto)+')</span>'):'')+'</span>'
+        +'<span style="color:rgba(255,255,255,.8)">'+escCpt(it.suggestion||it.valeur||'')+'</span>'
         +'</div>';
     }).join('');
     return '<div style="background:rgba(255,255,255,.08);border-radius:12px;padding:12px;margin-bottom:10px">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px">'
       +'<div style="font-size:15px;font-weight:800;color:#fff">'+escCpt(envoi.fournisseur_nom||'Fournisseur')+'</div>'
-      +'<div style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap">'+when+'</div>'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.8);white-space:nowrap">'+when+'</div>'
       +'</div>'
-      +'<div style="font-size:10px;color:rgba(255,255,255,.6);margin-bottom:6px">Envoyé par '+escCpt(envoi.envoye_par_nom||'?')+'</div>'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.8);margin-bottom:6px">Envoyé par '+escCpt(envoi.envoye_par_nom||'?')+'</div>'
       +itemsHtml
       +'</div>';
   }).join('');
@@ -2697,7 +2808,7 @@ function renderComptageList(){
     var notDueCollapsed=!cptExpandedNotDueCats.has(cat); // replié par défaut : ce n'est pas "à faire aujourd'hui"
     var notDueHtml=notDueItems.length?(
       '<div style="margin-top:6px;">'
-      +'<div style="font-size:10px;color:rgba(255,255,255,.55);cursor:pointer;padding:4px 2px;" onclick="cptToggleNotDueCat(\''+cat.replace(/'/g,"\\'")+'\')">'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.78);cursor:pointer;padding:4px 2px;" onclick="cptToggleNotDueCat(\''+cat.replace(/'/g,"\\'")+'\')">'
         +(notDueCollapsed?'&#9656;':'&#9662;')+' &#128197; Pas &agrave; compter aujourd\'hui ('+notDueItems.length+')'
       +'</div>'
       +'<div style="display:'+(notDueCollapsed?'none':'block')+'">'+cptItemsBySousCatHtml(notDueItems)+'</div>'
@@ -3135,7 +3246,7 @@ function renderCuisineTachesList(){
         +'<button type="button" class="nb" style="padding:8px 14px;font-size:12px;" onclick="marquerCuisineLigneFaite('+x.commandeId+','+l.id+')">&#10003; Fait</button>'
         +'</div>';
     }).join('');
-    return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:rgba(255,255,255,.55);margin:12px 0 4px;">'+escCpt(cat)+' <span style="font-weight:400;text-transform:none;letter-spacing:0;">('+xs.length+')</span></div>'+rowsHtml;
+    return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:rgba(255,255,255,.78);margin:12px 0 4px;">'+escCpt(cat)+' <span style="font-weight:400;text-transform:none;letter-spacing:0;">('+xs.length+')</span></div>'+rowsHtml;
   }).join('');
 }
 async function marquerCuisineLigneFaite(commandeId,ligneId){
