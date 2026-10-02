@@ -4664,6 +4664,18 @@ function withTimeout(promise, ms) {
   ]);
 }
 
+// Vrai seulement si le fichier brouillon n'existe pas du tout sur GitHub (réponse 404 « Not Found »).
+// Toute autre situation (réseau, erreur serveur) renvoie faux, pour garder le message d'erreur normal.
+async function brouillonAbsent(filename) {
+  try {
+    const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`);
+    if (res.status === 404) return true;
+    if (!res.ok) return false;
+    const d = await res.json().catch(() => null);
+    return !!(d && !d.content && typeof d.message === 'string' && /not found/i.test(d.message));
+  } catch(e) { return false; }
+}
+
 async function publishDraft() {
   const btns = document.querySelectorAll('.publish-btn');
   btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
@@ -4694,6 +4706,10 @@ async function publishDraft() {
       //    et les prix) passait totalement inaperçu, et "✅ Publié !" s'affichait quand même.
       const results = await Promise.all(files.map(async ([src, dest]) => {
         try {
+          // Un brouillon qui n'existe pas (ex. design_draft.json quand le design n'a jamais été
+          // modifié en mode brouillon) n'est PAS une erreur : il n'y a rien à publier pour ce fichier,
+          // la version en ligne reste telle quelle. Avant : ce cas bloquait toute la publication.
+          if (await brouillonAbsent(src)) return {dest, ok:true, skipped:true};
           const data = await loadKeyFromGithub(src);
           if (!data) return {dest, ok:false, reason:'lecture du brouillon impossible'};
           const saved = await saveKeyToGithub(dest, data);
