@@ -17,7 +17,13 @@
         "menu_enfant"
       ],
       "subcats": [],
-      "menuEnfantPrice": "15€"
+      "menuEnfantPrice": "15€",
+      "hideFromMenu": false,
+      "inAllergenList": true,
+      "isSupplementsCategory": false,
+      "dispoSurPlace": true,
+      "dispoEmporter": true,
+      "menuEnfantPrix": "15€"
     },
     {
       "id": "cat_1782503221239",
@@ -155,7 +161,12 @@
         "Vins Rouges",
         "Les Bulles"
       ],
-      "homeGroup": "drinks"
+      "homeGroup": "drinks",
+      "subcatsDispo": {
+        "Vins Rosé": {
+          "dispoEmporter": true
+        }
+      }
     },
     {
       "id": "boissons",
@@ -301,8 +312,7 @@
         "gluten",
         "lait",
         "noix"
-      ],
-      "tva": 10
+      ]
     },
     {
       "id": "i19",
@@ -395,8 +405,7 @@
         "lait",
         "noix"
       ],
-      "priceVariants": [],
-      "tva": 10
+      "priceVariants": []
     },
     {
       "id": "i17",
@@ -612,7 +621,7 @@
       "cat": "cat_1782503221239",
       "subcat": null,
       "name": {
-        "fr": "Burrata Bowl",
+        "fr": "Salade Bowl Burrata 🥗",
         "en": "Burrata Bowl",
         "it": "Burrata Bowl",
         "de": "Burrata Bowl",
@@ -641,9 +650,9 @@
     {
       "id": "i6",
       "cat": "cat_1782503221239",
-      "subcat": null,
+      "subcat": "",
       "name": {
-        "fr": "Italienne Bowl",
+        "fr": "Salade Bowl Italienne 🐷",
         "en": "Italian Bowl",
         "it": "Italiana Bowl",
         "de": "Italienische Bowl",
@@ -667,8 +676,7 @@
         "gluten",
         "lait",
         "sulfites"
-      ],
-      "tva": 10
+      ]
     },
     {
       "id": "i8",
@@ -699,8 +707,7 @@
         "gluten",
         "lait",
         "noix"
-      ],
-      "tva": 10
+      ]
     },
     {
       "id": "i15",
@@ -940,8 +947,7 @@
         "gluten",
         "lait",
         "sulfites"
-      ],
-      "tva": 10
+      ]
     },
     {
       "id": "i24",
@@ -979,7 +985,7 @@
       "cat": "cat_1782503221239",
       "subcat": null,
       "name": {
-        "fr": "Tonno Bowl",
+        "fr": "Salade Bowl au thon 🐟",
         "en": "Tuna Bowl",
         "it": "Tonno Bowl",
         "de": "Thunfisch Bowl",
@@ -1004,8 +1010,7 @@
         "poisson",
         "lait",
         "sulfites"
-      ],
-      "tva": 10
+      ]
     },
     {
       "id": "i13",
@@ -1420,8 +1425,7 @@
       "allergens": [
         "gluten",
         "lait"
-      ],
-      "tva": 10
+      ]
     },
     {
       "id": "i11",
@@ -1987,8 +1991,7 @@
       "allergens": [
         "gluten",
         "lait"
-      ],
-      "tva": 10
+      ]
     },
     {
       "id": "i37",
@@ -2944,7 +2947,18 @@
       "price": "Verre 7 · Btl 26€",
       "photo": "",
       "archived": false,
-      "allergens": []
+      "allergens": [],
+      "priceVariants": [
+        {
+          "label": "Verre",
+          "price": "7€"
+        },
+        {
+          "label": "Btl",
+          "price": "26€"
+        }
+      ],
+      "dispoEmporter": false
     },
     {
       "id": "i73",
@@ -2971,7 +2985,18 @@
       "price": "Verre 8 · Btl 35€",
       "photo": "",
       "archived": false,
-      "allergens": []
+      "allergens": [],
+      "priceVariants": [
+        {
+          "label": "Verre",
+          "price": "8€"
+        },
+        {
+          "label": "Btl",
+          "price": "35€"
+        }
+      ],
+      "dispoEmporter": false
     },
     {
       "id": "i74",
