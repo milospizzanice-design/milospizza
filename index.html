@@ -3529,8 +3529,16 @@ function showToast(msg){
 // Photo upload (sécurisé : passe par le Worker, jamais d'appel direct à Cloudinary depuis le navigateur)
 async function uploadImageSecure(file){
   const token = localStorage.getItem('milos_token');
+  // Le fichier est lu entièrement en mémoire AVANT l'envoi. Sur iPhone (Safari), une photo choisie dans un
+  // champ fichier peut être transmise tronquée pendant l'envoi : le Worker répondait alors « missing initial
+  // boundary string (or you have a truncated message) ». Envoyer une copie complète en mémoire évite ce cas.
+  let buf;
+  try { buf = await file.arrayBuffer(); }
+  catch(e){ throw new Error('Photo illisible sur cet appareil, réessayez'); }
+  if(!buf || !buf.byteLength) throw new Error('Photo vide ou illisible, réessayez');
+  const copie = new Blob([buf], { type: file.type || 'image/jpeg' });
   const fd = new FormData();
-  fd.append('file', file);
+  fd.append('file', copie, file.name || 'photo.jpg');
   const res = await fetch(`${PROXY_URL}/admin/upload-image`, {
     method: 'POST',
     headers: token ? { 'Authorization': 'Bearer ' + token } : {},
@@ -3994,8 +4002,13 @@ function testPopupById(id) {
 function triggerPopupUpload(id) {
   const input = document.createElement('input');
   input.type='file'; input.accept='image/*';
+  // Champ ajouté à la page (caché) le temps du choix : sur iPhone, un champ fichier hors de la page peut rendre
+  // la photo choisie illisible.
+  input.style.display='none';
+  document.body.appendChild(input);
   input.onchange = async e => {
-    const file = e.target.files[0]; if(!file) return;
+    const file = e.target.files[0];
+    if(!file){ input.remove(); return; }
     showToast('📷 Envoi de la photo...');
     try {
       const url = await uploadImageSecure(file);
@@ -4006,6 +4019,8 @@ function triggerPopupUpload(id) {
       showToast('📷 Photo ajoutée — cliquez sur « Sauvegarder les pop-ups »');
     } catch(err) {
       showToast('❌ Photo non envoyée : '+((err&&err.message)||'erreur')+' (reconnectez-vous si besoin)');
+    } finally {
+      input.remove();
     }
   };
   input.click();
