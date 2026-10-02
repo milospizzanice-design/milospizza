@@ -1261,6 +1261,7 @@ function renderMenu() {
       html += `<div class="upsell-banner"><div class="u-icon">💡</div><div class="u-text"><div class="u-title">${uTitle}</div>${uMsg}</div></div>`;
     }
     
+    html += popupFichesHTML(c.id);
     topItems.forEach(it => html += renderItem(it, l));
     
     subcats.forEach(sub => {
@@ -3897,6 +3898,7 @@ async function savePopupConfig() {
   collectPopupEdits();
   try { localStorage.setItem('milos_popups', JSON.stringify(popups)); } catch(e){}
   await saveKeyToGithub(isDraftMode ? DRAFT_POPUP : 'popup.json', popups);
+  renderMenu(); // les fiches produit des pop-ups apparaissent tout de suite dans la carte
   showToast('✨ Pop-ups sauvegardés !');
 }
 
@@ -3914,6 +3916,9 @@ function collectPopupEdits() {
     // collect cats
     const catBoxes = document.querySelectorAll('.popup-cat-cb_'+p.id+':checked');
     p.cats = [...catBoxes].map(cb => cb.value);
+    // collect catégories où le plat apparaît aussi comme fiche produit (voir popupFichesHTML)
+    const ficheBoxes = document.querySelectorAll('.popup-fiche-cb_'+p.id+':checked');
+    p.ficheCats = [...ficheBoxes].map(cb => cb.value);
     // collect days (jours d'affichage — voir showPopupIfNeeded)
     const dayBoxes = document.querySelectorAll('.popup-day-cb_'+p.id+':checked');
     p.days = [...dayBoxes].map(cb => parseInt(cb.value, 10));
@@ -3935,6 +3940,12 @@ function renderPopupAdmin() {
       `<div class="allergen-check-item">
         <input type="checkbox" class="popup-cat-cb_${p.id}" value="${c.id}" id="pcb_${p.id}_${c.id}" ${(p.cats||[]).includes(c.id)?'checked':''}>
         <label for="pcb_${p.id}_${c.id}">${c.name.fr}</label>
+      </div>`
+    ).join('');
+    const ficheChecks = activeCats.map(c =>
+      `<div class="allergen-check-item">
+        <input type="checkbox" class="popup-fiche-cb_${p.id}" value="${c.id}" id="pfc_${p.id}_${c.id}" ${(p.ficheCats||[]).includes(c.id)?'checked':''}>
+        <label for="pfc_${p.id}_${c.id}">${c.name.fr}</label>
       </div>`
     ).join('');
     const dayChecks = DAY_LABELS.map((lbl,idx) =>
@@ -3976,6 +3987,8 @@ function renderPopupAdmin() {
       <div class="allergen-checks">${dayChecks}</div>
       <label class="admin-label" style="margin-top:0.5rem;">Afficher sur ces catégories <span style="font-size:0.65rem;color:#aaa;">(vide = toutes)</span></label>
       <div class="allergen-checks">${catChecks}</div>
+      <label class="admin-label" style="margin-top:0.5rem;">Afficher aussi comme fiche produit dans ces catégories <span style="font-size:0.65rem;color:#aaa;">(rien de coché = nulle part)</span></label>
+      <div class="allergen-checks">${ficheChecks}</div>
       <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
         <button class="add-btn" onclick="testPopupById('${p.id}')" style="background:#7D9B76;flex:1">🚀 Tester</button>
       </div>
@@ -3989,7 +4002,7 @@ function deletePopup(id) {
 }
 
 function addPopup() {
-  popups.push({id:'p'+Date.now(), active:true, badge:'🍕 Pizza du moment !', title:'', desc:'', price:'', photo:'', timing:'always', cats:[], days:[]});
+  popups.push({id:'p'+Date.now(), active:true, badge:'🍕 Pizza du moment !', title:'', desc:'', price:'', photo:'', timing:'always', cats:[], days:[], ficheCats:[]});
   renderPopupAdmin();
 }
 
@@ -4083,6 +4096,44 @@ function showPopupIfNeeded(catId) {
       if(t==='once_ever') localStorage.setItem('milos_popup_ever_'+popup.id, '1');
     } catch(e){}
   }, 1500);
+}
+
+// ── Fiche produit d'un pop-up ──
+// Un pop-up (ex. « Pizza du moment ») peut aussi apparaître comme une fiche dans la liste des plats des catégories
+// cochées dans « Afficher aussi comme fiche produit ». La fiche suit l'interrupteur actif et les jours d'affichage
+// du pop-up, mais pas le réglage « Une fois par jour / Une seule fois » (elle reste visible dans la carte).
+function popupEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function popupFichesHTML(catId) {
+  const today = new Date().getDay();
+  return (popups || []).filter(p =>
+    p.active && p.title && Array.isArray(p.ficheCats) && p.ficheCats.includes(catId) &&
+    !(p.days && p.days.length > 0 && !p.days.includes(today))
+  ).map(p => {
+    const hasPhoto = p.photo && String(p.photo).trim();
+    return `<div class="item" onclick="openPopupFiche('${popupEsc(p.id)}')" style="border:2px solid var(--rouge);border-radius:10px;padding-left:0.7rem;padding-right:0.7rem;background:rgba(155,28,28,0.04);">
+    <div class="item-info">
+      ${p.badge ? `<div style="font-family:'Montserrat',sans-serif;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--rouge);margin-bottom:0.2rem;">${popupEsc(p.badge)}</div>` : ''}
+      <div class="item-name">${popupEsc(p.title)}${hasPhoto?'<span class="photo-badge"></span>':''}</div>
+      ${p.desc ? `<div class="item-desc">${popupEsc(p.desc)}</div>` : ''}
+    </div>
+    <div class="item-price">${popupEsc(p.price || '')}</div>
+  </div>`;
+  }).join('');
+}
+function openPopupFiche(id) {
+  const p = (popups || []).find(x => x.id === id);
+  if (!p) return;
+  const img = document.getElementById('modalImg');
+  if (p.photo) { img.src = cld(p.photo, 800); img.className = 'modal-img'; img.onerror = () => img.className = 'modal-img hidden'; }
+  else { img.src = ''; img.className = 'modal-img hidden'; }
+  document.getElementById('modalName').textContent = p.title || '';
+  document.getElementById('modalDesc').textContent = p.desc || '';
+  document.getElementById('modalPrice').textContent = p.price || '';
+  const allergenEl = document.getElementById('modalAllergens');
+  if (allergenEl) allergenEl.innerHTML = '';
+  document.getElementById('modalOverlay').classList.add('open');
 }
 
 function showPopupObj(p) {
@@ -4704,25 +4755,35 @@ async function publishDraft() {
       //    Avant : le résultat de saveKeyToGithub() n'était jamais vérifié ici — un échec de
       //    lecture OU d'écriture sur un seul fichier (ex. menudata.json, qui contient les photos
       //    et les prix) passait totalement inaperçu, et "✅ Publié !" s'affichait quand même.
-      const results = await Promise.all(files.map(async ([src, dest]) => {
+      //    Les fichiers sont copiés UN PAR UN. Avant : les 6 écritures partaient en même temps, or
+      //    GitHub refuse les écritures simultanées sur un même dépôt (sa documentation demande de les
+      //    faire l'une après l'autre) → « écriture refusée par GitHub » sur plusieurs fichiers.
+      //    Un fichier dont le brouillon est identique à la version en ligne n'est pas réécrit.
+      const results = [];
+      for (const [src, dest] of files) {
         try {
           // Un brouillon qui n'existe pas (ex. design_draft.json quand le design n'a jamais été
           // modifié en mode brouillon) n'est PAS une erreur : il n'y a rien à publier pour ce fichier,
-          // la version en ligne reste telle quelle. Avant : ce cas bloquait toute la publication.
-          if (await brouillonAbsent(src)) return {dest, ok:true, skipped:true};
+          // la version en ligne reste telle quelle.
+          if (await brouillonAbsent(src)) { results.push({dest, ok:true, skipped:true}); continue; }
           const data = await loadKeyFromGithub(src);
-          if (!data) return {dest, ok:false, reason:'lecture du brouillon impossible'};
+          if (!data) { results.push({dest, ok:false, reason:'lecture du brouillon impossible'}); continue; }
+          const enLigne = await loadKeyFromGithub(dest);
+          if (enLigne && JSON.stringify(enLigne) === JSON.stringify(data)) {
+            results.push({dest, ok:true, skipped:true});
+            continue;
+          }
           const saved = await saveKeyToGithub(dest, data);
           const ok = !!(saved && saved.content && saved.content.sha);
-          return {dest, ok, reason: ok ? null : 'écriture refusée par GitHub'};
+          results.push({dest, ok, reason: ok ? null : 'écriture refusée par GitHub'});
         } catch(e) {
-          return {dest, ok:false, reason:(e && e.message) || 'erreur réseau'};
+          results.push({dest, ok:false, reason:(e && e.message) || 'erreur réseau'});
         }
-      }));
+      }
       return {historyOk, results};
     };
 
-    const {historyOk, results} = await withTimeout(run(), 25000);
+    const {historyOk, results} = await withTimeout(run(), 90000); // un par un : plus long qu'avant
     const failed = results.filter(r => !r.ok);
 
     if (failed.length === 0) {
@@ -5072,6 +5133,11 @@ function showSectionTab(tabKey) {
   let html = '';
   if (c.subtitle) html += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;font-style:italic;color:#5A4535;margin-bottom:1rem">${c.subtitle[l]||c.subtitle.fr}</div>`;
   if (upsell) html += `<div class="upsell-banner"><div class="u-icon">💡</div><div class="u-text"><div class="u-title">${upsell.title}</div>${upsell.message}</div></div>`;
+
+  // Fiches produit des pop-ups : une seule fois par catégorie, dans son premier onglet (une catégorie avec
+  // sous-catégories a plusieurs onglets ; sans ça la fiche se répéterait dans chacun).
+  const premierOngletCat = tabs.find(t => t.catId === tab.catId);
+  if (premierOngletCat && premierOngletCat.key === tab.key) html += popupFichesHTML(tab.catId);
 
   catItems.forEach(it => html += renderItem(it, l));
 
