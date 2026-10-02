@@ -4050,10 +4050,14 @@ function closePopup() {
   if(t==='once_ever') { try { localStorage.setItem('milos_popup_seen_ever', '1'); } catch(e){} }
 }
 
+// Pop-ups déjà montrés pendant cette visite : un pop-up n'apparaît qu'une fois par visite, même en passant d'une
+// catégorie à l'autre (« À chaque ouverture » = à chaque ouverture du site).
+const popupsMontresCetteVisite = new Set();
 function showPopupIfNeeded(catId) {
   // Find active popup for current context (catId optional)
   const candidates = popups.filter(p => {
     if (!p.active || !p.title) return false;
+    if (popupsMontresCetteVisite.has(p.id)) return false;
     if (p.cats && p.cats.length > 0 && catId && !p.cats.includes(catId)) return false;
     if (p.cats && p.cats.length > 0 && !catId) return false;
     // Jours d'affichage : rien de coché = tous les jours (comportement d'origine, rétrocompatible avec
@@ -4070,6 +4074,7 @@ function showPopupIfNeeded(catId) {
   });
   if (!candidates.length) return;
   const popup = candidates[0];
+  popupsMontresCetteVisite.add(popup.id);
   setTimeout(() => {
     showPopupObj(popup);
     const t = popup.timing;
@@ -5024,6 +5029,9 @@ function showSectionTab(tabKey) {
   const l = currentLang;
   const c = cats.find(cat => cat.id === tab.catId);
   if (!c) return;
+  // Pop-up réservé à certaines catégories : il s'affiche quand le client ouvre l'une d'elles. Avant, la fonction
+  // n'était appelée qu'à l'accueil (sans catégorie), donc un pop-up avec des catégories cochées n'apparaissait jamais.
+  showPopupIfNeeded(tab.catId);
 
   // Update tabs with inline styles
   tabs.forEach(t => {
