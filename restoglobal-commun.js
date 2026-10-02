@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-09-28';
+  RG.VERSION='2026-10-02';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -298,6 +298,25 @@
     return (d?new Date(d):new Date()).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   };
 
+  // ── Lots du Labo : combien un lot « couvre » d'une ligne de commande ──────────────────────────────────
+  // La demande est exprimée dans l'unité de comptage du restaurant demandeur (pièces, kg, L…). Un lot a un
+  // poids. Avant, chaque lot comptait pour 1 quelle que soit l'unité : une demande de 6 kg couverte par un lot
+  // de 6 kg restait « reste 5 ». Désormais : en kg/g (et L/cl/ml, 1 L ≈ 1 kg) on compte le poids du lot,
+  // sinon (pièces, bacs…) un lot = 1.
+  RG.valeurLotDansUnite=function(poidsG,unite){
+    var g=Number(poidsG)||0;
+    switch(unite){
+      case 'kg':case 'l':return Math.round(g)/1000;
+      case 'g':case 'ml':return Math.round(g);
+      case 'cl':return Math.round(g/10*100)/100;
+      default:return 1;
+    }
+  };
+  RG.lotEnPoids=function(unite){return ['kg','g','l','cl','ml'].indexOf(unite)>=0;};
+  RG.libelleQuantite=function(q,unite){return RG.formatNombre(q)+RG.suffixeUnite(unite);};
+  // Arrondi pour comparer des quantités (évite 5.999999 < 6).
+  RG.arrondiQte=function(x){return Math.round((Number(x)||0)*1000)/1000;};
+
   // ── Rôles (postes) valables selon le restaurant ────────────────────────────────────────────────────────
   // roles.restaurants = liste des restaurants où le rôle s'applique ; vide ou absent = tous les restaurants.
   // Ex. un salarié « Pizzaiolo + Labo » qui se connecte au Labo ne se voit proposer que le poste Labo.
@@ -331,6 +350,108 @@
       if(r.error){console.warn('RG.journal',r.error);return false;}
       return true;
     }catch(e){console.warn('RG.journal',e);return false;}
+  };
+
+  // ── Lecture paginée (Supabase renvoie au plus 1000 lignes par requête) ──────────────────────────────
+  // fabrique() doit renvoyer une requête NEUVE à chaque appel (on y ajoute .range()).
+  RG.toutesLignes=async function(fabrique){
+    var tout=[],page=1000;
+    for(var debut=0;debut<50000;debut+=page){
+      var r=await fabrique().range(debut,debut+page-1);
+      if(r.error)return {data:null,error:r.error};
+      var lot=r.data||[];
+      tout=tout.concat(lot);
+      if(lot.length<page)break;
+    }
+    return {data:tout,error:null};
+  };
+
+  // ── Établissements (table « restaurants ») ─────────────────────────────────────────────────────────────
+  // Source unique pour les noms, adresses, couleurs, le groupe de livraison et le restaurant qui prépare
+  // pour les autres. Rien n'est écrit en dur : tout se règle dans Admin > Réglages > Établissements.
+  //   groupe_livraison    : texte libre ; les établissements qui ont le même groupe sont livrés au même
+  //                         endroit et leurs commandes fournisseurs partent dans UN seul message.
+  //   prepare_pour_autres : vrai pour l'établissement qui prépare et expédie pour les autres (ex. un labo).
+  RG.RESTOS=[];
+  RG.chargerRestaurants=async function(db){
+    try{
+      var r=await db.from('restaurants').select('*');
+      if(r.error)throw r.error;
+      RG.RESTOS=r.data||[];
+    }catch(e){console.warn('RG.chargerRestaurants',e);}
+    return RG.RESTOS;
+  };
+  RG.resto=function(id){
+    for(var i=0;i<RG.RESTOS.length;i++){if(RG.RESTOS[i].id===id)return RG.RESTOS[i];}
+    return null;
+  };
+  RG.nomResto=function(id){var r=RG.resto(id);return r?(r.nom||r.label||r.id):(id||'');};
+  RG.adresseResto=function(id){var r=RG.resto(id);return (r&&r.adresse)||'';};
+  // Établissements livrés ensemble avec id (id compris, en premier). Sans groupe : [id].
+  RG.groupeLivraison=function(id){
+    var r=RG.resto(id);
+    var g=r&&r.groupe_livraison?String(r.groupe_livraison).trim().toLowerCase():'';
+    if(!g)return id?[id]:[];
+    var ids=RG.RESTOS.filter(function(x){return x.groupe_livraison&&String(x.groupe_livraison).trim().toLowerCase()===g;}).map(function(x){return x.id;});
+    if(ids.indexOf(id)<0)ids.unshift(id);
+    return [id].concat(ids.filter(function(x){return x!==id;}));
+  };
+  RG.estPreparateur=function(id){var r=RG.resto(id);return !!(r&&r.prepare_pour_autres);};
+  RG.idPreparateur=function(){
+    for(var i=0;i<RG.RESTOS.length;i++){if(RG.RESTOS[i].prepare_pour_autres)return RG.RESTOS[i].id;}
+    return null;
+  };
+  // Couleurs de pastille d'un établissement à partir de sa couleur (Réglages) : texte = la couleur,
+  // fond = la même couleur très éclaircie. Formats : '#rrggbb' pour le HTML, [r,g,b] pour les PDF.
+  function hexVersRgb(hex){
+    var m=/^#?([0-9a-f]{6})$/i.exec(String(hex||'').trim());
+    if(!m)return null;
+    var n=parseInt(m[1],16);
+    return [(n>>16)&255,(n>>8)&255,n&255];
+  }
+  function rgbVersHex(c){return '#'+c.map(function(v){return ('0'+Math.round(v).toString(16)).slice(-2);}).join('');}
+  RG.couleursResto=function(id){
+    var r=RG.resto(id);
+    var tx=hexVersRgb(r&&r.couleur)||[55,65,81];
+    var bg=tx.map(function(v){return v+(255-v)*0.85;});
+    return {bg:rgbVersHex(bg),tx:rgbVersHex(tx),bgRgb:bg.map(Math.round),txRgb:tx};
+  };
+
+  // ── Enseigne (nom et logo affichés sur la tablette, l'admin et les documents) ─────────────────────────
+  // Stockés dans app_config (clés enseigne_nom et enseigne_logo), modifiables dans Admin > Réglages.
+  // Le logo est une URL ou une image encodée (data:image/...).
+  RG.ENSEIGNE={nom:'',logo:''};
+  RG.chargerEnseigne=async function(db){
+    try{
+      var r=await db.from('app_config').select('key,value').in('key',['enseigne_nom','enseigne_logo']);
+      (r.data||[]).forEach(function(x){
+        if(x.key==='enseigne_nom')RG.ENSEIGNE.nom=x.value||'';
+        if(x.key==='enseigne_logo')RG.ENSEIGNE.logo=x.value||'';
+      });
+    }catch(e){console.warn('RG.chargerEnseigne',e);}
+    return RG.ENSEIGNE;
+  };
+  RG.enregistrerEnseigne=async function(db,nom,logo){
+    var rows=[{key:'enseigne_nom',value:nom||''}];
+    if(logo!==undefined)rows.push({key:'enseigne_logo',value:logo||''});
+    var r=await db.from('app_config').upsert(rows,{onConflict:'key'});
+    if(r.error)throw r.error;
+    RG.ENSEIGNE.nom=nom||'';
+    if(logo!==undefined)RG.ENSEIGNE.logo=logo||'';
+    return RG.ENSEIGNE;
+  };
+  // Remplit les éléments marqués data-enseigne-nom (texte) et data-enseigne-logo (image, masquée si vide),
+  // et préfixe le titre de l'onglet (titreBase - nom).
+  RG.appliquerEnseigne=function(titreBase){
+    var e=RG.ENSEIGNE;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-enseigne-nom]'),function(el){
+      el.textContent=e.nom||el.getAttribute('data-enseigne-nom')||'';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('img[data-enseigne-logo]'),function(img){
+      if(e.logo){img.src=e.logo;img.alt=e.nom||'';img.style.display='';}
+      else{img.removeAttribute('src');img.style.display='none';}
+    });
+    if(titreBase)document.title=titreBase+(e.nom?(' - '+e.nom):'');
   };
 
   global.RG=RG;

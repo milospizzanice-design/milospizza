@@ -3901,6 +3901,7 @@ function collectPopupEdits() {
     if(g('ptitle') !== null) p.title = g('ptitle');
     if(g('pdesc') !== null) p.desc = g('pdesc');
     if(g('pprice') !== null) p.price = g('pprice');
+    if(g('pphoto') !== null) p.photo = g('pphoto').trim();
     if(g('ptiming')) p.timing = g('ptiming');
     // collect cats
     const catBoxes = document.querySelectorAll('.popup-cat-cb_'+p.id+':checked');
@@ -3995,17 +3996,16 @@ function triggerPopupUpload(id) {
   input.type='file'; input.accept='image/*';
   input.onchange = async e => {
     const file = e.target.files[0]; if(!file) return;
-    showToast('📷 Upload...');
+    showToast('📷 Envoi de la photo...');
     try {
       const url = await uploadImageSecure(file);
-      const inp = document.getElementById('pphoto_'+id);
-      if(inp) inp.value = url;
+      collectPopupEdits(); // garde le titre, la description… tapés et pas encore sauvegardés
       const p = popups.find(x=>x.id===id);
       if(p) p.photo = url;
       renderPopupAdmin();
-      showToast('📷 Photo sauvegardée !');
+      showToast('📷 Photo ajoutée — cliquez sur « Sauvegarder les pop-ups »');
     } catch(err) {
-      showToast('❌ Erreur upload');
+      showToast('❌ Photo non envoyée : '+((err&&err.message)||'erreur')+' (reconnectez-vous si besoin)');
     }
   };
   input.click();
@@ -4076,8 +4076,9 @@ function showPopupObj(p) {
   document.getElementById('popupOverlay').classList.add('open');
 }
 
-let popupUploadResolver = null;
-function triggerPopupUpload() { currentUploadItemId = '__popup__'; document.getElementById('fileInput').click(); }
+// (Ancienne version supprimée le 02/10/2026 : une seconde définition de triggerPopupUpload, déclarée ici plus bas,
+// écrasait la bonne et envoyait la photo vers un champ « popup_photo » qui n'existe plus — la photo partait sur le
+// serveur mais n'était rattachée à aucun pop-up.)
 
 // ═══════════════════════════════════════
 // DESIGN
