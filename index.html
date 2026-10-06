@@ -735,13 +735,65 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
       <!-- PRINT / PDF -->
       <div class="admin-section" id="as-print">
-        <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Générez un PDF imprimable de la carte actuellement affichée dans l'admin — une page par catégorie, avec saut de page automatique si besoin.</p>
-        <label class="admin-label">Format</label>
-        <div style="display:flex;gap:0.8rem;margin-bottom:1rem;">
-          <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;font-family:'Montserrat',sans-serif;"><input type="radio" name="pdfFormat" value="a4" checked> A4</label>
-          <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;font-family:'Montserrat',sans-serif;"><input type="radio" name="pdfFormat" value="a5"> A5</label>
+        <p style="font-size:0.75rem;color:#888;margin-bottom:0.8rem">Créez une carte élégante à imprimer avec les couleurs et polices du Design. Les réglages de contenu, de mise en page et la photo sont propres à chaque format.</p>
+
+        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:0.6rem;">1. Format</div>
+        <div style="margin-bottom:0.6rem;">
+          <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;"><input type="radio" name="printFmt" value="a4" checked onchange="printChangeFormat()"> <b>A4</b>&nbsp;— carte sur table (plusieurs pages si besoin)</label>
+          <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;"><input type="radio" name="printFmt" value="a5" onchange="printChangeFormat()"> <b>A5</b>&nbsp;— petite carte (plusieurs pages si besoin)</label>
+          <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;"><input type="radio" name="printFmt" value="a1" onchange="printChangeFormat()"> <b>A1</b>&nbsp;— affiche extérieure, tout sur une page</label>
+          <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;"><input type="radio" name="printFmt" value="trifold" onchange="printChangeFormat()"> <b>Flyer dépliant 3 volets</b>&nbsp;— fermé A5, ouvert 444 × 210 mm</label>
         </div>
-        <button class="admin-save-btn" onclick="generateMenuPDF()">🖨️ Générer le PDF</button>
+
+        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">2. Contenu à afficher <span id="printFmtNom" style="color:#aaa;font-size:0.65rem;"></span></div>
+        <p style="font-size:0.7rem;color:#999;margin-bottom:0.5rem;">Décochez une catégorie pour la retirer. Touchez son nom pour choisir les plats un par un.</p>
+        <div id="printCatList" style="margin-bottom:0.6rem;"></div>
+
+        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">3. Mise en page</div>
+        <div id="printOptCols">
+          <label class="admin-label">Colonnes</label>
+          <select class="cat-select" id="printCols" style="margin-bottom:0.6rem;" onchange="printCollectFmt()">
+            <option value="auto" selected>Automatique</option>
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          </select>
+        </div>
+        <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.4rem;"><input type="checkbox" id="printDesc" checked onchange="printCollectFmt()"> Afficher les descriptions des plats</label>
+        <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.4rem;"><input type="checkbox" id="printBg" checked onchange="printCollectFmt()"> Fond couleur crème (sinon blanc, plus économique en encre)</label>
+        <label id="printOptNewPage" style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.4rem;"><input type="checkbox" id="printNewPage" onchange="printCollectFmt()"> Chaque catégorie commence sur une nouvelle page</label>
+        <label id="printOptInfos" style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.4rem;"><input type="checkbox" id="printInfos" checked onchange="printCollectFmt()"> Afficher les horaires, coordonnées et QR codes</label>
+        <p style="font-size:0.7rem;color:#999;margin:0.3rem 0 0.6rem;">Une catégorie n'est jamais coupée entre deux pages (ni entre deux volets du dépliant) : elle passe entière sur la page suivante.</p>
+
+        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">4. Photo de l'encart</div>
+        <p id="printPhotoAide" style="font-size:0.7rem;color:#999;margin-bottom:0.5rem;"></p>
+        <div id="printPhotoBox" style="margin-bottom:0.6rem;"></div>
+
+        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">5. Établissement <span style="color:#aaa;font-size:0.65rem;">(commun à tous les formats)</span></div>
+        <label class="admin-label">Nom affiché</label>
+        <input class="admin-input" id="print_nom">
+        <label class="admin-label">Accroche <span style="font-size:0.65rem;color:#aaa;">(facultatif)</span></label>
+        <input class="admin-input" id="print_slogan" placeholder="ex. Pizzas artisanales au feu de bois">
+        <label class="admin-label">Adresse</label>
+        <input class="admin-input" id="print_adresse" placeholder="ex. 12 rue de la Paix, 06000 Nice">
+        <label class="admin-label">Téléphone</label>
+        <input class="admin-input" id="print_tel" type="tel" placeholder="ex. 04 93 00 00 00">
+        <label class="admin-label">Jours et heures d'ouverture <span style="font-size:0.65rem;color:#aaa;">(laisser vide = jour non affiché)</span></label>
+        <div id="printHoraires" style="margin-bottom:0.6rem;"></div>
+        <label class="admin-label">Infos complémentaires <span style="font-size:0.65rem;color:#aaa;">(une par ligne, facultatif)</span></label>
+        <textarea class="admin-input" id="print_infos" rows="2" style="resize:vertical;" placeholder="ex. Terrasse · Parking à 50 m"></textarea>
+        <label class="admin-label">Mention en bas de page</label>
+        <input class="admin-input" id="print_mention">
+
+        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">6. QR codes <span style="color:#aaa;font-size:0.65rem;">(lien vide = pas de QR code)</span></div>
+        <label class="admin-label">Sur place — lien de la carte</label>
+        <input class="admin-input" id="print_qr_surplace" placeholder="https://…">
+        <label class="admin-label">Vente à emporter — lien de commande</label>
+        <input class="admin-input" id="print_qr_emporter" placeholder="https://…">
+        <label class="admin-label">Livraison — lien de commande</label>
+        <input class="admin-input" id="print_qr_livraison" placeholder="https://… (ex. votre page de livraison)">
+
+        <button class="admin-save-btn" style="background:var(--vert);margin:0.8rem 0 0.5rem;" onclick="savePrintSettings()">💾 Enregistrer les réglages</button>
+        <button class="admin-save-btn" onclick="openPrintMenu()">🖨️ Créer la carte à imprimer</button>
+        <p style="font-size:0.7rem;color:#999;margin-top:0.6rem;line-height:1.5;">Un aperçu s'ouvre dans un nouvel onglet. Cliquez sur « Imprimer / Enregistrer en PDF ». Pour l'A1 et le dépliant (à envoyer à un imprimeur), faites-le depuis un ordinateur avec Chrome ou Edge, choisissez « Enregistrer au format PDF », marges « Aucune » et cochez « Graphiques d'arrière-plan ». Pensez à « Enregistrer les réglages » puis ✅ Publier pour les retrouver la prochaine fois.</p>
 
         <p style="font-size:0.75rem;color:#888;margin:1.2rem 0 0.6rem;border-top:1px solid #eee;padding-top:1rem;">Générez le PDF du tableau des allergènes (par catégorie), à imprimer et laisser à disposition en restaurant.</p>
         <button class="admin-save-btn" style="background:var(--vert);" onclick="generateAllergenPDF()">⚠️ Générer le PDF des allergènes</button>
@@ -1508,7 +1560,7 @@ function renderAdminContent(){
   if(currentAdminTab==='social') initSocialPanel();
   if(currentAdminTab==='sections') renderAdminSections();
   if(currentAdminTab==='import') { /* statique, rien à pré-charger */ }
-  if(currentAdminTab==='print') { /* statique, rien à pré-charger */ }
+  if(currentAdminTab==='print') renderPrintPanel();
   // Fill cat selects
   const opts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
   ['newItemCat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
@@ -4201,7 +4253,8 @@ function applyDesign() {
     const hex = document.getElementById('ds_'+k+'_hex');
     if(hex) hex.value = d[k];
   });
-  currentDesign = d;
+  // On garde les autres réglages stockés dans design.json (carte à imprimer : clés print_…)
+  currentDesign = {...currentDesign, ...d};
   applyDesignVars(d);
 }
 
@@ -4221,7 +4274,10 @@ async function saveDesign() {
 }
 
 function resetDesign() {
-  currentDesign = {...DESIGN_DEFAULTS};
+  // Les textes de la carte à imprimer (print_*) sont aussi stockés dans design.json : on les garde.
+  const textesImpression = {};
+  Object.keys(currentDesign || {}).forEach(k => { if (k.indexOf('print_') === 0) textesImpression[k] = currentDesign[k]; });
+  currentDesign = {...DESIGN_DEFAULTS, ...textesImpression};
   applyDesignVars(currentDesign);
   // Reset UI inputs
   ['rouge','creme','texte','brun','vert'].forEach(k=>{
@@ -4295,111 +4351,797 @@ async function saveVersionToHistory() {
 }
 
 // ═══════════════════════════════════════
-// IMPRESSION PDF
+// CARTE À IMPRIMER (A4 / A5 / A1 / flyer dépliant 3 volets)
 // ═══════════════════════════════════════
-function generateMenuPDF(){
-  if (typeof jspdf === 'undefined') { showToast('❌ Librairie PDF non chargée'); return; }
-  const format = (document.querySelector('input[name="pdfFormat"]:checked') || {}).value || 'a4';
-  const doc = new jspdf.jsPDF({ unit: 'mm', format });
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 18;
-  const usableW = pageW - margin * 2;
-  const headerBottom = 40; // y de départ du contenu après l'en-tête
-  const pageUsableH = pageH - margin - headerBottom;
-  const MIN_SCALE = 0.8; // on accepte de resserrer jusqu'à 20%, pas plus (lisibilité)
-  const NAME_SIZE = 11, DESC_SIZE = 8.5;
+// Ouvre une fenêtre d'aperçu mise en page aux dimensions exactes du format choisi ; on l'imprime ou on
+// l'enregistre en PDF depuis cette fenêtre. Couleurs et polices = celles du Design. Tous les réglages
+// (établissement, horaires, QR codes, et pour chaque format : contenu, mise en page, photo) sont stockés
+// dans design.json sous des clés « print_… » → aucune donnée d'enseigne en dur.
+const PRINT_FORMATS = {
+  a4:      {label:'A4', page:'A4'},
+  a5:      {label:'A5', page:'A5'},
+  a1:      {label:'A1', page:'594mm 841mm'},
+  trifold: {label:'Flyer dépliant 3 volets', page:'444mm 210mm'}
+};
+const PRINT_JOURS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const PRINT_QR_TYPES = [
+  {key:'surplace',  label:'Sur place',  sub:'Voir la carte'},
+  {key:'emporter',  label:'À emporter', sub:'Commander'},
+  {key:'livraison', label:'Livraison',  sub:'Se faire livrer'}
+];
+let printFmtAffiche = null;   // format dont les réglages sont affichés dans le panneau
+let printPanelPret = false;   // vrai une fois les champs remplis (avant, on ne les relit pas)
 
-  const activeCats = cats.filter(c => !c.archived);
-  let isFirstPageEver = true;
-  let y = headerBottom;
+function printDefaultNom() {
+  return (document.title || '').split(' — ')[0].split(' - ')[0].trim();
+}
+function printDefaultMention() {
+  return ((T && T.fr && T.fr.footer) || '').replace(/<[^>]*>/g, ' ');
+}
+function printFmt() {
+  return (document.querySelector('input[name="printFmt"]:checked') || {}).value || 'a4';
+}
+// Réglages propres à un format (contenu retiré, mise en page, photo de l'encart)
+function printCfg(fmt) {
+  const cle = 'print_cfg_' + fmt;
+  const base = {exCats:[], exItems:[], cols:'auto', desc:true, bg:true, newPage:false, infos:true, photo:''};
+  currentDesign[cle] = Object.assign(base, currentDesign[cle] || {});
+  return currentDesign[cle];
+}
 
-  function drawHeader(catName, continued){
-    if (!isFirstPageEver) doc.addPage();
-    isFirstPageEver = false;
-    doc.setFillColor(245, 240, 232);
-    doc.rect(0, 0, pageW, 30, 'F');
-    doc.setDrawColor(155, 28, 28);
-    doc.setLineWidth(0.8);
-    doc.line(0, 30, pageW, 30);
-    doc.setFont('times', 'normal');
-    doc.setTextColor(155, 28, 28);
-    doc.setFontSize(20);
-    const title = (catName || '').toUpperCase() + (continued ? ' (suite)' : '');
-    doc.text(title, pageW / 2, 19, { align: 'center' });
-    y = headerBottom;
+// Catégories visibles « sur place », dans l'ordre de la carte (mêmes règles que le site)
+function printCats() {
+  return cats.filter(c => !c.archived && !c.hideFromMenu && c.dispoSurPlace !== false);
+}
+// Plats d'une catégorie, dans l'ordre d'affichage : sans sous-catégorie, puis par sous-catégorie, puis menu enfant
+function printPlatsDeCat(c) {
+  const ok = it => !it.archived && it.dispoSurPlace !== false;
+  const groupes = [];
+  const sansSous = items.filter(it => ok(it) && itemIsInPlacement(it, c.id, null));
+  if (sansSous.length) groupes.push({sub:'', items:sansSous});
+  ensureCatSubcats(c).forEach(sc => {
+    if (!subcatVisible(c, sc, 'dispoSurPlace')) return;
+    const lst = items.filter(it => ok(it) && itemIsInPlacement(it, c.id, sc));
+    if (lst.length) groupes.push({sub:sc, items:lst});
+  });
+  if ((c.extras || []).includes('menu_enfant')) {
+    const t = T.fr || {};
+    // même prix par défaut que sur le site (renderMenu)
+    groupes.push({sub:'', items:[{id:'__enfant_' + c.id, name:{fr:t.childMenu || ''}, desc:{fr:t.childDesc || ''}, price:c.menuEnfantPrix || '15€'}]});
+  }
+  return groupes;
+}
+
+// Texte brut pour l'impression : sans balises HTML et sans émojis (peu élégants à l'impression)
+const PRINT_EMOJI_RE = new RegExp('[' + String.fromCharCode(92) + 'p{Extended_Pictographic}' + String.fromCharCode(0xFE0F, 0x200D, 0x20E3) + ']', 'gu');
+function printNettoie(v) {
+  return String(v == null ? '' : v)
+    .replace(/<br\s*\/?>/gi, ' · ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(PRINT_EMOJI_RE, '')
+    .replace(/[ ]{2,}/g, ' ')
+    .replace(/^[ ·]+|[ ·]+$/g, '')
+    .trim();
+}
+function printEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function printPrix(it) {
+  return (it.priceVariants && it.priceVariants.length)
+    ? it.priceVariants.map(v => printNettoie(((v.label || '') + ' ' + (v.price || '')).trim())).filter(Boolean).join('  ·  ')
+    : printNettoie(it.price || '');
+}
+
+// ── Panneau d'administration ──
+function renderPrintPanel() {
+  if (printPanelPret) { printCollectEtab(); if (printFmtAffiche) printCollectFmt(printFmtAffiche); }
+  const fmt = printFmt();
+  printFmtAffiche = fmt;
+  const cfg = printCfg(fmt);
+  const nomFmt = document.getElementById('printFmtNom');
+  if (nomFmt) nomFmt.textContent = '— ' + PRINT_FORMATS[fmt].label;
+
+  // Contenu : catégories et plats
+  const box = document.getElementById('printCatList');
+  if (box) {
+    const exC = new Set(cfg.exCats), exI = new Set(cfg.exItems);
+    box.innerHTML = printCats().map(c => {
+      const groupes = printPlatsDeCat(c);
+      const tous = groupes.flatMap(g => g.items);
+      if (!tous.length) return '';
+      const nOn = tous.filter(it => !exI.has(it.id)).length;
+      const liste = groupes.map(g =>
+        (g.sub ? `<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#7D9B76;margin:0.5rem 0 0.2rem;">${printEsc(printNettoie(g.sub))}</div>` : '')
+        + g.items.map(it => `<label style="display:flex;gap:0.4rem;align-items:baseline;font-size:0.74rem;font-family:'Montserrat',sans-serif;margin:0.2rem 0;">
+            <input type="checkbox" class="print-it-cb" data-cat="${printEsc(c.id)}" value="${printEsc(it.id)}" ${exI.has(it.id)?'':'checked'} onchange="printCollectFmt()">
+            <span style="flex:1">${printEsc(printNettoie((it.name && it.name.fr) || ''))}</span><span style="color:#999">${printEsc(printPrix(it))}</span></label>`).join('')
+      ).join('');
+      return `<div style="display:flex;gap:0.5rem;align-items:flex-start;background:#faf8f4;border-radius:8px;padding:0.45rem 0.6rem;margin-bottom:0.35rem;">
+        <input type="checkbox" class="print-cat-cb" value="${printEsc(c.id)}" ${exC.has(c.id)?'':'checked'} onchange="printCollectFmt()" style="margin-top:0.2rem">
+        <details style="flex:1"><summary style="cursor:pointer;font-size:0.8rem;font-family:'Montserrat',sans-serif;font-weight:600;">${printEsc(printNettoie(c.name.fr))}
+          <span id="prcn_${printEsc(c.id)}" style="font-weight:400;color:#999;font-size:0.7rem;">${nOn}/${tous.length} plats</span></summary>
+          <div style="padding:0.3rem 0 0.2rem;">${liste}
+            <div style="display:flex;gap:0.4rem;margin-top:0.4rem;">
+              <button type="button" class="aic-btn" onclick="printToutCocher('${printEsc(c.id)}',true)">Tout cocher</button>
+              <button type="button" class="aic-btn" onclick="printToutCocher('${printEsc(c.id)}',false)">Tout décocher</button>
+            </div></div></details></div>`;
+    }).join('') || '<p style="font-size:0.75rem;color:#aaa">Aucune catégorie</p>';
   }
 
-  let anyItems = false;
+  // Mise en page
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  const setC = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+  setV('printCols', cfg.cols); setC('printDesc', cfg.desc); setC('printBg', cfg.bg);
+  setC('printNewPage', cfg.newPage); setC('printInfos', cfg.infos);
+  const montrer = (id, oui) => { const el = document.getElementById(id); if (el) el.style.display = oui ? '' : 'none'; };
+  montrer('printOptCols', fmt !== 'trifold');
+  montrer('printOptNewPage', fmt === 'a4' || fmt === 'a5');
+  montrer('printOptInfos', fmt !== 'trifold');
 
-  activeCats.forEach(cat => {
-    const catItems = items.filter(it => !it.archived && itemBelongsToCat(it, cat.id));
-    if (catItems.length === 0) return;
-    anyItems = true;
+  // Photo de l'encart
+  const aide = document.getElementById('printPhotoAide');
+  if (aide) aide.textContent = ({
+    a1:'Grande photo sous le titre de l\'affiche.',
+    trifold:'Photo sur la couverture du flyer.',
+    a4:'Bandeau photo en haut de la première page.',
+    a5:'Bandeau photo en haut de la première page.'
+  })[fmt];
+  renderPrintPhoto();
 
-    // Passe 1 : mesure du texte à taille normale, pour estimer la hauteur totale
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(NAME_SIZE);
-    doc.setFont('helvetica', 'italic'); doc.setFontSize(DESC_SIZE);
-    const blocks = catItems.map(it => {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(NAME_SIZE);
-      const nameLines = doc.splitTextToSize(it.name.fr || '', usableW - 28);
-      doc.setFont('helvetica', 'italic'); doc.setFontSize(DESC_SIZE);
-      const descLines = it.desc.fr ? doc.splitTextToSize(it.desc.fr, usableW - 6) : [];
-      return { it, nameLines, descLines };
+  // Établissement (commun) : rempli une seule fois, ensuite on garde ce qui est tapé
+  if (!printPanelPret) {
+    const d = currentDesign || {};
+    setV('print_nom', d.print_nom != null ? d.print_nom : printDefaultNom());
+    setV('print_slogan', d.print_slogan || '');
+    setV('print_adresse', d.print_adresse || '');
+    setV('print_tel', d.print_tel || '');
+    setV('print_infos', d.print_infos || '');
+    setV('print_mention', d.print_mention != null ? d.print_mention : printDefaultMention());
+    const base = location.origin && location.origin !== 'null' ? location.origin : '';
+    setV('print_qr_surplace', d.print_qr_surplace != null ? d.print_qr_surplace : (base ? base + '/' : ''));
+    setV('print_qr_emporter', d.print_qr_emporter != null ? d.print_qr_emporter : (base ? base + '/emporter.html' : ''));
+    setV('print_qr_livraison', d.print_qr_livraison || '');
+    renderPrintHoraires(d.print_horaires);
+    printPanelPret = true;
+  }
+}
+
+function printChangeFormat() {
+  if (printFmtAffiche) printCollectFmt(printFmtAffiche);
+  renderPrintPanel();
+}
+
+// Relit les cases et options du panneau dans les réglages du format affiché
+function printCollectFmt(fmt) {
+  fmt = (typeof fmt === 'string' && fmt) || printFmtAffiche || printFmt();
+  const cfg = printCfg(fmt);
+  const catBoxes = [...document.querySelectorAll('.print-cat-cb')];
+  if (catBoxes.length) {
+    cfg.exCats = catBoxes.filter(cb => !cb.checked).map(cb => cb.value);
+    // Un plat décoché reste décoché même s'il n'est plus affiché (catégorie archivée…) ; les plats visibles font foi
+    const visibles = [...document.querySelectorAll('.print-it-cb')];
+    const ids = new Set(visibles.map(cb => cb.value));
+    const garde = (cfg.exItems || []).filter(id => !ids.has(id));
+    cfg.exItems = garde.concat(visibles.filter(cb => !cb.checked).map(cb => cb.value)).filter((v, i, a) => a.indexOf(v) === i);
+    // compteurs « x/y plats »
+    printCats().forEach(c => {
+      const el = document.getElementById('prcn_' + c.id);
+      if (!el) return;
+      const cbs = visibles.filter(cb => cb.dataset.cat === c.id);
+      el.textContent = cbs.filter(cb => cb.checked).length + '/' + cbs.length + ' plats';
     });
-    const heightAt = (scale) => blocks.reduce((sum, b) => {
-      return sum + b.nameLines.length * 5.5 * scale + (b.descLines.length ? b.descLines.length * 4 * scale + 2 * scale : 0) + 7 * scale;
-    }, 0);
+  }
+  const g = id => document.getElementById(id);
+  if (g('printCols')) cfg.cols = g('printCols').value;
+  if (g('printDesc')) cfg.desc = g('printDesc').checked;
+  if (g('printBg')) cfg.bg = g('printBg').checked;
+  if (g('printNewPage')) cfg.newPage = g('printNewPage').checked;
+  if (g('printInfos')) cfg.infos = g('printInfos').checked;
+  return cfg;
+}
 
-    const totalH = heightAt(1);
-    const naturalPages = Math.max(1, Math.ceil(totalH / pageUsableH));
-    let scale = 1;
-    if (naturalPages > 1) {
-      const targetPages = naturalPages - 1;
-      const requiredScale = (pageUsableH * targetPages) / totalH;
-      if (requiredScale >= MIN_SCALE) scale = requiredScale;
+function printToutCocher(catId, oui) {
+  document.querySelectorAll('.print-it-cb').forEach(cb => { if (cb.dataset.cat === catId) cb.checked = oui; });
+  printCollectFmt();
+}
+
+function renderPrintPhoto() {
+  const box = document.getElementById('printPhotoBox');
+  if (!box) return;
+  const cfg = printCfg(printFmtAffiche || printFmt());
+  box.innerHTML = `<div class="photo-upload-row" style="align-items:center;">
+      <button type="button" class="photo-upload-btn" onclick="printChoisirPhoto()">📷</button>
+      <span style="flex:1;font-size:0.74rem;color:#888;">${cfg.photo ? 'Photo choisie' : 'Aucune photo'}</span>
+      ${cfg.photo ? `<img src="${printEsc(cld(cfg.photo, 200))}" style="width:70px;height:46px;object-fit:cover;border-radius:4px;">
+      <button type="button" class="aic-btn delete" onclick="printRetirerPhoto()">✕</button>` : ''}
+    </div>`;
+}
+function printChoisirPhoto() {
+  const fmt = printFmtAffiche || printFmt();
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  // Champ ajouté à la page le temps du choix (sur iPhone, un champ hors de la page peut rendre la photo illisible)
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) { input.remove(); return; }
+    showToast('📷 Envoi de la photo...');
+    try {
+      const url = await uploadImageSecure(file);
+      printCfg(fmt).photo = url;
+      renderPrintPhoto();
+      showToast('📷 Photo ajoutée — pensez à « Enregistrer les réglages »');
+    } catch (err) {
+      showToast('❌ Photo non envoyée : ' + ((err && err.message) || 'erreur') + ' (reconnectez-vous si besoin)');
+    } finally {
+      input.remove();
     }
+  };
+  input.click();
+}
+function printRetirerPhoto() {
+  printCfg(printFmtAffiche || printFmt()).photo = '';
+  renderPrintPhoto();
+}
 
-    // Passe 2 : dessin réel à l'échelle retenue
-    drawHeader(cat.name.fr, false);
-    blocks.forEach(({ it, nameLines, descLines }) => {
-      const blockHeight = nameLines.length * 5.5 * scale + (descLines.length ? descLines.length * 4 * scale + 2 * scale : 0) + 7 * scale;
-      if (y + blockHeight > pageH - margin) {
-        drawHeader(cat.name.fr, true);
-      }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(NAME_SIZE * scale);
-      doc.setTextColor(61, 43, 31);
-      doc.text(nameLines, margin, y);
-
-      doc.setTextColor(107, 126, 90);
-      doc.setFontSize((it.priceVariants && it.priceVariants.length ? 7.5 : NAME_SIZE) * scale);
-      const priceText = (it.priceVariants && it.priceVariants.length)
-        ? it.priceVariants.map(v => `${v.label||''} ${v.price||''}`.trim()).join(' / ')
-        : (it.price || '');
-      doc.text(priceText, pageW - margin, y, { align: 'right' });
-
-      y += nameLines.length * 5.5 * scale + 2 * scale;
-
-      if (descLines.length) {
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(DESC_SIZE * scale);
-        doc.setTextColor(136, 136, 136);
-        doc.text(descLines, margin, y);
-        y += descLines.length * 4 * scale;
-      }
-      y += 4 * scale;
-      doc.setDrawColor(230, 225, 216);
-      doc.setLineWidth(0.2);
-      doc.line(margin, y - 1, pageW - margin, y - 1);
-      y += 3 * scale;
-    });
+// ── Horaires : 7 jours, midi et soir ──
+function renderPrintHoraires(h) {
+  const box = document.getElementById('printHoraires');
+  if (!box) return;
+  const vals = Array.isArray(h) ? h : [];
+  const ti = (id, v) => `<input type="time" id="${id}" value="${printEsc(v || '')}" style="font-size:0.75rem;padding:0.2rem;border:1px solid #ddd;border-radius:5px;width:6.2rem;">`;
+  box.innerHTML = PRINT_JOURS.map((j, i) => {
+    const d = vals[i] || {};
+    return `<div style="display:flex;flex-wrap:wrap;gap:0.3rem 0.5rem;align-items:center;padding:0.35rem 0;border-bottom:1px solid #f0ece4;font-size:0.74rem;font-family:'Montserrat',sans-serif;">
+      <b style="width:5.2rem">${j}</b>
+      <label style="display:flex;gap:0.25rem;align-items:center;"><input type="checkbox" id="prh_f_${i}" ${d.ferme?'checked':''}> Fermé</label>
+      <span style="display:flex;gap:0.25rem;align-items:center;">Midi ${ti('prh_m1_'+i, d.m1)}–${ti('prh_m2_'+i, d.m2)}</span>
+      <span style="display:flex;gap:0.25rem;align-items:center;">Soir ${ti('prh_s1_'+i, d.s1)}–${ti('prh_s2_'+i, d.s2)}</span>
+    </div>`;
+  }).join('');
+}
+function printLireHoraires() {
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  if (!document.getElementById('prh_f_0')) return (currentDesign && currentDesign.print_horaires) || [];
+  return PRINT_JOURS.map((j, i) => ({
+    ferme: !!(document.getElementById('prh_f_' + i) || {}).checked,
+    m1: v('prh_m1_' + i), m2: v('prh_m2_' + i), s1: v('prh_s1_' + i), s2: v('prh_s2_' + i)
+  }));
+}
+// « 11:30 » → « 11h30 », « 09:00 » → « 9h »
+function printHeure(t) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t || '');
+  if (!m) return '';
+  return parseInt(m[1], 10) + 'h' + (m[2] === '00' ? '' : m[2]);
+}
+// Lignes à imprimer, en regroupant les jours qui se suivent avec les mêmes horaires (« Lundi – Vendredi : … »)
+function printLignesHoraires(h) {
+  const txt = (h || []).map(d => {
+    if (!d) return '';
+    if (d.ferme) return 'Fermé';
+    const plages = [[d.m1, d.m2], [d.s1, d.s2]]
+      .map(([a, b]) => (a && b) ? printHeure(a) + ' – ' + printHeure(b) : (a ? 'dès ' + printHeure(a) : ''))
+      .filter(Boolean);
+    return plages.join(' · ');
   });
+  const lignes = [];
+  let i = 0;
+  while (i < 7) {
+    let j = i;
+    while (j + 1 < 7 && txt[j + 1] === txt[i]) j++;
+    if (txt[i]) lignes.push({jours: i === j ? PRINT_JOURS[i] : PRINT_JOURS[i] + ' – ' + PRINT_JOURS[j], heures: txt[i]});
+    i = j + 1;
+  }
+  return lignes;
+}
 
-  if (!anyItems) { showToast('❌ Aucun plat à imprimer'); return; }
-  doc.save('carte-' + format + '.pdf');
-  showToast('✓ PDF généré !');
+function printCollectEtab() {
+  const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  if (!printPanelPret) return;
+  currentDesign.print_nom = g('print_nom');
+  currentDesign.print_slogan = g('print_slogan');
+  currentDesign.print_adresse = g('print_adresse');
+  currentDesign.print_tel = g('print_tel');
+  currentDesign.print_infos = g('print_infos');
+  currentDesign.print_mention = g('print_mention');
+  currentDesign.print_qr_surplace = g('print_qr_surplace');
+  currentDesign.print_qr_emporter = g('print_qr_emporter');
+  currentDesign.print_qr_livraison = g('print_qr_livraison');
+  currentDesign.print_horaires = printLireHoraires();
+}
+
+async function savePrintSettings() {
+  if (!printPanelPret) renderPrintPanel();
+  printCollectEtab();
+  printCollectFmt();
+  await saveDesign();
+  showToast(isDraftMode ? '💾 Réglages enregistrés — publiez pour les conserver en ligne' : '💾 Réglages enregistrés');
+}
+
+function printSections(cfg) {
+  const exC = new Set(cfg.exCats || []), exI = new Set(cfg.exItems || []);
+  return printCats().filter(c => !exC.has(c.id)).map(c => ({
+    title: printNettoie(c.name.fr),
+    subtitle: c.subtitle ? printNettoie(c.subtitle.fr) : '',
+    groups: printPlatsDeCat(c).map(g => ({
+      sub: printNettoie(g.sub),
+      items: g.items.filter(it => !exI.has(it.id)).map(it => ({
+        name: printNettoie((it.name && it.name.fr) || ''),
+        desc: cfg.desc ? printNettoie((it.desc && it.desc.fr) || '') : '',
+        price: printPrix(it)
+      }))
+    })).filter(g => g.items.length)
+  })).filter(s => s.groups.length);
+}
+
+function openPrintMenu() {
+  if (!printPanelPret) renderPrintPanel();
+  printCollectEtab();
+  const fmt = printFmt();
+  const cfg = printCollectFmt(fmt);
+  const sections = printSections(cfg);
+  if (!sections.length) { showToast('❌ Aucune catégorie (ou aucun plat) à imprimer'); return; }
+
+  // La fenêtre s'ouvre tout de suite (sinon le navigateur la bloque), puis on la remplit.
+  const win = window.open('', '_blank');
+  if (!win) { showToast('❌ Fenêtre bloquée — autorisez les fenêtres pop-up pour ce site'); return; }
+  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Préparation…</title></head><body style="font-family:sans-serif;padding:2rem;color:#555">Préparation de la carte…</body></html>');
+
+  const d = currentDesign || DESIGN_DEFAULTS;
+  const logoEl = document.getElementById('logoTap');
+  const lignes = s => String(s || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const qrs = PRINT_QR_TYPES.map(q => ({label:q.label, sub:q.sub, url:(d['print_qr_' + q.key] || '').trim(), img:''})).filter(q => q.url);
+  const data = {
+    fmt, cols: cfg.cols, fond: cfg.bg, newPage: cfg.newPage, infos: fmt === 'trifold' ? true : cfg.infos,
+    photo: cfg.photo || '',
+    colors: {rouge:d.rouge, creme:d.creme, texte:d.texte, brun:d.brun, vert:d.vert},
+    fontTitle: d.font_title || DESIGN_DEFAULTS.font_title,
+    fontItems: d.font_items || DESIGN_DEFAULTS.font_items,
+    nom: d.print_nom || '', slogan: d.print_slogan || '', adresse: d.print_adresse || '', tel: d.print_tel || '',
+    horaires: printLignesHoraires(d.print_horaires), infosPlus: lignes(d.print_infos), mention: d.print_mention || '',
+    logo: (logoEl && logoEl.getAttribute('src')) || '',
+    qrs, sections,
+    // Polices du site : chargées par l'aperçu lui-même (voir printEngine), pour ne jamais bloquer la page si Google Fonts tarde
+    fontHrefs: [...document.querySelectorAll('link[href*="fonts.googleapis"]')].map(l => l.href)
+  };
+
+  const ecrire = () => {
+    const json = JSON.stringify(data).replace(/</g, '\\u003c');
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
+      + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+      + '<title>' + PRINT_FORMATS[fmt].label + ' — Carte à imprimer</title>'
+      + '<style>@page{size:' + PRINT_FORMATS[fmt].page + ';margin:0}</style>'
+      + '</head><body><script>window.PRINT_DATA=' + json + ';(' + printEngine.toString() + ')();<' + '/script></body></html>';
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  };
+
+  // QR codes (si la librairie QR se charge en moins de 4 s ; sinon la carte sort sans QR code)
+  if (!qrs.length || !data.infos) { ecrire(); return; }
+  let fait = false;
+  const fin = () => { if (fait) return; fait = true; ecrire(); };
+  setTimeout(fin, 4000);
+  try {
+    loadQRious(() => {
+      try {
+        qrs.forEach(q => {
+          const c = document.createElement('canvas');
+          new QRious({element:c, value:q.url, size:600, background:'#ffffff', foreground:d.texte || '#2C2010', padding:24, level:'M'});
+          q.img = c.toDataURL('image/png');
+        });
+      } catch(e) {}
+      fin();
+    });
+  } catch(e) { fin(); }
+}
+
+// Moteur de mise en page — exécuté DANS la fenêtre d'aperçu (il n'utilise que window.PRINT_DATA).
+function printEngine() {
+  const D = window.PRINT_DATA;
+  const C = D.colors;
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const qrs = (D.qrs || []).filter(q => q.img);
+  const coord = [D.adresse, D.tel].filter(Boolean);
+
+  const css = `
+  :root{--rouge:${C.rouge};--creme:${C.creme};--texte:${C.texte};--brun:${C.brun};--vert:${C.vert};
+        --ft:${D.fontTitle};--fi:${D.fontItems};--s:1;--hs:1}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#d9d4cc}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact;color:var(--texte)}
+  .bar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:#2b2420;color:#fff;font:600 13px/1.3 -apple-system,Segoe UI,Roboto,sans-serif}
+  .bar button{font:inherit;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;background:var(--rouge);color:#fff}
+  .bar .info{font-weight:400;opacity:.85;flex:1 1 260px}
+  .bar .warn{flex-basis:100%;font-weight:600;color:#ffd27a}
+  #apercu{margin:0 auto;overflow:hidden}
+  #pages{padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;transform-origin:top left;width:max-content}
+  .page{position:relative;overflow:hidden;background:${D.fond ? 'var(--creme)' : '#fff'};box-shadow:0 4px 18px rgba(0,0,0,.18);break-after:page;page-break-after:always}
+  .page:last-child{break-after:auto;page-break-after:auto}
+  .frame{position:absolute}
+  .cadre{position:absolute;border:calc(.5mm * var(--k)) solid var(--rouge);pointer-events:none}
+  .cadre:after{content:"";position:absolute;inset:calc(1.4mm * var(--k));border:calc(.2mm * var(--k)) solid var(--rouge);opacity:.55}
+  .pli{position:absolute;top:0;bottom:0;width:0;border-left:.2mm dashed rgba(0,0,0,.12)}
+  @media print{html,body{background:none}.bar{display:none}#apercu{width:auto!important;height:auto!important;overflow:visible}#pages{padding:0;gap:0;transform:none!important}.page{box-shadow:none}.pli{display:none}}
+  #measure{position:absolute;left:-10000px;top:0;visibility:hidden}
+  .orn{display:flex;align-items:center;justify-content:center;gap:calc(2mm * var(--o,1));margin:calc(2.2mm * var(--o,1)) auto 0;width:60%}
+  .orn span{flex:1;height:0;border-top:calc(.25mm * var(--o,1)) solid var(--rouge);opacity:.6}
+  .orn i{width:calc(1.8mm * var(--o,1));height:calc(1.8mm * var(--o,1));background:var(--rouge);transform:rotate(45deg);flex:none}
+  /* En-tête */
+  .hd{text-align:center;--o:var(--hs)}
+  .hd img{display:block;margin:0 auto calc(2mm * var(--hs));max-width:70%;height:calc(20mm * var(--hs));object-fit:contain}
+  .hd .nom{font-family:var(--ft);font-weight:600;font-size:calc(26pt * var(--hs));letter-spacing:.06em;color:var(--rouge);line-height:1.05}
+  .hd .slogan{font-family:var(--ft);font-style:italic;font-size:calc(12pt * var(--hs));color:var(--brun);margin-top:calc(1.2mm * var(--hs))}
+  .hd .coord{font-family:var(--fi);font-size:calc(7pt * var(--hs));letter-spacing:.12em;text-transform:uppercase;color:var(--brun);opacity:.85;margin-top:calc(2mm * var(--hs));line-height:1.6}
+  .encart{border:calc(.4mm * var(--hs)) solid var(--rouge);padding:calc(1.2mm * var(--hs));background:#fff}
+  .encart img{display:block;width:100%;height:100%;object-fit:cover}
+  .ft{position:absolute;left:0;right:0;text-align:center;font-family:var(--fi);color:var(--brun);opacity:.8;letter-spacing:.06em;font-size:calc(6.5pt * var(--fs,1));line-height:1.5}
+  /* Blocs de la carte */
+  .b-cat{padding:calc(5mm * var(--s)) 0 calc(2.5mm * var(--s));text-align:center;--o:var(--s)}
+  .b-cat .t{font-family:var(--ft);font-style:italic;font-weight:600;font-size:calc(20pt * var(--s));color:var(--rouge);line-height:1.1}
+  .b-cat .st{font-family:var(--ft);font-style:italic;font-size:calc(10pt * var(--s));color:var(--brun);margin-top:calc(1.5mm * var(--s))}
+  .b-cat .orn{width:45%}
+  .b-sub{display:flex;align-items:center;gap:calc(2.5mm * var(--s));padding:calc(3mm * var(--s)) 0 calc(1.5mm * var(--s));font-family:var(--fi);font-weight:600;font-size:calc(7pt * var(--s));letter-spacing:.22em;text-transform:uppercase;color:var(--vert)}
+  .b-sub:before,.b-sub:after{content:"";flex:1;border-top:calc(.2mm * var(--s)) solid currentColor;opacity:.5}
+  .b-it{padding:calc(1.6mm * var(--s)) 0}
+  .b-it .r{display:flex;align-items:baseline;flex-wrap:wrap}
+  .b-it .n{font-family:var(--fi);font-weight:600;font-size:calc(8.5pt * var(--s));letter-spacing:.07em;text-transform:uppercase;color:var(--texte);line-height:1.3}
+  .b-it .dots{flex:1 0 calc(5mm * var(--s));margin:0 calc(1.8mm * var(--s));border-bottom:calc(.3mm * var(--s)) dotted var(--brun);opacity:.45;transform:translateY(calc(-.8mm * var(--s)))}
+  .b-it .p{margin-left:auto;font-family:var(--ft);font-weight:600;font-size:calc(12pt * var(--s));color:var(--rouge);white-space:nowrap;line-height:1.1}
+  .b-it .d{font-family:var(--ft);font-style:italic;font-size:calc(10.5pt * var(--s));color:var(--brun);line-height:1.25;margin-top:calc(.5mm * var(--s));padding-right:calc(8mm * var(--s))}
+  /* Infos pratiques (coordonnées, horaires, QR codes) — taille réglée par --u */
+  .inf{font-family:var(--fi);color:var(--texte);text-align:center;--o:var(--u)}
+  .inf .tt{font-family:var(--ft);font-style:italic;font-weight:600;font-size:calc(15pt * var(--u));color:var(--rouge)}
+  .inf .co{font-size:calc(8pt * var(--u));letter-spacing:.06em;line-height:1.7;margin-top:calc(2mm * var(--u))}
+  .inf .ho{margin:calc(2.5mm * var(--u)) auto 0;border-collapse:collapse;font-size:calc(8pt * var(--u))}
+  .inf .ho td{padding:calc(.5mm * var(--u)) calc(1.5mm * var(--u));line-height:1.4;vertical-align:top}
+  .inf .ho td:first-child{text-align:right;font-weight:600;letter-spacing:.05em;color:var(--brun)}
+  .inf .ho td:last-child{text-align:left}
+  .inf .ho-t{font-family:var(--fi);font-weight:600;font-size:calc(7pt * var(--u));letter-spacing:.22em;text-transform:uppercase;color:var(--vert);margin-top:calc(3mm * var(--u))}
+  .inf .plus{font-size:calc(7.5pt * var(--u));color:var(--brun);margin-top:calc(2mm * var(--u));line-height:1.6}
+  .qrs{display:flex;justify-content:center;flex-wrap:wrap;gap:calc(4mm * var(--u));margin-top:calc(3.5mm * var(--u))}
+  .qr{width:calc(24mm * var(--u));text-align:center}
+  .qr img{display:block;width:100%;aspect-ratio:1;border:calc(.3mm * var(--u)) solid var(--rouge);padding:calc(.8mm * var(--u));background:#fff}
+  .qr b{display:block;font-family:var(--fi);font-weight:600;font-size:calc(7pt * var(--u));letter-spacing:.14em;text-transform:uppercase;color:var(--rouge);margin-top:calc(1.5mm * var(--u))}
+  .qr span{display:block;font-family:var(--ft);font-style:italic;font-size:calc(8.5pt * var(--u));color:var(--brun)}
+  .bande{display:flex;align-items:center;justify-content:center;gap:calc(14mm * var(--u));border-top:calc(.3mm * var(--u)) solid var(--rouge);padding-top:calc(6mm * var(--u))}
+  .bande .inf{text-align:left}
+  .bande .inf .ho{margin-left:0}
+  .bande .qrs{margin-top:0}
+  /* Flyer : couverture et dos */
+  .cover{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:100%}
+  .cover .logo{width:78%;height:62mm;object-fit:contain;margin-bottom:6mm}
+  .cover.avec-photo .logo{height:26mm;margin-bottom:3mm}
+  .cover .encart{width:100%;height:78mm;margin:5mm 0 2mm;--hs:.75}
+  .cover .nom{font-family:var(--ft);font-weight:600;font-size:30pt;color:var(--rouge);letter-spacing:.05em;line-height:1.05}
+  .cover.avec-photo .nom{font-size:24pt}
+  .cover .slogan{font-family:var(--ft);font-style:italic;font-size:13pt;color:var(--brun);margin-top:3mm}
+  .cover .la{font-family:var(--fi);font-weight:600;font-size:8pt;letter-spacing:.4em;text-transform:uppercase;color:var(--vert);margin-top:7mm}
+  .back{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+  .back .nom{font-family:var(--ft);font-weight:600;font-size:18pt;color:var(--rouge);text-align:center}
+  .back .mention{font-family:var(--ft);font-style:italic;font-size:8.5pt;color:var(--brun);margin-top:5mm;text-align:center}
+  `;
+  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+
+  const orn = (w) => `<div class="orn"${w ? ` style="width:${w}"` : ''}><span></span><i></i><span></span></div>`;
+  const horairesHtml = () => D.horaires.length
+    ? `<div class="ho-t">Horaires</div><table class="ho">${D.horaires.map(h => `<tr><td>${esc(h.jours)}</td><td>${esc(h.heures)}</td></tr>`).join('')}</table>` : '';
+  const qrsHtml = () => qrs.length ? `<div class="qrs">${qrs.map(q => `<div class="qr"><img src="${esc(q.img)}" alt=""><b>${esc(q.label)}</b><span>${esc(q.sub)}</span></div>`).join('')}</div>` : '';
+  const plusHtml = () => D.infosPlus.length ? `<div class="plus">${D.infosPlus.map(esc).join('<br>')}</div>` : '';
+  const aDesInfos = () => coord.length || D.horaires.length || qrs.length || D.infosPlus.length;
+
+  // ── Blocs à placer, regroupés par catégorie (une catégorie = un groupe jamais coupé entre deux pages) ──
+  const blocks = [];
+  const groups = [];
+  const titres = [];
+  D.sections.forEach(sec => {
+    const g = [];
+    const add = (keep, html) => { g.push(blocks.length); blocks.push({keep, html}); };
+    add(true, `<div class="b-cat"><div class="t">${esc(sec.title)}</div>${orn()}${sec.subtitle?`<div class="st">${esc(sec.subtitle)}</div>`:''}</div>`);
+    sec.groups.forEach(gr => {
+      if (gr.sub) add(true, `<div class="b-sub">${esc(gr.sub)}</div>`);
+      gr.items.forEach(it => add(false, `<div class="b-it"><div class="r"><span class="n">${esc(it.name)}</span><span class="dots"></span><span class="p">${esc(it.price)}</span></div>${it.desc?`<div class="d">${esc(it.desc)}</div>`:''}</div>`));
+    });
+    groups.push(g); titres.push(sec.title);
+  });
+  // A4 / A5 : bloc « Infos pratiques » à la fin de la carte (taille liée au texte de la carte)
+  if ((D.fmt === 'a4' || D.fmt === 'a5') && D.infos && aDesInfos()) {
+    groups.push([blocks.length]); titres.push('Infos pratiques');
+    blocks.push({keep:false, html:`<div class="inf" style="--u:var(--s);padding:calc(6mm * var(--s)) 0 calc(2mm * var(--s))"><div class="tt">Infos pratiques</div>${orn('40%')}${coord.length?`<div class="co">${coord.map(esc).join('<br>')}</div>`:''}${horairesHtml()}${plusHtml()}${qrsHtml()}</div>`});
+  }
+
+  const bar = document.createElement('div'); bar.className = 'bar';
+  const apercu = document.createElement('div'); apercu.id = 'apercu';
+  const pagesEl = document.createElement('div'); pagesEl.id = 'pages';
+  apercu.appendChild(pagesEl);
+  const meas = document.createElement('div'); meas.id = 'measure';
+  document.body.append(bar, apercu, meas);
+
+  const mmEl = document.createElement('div'); mmEl.style.cssText = 'position:absolute;width:100mm;height:0;visibility:hidden';
+  document.body.appendChild(mmEl);
+  const PX = mmEl.getBoundingClientRect().width / 100; // px par mm
+  mmEl.remove();
+
+  const root = document.documentElement;
+  const setS = s => root.style.setProperty('--s', String(s));
+
+  // Hauteur (px) de chaque bloc pour une largeur de colonne donnée (mm), à l'échelle courante
+  function mesurer(colW) {
+    meas.style.width = colW + 'mm';
+    meas.innerHTML = blocks.map(b => b.html).join('');
+    return [...meas.children].map(el => el.getBoundingClientRect().height);
+  }
+  function mesurerHtml(html, w) {
+    meas.style.width = w + 'mm';
+    meas.innerHTML = html;
+    return meas.firstElementChild ? meas.firstElementChild.getBoundingClientRect().height / PX : 0;
+  }
+
+  // Place les catégories dans les cadres. framesOfPage(p) = hauteurs (px) des colonnes de la page p, ou null s'il
+  // n'y a plus de page. Une catégorie qui ne tient pas dans ce qui reste de la page passe entière à la page suivante ;
+  // elle n'est coupée que si elle est plus haute qu'une page vide. Un titre reste collé au bloc qui le suit.
+  function placer(h, framesOfPage, nouvellePageParCat) {
+    const pos = new Array(h.length);
+    const coupees = [];
+    let debord = false;
+    const f0 = framesOfPage(0);
+    if (!f0) return {ok:false, pos, coupees, debord, nPages:0};
+    let st = {p:0, f:0, rest:f0[0], frameVide:true, pageVide:true};
+    const pageSuivante = s => { const nf = framesOfPage(s.p + 1); return nf ? {p:s.p + 1, f:0, rest:nf[0], frameVide:true, pageVide:true} : null; };
+    const cadreSuivant = (s, memePage) => {
+      const fr = framesOfPage(s.p);
+      if (s.f + 1 < fr.length) return {p:s.p, f:s.f + 1, rest:fr[s.f + 1], frameVide:true, pageVide:s.pageVide};
+      return memePage ? null : pageSuivante(s);
+    };
+    function simuler(g, s0, memePage) {
+      let s = Object.assign({}, s0);
+      const out = []; let trop = false;
+      for (let k = 0; k < g.length; k++) {
+        const i = g[k];
+        let besoin = h[i], j = k;
+        while (blocks[g[j]].keep && j + 1 < g.length) { j++; besoin += h[g[j]]; }
+        if (besoin > s.rest + 0.5 && !s.frameVide) { s = cadreSuivant(s, memePage); if (!s) return null; }
+        if (h[i] > s.rest + 0.5) trop = true;
+        out.push({p:s.p, f:s.f}); s.rest -= h[i]; s.frameVide = false; s.pageVide = false;
+      }
+      return {s, out, trop};
+    }
+    let ok = true;
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi];
+      if (nouvellePageParCat && !st.pageVide) { const n = pageSuivante(st); if (!n) { ok = false; break; } st = n; }
+      let r = simuler(g, st, true);
+      if (!r && !st.pageVide) { const n = pageSuivante(st); if (!n) { ok = false; break; } st = n; r = simuler(g, st, true); }
+      if (!r) { r = simuler(g, st, false); if (r) coupees.push(gi); }
+      if (!r) { ok = false; break; }
+      if (r.trop) debord = true;
+      g.forEach((i, k) => { pos[i] = r.out[k]; });
+      st = r.s;
+    }
+    const nPages = pos.reduce((mx, x) => x ? Math.max(mx, x.p + 1) : mx, 1);
+    return {ok, pos, coupees, debord, nPages};
+  }
+  const toutPlace = r => r.ok && !r.debord && r.coupees.length === 0 && r.pos.filter(Boolean).length === blocks.length;
+
+  const avert = [];
+  const pages = [];
+  let largeurMaxMm = 0;
+  function nouvellePage(wmm, hmm, k) {
+    const p = document.createElement('div'); p.className = 'page';
+    p.style.width = wmm + 'mm'; p.style.height = hmm + 'mm';
+    p.style.setProperty('--k', String(k || 1));
+    pagesEl.appendChild(p); pages.push(p); largeurMaxMm = Math.max(largeurMaxMm, wmm);
+    return p;
+  }
+  function cadre(page, x, y, w, h) {
+    const c = document.createElement('div'); c.className = 'cadre';
+    c.style.cssText = `left:${x}mm;top:${y}mm;width:${w}mm;height:${h}mm`;
+    page.appendChild(c);
+  }
+  function frameEl(page, x, y, w, h) {
+    const f = document.createElement('div'); f.className = 'frame';
+    f.style.cssText = `left:${x}mm;top:${y}mm;width:${w}mm;height:${h}mm`;
+    page.appendChild(f); return f;
+  }
+  function blocsDe(res, p, f) {
+    return res.pos.map((x, i) => (x && x.p === p && x.f === f) ? i : -1).filter(i => i >= 0);
+  }
+  function remplir(frame, idxs) { frame.innerHTML = idxs.map(i => blocks[i].html).join(''); }
+  function signalerCoupes(res) {
+    res.coupees.forEach(gi => avert.push(`⚠️ « ${titres[gi]} » est trop longue pour tenir sur une seule page : elle continue sur la suivante (retirez quelques plats ou les descriptions).`));
+    if (res.debord) avert.push('⚠️ Un plat a une description trop longue pour une colonne : il dépasse légèrement.');
+  }
+  function enTeteHtml(avecCoord) {
+    return `<div class="hd">${D.logo?`<img src="${esc(D.logo)}" alt="">`:''}${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${D.slogan?`<div class="slogan">${esc(D.slogan)}</div>`:''}${avecCoord && coord.length?`<div class="coord">${coord.map(esc).join(' &nbsp;·&nbsp; ')}</div>`:''}${orn()}</div>`;
+  }
+
+  // ── Formats « page » : A4 / A5 (plusieurs pages) et A1 (une seule page) ──
+  function formatPages(cfg) {
+    const {W, H, m, multi} = cfg;
+    const k = W / 210;
+    root.style.setProperty('--hs', String(cfg.hs));
+    root.style.setProperty('--fs', String(cfg.fsFoot));
+    root.style.setProperty('--u', String(cfg.hs));
+    const innerW = W - 2 * m;
+    const gap = 7 * k;
+    const hd = enTeteHtml(D.infos && !(D.fmt === 'a1'));
+    const hdH = mesurerHtml(hd, innerW) + 5 * cfg.hs;
+    const photoH = D.photo ? cfg.photoH : 0;
+    const photoGap = D.photo ? 6 * cfg.hs : 0;
+    // A1 : bande du bas avec coordonnées, horaires et QR codes
+    let bandeHtml = '';
+    if (D.fmt === 'a1' && D.infos && aDesInfos()) {
+      const gauche = (coord.length || D.horaires.length || D.infosPlus.length)
+        ? `<div class="inf">${coord.length?`<div class="co" style="margin-top:0">${coord.map(esc).join('<br>')}</div>`:''}${horairesHtml()}${plusHtml()}</div>` : '';
+      bandeHtml = `<div class="bande">${gauche}${qrs.length ? `<div class="inf">${qrsHtml()}</div>` : ''}</div>`;
+    }
+    const bandeH = bandeHtml ? mesurerHtml(bandeHtml, innerW) + 4 * cfg.hs : 0;
+    const footH = D.mention ? (mesurerHtml(`<div class="ft" style="position:static">${esc(D.mention)}</div>`, innerW) + 3 * cfg.fsFoot) : 0;
+
+    function geom(nCols) {
+      const colW = (innerW - gap * (nCols - 1)) / nCols;
+      return {colW, nCols, h0:(H - 2 * m - hdH - photoH - photoGap - bandeH - footH), h1:(H - 2 * m - footH)};
+    }
+    const frames = (g, maxPages) => p => (maxPages && p >= maxPages) ? null : new Array(g.nCols).fill((p === 0 ? g.h0 : g.h1) * PX);
+
+    let g, s, res;
+    if (multi) {
+      const nCols = cfg.cols === 'auto' ? cfg.autoCols : parseInt(cfg.cols, 10);
+      g = geom(nCols);
+      // Taille normale ; si une catégorie déborde d'une page, on resserre un peu le texte (jusqu'à 80 %) pour l'éviter
+      s = cfg.s; setS(s);
+      res = placer(mesurer(g.colW), frames(g, 0), D.newPage);
+      if (res.coupees.length) {
+        let lo = cfg.s * 0.8, hi = cfg.s, trouve = null;
+        for (let it = 0; it < 10; it++) {
+          const mid = (lo + hi) / 2; setS(mid);
+          const r = placer(mesurer(g.colW), frames(g, 0), D.newPage);
+          if (!r.coupees.length) { trouve = mid; lo = mid; } else { hi = mid; }
+        }
+        if (trouve != null) { s = trouve; setS(s); res = placer(mesurer(g.colW), frames(g, 0), D.newPage); }
+        else { s = cfg.s; setS(s); res = placer(mesurer(g.colW), frames(g, 0), D.newPage); }
+      }
+    } else {
+      // Une seule page : la plus grande taille de texte qui fait tout tenir (et le meilleur nombre de colonnes)
+      const essais = cfg.cols === 'auto' ? [2, 3, 4] : [parseInt(cfg.cols, 10)];
+      let best = null;
+      essais.forEach(nCols => {
+        const gg = geom(nCols);
+        let lo = cfg.smin, hi = cfg.smax, trouve = null;
+        for (let it = 0; it < 16; it++) {
+          const mid = (lo + hi) / 2; setS(mid);
+          if (toutPlace(placer(mesurer(gg.colW), frames(gg, 1), false))) { trouve = mid; lo = mid; } else { hi = mid; }
+        }
+        if (trouve != null && (!best || trouve > best.s * 1.04)) best = {s:trouve, g:gg};
+      });
+      if (!best) {
+        avert.push('⚠️ Tout ne tient pas sur une seule page, même en petit : décochez des catégories ou des plats, ou retirez les descriptions.');
+        const nCols = cfg.cols === 'auto' ? 4 : parseInt(cfg.cols, 10);
+        best = {s:cfg.smin, g:geom(nCols)};
+      }
+      g = best.g; s = best.s; setS(s);
+      res = placer(mesurer(g.colW), frames(g, 0), false);
+    }
+    signalerCoupes(res);
+
+    const nPages = res.nPages;
+    for (let p = 0; p < nPages; p++) {
+      const page = nouvellePage(W, H, k);
+      cadre(page, m * 0.45, m * 0.45, W - m * 0.9, H - m * 0.9);
+      let y0 = m;
+      if (p === 0) {
+        frameEl(page, m, m, innerW, hdH).innerHTML = hd;
+        y0 = m + hdH;
+        if (D.photo) {
+          const en = frameEl(page, m, y0, innerW, photoH);
+          en.innerHTML = `<div class="encart" style="height:100%"><img src="${esc(D.photo)}" alt=""></div>`;
+          y0 += photoH + photoGap;
+        }
+        if (bandeHtml) frameEl(page, m, H - m - footH - bandeH + 4 * cfg.hs, innerW, bandeH - 4 * cfg.hs).innerHTML = bandeHtml;
+      }
+      for (let c = 0; c < g.nCols; c++) {
+        const idxs = blocsDe(res, p, c);
+        if (!idxs.length) continue;
+        remplir(frameEl(page, m + c * (g.colW + gap), y0, g.colW, (p === 0 ? g.h0 : g.h1)), idxs);
+      }
+      if (D.mention) {
+        const ft = document.createElement('div'); ft.className = 'ft';
+        ft.style.bottom = (m * 0.75) + 'mm'; ft.style.padding = `0 ${m}mm`;
+        ft.textContent = D.mention + (nPages > 1 ? `  —  ${p + 1}/${nPages}` : '');
+        page.appendChild(ft);
+      }
+    }
+    return `${nPages} page${nPages > 1 ? 's' : ''} · ${g.nCols} colonne${g.nCols > 1 ? 's' : ''} · texte à ${Math.round(s * 100)} %`;
+  }
+
+  // ── Flyer dépliant 3 volets : 2 faces de 444 × 210 mm, 6 volets A5 ──
+  // Face extérieure : [rabat intérieur | dos | couverture] ; face intérieure : [volet 1 | volet 2 | volet 3].
+  // La carte se lit volet 1 → 2 → 3 → rabat ; chaque catégorie tient entière dans un volet.
+  function formatDepliant() {
+    const PW = 148, H = 210, m = 11;
+    const colW = PW - 2 * m, colH = H - 2 * m;
+    root.style.setProperty('--fs', '1');
+    const volets = max => p => (max && p >= max) ? null : [colH * PX];
+    let lo = 0.5, hi = 1.15, trouve = null;
+    for (let it = 0; it < 16; it++) {
+      const mid = (lo + hi) / 2; setS(mid);
+      if (toutPlace(placer(mesurer(colW), volets(4), false))) { trouve = mid; lo = mid; } else { hi = mid; }
+    }
+    if (trouve == null) {
+      avert.push('⚠️ La carte est trop longue pour le flyer, même en petit : décochez des catégories ou des plats, ou retirez les descriptions.');
+      trouve = 0.5;
+    } else if (trouve < 0.72) {
+      avert.push('ℹ️ Le texte est assez petit (' + Math.round(trouve * 100) + ' %) : pour une meilleure lisibilité, décochez quelques plats ou retirez les descriptions.');
+    }
+    setS(trouve);
+    const res = placer(mesurer(colW), volets(0), false);
+    signalerCoupes(res);
+    if (res.nPages > 4) avert.push('⚠️ Une partie de la carte ne rentre pas dans les 4 volets et n\'est pas imprimée.');
+
+    const ext = nouvellePage(PW * 3, H, 148 / 210);
+    const int = nouvellePage(PW * 3, H, 148 / 210);
+    [ext, int].forEach(p => {
+      for (let v = 0; v < 3; v++) cadre(p, v * PW + m * 0.45, m * 0.45, PW - m * 0.9, H - m * 0.9);
+      [1, 2].forEach(v => { const l = document.createElement('div'); l.className = 'pli'; l.style.left = (v * PW) + 'mm'; p.appendChild(l); });
+    });
+    // Face extérieure : rabat (4e volet de carte), dos (infos), couverture
+    remplir(frameEl(ext, m, m, colW, colH), blocsDe(res, 3, 0));
+    const dos = frameEl(ext, PW + m, m, colW, colH);
+    dos.style.setProperty('--u', '1');
+    dos.innerHTML = `<div class="back">${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${orn('40%')}
+      <div class="inf">${coord.length?`<div class="co">${coord.map(esc).join('<br>')}</div>`:''}${horairesHtml()}${plusHtml()}${qrsHtml()}</div>
+      ${D.mention?`<div class="mention">${esc(D.mention)}</div>`:''}</div>`;
+    // Le dos doit tenir dans son volet : on réduit si besoin (beaucoup d'horaires + 3 QR codes)
+    for (let u = 1; u > 0.55 && dos.scrollHeight > dos.clientHeight + 1; u -= 0.05) dos.style.setProperty('--u', String(u - 0.05));
+    const couv = frameEl(ext, 2 * PW + m, m, colW, colH);
+    couv.innerHTML = `<div class="cover${D.photo ? ' avec-photo' : ''}">${D.logo?`<img class="logo" src="${esc(D.logo)}" alt="">`:''}${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${D.slogan?`<div class="slogan">${esc(D.slogan)}</div>`:''}${D.photo?`<div class="encart"><img src="${esc(D.photo)}" alt=""></div>`:orn('45%')}<div class="la">La carte</div></div>`;
+    // Face intérieure
+    for (let v = 0; v < 3; v++) remplir(frameEl(int, v * PW + m, m, colW, colH), blocsDe(res, v, 0));
+    return `2 faces de 444 × 210 mm (6 volets A5) · texte à ${Math.round(trouve * 100)} %`;
+  }
+
+  function lancer() {
+    let info;
+    if (D.fmt === 'trifold') info = formatDepliant();
+    else if (D.fmt === 'a1') info = formatPages({W:594, H:841, m:34, multi:false, cols:D.cols, smin:0.8, smax:4.5, hs:2.6, fsFoot:2.4, photoH:200});
+    else if (D.fmt === 'a5') info = formatPages({W:148, H:210, m:12, multi:true, cols:D.cols, autoCols:1, s:0.9, hs:0.8, fsFoot:0.9, photoH:40});
+    else info = formatPages({W:210, H:297, m:15, multi:true, cols:D.cols, autoCols:2, s:1, hs:1, fsFoot:1, photoH:58});
+    meas.innerHTML = '';
+    const noms = {a4:'A4', a5:'A5', a1:'A1 (594 × 841 mm)', trifold:'Flyer dépliant 3 volets'};
+    bar.innerHTML = `<button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button><span class="info"><b>${noms[D.fmt] || ''}</b> — ${esc(info)}</span>${avert.map(a => `<span class="warn">${esc(a)}</span>`).join('')}`;
+    document.title = (noms[D.fmt] || 'Carte') + ' — carte à imprimer';
+    // Aperçu à l'écran : les pages sont réduites (transform, qui ne change pas la mise en page du texte) pour tenir
+    // dans la largeur de la fenêtre. Aucun effet à l'impression.
+    const zoomer = () => {
+      const w = pagesEl.offsetWidth, h = pagesEl.offsetHeight;
+      const z = Math.min(1, (window.innerWidth - 8) / (w || 1));
+      pagesEl.style.transform = 'scale(' + z + ')';
+      apercu.style.width = (w * z) + 'px';
+      apercu.style.height = (h * z) + 'px';
+    };
+    zoomer(); window.addEventListener('resize', zoomer);
+  }
+
+  // Attente des polices (feuilles Google Fonts + chargement effectif des graisses utilisées) et des images,
+  // 6 s au maximum : sans réseau, la carte se met en page avec les polices de secours plutôt que de rester bloquée.
+  const feuilles = (D.fontHrefs || []).map(href => new Promise(r => {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href;
+    l.onload = l.onerror = r; document.head.appendChild(l);
+  }));
+  const imgs = [D.logo, D.photo].concat(qrs.map(q => q.img)).filter(Boolean)
+    .map(src => new Promise(r => { const i = new Image(); i.onload = i.onerror = r; i.src = src; }));
+  const polices = Promise.all(feuilles).then(() => {
+    if (!document.fonts || !document.fonts.load) return;
+    const essais = ['600 12pt ', 'italic 600 12pt ', 'italic 400 12pt ', '400 12pt '];
+    return Promise.all([D.fontTitle, D.fontItems].flatMap(f => essais.map(e => document.fonts.load(e + f).catch(() => null))))
+      .then(() => document.fonts.ready);
+  });
+  let lance = false;
+  const go = () => { if (lance) return; lance = true; lancer(); };
+  Promise.all([polices, ...imgs]).then(go, go);
+  setTimeout(go, 8000);
 }
 
 function generateAllergenPDF(){
