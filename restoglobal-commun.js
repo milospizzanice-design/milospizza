@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-02';
+  RG.VERSION='2026-10-07';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -126,6 +126,31 @@
       if(j.indexOf(RG.bizGetDay(d))>=0)return compteKey<RG.bizDateKey(d);
     }
     return false;
+  };
+
+  // ── Faut-il compter ce produit AUJOURD'HUI ? (une seule règle : écran Comptage ET rappel avant commande) ──
+  // • jour de comptage prévu aujourd'hui (ou produit compté tous les jours) et pas encore compté → oui ;
+  // • jour prévu PASSÉ sans comptage (retard) → oui seulement si une commande peut réellement partir
+  //   aujourd'hui pour ce produit (même blocage que l'écran Commandes : RG.reglesGateStatus), ou si son
+  //   fournisseur est interne (Labo / Cuisine, commandés dès le comptage). Avant (correctif du 07/10/2026), un
+  //   produit en retard était réclamé tous les jours jusqu'au prochain comptage alors qu'aucune commande ne
+  //   pouvait partir ce jour-là : on faisait compter pour rien (ex. un fournisseur commandé le lundi, réclamé le
+  //   mercredi). Il revient désormais à son prochain jour de commande.
+  // Renvoie {du, retard, jourPrevu (dernier jour prévu passé, 0=dim), eff (RG.joursComptageEffectifs)}.
+  RG.aCompterAujourdhui=function(seuil,rules,suppliersById,compteLe){
+    seuil=seuil||{};
+    var eff=RG.joursComptageEffectifs(seuil,rules||[],suppliersById);
+    var expire=!compteLe||RG.joursComptageExpire(eff.jours,compteLe);
+    if(!expire)return {du:false,retard:false,jourPrevu:null,eff:eff};
+    var today=RG.bizGetDay();
+    if(!eff.jours.length||eff.jours.indexOf(today)>=0)return {du:true,retard:false,jourPrevu:null,eff:eff};
+    var sup=seuil.fournisseur_id?(suppliersById||{})[seuil.fournisseur_id]:null;
+    var jourPrevu=null;
+    for(var back=1;back<7;back++){var j=((today-back)%7+7)%7;if(eff.jours.indexOf(j)>=0){jourPrevu=j;break;}}
+    if(sup&&(sup.is_labo_interne||sup.is_cuisine_interne))return {du:true,retard:true,jourPrevu:jourPrevu,eff:eff};
+    var gate=RG.reglesGateStatus(rules||[],sup,suppliersById);
+    var possible=!gate.gated||gate.matches;
+    return {du:possible,retard:possible,jourPrevu:jourPrevu,eff:eff};
   };
 
   // Une commande fournisseur ne se base QUE sur les comptages de la journée en cours (décision du 28/09/2026) :

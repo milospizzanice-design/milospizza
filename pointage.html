@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pointage</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js"></script>
+<script src="restoglobal-commun.js?v=2026-10-07"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bx:#B91E26;--cr:#EEF1EA;--panel:#587861}
@@ -1491,13 +1491,14 @@ async function loadCommandesFournisseursData(){
     allFournCodes.forEach(function(code){
       var s=seuilByRestoCode[RESTAURANT_ID+'|'+code];
       if(!s||s.actif===false)return; // pas suivi ici (probablement l'autre restaurant fusionné)
-      var jours=cmdfJoursEffectifs(s);
       var d=dernierByRestoCode[RESTAURANT_ID+'|'+code];
       // "Dû" = jamais compté ICI, ou dernier comptage périmé par rapport au calendrier — pas juste "aujourd'hui
       // est-il le jour programmé". Avant ce correctif, un article jamais compté (ou en retard depuis
       // plusieurs jours) devait attendre le PROCHAIN jour programmé pour être signalé : invisible du pop-up
       // et donc absent des commandes fournisseurs entre-temps, alors qu'il aurait justement fallu le compter.
-      var due=!d||joursComptageExpire(jours,d.compte_le);
+      // Même règle que l'écran Comptage (RG.aCompterAujourdhui) : un produit en retard n'est réclamé que si une
+      // commande peut partir aujourd'hui pour lui.
+      var due=RG.aCompterAujourdhui(s,(reglesByCode[code]||{})[RESTAURANT_ID]||[],suppliersById,d?d.compte_le:null).du;
       if(!due)return;
       if(countedTodayThisResto.has(code))return;
       var ing=ingByCode[code];
@@ -2578,7 +2579,9 @@ async function menuComptage(){
       // article qu'on vient de compter passerait aussitôt pour "plus dû" et sauterait dans la section repliée
       // "Pas à compter aujourd'hui" — donnant l'impression que la saisie a disparu alors qu'elle est bien
       // enregistrée. Rouvrir l'écran (ou revenir plus tard) reclasse normalement à partir des données fraîches.
-      obj._dueAtLoad=cptDueToday(obj);
+      var aCompter=RG.aCompterAujourdhui(s,cptReglesByCode[i.code]||[],cptSuppliersById,obj.dernier?obj.dernier.compte_le:null);
+      obj._dueAtLoad=aCompter.du;
+      obj._retard=aCompter.retard?aCompter.jourPrevu:null; // jour prévu manqué (affiché sur la carte)
       return obj;
     }).filter(Boolean);
 
@@ -2736,9 +2739,6 @@ var CPT_JOUR_NOMS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','sam
 // Journée "métier" (commence à 7h) et péremption d'un comptage : RG.bizDateKey / RG.bizGetDay /
 // RG.joursComptageExpire dans restoglobal-commun.js.
 var CPT_JOUR_COURT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-function cptDueToday(i){
-  return !i.dernier||joursComptageExpire(i.comptageJours||[],i.dernier.compte_le);
-}
 function cptFrequenceLabel(i){
   var jours=i.comptageJours||[];
   if(!jours.length)return null;
@@ -2767,6 +2767,7 @@ function cptMetaLine(i){
   // on l'affiche pour qu'un oubli de réglage se repère tout de suite sur la tablette.
   var srcLbl={produit:' — jours propres au produit',regle:' — r&egrave;gle du produit',fournisseur:' — calendrier du fournisseur'}[i.joursSource]||'';
   if(freq)lines.push('<div class="cpt-meta2" style="color:#B45309;">&#128197; '+freq+srcLbl+'</div>');
+  if(i._retard!=null)lines.push('<div class="cpt-meta2" style="color:#B91C1C;">&#9200; Pas compt&eacute; '+CPT_JOUR_NOMS[i._retard]+' : &agrave; rattraper, la commande peut partir aujourd\'hui</div>');
   return lines.join('');
 }
 // Sous-groupe les items d'une catégorie par sous-catégorie (tri alphabétique, comme les catégories) — sans

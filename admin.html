@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Admin RH</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js"></script>
+<script src="restoglobal-commun.js?v=2026-10-07"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -10601,7 +10601,7 @@ var SUP_DAY_LABELS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 function supplierDeliveryDaysHtml(id,s){
   var days=s.jours_livraison||[];
   return '<div style="margin-top:2px;">'
-    +'<label class="fl2" style="font-size:10px;">🚚 Jours de livraison (pour les règles "veille de livraison")</label>'
+    +'<label class="fl2" style="font-size:10px;">🚚 Jours de LIVRAISON (le jour de commande s\'en déduit avec le délai)</label>'
     +'<div style="display:flex;gap:4px;flex-wrap:wrap;">'
     +SUP_DAY_LABELS.map(function(lbl,idx){
       var on=days.indexOf(idx)>=0;
@@ -10643,8 +10643,40 @@ function renderSuppliersList(){
       +'<div><label class="fl2" style="font-size:10px;">📱 Groupe WhatsApp (nom exact, pour te rappeler où envoyer)</label>'
         +'<input type="text" class="fi" placeholder="Ex: 📦 Commandes Labo" value="'+esc(s.whatsapp_groupe||'')+'" onchange="updateSupplierField(\''+id+'\',\'whatsapp_groupe\',this.value)"></div>'
       +supplierDeliveryDaysHtml(id,s)
+      +'<div id="msup-cal-'+esc(id)+'">'+supplierCalendrierResumeHtml(s)+'</div>'
       +'</div>';
   }).join('');
+}
+// Résumé lisible du calendrier d'un fournisseur : les jours où ses produits seront comptés et commandés (même
+// calcul que la tablette, RG.joursCommandeFournisseur), ce qui manque pour que le calendrier soit actif, et les
+// produits qui ne le suivent pas (jours propres au produit ou règles de commande, prioritaires sur le fournisseur).
+// Avant, rien n'indiquait qu'il faut cocher le jour de LIVRAISON (et non le jour de commande) ni qu'un délai
+// vide désactive tout le calendrier.
+function supplierCalendrierResumeHtml(s){
+  var liv=s.jours_livraison||[];
+  var delai=(s.delai_commande_jours!=null&&s.delai_commande_jours>0)?s.delai_commande_jours:1;
+  var txt,warn=false;
+  if(!liv.length&&s.delai_commande_jours==null)txt='Pas de calendrier : ses produits sont comptés et peuvent être commandés <b>tous les jours</b>.';
+  else if(!liv.length){txt='⚠️ Aucun jour de livraison coché : calendrier inactif, ses produits sont comptés <b>tous les jours</b>.';warn=true;}
+  else if(s.delai_commande_jours==null){txt='⚠️ Délai de commande vide : calendrier inactif, ses produits sont comptés <b>tous les jours</b>. Indiquez le délai (1 = commande la veille de la livraison).';warn=true;}
+  else txt='📅 Comptage et commande le <b>'+RG.libelleJours(RG.joursCommandeFournisseur(s))+'</b> — livré le '+RG.libelleJours(liv)+', commandé '+delai+' jour'+(delai>1?'s':'')+' avant.';
+  var supById={};rctSuppliers.forEach(function(x){supById[x.id]=x;});
+  var exceptions=[];
+  Object.keys(rctIngredientSeuilsAll||{}).forEach(function(resto){
+    var m=rctIngredientSeuilsAll[resto]||{};
+    Object.keys(m).forEach(function(code){
+      var seuil=m[code];
+      if(!seuil||seuil.actif===false||seuil.fournisseur_id!==s.id)return;
+      var eff=RG.joursComptageEffectifs(seuil,(rctIngredientRegles[resto]||{})[code]||[],supById);
+      if(eff.source!=='produit'&&eff.source!=='regle')return;
+      var ing=(rctIngredients||[]).find(function(x){return x.code===code;});
+      var r=(typeof restosData!=='undefined'?restosData:[]).find(function(x){return x.id===resto;});
+      exceptions.push(esc(ing?ing.nom:code)+' ('+esc(r?r.nom:resto)+') : '+RG.libelleJours(eff.jours)+(eff.source==='produit'?' — jours propres au produit':' — règles de commande'));
+    });
+  });
+  return '<div style="font-size:10px;line-height:1.45;padding:5px 7px;border-radius:6px;background:'+(warn?'#FEF3C7':'#F0FDF4')+';color:'+(warn?'#92400E':'#166534')+';">'+txt
+    +(exceptions.length?'<div style="margin-top:4px;color:#9A3412;">⚠️ '+exceptions.length+' produit'+(exceptions.length>1?'s ne suivent':' ne suit')+' pas ce calendrier (réglage du produit prioritaire) :<br>'+exceptions.sort().join('<br>')+'<br><i>Fiche du produit › 📅 Jours de comptage › « ↺ Suivre le fournisseur » pour l\'aligner.</i></div>':'')
+    +'</div>';
 }
 async function updateSupplierField(id,field,value){
   var s=rctSuppliers.find(function(x){return x.id===id;});
@@ -10663,6 +10695,7 @@ async function updateSupplierField(id,field,value){
     // le HTML à chaque frappe détruit et recrée l'input en cours d'édition (le champ perd le focus et,
     // pour un <input type="time">, ça fait "sauter" le sélecteur natif d'heure pendant qu'on tape).
     if(field==='nom'){renderSuppliersList();renderIngredientsList();}
+    else if(field==='delai_commande_jours'){var cal=document.getElementById('msup-cal-'+id);if(cal)cal.innerHTML=supplierCalendrierResumeHtml(s);}
   }catch(e){console.error('updateSupplierField',e);alert('Erreur : '+e.message);}
 }
 async function createSupplier(){
