@@ -340,6 +340,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div id="cpt-resto-chip-wrap"></div>
         <div id="cpt-postes-chip-wrap"></div>
         <input type="text" id="cpt-search" class="ainp" placeholder="Rechercher un ingr&eacute;dient..." oninput="renderComptageList()">
+        <button type="button" onclick="cptDiagOuvrir()" style="margin-top:6px;background:transparent;border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">&#10067; Pourquoi un produit n'est pas demand&eacute; ou pas command&eacute; ?</button>
       </div>
       <div id="cpt-today-banner" style="display:none;margin-bottom:10px"></div>
       <div id="cpt-list"></div>
@@ -478,6 +479,17 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div style="text-align:center;font-weight:700;font-size:17px;color:#B91E26;margin-bottom:10px">Comptage du jour incomplet</div>
     <div id="cmdf-missing-list"></div>
     <button onclick="closeCmdfMissingPopup()" style="width:100%;background:#B91E26;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px">Fermer et voir les commandes</button>
+  </div>
+</div>
+
+<!-- Diagnostic « Pourquoi ? » d'un produit (écran Comptage) -->
+<div id="cpt-diag-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:18px 16px;max-width:430px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:86vh;overflow-y:auto;font-size:12px;color:#333">
+    <div style="font-weight:700;font-size:15px;color:#B91E26;margin-bottom:8px">&#10067; Pourquoi ce produit&nbsp;?</div>
+    <input type="text" id="cpt-diag-q" placeholder="Nom du produit…" oninput="cptDiagFiltrer()" style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;margin-bottom:8px">
+    <div id="cpt-diag-choix"></div>
+    <div id="cpt-diag-result" style="line-height:1.4"></div>
+    <button onclick="cptDiagFermer()" style="width:100%;background:#f0f0f0;color:#555;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px">Fermer</button>
   </div>
 </div>
 
@@ -2739,6 +2751,116 @@ var CPT_JOUR_NOMS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','sam
 // Journée "métier" (commence à 7h) et péremption d'un comptage : RG.bizDateKey / RG.bizGetDay /
 // RG.joursComptageExpire dans restoglobal-commun.js.
 var CPT_JOUR_COURT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+// ── « ❓ Pourquoi ? » : diagnostic d'un produit (écran Comptage) ──────────────────────────────────────────
+// Rejoue, à partir des données fraîches de la base, EXACTEMENT les règles de la tablette pour un produit :
+// 1) est-il dans le comptage de ce salarié ? 2) est-il à compter aujourd'hui ? 3) part-il dans la commande
+// fournisseur du jour ? — et dit à quelle étape il est bloqué. Ajouté le 11/10/2026 : sans accès à la base,
+// impossible de savoir à distance pourquoi un produit précis n'est pas demandé ou pas commandé.
+var cptDiagIngs=null;
+async function cptDiagOuvrir(){
+  var ov=document.getElementById('cpt-diag-overlay');if(!ov)return;
+  ov.style.display='flex';
+  document.getElementById('cpt-diag-result').innerHTML='';
+  var inp=document.getElementById('cpt-diag-q');inp.value='';
+  document.getElementById('cpt-diag-choix').innerHTML='<div style="color:#888;font-size:12px">Chargement…</div>';
+  try{
+    if(!cptDiagIngs){
+      var r=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id','global').eq('actif',true).order('nom');
+      if(r.error)throw r.error;
+      cptDiagIngs=r.data||[];
+    }
+    cptDiagFiltrer();
+    inp.focus();
+  }catch(e){document.getElementById('cpt-diag-choix').innerHTML='<div style="color:#B91C1C">Erreur : '+escCpt(e.message||e)+'</div>';}
+}
+function cptDiagFermer(){var ov=document.getElementById('cpt-diag-overlay');if(ov)ov.style.display='none';}
+function cptDiagNorm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+function cptDiagFiltrer(){
+  var q=cptDiagNorm(document.getElementById('cpt-diag-q').value.trim());
+  var box=document.getElementById('cpt-diag-choix');
+  if(!q){box.innerHTML='<div style="color:#888;font-size:12px">Tape le nom du produit (ex. « strac »).</div>';return;}
+  var res=(cptDiagIngs||[]).filter(function(i){return cptDiagNorm(i.nom).indexOf(q)>=0;}).slice(0,10);
+  box.innerHTML=res.length?res.map(function(i){
+    return '<button type="button" onclick="cptDiagProduit(\''+escCpt(i.code).replace(/'/g,'&#39;')+'\')" style="display:block;width:100%;text-align:left;background:#F7F5F0;border:1px solid #E5E0D8;border-radius:8px;padding:9px 10px;margin-bottom:5px;font-size:13px;cursor:pointer">'+escCpt(i.nom)+' <span style="color:#999;font-size:11px">'+escCpt(i.categorie||'Autre')+'</span></button>';
+  }).join(''):'<div style="color:#888;font-size:12px">Aucun produit actif ne correspond.</div>';
+}
+async function cptDiagProduit(code){
+  var out=document.getElementById('cpt-diag-result');
+  out.innerHTML='<div style="color:#888;font-size:12px">Analyse…</div>';
+  document.getElementById('cpt-diag-choix').innerHTML='';
+  function L(ok,txt){return '<div style="padding:3px 0;color:'+(ok===null?'#555':(ok?'#166534':'#B91C1C'))+'">'+(ok===null?'&#8226;':(ok?'&#9989;':'&#9940;'))+' '+txt+'</div>';}
+  function T(txt){return '<div style="font-weight:800;color:#333;margin:10px 0 3px;font-size:13px">'+txt+'</div>';}
+  function quand(d){return new Date(d).toLocaleString('fr-FR',{weekday:'long',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}
+  try{
+    var ing=(cptDiagIngs||[]).find(function(i){return i.code===code;})||{code:code,nom:code,categorie:'Autre'};
+    var cat=ing.categorie||'Autre';
+    var scope=RG.groupeLivraison(RESTAURANT_ID);
+    var rs=await Promise.all([
+      db.from('ingredient_seuils').select('*').in('restaurant_id',scope).eq('ingredient_code',code),
+      db.from('ingredient_comptages').select('*').in('restaurant_id',scope).eq('ingredient_code',code).order('compte_le',{ascending:false}).limit(50),
+      db.from('fournisseurs_stock').select('*'),
+      db.from('ingredient_regles_commande').select('*').in('restaurant_id',scope).eq('ingredient_code',code)
+    ]);
+    rs.forEach(function(r){if(r&&r.error)throw r.error;});
+    var seuils={};(rs[0].data||[]).forEach(function(s){seuils[s.restaurant_id]=s;});
+    var derniers={};(rs[1].data||[]).forEach(function(c){if(!derniers[c.restaurant_id])derniers[c.restaurant_id]=c;});
+    var supById={};(rs[2].data||[]).forEach(function(f){supById[f.id]=f;});
+    var regles={};(rs[3].data||[]).forEach(function(r){(regles[r.restaurant_id]=regles[r.restaurant_id]||[]).push(r);});
+    var today=bizGetDay();
+    var h='<div style="font-weight:800;font-size:15px;color:#B91E26">'+escCpt(ing.nom)+'</div>'
+      +'<div style="font-size:11px;color:#888;margin-bottom:4px">Catégorie : '+escCpt(cat)+' · aujourd\'hui : '+CPT_JOUR_NOMS[today]+' (journée de 7h à 7h)</div>';
+
+    // 1. Dans le comptage de ce salarié ?
+    h+=T('1. Dans ton comptage ('+escCpt(restoNamesById[RESTAURANT_ID]||RESTAURANT_ID)+')');
+    var cce=await comptageCatsForEmployee();
+    var postes=(cptAllRoleObjs||[]).filter(function(r){return !cptSelectedRoleIds||!cptSelectedRoleIds.length||cptSelectedRoleIds.indexOf(r.id)>=0;}).map(function(r){return r.nom;});
+    var exclu=cce.ingExclude.has(code);
+    var dansCat=cce.cats.indexOf(cat)>=0||cce.ingInclude.has(code);
+    h+=L(dansCat&&!exclu,dansCat&&!exclu?'Couvert par tes postes du jour ('+escCpt(postes.join(', ')||'aucun')+')'
+      :(exclu?'Exclu de ton poste (exception sur le rôle)':'Catégorie « '+escCpt(cat)+' » absente de tes postes du jour ('+escCpt(postes.join(', ')||'aucun')+')'+((cptAllRoleObjs||[]).length>postes.length?' — tu n\'as pas coché tous tes postes aujourd\'hui':'')));
+    var sIci=seuils[RESTAURANT_ID];
+    h+=L(!!(sIci&&sIci.actif!==false),!sIci?'Pas de fiche seuils pour ce produit dans cet établissement (Admin › fiche ingrédient)':(sIci.actif===false?'« Visible ici » décoché pour cet établissement':'Fiche seuils active dans cet établissement'));
+
+    // 2 et 3 : par établissement du périmètre de commande (commandes regroupées)
+    scope.forEach(function(rid){
+      var s=seuils[rid];
+      var nomR=restoNamesById[rid]||rid;
+      if(!s){if(rid===RESTAURANT_ID)h+=T('2. À compter aujourd\'hui ?')+L(false,'Impossible sans fiche seuils');return;}
+      var rules=regles[rid]||[];
+      var d=derniers[rid]||null;
+      var sup=s.fournisseur_id?supById[s.fournisseur_id]:null;
+      h+=T((scope.length>1?escCpt(nomR)+' — ':'')+'2. À compter aujourd\'hui ?');
+      h+=L(sup?true:false,sup?'Fournisseur : '+escCpt(sup.nom)+(sup.is_labo_interne?' (Labo interne)':sup.is_cuisine_interne?' (Cuisine interne)':''):'Aucun fournisseur sur la fiche');
+      var a=RG.aCompterAujourdhui(s,rules,supById,d?d.compte_le:null);
+      var src={produit:'jours propres au produit',regle:'règles de commande du produit',fournisseur:'calendrier du fournisseur',quotidien:'aucun calendrier'}[a.eff.source];
+      h+=L(null,'Jours de comptage : <b>'+RG.libelleJours(a.eff.jours)+'</b> ('+src+')');
+      h+=L(null,d?('Dernier comptage : '+quand(d.compte_le)+' — '+escCpt(RG.texteStock(s,d.valeur))+(d.compte_par_nom?' par '+escCpt(d.compte_par_nom):'')):'Jamais compté ici');
+      var compteAuj=!!(d&&RG.estComptageDuJour(d.compte_le));
+      if(compteAuj)h+=L(true,'Déjà compté aujourd\'hui');
+      else if(a.du)h+=L(true,'À compter aujourd\'hui'+(a.retard?' (rattrapage : pas compté '+CPT_JOUR_NOMS[a.jourPrevu]+')':''));
+      else if(a.eff.jours.length&&a.eff.jours.indexOf(today)<0){
+        var next=null;for(var k=1;k<=7;k++){if(a.eff.jours.indexOf((today+k)%7)>=0){next=(today+k)%7;break;}}
+        h+=L(false,'Pas à compter aujourd\'hui : prochain comptage '+(next!=null?CPT_JOUR_NOMS[next]:'—')+(d&&!RG.joursComptageExpire(a.eff.jours,d.compte_le)?' (le dernier comptage est encore valable)':' (commande impossible aujourd\'hui pour ce fournisseur)'));
+      }else h+=L(false,'Pas à compter aujourd\'hui (dernier comptage encore valable)');
+
+      // 3. Commande fournisseur du jour
+      h+=T((scope.length>1?escCpt(nomR)+' — ':'')+'3. Dans la commande fournisseur du jour ?');
+      if(!sup){h+=L(false,'Pas de fournisseur : rien à commander');return;}
+      if(sup.is_labo_interne||sup.is_cuisine_interne){h+=L(null,'Fournisseur interne : la demande part au comptage ('+(sup.is_labo_interne?'écran Labo':'tâches cuisine')+'), pas dans les commandes fournisseurs');return;}
+      if(!compteAuj){h+=L(false,'Pas compté aujourd\'hui : une commande ne se base que sur un comptage du jour');return;}
+      var b=RG.besoin(s,d.valeur);
+      var rupt=RG.isRuptureTotale(s.type_suivi,d.valeur);
+      h+=L(b.signale,b.signale?'Sous le seuil ('+escCpt(RG.texteStock(s,d.valeur))+(s.seuil_min!=null?' < seuil '+s.seuil_min:'')+')':'Pas sous le seuil'+(s.seuil_min==null?' (aucun seuil renseigné sur la fiche)':' (stock '+escCpt(RG.texteStock(s,d.valeur))+', seuil '+s.seuil_min+')'));
+      var gate=RG.reglesGateStatus(rules,sup,supById);
+      var jc=RG.joursCommandeFournisseur(sup);
+      h+=L(!gate.gated||gate.matches||rupt,(!gate.gated)?'Commande possible tous les jours':(gate.matches?'Aujourd\'hui est un jour de commande':('Aujourd\'hui n\'est pas un jour de commande'+(jc.length?' ('+escCpt(sup.nom)+' : '+RG.libelleJours(jc)+')':'')+(rupt?' — mais rupture totale : commandé quand même':''))));
+      h+=L(!d.commande_envoyee,d.commande_envoyee?'Déjà envoyé dans une commande aujourd\'hui':'Pas encore envoyé');
+      var ok=b.signale&&(!gate.gated||gate.matches||rupt)&&!d.commande_envoyee;
+      h+='<div style="font-weight:800;margin-top:4px;color:'+(ok?'#166534':'#B91C1C')+'">'+(ok?'&#9989; Figure dans la commande '+escCpt(sup.nom)+' du jour':'&#9940; Ne figure pas dans la commande du jour')+'</div>';
+    });
+    out.innerHTML=h;
+  }catch(e){out.innerHTML='<div style="color:#B91C1C">Erreur : '+escCpt(e.message||e)+'</div>';}
+}
 function cptFrequenceLabel(i){
   var jours=i.comptageJours||[];
   if(!jours.length)return null;
