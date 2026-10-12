@@ -2592,7 +2592,11 @@ async function menuComptage(){
       // "Pas à compter aujourd'hui" — donnant l'impression que la saisie a disparu alors qu'elle est bien
       // enregistrée. Rouvrir l'écran (ou revenir plus tard) reclasse normalement à partir des données fraîches.
       var aCompter=RG.aCompterAujourdhui(s,cptReglesByCode[i.code]||[],cptSuppliersById,obj.dernier?obj.dernier.compte_le:null);
-      obj._dueAtLoad=aCompter.du;
+      // Un produit déjà compté aujourd'hui (par un collègue, ou par soi-même lors d'une ouverture précédente)
+      // reste dans « à compter aujourd'hui », coché « ✓ Compté aujourd'hui par X ». Avant (corrigé le 12/10/2026),
+      // il passait dans la section repliée « Pas à compter aujourd'hui » : le salarié ne le voyait pas, alors
+      // que ce comptage figurait bien dans la commande fournisseur du jour (cas Stracciatella du dimanche 11/10).
+      obj._dueAtLoad=aCompter.du||cptComptedToday(obj.dernier);
       obj._retard=aCompter.retard?aCompter.jourPrevu:null; // jour prévu manqué (affiché sur la carte)
       return obj;
     }).filter(Boolean);
