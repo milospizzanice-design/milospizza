@@ -771,7 +771,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <div class="pr-wrap">
           <!-- Aperçu en direct (à droite sur ordinateur, en haut et repliable sur téléphone) -->
           <div class="pr-prev">
-            <details id="printPrevDetails" open ontoggle="if(this.open)printApercuMaj()">
+            <details id="printPrevDetails" open ontoggle="if(this.open&&window.printApercuMaj)printApercuMaj()">
               <summary>👁 Aperçu en direct <span id="printPrevEtat" style="font-weight:400;color:#999;"></span></summary>
               <iframe id="printPrevFrame" title="Aperçu de la carte à imprimer"></iframe>
             </details>
@@ -787,6 +787,13 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
             </div>
 
             <div class="admin-label pr-titre">2. Contenu à afficher <span id="printFmtNom" style="color:#aaa;font-size:0.65rem;"></span></div>
+            <label class="admin-label">Source de la carte</label>
+            <select class="cat-select" id="printSource" onchange="printSetSource(this.value)">
+              <option value="surplace">🍽️ Sur place — plats et prix du site sur place</option>
+              <option value="emporter">🥡 À emporter — plats et prix de la page à emporter</option>
+              <option value="livraison">🛵 Livraison — même carte que la vente à emporter</option>
+            </select>
+            <p class="pr-aide">Mêmes règles que les sites : un plat, une catégorie ou une sous-catégorie masqué(e) sur ce canal n'apparaît pas ; à emporter, le prix à emporter est utilisé s'il est renseigné (sinon le prix sur place).</p>
             <p class="pr-aide">Décochez une catégorie pour la retirer. Touchez son nom pour choisir les plats un par un.</p>
             <div id="printCatList" style="margin-bottom:0.6rem;"></div>
             <label class="admin-label">Restaurants affichés sur ce format</label>
@@ -813,6 +820,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
             <label id="printOptInfos" class="pr-opt"><input type="checkbox" id="printInfos" checked onchange="printCollectFmt()"> Afficher les horaires, adresses et QR codes</label>
             <p id="printAideAuto" class="pr-aide" style="margin:0.3rem 0 0.6rem;">Une catégorie n'est jamais coupée entre deux pages (ni entre deux volets du dépliant) : elle passe entière sur la page suivante.</p>
             <div id="printLayoutBox"></div>
+            <div id="printCouvBox"></div>
 
             <div class="admin-label pr-titre">4. Photo</div>
             <p id="printPhotoAide" class="pr-aide"></p>
@@ -4465,6 +4473,16 @@ const PRINT_FORMATS = {
   a1:      {label:'A1', page:'594mm 841mm'},
   trifold: {label:'Flyer dépliant 3 volets', page:'444mm 210mm'}
 };
+// Source de la carte (par format) : mêmes règles que le site sur place (index.html) et la page à emporter
+// (emporter.html) — visibilité par plat, catégorie et sous-catégorie ; prix à emporter, sinon prix sur place.
+// La livraison reprend la carte à emporter.
+const PRINT_SOURCES = {
+  surplace:  {label:'Sur place',  champ:'dispoSurPlace', couv:'La carte'},
+  emporter:  {label:'À emporter', champ:'dispoEmporter', couv:'À emporter'},
+  livraison: {label:'Livraison',  champ:'dispoEmporter', couv:'Livraison'}
+};
+function printSrc(src) { return PRINT_SOURCES[src] || PRINT_SOURCES.surplace; }
+function printSourceAffichee() { return printCfg(printFmtAffiche || printFmt()).source; }
 const PRINT_JOURS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 const PRINT_JOURS_COURT = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 const PRINT_QR_TYPES = [
@@ -4491,13 +4509,20 @@ function printFmt() {
 function printCfg(fmt) {
   const cle = 'print_cfg_' + fmt;
   const base = {exCats:[], exItems:[], cols:'auto', desc:true, bg:true, newPage:false, infos:true, photo:'',
-                mode:'auto', rows:[], exEtabs:[], taille:100};
+                mode:'auto', rows:[], exEtabs:[], taille:100, source:'surplace', couv:{}, dos:{}};
   // Objet modifié sur place (jamais recréé) : une modification faite juste avant reste visible partout
   if (!currentDesign[cle] || typeof currentDesign[cle] !== 'object') currentDesign[cle] = {};
   const c = currentDesign[cle];
   Object.keys(base).forEach(k => { if (c[k] === undefined) c[k] = base[k]; });
   if (!Array.isArray(c.rows)) c.rows = [];
   if (!Array.isArray(c.exEtabs)) c.exEtabs = [];
+  if (!PRINT_SOURCES[c.source]) c.source = 'surplace';
+  // Flyer : contenu de la couverture (première page) et du dos — complétés sur place, jamais recréés
+  const remplir = (o, def) => { Object.keys(def).forEach(k => { if (o[k] === undefined) o[k] = def[k]; }); };
+  if (!c.couv || typeof c.couv !== 'object') c.couv = {};
+  remplir(c.couv, {logo:true, nom:true, slogan:true, photo:true, photoStyle:'cadre', etabs:false, horaires:false, qrs:false, label:''});
+  if (!c.dos || typeof c.dos !== 'object') c.dos = {};
+  remplir(c.dos, {etabs:true, horaires:true, plus:true, qrs:true, mention:true});
   c.rows.forEach(r => {
     r.cols = [1, 2, 3].includes(r.cols) ? r.cols : 1;
     if (!Array.isArray(r.cells)) r.cells = [];
@@ -4507,18 +4532,20 @@ function printCfg(fmt) {
   return c;
 }
 
-// Catégories visibles « sur place », dans l'ordre de la carte (mêmes règles que le site)
-function printCats() {
-  return cats.filter(c => !c.archived && !c.hideFromMenu && c.dispoSurPlace !== false);
+// Catégories visibles sur le canal choisi, dans l'ordre de la carte (mêmes règles que le site)
+function printCats(src) {
+  const ch = printSrc(src || printSourceAffichee()).champ;
+  return cats.filter(c => !c.archived && !c.hideFromMenu && c[ch] !== false);
 }
 // Plats d'une catégorie, dans l'ordre d'affichage : sans sous-catégorie, puis par sous-catégorie, puis menu enfant
-function printPlatsDeCat(c) {
-  const ok = it => !it.archived && it.dispoSurPlace !== false;
+function printPlatsDeCat(c, src) {
+  const ch = printSrc(src || printSourceAffichee()).champ;
+  const ok = it => !it.archived && it[ch] !== false;
   const groupes = [];
   const sansSous = items.filter(it => ok(it) && itemIsInPlacement(it, c.id, null));
   if (sansSous.length) groupes.push({sub:'', items:sansSous});
   ensureCatSubcats(c).forEach(sc => {
-    if (!subcatVisible(c, sc, 'dispoSurPlace')) return;
+    if (!subcatVisible(c, sc, ch)) return;
     const lst = items.filter(it => ok(it) && itemIsInPlacement(it, c.id, sc));
     if (lst.length) groupes.push({sub:sc, items:lst});
   });
@@ -4545,10 +4572,11 @@ function printNettoie(v) {
 function printEsc(v) {
   return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
-function printPrix(it) {
+function printPrix(it, src) {
+  const emporter = printSrc(src || printSourceAffichee()).champ === 'dispoEmporter';
   return (it.priceVariants && it.priceVariants.length)
     ? it.priceVariants.map(v => printNettoie(((v.label || '') + ' ' + (v.price || '')).trim())).filter(Boolean).join('  ·  ')
-    : printNettoie(it.price || '');
+    : printNettoie((emporter ? (it.priceEmporter || it.price) : it.price) || '');
 }
 
 // ── Restaurants (adresse, téléphone, horaires) : liste commune à tous les formats ──
@@ -4707,7 +4735,9 @@ function renderPrintPanel() {
   printFmtAffiche = fmt;
   const cfg = printCfg(fmt);
   const nomFmt = document.getElementById('printFmtNom');
-  if (nomFmt) nomFmt.textContent = '— ' + PRINT_FORMATS[fmt].label;
+  if (nomFmt) nomFmt.textContent = '— ' + PRINT_FORMATS[fmt].label + ' · ' + printSrc(cfg.source).label;
+  const selSrc = document.getElementById('printSource');
+  if (selSrc) selSrc.value = cfg.source;
 
   // Mise à jour de l'aperçu à chaque saisie dans le panneau (un seul écouteur pour tous les champs)
   if (!printEcouteurPose) {
@@ -4789,14 +4819,66 @@ function renderPrintMiseEnPage() {
   montrer('printOptTaille', fmt === 'a4' || fmt === 'a5');
   const aide = document.getElementById('printPhotoAide');
   if (aide) aide.textContent = fmt === 'trifold'
-    ? 'Photo de la couverture du flyer (et du bloc « Photo » si vous en placez un en disposition manuelle).'
+    ? 'Photo de la couverture du flyer (réglages de la couverture en section 3), et du bloc « Photo » si vous en placez un en disposition manuelle.'
     : (manuel ? 'Photo utilisée par le bloc « Photo » : placez-le où vous voulez dans une rangée.'
               : ({a1:'Grande photo sous le titre de l\'affiche.', a4:'Bandeau photo en haut de la première page.', a5:'Bandeau photo en haut de la première page.'})[fmt]);
   renderPrintLayout();
+  renderPrintCouv();
+}
+
+// ── Flyer : couverture (première page) et dos ──
+function renderPrintCouv() {
+  const box = document.getElementById('printCouvBox');
+  if (!box) return;
+  const fmt = printFmtAffiche || printFmt();
+  if (fmt !== 'trifold') { box.innerHTML = ''; return; }
+  const cfg = printCfg(fmt);
+  const cv = cfg.couv, ds = cfg.dos;
+  const cb = (zone, k, lbl, o) => `<label class="pr-opt"><input type="checkbox" ${o[k] ? 'checked' : ''} onchange="printCouvSet('${zone}','${k}',this.checked)"> ${lbl}</label>`;
+  box.innerHTML = `<div class="pr-card">
+      <div class="pr-card-hd"><b>Couverture du flyer (première page)</b></div>
+      ${cb('couv', 'logo', 'Logo', cv)}
+      ${cb('couv', 'nom', 'Nom de l\'enseigne', cv)}
+      ${cb('couv', 'slogan', 'Accroche (section 5)', cv)}
+      ${cb('couv', 'photo', 'Photo (section 4)' + (cfg.photo ? '' : ' — <span style="color:#B91C1C">aucune photo choisie</span>'), cv)}
+      <div style="margin:-0.2rem 0 0.5rem 1.4rem;">
+        <select class="cat-select" style="font-size:0.8rem;" onchange="printCouvSet('couv','photoStyle',this.value)">
+          <option value="cadre" ${cv.photoStyle !== 'fond' ? 'selected' : ''}>Photo encadrée</option>
+          <option value="fond" ${cv.photoStyle === 'fond' ? 'selected' : ''}>Photo en fond, sur toute la couverture</option>
+        </select>
+      </div>
+      ${cb('couv', 'etabs', 'Adresses et téléphones des restaurants', cv)}
+      ${cb('couv', 'horaires', 'Horaires d\'ouverture', cv)}
+      ${cb('couv', 'qrs', 'QR codes', cv)}
+      <label class="admin-label">Texte en bas de la couverture</label>
+      <input class="admin-input" value="${printEsc(cv.label || '')}" placeholder="${printEsc(printSrc(cfg.source).couv)}" oninput="printCouvSet('couv','label',this.value)">
+      <p class="pr-aide" style="margin-top:0.3rem;">Vide = « ${printEsc(printSrc(cfg.source).couv)} ». Les restaurants affichés sont ceux cochés en section 2. Tout se réduit automatiquement pour tenir sur la couverture.</p>
+    </div>
+    <div class="pr-card">
+      <div class="pr-card-hd"><b>Dos du flyer</b></div>
+      ${cb('dos', 'etabs', 'Adresses et téléphones des restaurants', ds)}
+      ${cb('dos', 'horaires', 'Horaires d\'ouverture', ds)}
+      ${cb('dos', 'plus', 'Infos complémentaires (section 5)', ds)}
+      ${cb('dos', 'qrs', 'QR codes', ds)}
+      ${cb('dos', 'mention', 'Mention en bas de page', ds)}
+    </div>`;
+}
+function printCouvSet(zone, k, v) {
+  const cfg = printCfg(printFmtAffiche || printFmt());
+  if (!cfg[zone]) return;
+  cfg[zone][k] = v;
+  if (k === 'photo') renderPrintCouv();
+  printApercuPlanifie();
 }
 
 function printChangeFormat() {
   if (printFmtAffiche) printCollectFmt(printFmtAffiche);
+  renderPrintPanel();
+}
+function printSetSource(src) {
+  const fmt = printFmtAffiche || printFmt();
+  printCollectFmt(fmt);
+  printCfg(fmt).source = PRINT_SOURCES[src] ? src : 'surplace';
   renderPrintPanel();
 }
 function printSetMode(mode) {
@@ -4815,7 +4897,9 @@ function printCollectFmt(fmt) {
   const cfg = printCfg(fmt);
   const catBoxes = [...document.querySelectorAll('.print-cat-cb')];
   if (catBoxes.length) {
-    cfg.exCats = catBoxes.filter(cb => !cb.checked).map(cb => cb.value);
+    // Une catégorie décochée reste décochée même si elle n'est pas affichée (autre source, archivée…)
+    const catIds = new Set(catBoxes.map(cb => cb.value));
+    cfg.exCats = (cfg.exCats || []).filter(id => !catIds.has(id)).concat(catBoxes.filter(cb => !cb.checked).map(cb => cb.value));
     // Un plat décoché reste décoché même s'il n'est plus affiché (catégorie archivée…) ; les plats visibles font foi
     const visibles = [...document.querySelectorAll('.print-it-cb')];
     const ids = new Set(visibles.map(cb => cb.value));
@@ -4863,7 +4947,7 @@ function printLibelleBloc(b) {
 function printRangeesDepuisAuto(fmt) {
   const cfg = printCfg(fmt);
   const exC = new Set(cfg.exCats);
-  const lst = printCats().filter(c => !exC.has(c.id) && printPlatsDeCat(c).some(g => g.items.length));
+  const lst = printCats(cfg.source).filter(c => !exC.has(c.id) && printPlatsDeCat(c, cfg.source).some(g => g.items.length));
   let n = fmt === 'trifold' ? 1 : (cfg.cols !== 'auto' ? parseInt(cfg.cols, 10) : ({a4:2, a5:1, a1:3})[fmt] || 2);
   n = Math.max(1, Math.min(3, n || 1));
   const rows = [];
@@ -4886,7 +4970,7 @@ function renderPrintLayout() {
   const cfg = printCfg(fmt);
   if (cfg.mode !== 'manuel') { box.innerHTML = ''; return; }
   const exC = new Set(cfg.exCats);
-  const catsDispo = printCats().filter(c => printPlatsDeCat(c).some(g => g.items.length));
+  const catsDispo = printCats(cfg.source).filter(c => printPlatsDeCat(c, cfg.source).some(g => g.items.length));
   const placees = new Set();
   cfg.rows.forEach(r => r.cells.forEach(cell => cell.forEach(b => { if (b.t === 'cat') placees.add(b.id); })));
   const nonPlacees = catsDispo.filter(c => !placees.has(c.id) && !exC.has(c.id));
@@ -5074,6 +5158,7 @@ function printChoisirPhoto() {
       printPhotoEtat = '';
       renderPrintPhoto();
       renderPrintLayout();
+      renderPrintCouv();
       printApercuPlanifie();
       showToast('📷 Photo ajoutée — pensez à « Enregistrer les réglages »');
     } catch (err) {
@@ -5091,6 +5176,7 @@ function printRetirerPhoto() {
   printPhotoEtat = '';
   renderPrintPhoto();
   renderPrintLayout();
+  renderPrintCouv();
   printApercuPlanifie();
 }
 
@@ -5117,16 +5203,17 @@ async function savePrintSettings() {
 
 function printSections(cfg) {
   const exC = new Set(cfg.exCats || []), exI = new Set(cfg.exItems || []);
-  return printCats().filter(c => !exC.has(c.id)).map(c => ({
+  const src = cfg.source;
+  return printCats(src).filter(c => !exC.has(c.id)).map(c => ({
     id: c.id,
     title: printNettoie(c.name.fr),
     subtitle: c.subtitle ? printNettoie(c.subtitle.fr) : '',
-    groups: printPlatsDeCat(c).map(g => ({
+    groups: printPlatsDeCat(c, src).map(g => ({
       sub: printNettoie(g.sub),
       items: g.items.filter(it => !exI.has(it.id)).map(it => ({
         name: printNettoie((it.name && it.name.fr) || ''),
         desc: cfg.desc ? printNettoie((it.desc && it.desc.fr) || '') : '',
-        price: printPrix(it)
+        price: printPrix(it, src)
       }))
     })).filter(g => g.items.length)
   })).filter(s => s.groups.length);
@@ -5164,6 +5251,8 @@ function printConstruireDonnees(fmt) {
   const infos = fmt === 'trifold' ? true : (manuel ? rows.some(r => r.cells.some(c => c.some(b => b.t === 'infos'))) : cfg.infos);
   const data = {
     fmt, mode: manuel ? 'manuel' : 'auto', rows,
+    couv: Object.assign({}, cfg.couv, {label: String(cfg.couv.label || '').trim() || printSrc(cfg.source).couv}),
+    dos: Object.assign({}, cfg.dos),
     cols: cfg.cols, fond: cfg.bg, newPage: cfg.newPage, infos,
     taille: Math.max(50, Math.min(150, parseInt(cfg.taille, 10) || 100)) / 100,
     photo: cfg.photo || '',
@@ -5269,6 +5358,13 @@ function printApercuMaj() {
 function printEngine() {
   const D = window.PRINT_DATA;
   const C = D.colors;
+  // Couleur crème semi-transparente (texte lisible sur une photo en fond)
+  const voile = (hex, a) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return 'rgba(255,255,255,' + a + ')';
+    const n = parseInt(m[1], 16);
+    return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
+  };
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const qrs = (D.qrs || []).filter(q => q.img);
   const etabs = D.etabs || [];
@@ -5278,7 +5374,7 @@ function printEngine() {
 
   const css = `
   :root{--rouge:${C.rouge};--creme:${C.creme};--texte:${C.texte};--brun:${C.brun};--vert:${C.vert};
-        --ft:${D.fontTitle};--fi:${D.fontItems};--s:1;--hs:1}
+        --ft:${D.fontTitle};--fi:${D.fontItems};--s:1;--hs:1;--voile:${voile(C.creme, .9)}}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:#d9d4cc}
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact;color:var(--texte)}
@@ -5356,14 +5452,23 @@ function printEngine() {
   .bande .inf .ho{margin-left:0}
   .bande .qrs{margin-top:0}
   /* Flyer : couverture et dos */
-  .cover{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:100%}
-  .cover .logo{width:78%;height:62mm;object-fit:contain;margin-bottom:6mm}
-  .cover.avec-photo .logo{height:26mm;margin-bottom:3mm}
-  .cover .encart{width:100%;height:78mm;margin:5mm 0 2mm;--hs:.75}
-  .cover .nom{font-family:var(--ft);font-weight:600;font-size:30pt;color:var(--rouge);letter-spacing:.05em;line-height:1.05}
-  .cover.avec-photo .nom{font-size:24pt}
-  .cover .slogan{font-family:var(--ft);font-style:italic;font-size:13pt;color:var(--brun);margin-top:3mm}
-  .cover .la{font-family:var(--fi);font-weight:600;font-size:8pt;letter-spacing:.4em;text-transform:uppercase;color:var(--vert);margin-top:7mm}
+  /* Couverture : toutes les tailles suivent --c (réduit automatiquement si le contenu ne tient pas) */
+  .cover{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:100%;--c:1;--o:var(--c);--u:calc(var(--c) * .95)}
+  .cover .logo{width:78%;height:calc(62mm * var(--c));object-fit:contain;margin-bottom:calc(6mm * var(--c))}
+  .cover.compact .logo{height:calc(26mm * var(--c));margin-bottom:calc(3mm * var(--c))}
+  .cover .encart{width:100%;height:calc(78mm * var(--c));margin:calc(5mm * var(--c)) 0 calc(2mm * var(--c));--hs:.75;flex:none}
+  .cover.avec-infos .encart{height:calc(58mm * var(--c))}
+  .cover .nom{font-family:var(--ft);font-weight:600;font-size:calc(30pt * var(--c));color:var(--rouge);letter-spacing:.05em;line-height:1.05}
+  .cover.compact .nom{font-size:calc(24pt * var(--c))}
+  .cover .slogan{font-family:var(--ft);font-style:italic;font-size:calc(13pt * var(--c));color:var(--brun);margin-top:calc(3mm * var(--c))}
+  .cover .la{font-family:var(--fi);font-weight:600;font-size:calc(8pt * var(--c));letter-spacing:.4em;text-transform:uppercase;color:var(--vert);margin-top:calc(7mm * var(--c))}
+  .cover.compact .la{margin-top:calc(4mm * var(--c))}
+  .cover .inf{margin-top:calc(2mm * var(--c))}
+  .cover .boite{display:flex;flex-direction:column;align-items:center;width:100%;padding:calc(6mm * var(--c)) calc(5mm * var(--c));background:var(--voile);border:calc(.3mm * var(--c)) solid var(--rouge)}
+  .couv-fond{position:absolute;overflow:hidden}
+  .couv-fond img{display:block;width:100%;height:100%;object-fit:cover}
+  .cadre{z-index:2}
+  .frame.au-dessus{z-index:3}
   .back{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
   .back .nom{font-family:var(--ft);font-weight:600;font-size:18pt;color:var(--rouge);text-align:center}
   .back .mention{font-family:var(--ft);font-style:italic;font-size:8.5pt;color:var(--brun);margin-top:5mm;text-align:center}
@@ -5371,7 +5476,16 @@ function printEngine() {
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
   const orn = (w) => `<div class="orn"${w ? ` style="width:${w}"` : ''}><span></span><i></i><span></span></div>`;
-  const etabsHtml = () => etabs.length ? `<div class="etabs">${etabs.map(e => `<div class="etab">${e.nom ? `<div class="en">${esc(e.nom)}</div>` : ''}${e.coord.length ? `<div class="co">${e.coord.map(esc).join('<br>')}</div>` : ''}${e.horaires.length ? `<div class="ho-t">Horaires</div><table class="ho">${e.horaires.map(h => `<tr><td>${esc(h.jours)}</td><td>${esc(h.heures)}</td></tr>`).join('')}</table>` : ''}</div>`).join('')}</div>` : '';
+  // Restaurants : adresses (coord) et/ou horaires — les deux par défaut
+  const etabsHtml = (o) => {
+    o = o || {coord:true, horaires:true};
+    const lst = etabs.map(e => {
+      const co = o.coord && e.coord.length ? `<div class="co">${e.coord.map(esc).join('<br>')}</div>` : '';
+      const ho = o.horaires && e.horaires.length ? `<div class="ho-t">Horaires</div><table class="ho">${e.horaires.map(h => `<tr><td>${esc(h.jours)}</td><td>${esc(h.heures)}</td></tr>`).join('')}</table>` : '';
+      return (co || ho) ? `<div class="etab">${e.nom ? `<div class="en">${esc(e.nom)}</div>` : ''}${co}${ho}</div>` : '';
+    }).filter(Boolean);
+    return lst.length ? `<div class="etabs">${lst.join('')}</div>` : '';
+  };
   const qrsHtml = () => qrs.length ? `<div class="qrs">${qrs.map(q => `<div class="qr"><img src="${esc(q.img)}" alt=""><b>${esc(q.label)}</b><span>${esc(q.sub)}</span></div>`).join('')}</div>` : '';
   const plusHtml = () => D.infosPlus.length ? `<div class="plus">${D.infosPlus.map(esc).join('<br>')}</div>` : '';
   const aDesInfos = () => etabs.length || qrs.length || D.infosPlus.length;
@@ -5736,15 +5850,41 @@ function printEngine() {
     repere(int, 0, 'Volet 1'); repere(int, 1, 'Volet 2'); repere(int, 2, 'Volet 3');
     // Face extérieure : rabat (4e volet de carte), dos (infos), couverture
     dessiner(ext, 0, 3);
+    // Dos : contenu choisi dans « Dos du flyer »
+    const ds = D.dos || {etabs:true, horaires:true, plus:true, qrs:true, mention:true};
     const dos = frameEl(ext, PW + m, m, colW, colH);
     dos.style.setProperty('--u', '1');
     dos.innerHTML = `<div class="back">${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${orn('40%')}
-      <div class="inf">${etabsHtml()}${plusHtml()}${qrsHtml()}</div>
-      ${D.mention?`<div class="mention">${esc(D.mention)}</div>`:''}</div>`;
+      <div class="inf">${etabsHtml({coord:ds.etabs, horaires:ds.horaires})}${ds.plus ? plusHtml() : ''}${ds.qrs ? qrsHtml() : ''}</div>
+      ${ds.mention && D.mention?`<div class="mention">${esc(D.mention)}</div>`:''}</div>`;
     // Le dos doit tenir dans son volet : on réduit si besoin (plusieurs restaurants, horaires, 3 QR codes)
     for (let u = 1; u > 0.45 && dos.scrollHeight > dos.clientHeight + 1; u -= 0.05) dos.style.setProperty('--u', String(u - 0.05));
+    // Couverture (première page) : contenu choisi dans « Couverture du flyer »
+    const cv = D.couv || {logo:true, nom:true, slogan:true, photo:true, label:'La carte'};
+    const avecPhoto = !!(cv.photo && D.photo);
+    const fond = avecPhoto && cv.photoStyle === 'fond';
+    const infCouv = etabsHtml({coord:cv.etabs, horaires:cv.horaires}) + (cv.qrs ? qrsHtml() : '');
+    const partiesCouv = (cv.logo && D.logo ? `<img class="logo" src="${esc(D.logo)}" alt="">` : '')
+      + (cv.nom && D.nom ? `<div class="nom">${esc(D.nom)}</div>` : '')
+      + (cv.slogan && D.slogan ? `<div class="slogan">${esc(D.slogan)}</div>` : '')
+      + ((avecPhoto && !fond) ? `<div class="encart"><img src="${esc(D.photo)}" alt=""></div>` : orn('45%'))
+      + (cv.label ? `<div class="la">${esc(cv.label)}</div>` : '')
+      + (infCouv ? `<div class="inf">${infCouv}</div>` : '');
+    if (fond) {
+      // Photo sur toute la couverture (jusqu'au bord du papier), texte dans un encadré clair par-dessus
+      const bg = document.createElement('div'); bg.className = 'couv-fond';
+      bg.style.cssText = `left:${2 * PW}mm;top:0;width:${PW}mm;height:${H}mm`;
+      bg.innerHTML = `<img src="${esc(D.photo)}" alt="">`;
+      ext.appendChild(bg);
+    }
     const couv = frameEl(ext, 2 * PW + m, m, colW, colH);
-    couv.innerHTML = `<div class="cover${D.photo ? ' avec-photo' : ''}">${D.logo?`<img class="logo" src="${esc(D.logo)}" alt="">`:''}${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${D.slogan?`<div class="slogan">${esc(D.slogan)}</div>`:''}${D.photo?`<div class="encart"><img src="${esc(D.photo)}" alt=""></div>`:orn('45%')}<div class="la">La carte</div></div>`;
+    couv.classList.add('au-dessus');
+    const compact = avecPhoto || !!infCouv;
+    couv.innerHTML = `<div class="cover${compact ? ' compact' : ''}${infCouv ? ' avec-infos' : ''}">${fond ? `<div class="boite">${partiesCouv}</div>` : partiesCouv}</div>`;
+    // La couverture doit tenir dans son volet : tout se réduit ensemble si besoin
+    const cvEl = couv.firstElementChild;
+    const deborde = () => { const b = fond ? cvEl.firstElementChild : null; return b ? b.scrollHeight > couv.clientHeight + 1 : cvEl.scrollHeight > couv.clientHeight + 1; };
+    for (let c = 1; c > 0.4 && deborde(); c -= 0.05) cvEl.style.setProperty('--c', String(Math.round((c - 0.05) * 100) / 100));
     // Face intérieure
     for (let v = 0; v < 3; v++) dessiner(int, v * PW, v);
     return `2 faces de 444 × 210 mm (6 volets A5)${manuel ? ' · disposition manuelle' : ''} · texte à ${Math.round(trouve * 100)} %`;
