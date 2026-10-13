@@ -15,7 +15,11 @@
     "bg": true,
     "newPage": false,
     "infos": true,
-    "photo": ""
+    "photo": "",
+    "mode": "auto",
+    "rows": [],
+    "exEtabs": [],
+    "taille": 100
   },
   "print_nom": "Milo's Pizza",
   "print_slogan": "Le saviez vous ? Nous livrons gratuitement vos pizzas préférées partout dans Nice",
@@ -96,5 +100,57 @@
     "newPage": false,
     "infos": true,
     "photo": ""
-  }
+  },
+  "print_etabs": [
+    {
+      "id": "emv6m7yz4x2k3i",
+      "nom": "",
+      "adresse": "9 rue bavastro & 17 rue Dabray (à emporter & livraison)",
+      "tel": "0699389063",
+      "horaires": [
+        {
+          "id": "hmv6m7yz4io2xm",
+          "jours": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "ferme": false,
+          "m1": "12:00",
+          "m2": "14:30",
+          "s1": "18:00",
+          "s2": "22:30"
+        }
+      ]
+    },
+    {
+      "id": "emv6m8xcqrgopz",
+      "nom": "Milo's Pizza Dabray - Libération",
+      "adresse": "17 rue Dabray",
+      "tel": "0764555401",
+      "horaires": [
+        {
+          "id": "hmv6m9mls289lg",
+          "jours": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "ferme": false,
+          "m1": "18:00",
+          "m2": "22:30",
+          "s1": "",
+          "s2": ""
+        }
+      ]
+    }
+  ]
 }
