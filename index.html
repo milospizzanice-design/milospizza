@@ -170,6 +170,37 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .toggle input:checked+.toggle-slider:before{transform:translateX(18px);}
 
 .admin-save-btn{width:100%;background:var(--rouge);color:#fff;border:none;border-radius:8px;padding:0.9rem;font-family:'Montserrat',sans-serif;font-weight:600;font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-top:1rem;}
+/* Admin — carte à imprimer */
+.pr-titre{font-size:0.8rem!important;color:#9B1C1C!important;margin-top:1rem!important;}
+.pr-opt{display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;}
+.pr-aide{font-size:0.7rem;color:#999;margin-bottom:0.5rem;}
+.pr-prev{position:sticky;top:-1rem;z-index:6;background:#fff;padding:0.3rem 0 0.5rem;margin-bottom:0.4rem;}
+.pr-prev summary{cursor:pointer;font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:600;color:var(--rouge);padding:0.3rem 0;}
+#printPrevFrame{display:block;width:100%;height:40vh;border:1px solid #e5ded2;border-radius:8px;background:#d9d4cc;}
+@media (min-width:1000px){.pr-wrap{display:flex;flex-direction:row-reverse;gap:1.2rem;align-items:flex-start;}.pr-reglages{flex:0 0 440px;min-width:0;}.pr-prev{flex:1;min-width:0;top:0;margin:0;}#printPrevFrame{height:calc(92vh - 11rem);}}
+.pr-card{border:1px solid #eee;border-radius:10px;padding:0.6rem 0.7rem;margin-bottom:0.6rem;background:#fff;}
+.pr-card-hd{display:flex;justify-content:space-between;align-items:center;gap:0.4rem;margin-bottom:0.2rem;font-size:0.8rem;font-family:'Montserrat',sans-serif;}
+.pr-hor{border-top:1px dashed #e5ded2;padding:0.45rem 0;display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;}
+.pr-jours{display:flex;flex-wrap:wrap;gap:0.2rem;width:100%;}
+.pr-jour{display:inline-flex;align-items:center;justify-content:center;min-width:2.4rem;padding:0.35rem 0.25rem;border:1px solid #ddd;border-radius:6px;font-size:0.72rem;font-family:'Montserrat',sans-serif;cursor:pointer;color:#888;background:#fff;user-select:none;}
+.pr-jour input{display:none;}
+.pr-jour.on{background:var(--rouge);border-color:var(--rouge);color:#fff;}
+.pr-time{font-size:16px;padding:0.2rem;border:1px solid #ddd;border-radius:5px;width:7rem;}
+.pr-plages{display:flex;flex-wrap:wrap;gap:0.3rem;align-items:center;font-size:0.72rem;font-family:'Montserrat',sans-serif;color:#888;}
+.pr-row{border:1px solid #e5ded2;border-radius:10px;padding:0.5rem;margin-bottom:0.6rem;background:#faf8f4;}
+.pr-row-hd{display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;margin-bottom:0.4rem;font-size:0.75rem;font-family:'Montserrat',sans-serif;}
+.pr-row-hd select{font-size:0.75rem;padding:0.2rem;border:1px solid #ddd;border-radius:5px;background:#fff;}
+.pr-cells{display:flex;flex-wrap:wrap;gap:0.4rem;}
+.pr-cell{flex:1 1 130px;min-width:0;background:#fff;border:1px dashed #d8cfc0;border-radius:8px;padding:0.4rem;}
+.pr-cell-t{font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#aaa;margin-bottom:0.25rem;font-family:'Montserrat',sans-serif;}
+.pr-bloc{border:1px solid #eee;border-radius:6px;padding:0.3rem 0.35rem;margin-bottom:0.3rem;background:#fff;font-size:0.74rem;font-family:'Montserrat',sans-serif;}
+.pr-bloc-hd{display:flex;align-items:center;gap:0.2rem;}
+.pr-bloc-hd b{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:600;}
+.pr-mini{background:#fff;border:1px solid #ddd;border-radius:5px;padding:0.15rem 0.4rem;font-size:0.7rem;cursor:pointer;line-height:1.3;color:#555;}
+.pr-bloc input,.pr-bloc textarea{width:100%;margin-top:0.25rem;font-size:16px;padding:0.3rem;border:1px solid #ddd;border-radius:5px;font-family:'Montserrat',sans-serif;resize:vertical;}
+.pr-add{width:100%;font-size:0.75rem;padding:0.3rem;border:1px dashed #bbb;border-radius:6px;background:#fff;color:#666;}
+.pr-alerte{background:#FEF3C7;color:#92400E;border-radius:8px;padding:0.45rem 0.6rem;font-size:0.72rem;margin-bottom:0.5rem;font-family:'Montserrat',sans-serif;}
+.pr-erreur{color:#B91C1C;font-size:0.72rem;margin-top:0.3rem;font-family:'Montserrat',sans-serif;line-height:1.4;}
 .floating-save{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--rouge);color:#fff;border:none;border-radius:30px;padding:0.85rem 2rem;font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 20px rgba(155,28,28,0.45);z-index:350;display:none;white-space:nowrap;transition:transform 0.2s,box-shadow 0.2s;}
 .floating-save:hover{transform:translateX(-50%) scale(1.04);box-shadow:0 6px 25px rgba(155,28,28,0.55);}
 .floating-save.draft-save{background:#E67E22;box-shadow:0 4px 20px rgba(230,126,34,0.45);}
@@ -735,67 +766,90 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
       <!-- PRINT / PDF -->
       <div class="admin-section" id="as-print">
-        <p style="font-size:0.75rem;color:#888;margin-bottom:0.8rem">Créez une carte élégante à imprimer avec les couleurs et polices du Design. Les réglages de contenu, de mise en page et la photo sont propres à chaque format.</p>
+        <p style="font-size:0.75rem;color:#888;margin-bottom:0.8rem">Créez une carte élégante à imprimer avec les couleurs et polices du Design. Le contenu, la disposition et la photo sont propres à chaque format. L'aperçu se met à jour à chaque modification.</p>
 
-        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:0.6rem;">1. Format</div>
-        <div style="margin-bottom:0.6rem;">
-          <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;"><input type="radio" name="printFmt" value="a4" checked onchange="printChangeFormat()"> <b>A4</b>&nbsp;— carte sur table (plusieurs pages si besoin)</label>
-          <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;"><input type="radio" name="printFmt" value="a5" onchange="printChangeFormat()"> <b>A5</b>&nbsp;— petite carte (plusieurs pages si besoin)</label>
-          <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;"><input type="radio" name="printFmt" value="a1" onchange="printChangeFormat()"> <b>A1</b>&nbsp;— affiche extérieure, tout sur une page</label>
-          <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.45rem;line-height:1.35;"><input type="radio" name="printFmt" value="trifold" onchange="printChangeFormat()"> <b>Flyer dépliant 3 volets</b>&nbsp;— fermé A5, ouvert 444 × 210 mm</label>
+        <div class="pr-wrap">
+          <!-- Aperçu en direct (à droite sur ordinateur, en haut et repliable sur téléphone) -->
+          <div class="pr-prev">
+            <details id="printPrevDetails" open ontoggle="if(this.open)printApercuMaj()">
+              <summary>👁 Aperçu en direct <span id="printPrevEtat" style="font-weight:400;color:#999;"></span></summary>
+              <iframe id="printPrevFrame" title="Aperçu de la carte à imprimer"></iframe>
+            </details>
+          </div>
+
+          <div class="pr-reglages">
+            <div class="admin-label pr-titre">1. Format</div>
+            <div style="margin-bottom:0.6rem;">
+              <label class="pr-opt"><input type="radio" name="printFmt" value="a4" checked onchange="printChangeFormat()"> <b>A4</b>&nbsp;— carte sur table (plusieurs pages si besoin)</label>
+              <label class="pr-opt"><input type="radio" name="printFmt" value="a5" onchange="printChangeFormat()"> <b>A5</b>&nbsp;— petite carte (plusieurs pages si besoin)</label>
+              <label class="pr-opt"><input type="radio" name="printFmt" value="a1" onchange="printChangeFormat()"> <b>A1</b>&nbsp;— affiche extérieure, tout sur une page</label>
+              <label class="pr-opt"><input type="radio" name="printFmt" value="trifold" onchange="printChangeFormat()"> <b>Flyer dépliant 3 volets</b>&nbsp;— fermé A5, ouvert 444 × 210 mm</label>
+            </div>
+
+            <div class="admin-label pr-titre">2. Contenu à afficher <span id="printFmtNom" style="color:#aaa;font-size:0.65rem;"></span></div>
+            <p class="pr-aide">Décochez une catégorie pour la retirer. Touchez son nom pour choisir les plats un par un.</p>
+            <div id="printCatList" style="margin-bottom:0.6rem;"></div>
+            <label class="admin-label">Restaurants affichés sur ce format</label>
+            <div id="printEtabsFmt" style="margin-bottom:0.6rem;"></div>
+
+            <div class="admin-label pr-titre">3. Mise en page</div>
+            <label class="admin-label">Disposition</label>
+            <label class="pr-opt"><input type="radio" name="printMode" value="auto" onchange="printSetMode(this.value)"> <b>Automatique</b> — les catégories s'enchaînent dans l'ordre de la carte</label>
+            <label class="pr-opt"><input type="radio" name="printMode" value="manuel" onchange="printSetMode(this.value)"> <b>Manuelle</b> — vous composez la page rangée par rangée</label>
+            <div id="printOptCols">
+              <label class="admin-label">Colonnes</label>
+              <select class="cat-select" id="printCols" style="margin-bottom:0.6rem;" onchange="printCollectFmt()">
+                <option value="auto" selected>Automatique</option>
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+              </select>
+            </div>
+            <div id="printOptTaille">
+              <label class="admin-label">Taille du texte : <span id="printTailleVal">100 %</span></label>
+              <input type="range" id="printTaille" min="60" max="140" step="5" value="100" style="width:100%;margin-bottom:0.5rem;" oninput="document.getElementById('printTailleVal').textContent=this.value+' %';printCollectFmt()">
+            </div>
+            <label class="pr-opt"><input type="checkbox" id="printDesc" checked onchange="printCollectFmt()"> Afficher les descriptions des plats</label>
+            <label class="pr-opt"><input type="checkbox" id="printBg" checked onchange="printCollectFmt()"> Fond couleur crème (sinon blanc, plus économique en encre)</label>
+            <label id="printOptNewPage" class="pr-opt"><input type="checkbox" id="printNewPage" onchange="printCollectFmt()"> Chaque catégorie commence sur une nouvelle page</label>
+            <label id="printOptInfos" class="pr-opt"><input type="checkbox" id="printInfos" checked onchange="printCollectFmt()"> Afficher les horaires, adresses et QR codes</label>
+            <p id="printAideAuto" class="pr-aide" style="margin:0.3rem 0 0.6rem;">Une catégorie n'est jamais coupée entre deux pages (ni entre deux volets du dépliant) : elle passe entière sur la page suivante.</p>
+            <div id="printLayoutBox"></div>
+
+            <div class="admin-label pr-titre">4. Photo</div>
+            <p id="printPhotoAide" class="pr-aide"></p>
+            <div id="printPhotoBox" style="margin-bottom:0.6rem;"></div>
+
+            <div class="admin-label pr-titre">5. Enseigne et textes <span style="color:#aaa;font-size:0.65rem;">(communs à tous les formats)</span></div>
+            <label class="admin-label">Nom affiché</label>
+            <input class="admin-input" id="print_nom">
+            <label class="admin-label">Accroche sous le nom <span style="font-size:0.65rem;color:#aaa;">(facultatif)</span></label>
+            <input class="admin-input" id="print_slogan" placeholder="ex. Pizzas artisanales au feu de bois">
+            <p class="pr-aide" style="margin-top:0.3rem;">D'autres accroches peuvent être placées n'importe où dans la page : disposition « Manuelle », puis « + Ajouter… » › « Texte libre ».</p>
+            <label class="admin-label">Infos complémentaires <span style="font-size:0.65rem;color:#aaa;">(une par ligne, facultatif)</span></label>
+            <textarea class="admin-input" id="print_infos" rows="2" style="resize:vertical;" placeholder="ex. Terrasse · Parking à 50 m"></textarea>
+            <label class="admin-label">Mention en bas de page</label>
+            <input class="admin-input" id="print_mention">
+
+            <div class="admin-label pr-titre">6. Restaurants, adresses et horaires <span style="color:#aaa;font-size:0.65rem;">(communs à tous les formats)</span></div>
+            <p class="pr-aide">Pour chaque restaurant : une ligne par horaire, en cochant les jours où il s'applique. À l'impression, les jours qui se suivent sont regroupés (« Lundi – Vendredi »). Le choix des restaurants affichés se fait format par format (section 2).</p>
+            <div id="printEtabsEdit"></div>
+
+            <div class="admin-label pr-titre">7. QR codes <span style="color:#aaa;font-size:0.65rem;">(lien vide = pas de QR code)</span></div>
+            <label class="admin-label">Sur place — lien de la carte</label>
+            <input class="admin-input" id="print_qr_surplace" placeholder="https://…">
+            <label class="admin-label">Vente à emporter — lien de commande</label>
+            <input class="admin-input" id="print_qr_emporter" placeholder="https://…">
+            <label class="admin-label">Livraison — lien de commande</label>
+            <input class="admin-input" id="print_qr_livraison" placeholder="https://… (ex. votre page de livraison)">
+
+            <button class="admin-save-btn" style="background:var(--vert);margin:0.8rem 0 0.5rem;" onclick="savePrintSettings()">💾 Enregistrer les réglages</button>
+            <button class="admin-save-btn" onclick="openPrintMenu()">🖨️ Créer la carte à imprimer</button>
+            <p class="pr-aide" style="margin-top:0.6rem;line-height:1.5;">La carte s'ouvre dans un nouvel onglet : cliquez sur « Imprimer / Enregistrer en PDF ». Pour l'A1 et le dépliant (à envoyer à un imprimeur), faites-le depuis un ordinateur avec Chrome ou Edge, choisissez « Enregistrer au format PDF », marges « Aucune » et cochez « Graphiques d'arrière-plan ». Pensez à « Enregistrer les réglages » puis ✅ Publier pour les retrouver la prochaine fois.</p>
+          </div>
         </div>
 
-        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">2. Contenu à afficher <span id="printFmtNom" style="color:#aaa;font-size:0.65rem;"></span></div>
-        <p style="font-size:0.7rem;color:#999;margin-bottom:0.5rem;">Décochez une catégorie pour la retirer. Touchez son nom pour choisir les plats un par un.</p>
-        <div id="printCatList" style="margin-bottom:0.6rem;"></div>
-
-        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">3. Mise en page</div>
-        <div id="printOptCols">
-          <label class="admin-label">Colonnes</label>
-          <select class="cat-select" id="printCols" style="margin-bottom:0.6rem;" onchange="printCollectFmt()">
-            <option value="auto" selected>Automatique</option>
-            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-          </select>
-        </div>
-        <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.4rem;"><input type="checkbox" id="printDesc" checked onchange="printCollectFmt()"> Afficher les descriptions des plats</label>
-        <label style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.4rem;"><input type="checkbox" id="printBg" checked onchange="printCollectFmt()"> Fond couleur crème (sinon blanc, plus économique en encre)</label>
-        <label id="printOptNewPage" style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.4rem;"><input type="checkbox" id="printNewPage" onchange="printCollectFmt()"> Chaque catégorie commence sur une nouvelle page</label>
-        <label id="printOptInfos" style="display:block;font-size:0.78rem;font-family:'Montserrat',sans-serif;margin-bottom:0.4rem;"><input type="checkbox" id="printInfos" checked onchange="printCollectFmt()"> Afficher les horaires, coordonnées et QR codes</label>
-        <p style="font-size:0.7rem;color:#999;margin:0.3rem 0 0.6rem;">Une catégorie n'est jamais coupée entre deux pages (ni entre deux volets du dépliant) : elle passe entière sur la page suivante.</p>
-
-        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">4. Photo de l'encart</div>
-        <p id="printPhotoAide" style="font-size:0.7rem;color:#999;margin-bottom:0.5rem;"></p>
-        <div id="printPhotoBox" style="margin-bottom:0.6rem;"></div>
-
-        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">5. Établissement <span style="color:#aaa;font-size:0.65rem;">(commun à tous les formats)</span></div>
-        <label class="admin-label">Nom affiché</label>
-        <input class="admin-input" id="print_nom">
-        <label class="admin-label">Accroche <span style="font-size:0.65rem;color:#aaa;">(facultatif)</span></label>
-        <input class="admin-input" id="print_slogan" placeholder="ex. Pizzas artisanales au feu de bois">
-        <label class="admin-label">Adresse</label>
-        <input class="admin-input" id="print_adresse" placeholder="ex. 12 rue de la Paix, 06000 Nice">
-        <label class="admin-label">Téléphone</label>
-        <input class="admin-input" id="print_tel" type="tel" placeholder="ex. 04 93 00 00 00">
-        <label class="admin-label">Jours et heures d'ouverture <span style="font-size:0.65rem;color:#aaa;">(laisser vide = jour non affiché)</span></label>
-        <div id="printHoraires" style="margin-bottom:0.6rem;"></div>
-        <label class="admin-label">Infos complémentaires <span style="font-size:0.65rem;color:#aaa;">(une par ligne, facultatif)</span></label>
-        <textarea class="admin-input" id="print_infos" rows="2" style="resize:vertical;" placeholder="ex. Terrasse · Parking à 50 m"></textarea>
-        <label class="admin-label">Mention en bas de page</label>
-        <input class="admin-input" id="print_mention">
-
-        <div class="admin-label" style="font-size:0.8rem;color:#9B1C1C;margin-top:1rem;">6. QR codes <span style="color:#aaa;font-size:0.65rem;">(lien vide = pas de QR code)</span></div>
-        <label class="admin-label">Sur place — lien de la carte</label>
-        <input class="admin-input" id="print_qr_surplace" placeholder="https://…">
-        <label class="admin-label">Vente à emporter — lien de commande</label>
-        <input class="admin-input" id="print_qr_emporter" placeholder="https://…">
-        <label class="admin-label">Livraison — lien de commande</label>
-        <input class="admin-input" id="print_qr_livraison" placeholder="https://… (ex. votre page de livraison)">
-
-        <button class="admin-save-btn" style="background:var(--vert);margin:0.8rem 0 0.5rem;" onclick="savePrintSettings()">💾 Enregistrer les réglages</button>
-        <button class="admin-save-btn" onclick="openPrintMenu()">🖨️ Créer la carte à imprimer</button>
-        <p style="font-size:0.7rem;color:#999;margin-top:0.6rem;line-height:1.5;">Un aperçu s'ouvre dans un nouvel onglet. Cliquez sur « Imprimer / Enregistrer en PDF ». Pour l'A1 et le dépliant (à envoyer à un imprimeur), faites-le depuis un ordinateur avec Chrome ou Edge, choisissez « Enregistrer au format PDF », marges « Aucune » et cochez « Graphiques d'arrière-plan ». Pensez à « Enregistrer les réglages » puis ✅ Publier pour les retrouver la prochaine fois.</p>
-
-        <p style="font-size:0.75rem;color:#888;margin:1.2rem 0 0.6rem;border-top:1px solid #eee;padding-top:1rem;">Générez le PDF du tableau des allergènes (par catégorie), à imprimer et laisser à disposition en restaurant.</p>
+        <p style="font-size:0.75rem;color:#888;margin:1.2rem 0 0.6rem;border-top:1px solid #eee;padding-top:1rem;">Générez le PDF du tableau des allergènes (par catégorie), à imprimer et laisser à disposition en restaurant. Une catégorie se retire du tableau depuis sa fiche (réglage « liste des allergènes »).</p>
+        <label class="pr-opt"><input type="checkbox" id="allergMasquerVides"> Ne pas lister les plats sans allergène (une phrase l'indique en haut du tableau)</label>
+        <p class="pr-aide">Vérifiez avant de cocher que les allergènes de chaque plat sont bien renseignés : un plat jamais renseigné est considéré comme « sans allergène ».</p>
         <button class="admin-save-btn" style="background:var(--vert);" onclick="generateAllergenPDF()">⚠️ Générer le PDF des allergènes</button>
       </div>
 
@@ -3580,8 +3634,36 @@ function showToast(msg){
 }
 
 // Photo upload (sécurisé : passe par le Worker, jamais d'appel direct à Cloudinary depuis le navigateur)
+// Les photos lourdes (photo d'iPhone de plusieurs Mo, format HEIC) sont réduites avant l'envoi : 3000 px au plus
+// sur le grand côté, ce qui reste largement suffisant pour une impression A1. Si l'appareil ne sait pas lire la
+// photo, l'originale est envoyée telle quelle.
+async function reduireImageAvantEnvoi(file){
+  const MAX_PX = 3000, MAX_OCTETS = 2.5 * 1024 * 1024;
+  const type = (file.type || '').toLowerCase();
+  const lourd = file.size > MAX_OCTETS || /heic|heif/.test(type) || /\.(heic|heif)$/i.test(file.name || '');
+  if(!lourd) return file;
+  try {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; });
+    const w0 = img.naturalWidth, h0 = img.naturalHeight;
+    if(!w0 || !h0){ URL.revokeObjectURL(url); return file; }
+    const z = Math.min(1, MAX_PX / Math.max(w0, h0));
+    const c = document.createElement('canvas');
+    c.width = Math.round(w0 * z); c.height = Math.round(h0 * z);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    const png = type === 'image/png'; // garde la transparence d'un logo
+    const blob = await new Promise(r => c.toBlob(r, png ? 'image/png' : 'image/jpeg', 0.88));
+    if(!blob || !blob.size) return file;
+    const nom = (file.name || 'photo').replace(/\.[^.]+$/, '') + (png ? '.png' : '.jpg');
+    return new File([blob], nom, { type: blob.type });
+  } catch(e){
+    return file;
+  }
+}
 async function uploadImageSecure(file){
   const token = localStorage.getItem('milos_token');
+  file = await reduireImageAvantEnvoi(file);
   // Le fichier est lu entièrement en mémoire AVANT l'envoi. Sur iPhone (Safari), une photo choisie dans un
   // champ fichier peut être transmise tronquée pendant l'envoi : le Worker répondait alors « missing initial
   // boundary string (or you have a truncated message) ». Envoyer une copie complète en mémoire évite ce cas.
@@ -3592,14 +3674,27 @@ async function uploadImageSecure(file){
   const copie = new Blob([buf], { type: file.type || 'image/jpeg' });
   const fd = new FormData();
   fd.append('file', copie, file.name || 'photo.jpg');
-  const res = await fetch(`${PROXY_URL}/admin/upload-image`, {
-    method: 'POST',
-    headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-    body: fd
-  });
-  const data = await res.json();
+  let res;
+  try {
+    res = await fetch(`${PROXY_URL}/admin/upload-image`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+      body: fd
+    });
+  } catch(e){
+    throw new Error('connexion impossible au serveur (réseau ?)');
+  }
+  // Réponse lue en texte d'abord : une réponse qui n'est pas du JSON (page d'erreur, fichier trop gros…) donne
+  // alors un message compréhensible au lieu d'une erreur technique.
+  const brut = await res.text().catch(() => '');
+  let data = {};
+  try { data = JSON.parse(brut); } catch(e){ data = {}; }
   if(!res.ok || !data.secure_url){
-    throw new Error(data.error || 'Upload échoué');
+    const taille = Math.round(buf.byteLength / 1024 / 1024 * 10) / 10;
+    let msg = data.error || (brut && brut.length < 160 ? brut : '') || 'envoi refusé';
+    if(res.status === 401 || res.status === 403) msg = 'autorisation refusée (' + msg + ')';
+    if(res.status === 413) msg = 'photo trop lourde pour le serveur (' + taille + ' Mo)';
+    throw new Error(msg + ' — code ' + res.status);
   }
   return data.secure_url;
 }
@@ -4354,9 +4449,16 @@ async function saveVersionToHistory() {
 // CARTE À IMPRIMER (A4 / A5 / A1 / flyer dépliant 3 volets)
 // ═══════════════════════════════════════
 // Ouvre une fenêtre d'aperçu mise en page aux dimensions exactes du format choisi ; on l'imprime ou on
-// l'enregistre en PDF depuis cette fenêtre. Couleurs et polices = celles du Design. Tous les réglages
-// (établissement, horaires, QR codes, et pour chaque format : contenu, mise en page, photo) sont stockés
-// dans design.json sous des clés « print_… » → aucune donnée d'enseigne en dur.
+// l'enregistre en PDF depuis cette fenêtre. Un aperçu en direct (même moteur) est aussi affiché dans le panneau.
+// Couleurs et polices = celles du Design. Tous les réglages (enseigne, restaurants et horaires, QR codes, et pour
+// chaque format : contenu, disposition, photo) sont stockés dans design.json sous des clés « print_… »
+// → aucune donnée d'enseigne en dur.
+//
+// Disposition (par format) :
+//  - « auto »   : les catégories s'enchaînent dans l'ordre de la carte, en colonnes ;
+//  - « manuel » : la page est composée de rangées (1, 2 ou 3 colonnes) ; chaque colonne contient des blocs
+//                 (catégorie, texte libre, infos pratiques, photo). Une rangée n'est jamais coupée : si elle ne
+//                 tient plus, elle passe entière à la page (ou au volet) suivant(e).
 const PRINT_FORMATS = {
   a4:      {label:'A4', page:'A4'},
   a5:      {label:'A5', page:'A5'},
@@ -4364,6 +4466,7 @@ const PRINT_FORMATS = {
   trifold: {label:'Flyer dépliant 3 volets', page:'444mm 210mm'}
 };
 const PRINT_JOURS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const PRINT_JOURS_COURT = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 const PRINT_QR_TYPES = [
   {key:'surplace',  label:'Sur place',  sub:'Voir la carte'},
   {key:'emporter',  label:'À emporter', sub:'Commander'},
@@ -4371,7 +4474,10 @@ const PRINT_QR_TYPES = [
 ];
 let printFmtAffiche = null;   // format dont les réglages sont affichés dans le panneau
 let printPanelPret = false;   // vrai une fois les champs remplis (avant, on ne les relit pas)
+let printPhotoEtat = '';      // message affiché sous la photo (envoi en cours / erreur) — reste visible
+let printEcouteurPose = false;
 
+function printUid(p) { return (p || 'x') + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function printDefaultNom() {
   return (document.title || '').split(' — ')[0].split(' - ')[0].trim();
 }
@@ -4381,12 +4487,24 @@ function printDefaultMention() {
 function printFmt() {
   return (document.querySelector('input[name="printFmt"]:checked') || {}).value || 'a4';
 }
-// Réglages propres à un format (contenu retiré, mise en page, photo de l'encart)
+// Réglages propres à un format (contenu retiré, disposition, photo, restaurants affichés)
 function printCfg(fmt) {
   const cle = 'print_cfg_' + fmt;
-  const base = {exCats:[], exItems:[], cols:'auto', desc:true, bg:true, newPage:false, infos:true, photo:''};
-  currentDesign[cle] = Object.assign(base, currentDesign[cle] || {});
-  return currentDesign[cle];
+  const base = {exCats:[], exItems:[], cols:'auto', desc:true, bg:true, newPage:false, infos:true, photo:'',
+                mode:'auto', rows:[], exEtabs:[], taille:100};
+  // Objet modifié sur place (jamais recréé) : une modification faite juste avant reste visible partout
+  if (!currentDesign[cle] || typeof currentDesign[cle] !== 'object') currentDesign[cle] = {};
+  const c = currentDesign[cle];
+  Object.keys(base).forEach(k => { if (c[k] === undefined) c[k] = base[k]; });
+  if (!Array.isArray(c.rows)) c.rows = [];
+  if (!Array.isArray(c.exEtabs)) c.exEtabs = [];
+  c.rows.forEach(r => {
+    r.cols = [1, 2, 3].includes(r.cols) ? r.cols : 1;
+    if (!Array.isArray(r.cells)) r.cells = [];
+    while (r.cells.length < r.cols) r.cells.push([]);
+    if (!r.id) r.id = printUid('r');
+  });
+  return c;
 }
 
 // Catégories visibles « sur place », dans l'ordre de la carte (mêmes règles que le site)
@@ -4433,6 +4551,155 @@ function printPrix(it) {
     : printNettoie(it.price || '');
 }
 
+// ── Restaurants (adresse, téléphone, horaires) : liste commune à tous les formats ──
+// Une ligne d'horaires = des jours cochés (0 = lundi … 6 = dimanche) + une ou deux plages, ou « Fermé ».
+// Reprise automatique des anciens réglages (une seule adresse, horaires saisis jour par jour).
+function printEtabs() {
+  const d = currentDesign;
+  if (!Array.isArray(d.print_etabs)) {
+    const h = Array.isArray(d.print_horaires) ? d.print_horaires : [];
+    const lignes = [], parCle = {};
+    for (let j = 0; j < 7; j++) {
+      const x = h[j] || {};
+      const cle = x.ferme ? 'F' : [x.m1 || '', x.m2 || '', x.s1 || '', x.s2 || ''].join('|');
+      if (cle === '|||') continue;
+      if (parCle[cle]) { parCle[cle].jours.push(j); continue; }
+      const l = {id:printUid('h'), jours:[j], ferme:!!x.ferme, m1:x.m1 || '', m2:x.m2 || '', s1:x.s1 || '', s2:x.s2 || ''};
+      parCle[cle] = l; lignes.push(l);
+    }
+    d.print_etabs = (d.print_adresse || d.print_tel || lignes.length)
+      ? [{id:printUid('e'), nom:'', adresse:d.print_adresse || '', tel:d.print_tel || '', horaires:lignes}]
+      : [];
+  }
+  d.print_etabs.forEach(e => {
+    if (!e.id) e.id = printUid('e');
+    if (!Array.isArray(e.horaires)) e.horaires = [];
+    e.horaires.forEach(l => { if (!Array.isArray(l.jours)) l.jours = []; });
+  });
+  return d.print_etabs;
+}
+// « 11:30 » → « 11h30 », « 09:00 » → « 9h »
+function printHeure(t) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t || '');
+  if (!m) return '';
+  return parseInt(m[1], 10) + 'h' + (m[2] === '00' ? '' : m[2]);
+}
+// [0,1,2,3,4] → « Lundi – Vendredi » ; [0,2,4] → « Lundi, Mercredi, Vendredi »
+function printJoursTexte(jours) {
+  const js = [...new Set(jours || [])].filter(j => j >= 0 && j < 7).sort((a, b) => a - b);
+  const parts = [];
+  let i = 0;
+  while (i < js.length) {
+    let j = i;
+    while (j + 1 < js.length && js[j + 1] === js[j] + 1) j++;
+    if (j > i) parts.push(PRINT_JOURS[js[i]] + ' – ' + PRINT_JOURS[js[j]]);
+    else parts.push(PRINT_JOURS[js[i]]);
+    i = j + 1;
+  }
+  return parts.join(', ');
+}
+function printLignesEtab(e) {
+  return (e.horaires || []).filter(l => (l.jours || []).length)
+    .slice().sort((a, b) => Math.min(...a.jours) - Math.min(...b.jours))
+    .map(l => {
+      const heures = l.ferme ? 'Fermé' : [[l.m1, l.m2], [l.s1, l.s2]]
+        .map(([a, b]) => (a && b) ? printHeure(a) + ' – ' + printHeure(b) : (a ? 'dès ' + printHeure(a) : ''))
+        .filter(Boolean).join(' · ');
+      return heures ? {jours:printJoursTexte(l.jours), heures} : null;
+    }).filter(Boolean);
+}
+function printNomEtab(e, i) {
+  return (e.nom || '').trim() || (e.adresse || '').trim() || ('Restaurant ' + (i + 1));
+}
+function printEtabsData(cfg) {
+  const ex = new Set(cfg.exEtabs || []);
+  return printEtabs().filter(e => !ex.has(e.id)).map(e => ({
+    nom: printNettoie(e.nom || ''),
+    coord: [e.adresse, e.tel].map(x => String(x || '').trim()).filter(Boolean),
+    horaires: printLignesEtab(e)
+  })).filter(e => e.nom || e.coord.length || e.horaires.length);
+}
+
+// Éditeur des restaurants (section 6)
+function renderPrintEtabsEdit() {
+  const box = document.getElementById('printEtabsEdit');
+  if (!box) return;
+  const etabs = printEtabs();
+  const ti = (ei, hi, k, v) => `<input type="time" class="pr-time" value="${printEsc(v || '')}" onchange="printEtabHoraire(${ei},${hi},'${k}',this.value)">`;
+  box.innerHTML = etabs.map((e, ei) => `<div class="pr-card">
+      <div class="pr-card-hd"><b>${printEsc(printNomEtab(e, ei))}</b>
+        <button type="button" class="aic-btn delete" onclick="printEtabSuppr(${ei})">✕ Retirer</button></div>
+      <label class="admin-label">Nom du restaurant <span style="font-size:0.65rem;color:#aaa;">(facultatif s'il n'y en a qu'un)</span></label>
+      <input class="admin-input" value="${printEsc(e.nom || '')}" oninput="printEtabChamp(${ei},'nom',this.value)" placeholder="ex. Restaurant du port">
+      <label class="admin-label">Adresse</label>
+      <input class="admin-input" value="${printEsc(e.adresse || '')}" oninput="printEtabChamp(${ei},'adresse',this.value)" placeholder="ex. 12 rue de la Paix, 06000 Nice">
+      <label class="admin-label">Téléphone</label>
+      <input class="admin-input" type="tel" value="${printEsc(e.tel || '')}" oninput="printEtabChamp(${ei},'tel',this.value)" placeholder="ex. 04 93 00 00 00">
+      <label class="admin-label">Horaires d'ouverture</label>
+      ${(e.horaires || []).map((l, hi) => `<div class="pr-hor">
+        <div class="pr-jours">${PRINT_JOURS_COURT.map((j, k) => `<label class="pr-jour${l.jours.includes(k) ? ' on' : ''}"><input type="checkbox" ${l.jours.includes(k) ? 'checked' : ''} onchange="printEtabJour(${ei},${hi},${k},this.checked)">${j}</label>`).join('')}</div>
+        <label class="pr-opt" style="margin:0;"><input type="checkbox" ${l.ferme ? 'checked' : ''} onchange="printEtabHoraire(${ei},${hi},'ferme',this.checked)"> Fermé ces jours-là</label>
+        ${l.ferme ? '' : `<div class="pr-plages">${ti(ei, hi, 'm1', l.m1)}–${ti(ei, hi, 'm2', l.m2)}<span>et</span>${ti(ei, hi, 's1', l.s1)}–${ti(ei, hi, 's2', l.s2)}</div>`}
+        <button type="button" class="pr-mini" onclick="printEtabHoraireSuppr(${ei},${hi})" title="Supprimer cette ligne">✕ ligne</button>
+        ${l.jours.length ? '' : '<div class="pr-erreur" style="width:100%;">Cochez au moins un jour, sinon cette ligne n\'est pas imprimée.</div>'}
+      </div>`).join('')}
+      <button type="button" class="aic-btn" style="margin-top:0.3rem;" onclick="printEtabHoraireAjout(${ei})">+ Ajouter une ligne d'horaires</button>
+    </div>`).join('')
+    + `<button type="button" class="aic-btn" onclick="printEtabAjout()">+ Ajouter un restaurant</button>`;
+}
+function printEtabsChange(rerender) {
+  if (rerender) renderPrintEtabsEdit();
+  renderPrintEtabsFmt();
+  printApercuPlanifie();
+}
+function printEtabChamp(ei, k, v) { const e = printEtabs()[ei]; if (!e) return; e[k] = v; printEtabsChange(false); }
+function printEtabJour(ei, hi, j, oui) {
+  const l = ((printEtabs()[ei] || {}).horaires || [])[hi];
+  if (!l) return;
+  l.jours = l.jours.filter(x => x !== j);
+  if (oui) l.jours.push(j);
+  l.jours.sort((a, b) => a - b);
+  printEtabsChange(true);
+}
+function printEtabHoraire(ei, hi, k, v) {
+  const l = ((printEtabs()[ei] || {}).horaires || [])[hi];
+  if (!l) return;
+  l[k] = v;
+  printEtabsChange(k === 'ferme');
+}
+function printEtabHoraireAjout(ei) {
+  const e = printEtabs()[ei]; if (!e) return;
+  e.horaires.push({id:printUid('h'), jours:[], ferme:false, m1:'', m2:'', s1:'', s2:''});
+  printEtabsChange(true);
+}
+function printEtabHoraireSuppr(ei, hi) {
+  const e = printEtabs()[ei]; if (!e) return;
+  e.horaires.splice(hi, 1);
+  printEtabsChange(true);
+}
+function printEtabAjout() {
+  printEtabs().push({id:printUid('e'), nom:'', adresse:'', tel:'', horaires:[]});
+  printEtabsChange(true);
+}
+function printEtabSuppr(ei) {
+  const etabs = printEtabs(), e = etabs[ei];
+  if (!e) return;
+  if (!confirm('Retirer « ' + printNomEtab(e, ei) + ' » et ses horaires de la carte à imprimer ?')) return;
+  etabs.splice(ei, 1);
+  printEtabsChange(true);
+}
+// Restaurants affichés sur le format en cours (section 2)
+function renderPrintEtabsFmt() {
+  const box = document.getElementById('printEtabsFmt');
+  if (!box) return;
+  const cfg = printCfg(printFmtAffiche || printFmt());
+  const ex = new Set(cfg.exEtabs);
+  const etabs = printEtabs();
+  box.innerHTML = etabs.length
+    ? etabs.map((e, i) => `<label class="pr-opt"><input type="checkbox" class="print-etab-cb" value="${printEsc(e.id)}" ${ex.has(e.id) ? '' : 'checked'} onchange="printCollectFmt()"> ${printEsc(printNomEtab(e, i))}</label>`).join('')
+    : '<p class="pr-aide">Aucun restaurant : ajoutez-les en section 6.</p>';
+}
+
 // ── Panneau d'administration ──
 function renderPrintPanel() {
   if (printPanelPret) { printCollectEtab(); if (printFmtAffiche) printCollectFmt(printFmtAffiche); }
@@ -4441,6 +4708,18 @@ function renderPrintPanel() {
   const cfg = printCfg(fmt);
   const nomFmt = document.getElementById('printFmtNom');
   if (nomFmt) nomFmt.textContent = '— ' + PRINT_FORMATS[fmt].label;
+
+  // Mise à jour de l'aperçu à chaque saisie dans le panneau (un seul écouteur pour tous les champs)
+  if (!printEcouteurPose) {
+    const sec = document.getElementById('as-print');
+    if (sec) {
+      ['input', 'change'].forEach(ev => sec.addEventListener(ev, e => {
+        if (e.target && e.target.closest && e.target.closest('#printPrevDetails')) return;
+        printApercuPlanifie();
+      }));
+      printEcouteurPose = true;
+    }
+  }
 
   // Contenu : catégories et plats
   const box = document.getElementById('printCatList');
@@ -4458,7 +4737,7 @@ function renderPrintPanel() {
             <span style="flex:1">${printEsc(printNettoie((it.name && it.name.fr) || ''))}</span><span style="color:#999">${printEsc(printPrix(it))}</span></label>`).join('')
       ).join('');
       return `<div style="display:flex;gap:0.5rem;align-items:flex-start;background:#faf8f4;border-radius:8px;padding:0.45rem 0.6rem;margin-bottom:0.35rem;">
-        <input type="checkbox" class="print-cat-cb" value="${printEsc(c.id)}" ${exC.has(c.id)?'':'checked'} onchange="printCollectFmt()" style="margin-top:0.2rem">
+        <input type="checkbox" class="print-cat-cb" value="${printEsc(c.id)}" ${exC.has(c.id)?'':'checked'} onchange="printCollectFmt();renderPrintLayout()" style="margin-top:0.2rem">
         <details style="flex:1"><summary style="cursor:pointer;font-size:0.8rem;font-family:'Montserrat',sans-serif;font-weight:600;">${printEsc(printNettoie(c.name.fr))}
           <span id="prcn_${printEsc(c.id)}" style="font-weight:400;color:#999;font-size:0.7rem;">${nOn}/${tous.length} plats</span></summary>
           <div style="padding:0.3rem 0 0.2rem;">${liste}
@@ -4469,47 +4748,65 @@ function renderPrintPanel() {
     }).join('') || '<p style="font-size:0.75rem;color:#aaa">Aucune catégorie</p>';
   }
 
-  // Mise en page
-  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-  const setC = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
-  setV('printCols', cfg.cols); setC('printDesc', cfg.desc); setC('printBg', cfg.bg);
-  setC('printNewPage', cfg.newPage); setC('printInfos', cfg.infos);
-  const montrer = (id, oui) => { const el = document.getElementById(id); if (el) el.style.display = oui ? '' : 'none'; };
-  montrer('printOptCols', fmt !== 'trifold');
-  montrer('printOptNewPage', fmt === 'a4' || fmt === 'a5');
-  montrer('printOptInfos', fmt !== 'trifold');
-
-  // Photo de l'encart
-  const aide = document.getElementById('printPhotoAide');
-  if (aide) aide.textContent = ({
-    a1:'Grande photo sous le titre de l\'affiche.',
-    trifold:'Photo sur la couverture du flyer.',
-    a4:'Bandeau photo en haut de la première page.',
-    a5:'Bandeau photo en haut de la première page.'
-  })[fmt];
-  renderPrintPhoto();
-
   // Établissement (commun) : rempli une seule fois, ensuite on garde ce qui est tapé
   if (!printPanelPret) {
     const d = currentDesign || {};
-    setV('print_nom', d.print_nom != null ? d.print_nom : printDefaultNom());
-    setV('print_slogan', d.print_slogan || '');
-    setV('print_adresse', d.print_adresse || '');
-    setV('print_tel', d.print_tel || '');
-    setV('print_infos', d.print_infos || '');
-    setV('print_mention', d.print_mention != null ? d.print_mention : printDefaultMention());
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    setVal('print_nom', d.print_nom != null ? d.print_nom : printDefaultNom());
+    setVal('print_slogan', d.print_slogan || '');
+    setVal('print_infos', d.print_infos || '');
+    setVal('print_mention', d.print_mention != null ? d.print_mention : printDefaultMention());
     const base = location.origin && location.origin !== 'null' ? location.origin : '';
-    setV('print_qr_surplace', d.print_qr_surplace != null ? d.print_qr_surplace : (base ? base + '/' : ''));
-    setV('print_qr_emporter', d.print_qr_emporter != null ? d.print_qr_emporter : (base ? base + '/emporter.html' : ''));
-    setV('print_qr_livraison', d.print_qr_livraison || '');
-    renderPrintHoraires(d.print_horaires);
+    setVal('print_qr_surplace', d.print_qr_surplace != null ? d.print_qr_surplace : (base ? base + '/' : ''));
+    setVal('print_qr_emporter', d.print_qr_emporter != null ? d.print_qr_emporter : (base ? base + '/emporter.html' : ''));
+    setVal('print_qr_livraison', d.print_qr_livraison || '');
+    renderPrintEtabsEdit();
     printPanelPret = true;
   }
+  renderPrintEtabsFmt();
+  renderPrintMiseEnPage();
+  renderPrintPhoto();
+  printApercuPlanifie();
+}
+
+// Options de mise en page du format affiché (visibles ou non selon le format et la disposition)
+function renderPrintMiseEnPage() {
+  const fmt = printFmtAffiche || printFmt();
+  const cfg = printCfg(fmt);
+  const manuel = cfg.mode === 'manuel';
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  const setC = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+  document.querySelectorAll('input[name="printMode"]').forEach(r => { r.checked = (r.value === (manuel ? 'manuel' : 'auto')); });
+  setV('printCols', cfg.cols); setC('printDesc', cfg.desc); setC('printBg', cfg.bg);
+  setC('printNewPage', cfg.newPage); setC('printInfos', cfg.infos);
+  setV('printTaille', cfg.taille || 100);
+  const tv = document.getElementById('printTailleVal'); if (tv) tv.textContent = (cfg.taille || 100) + ' %';
+  const montrer = (id, oui) => { const el = document.getElementById(id); if (el) el.style.display = oui ? '' : 'none'; };
+  montrer('printOptCols', !manuel && fmt !== 'trifold');
+  montrer('printOptNewPage', !manuel && (fmt === 'a4' || fmt === 'a5'));
+  montrer('printOptInfos', !manuel && fmt !== 'trifold');
+  montrer('printAideAuto', !manuel);
+  montrer('printOptTaille', fmt === 'a4' || fmt === 'a5');
+  const aide = document.getElementById('printPhotoAide');
+  if (aide) aide.textContent = fmt === 'trifold'
+    ? 'Photo de la couverture du flyer (et du bloc « Photo » si vous en placez un en disposition manuelle).'
+    : (manuel ? 'Photo utilisée par le bloc « Photo » : placez-le où vous voulez dans une rangée.'
+              : ({a1:'Grande photo sous le titre de l\'affiche.', a4:'Bandeau photo en haut de la première page.', a5:'Bandeau photo en haut de la première page.'})[fmt]);
+  renderPrintLayout();
 }
 
 function printChangeFormat() {
   if (printFmtAffiche) printCollectFmt(printFmtAffiche);
   renderPrintPanel();
+}
+function printSetMode(mode) {
+  const fmt = printFmtAffiche || printFmt();
+  printCollectFmt(fmt);
+  const cfg = printCfg(fmt);
+  cfg.mode = mode === 'manuel' ? 'manuel' : 'auto';
+  if (cfg.mode === 'manuel' && !cfg.rows.length) cfg.rows = printRangeesDepuisAuto(fmt);
+  renderPrintMiseEnPage();
+  printApercuPlanifie();
 }
 
 // Relit les cases et options du panneau dans les réglages du format affiché
@@ -4532,20 +4829,223 @@ function printCollectFmt(fmt) {
       el.textContent = cbs.filter(cb => cb.checked).length + '/' + cbs.length + ' plats';
     });
   }
+  const etabBoxes = [...document.querySelectorAll('.print-etab-cb')];
+  if (etabBoxes.length) cfg.exEtabs = etabBoxes.filter(cb => !cb.checked).map(cb => cb.value);
   const g = id => document.getElementById(id);
   if (g('printCols')) cfg.cols = g('printCols').value;
   if (g('printDesc')) cfg.desc = g('printDesc').checked;
   if (g('printBg')) cfg.bg = g('printBg').checked;
   if (g('printNewPage')) cfg.newPage = g('printNewPage').checked;
   if (g('printInfos')) cfg.infos = g('printInfos').checked;
+  if (g('printTaille')) cfg.taille = parseInt(g('printTaille').value, 10) || 100;
   return cfg;
 }
 
 function printToutCocher(catId, oui) {
   document.querySelectorAll('.print-it-cb').forEach(cb => { if (cb.dataset.cat === catId) cb.checked = oui; });
   printCollectFmt();
+  printApercuPlanifie();
 }
 
+// ── Disposition manuelle : éditeur des rangées ──
+function printNomCat(id) {
+  const c = cats.find(x => x.id === id);
+  return c ? printNettoie(c.name.fr) : '(catégorie supprimée)';
+}
+function printLibelleBloc(b) {
+  if (b.t === 'cat') return '🍽 ' + printNomCat(b.id);
+  if (b.t === 'texte') return '✏️ Texte libre';
+  if (b.t === 'infos') return 'ℹ️ Adresses, horaires et QR codes';
+  if (b.t === 'photo') return '📷 Photo';
+  return '?';
+}
+// Point de départ : la disposition automatique, transformée en rangées modifiables
+function printRangeesDepuisAuto(fmt) {
+  const cfg = printCfg(fmt);
+  const exC = new Set(cfg.exCats);
+  const lst = printCats().filter(c => !exC.has(c.id) && printPlatsDeCat(c).some(g => g.items.length));
+  let n = fmt === 'trifold' ? 1 : (cfg.cols !== 'auto' ? parseInt(cfg.cols, 10) : ({a4:2, a5:1, a1:3})[fmt] || 2);
+  n = Math.max(1, Math.min(3, n || 1));
+  const rows = [];
+  if (cfg.photo && fmt !== 'trifold') rows.push({id:printUid('r'), cols:1, large:true, pageBreak:false, cells:[[{t:'photo'}]]});
+  for (let i = 0; i < lst.length; i += n) {
+    const cells = [];
+    for (let k = 0; k < n; k++) cells.push(lst[i + k] ? [{t:'cat', id:lst[i + k].id}] : []);
+    rows.push({id:printUid('r'), cols:n, large:n > 1 || fmt === 'trifold', pageBreak:false, cells});
+  }
+  if (fmt !== 'trifold' && cfg.infos) rows.push({id:printUid('r'), cols:1, large:false, pageBreak:false, cells:[[{t:'infos'}]]});
+  return rows;
+}
+function printRowsCfg() { return printCfg(printFmtAffiche || printFmt()).rows; }
+function printLayoutChange() { renderPrintLayout(); printApercuPlanifie(); }
+
+function renderPrintLayout() {
+  const box = document.getElementById('printLayoutBox');
+  if (!box) return;
+  const fmt = printFmtAffiche || printFmt();
+  const cfg = printCfg(fmt);
+  if (cfg.mode !== 'manuel') { box.innerHTML = ''; return; }
+  const exC = new Set(cfg.exCats);
+  const catsDispo = printCats().filter(c => printPlatsDeCat(c).some(g => g.items.length));
+  const placees = new Set();
+  cfg.rows.forEach(r => r.cells.forEach(cell => cell.forEach(b => { if (b.t === 'cat') placees.add(b.id); })));
+  const nonPlacees = catsDispo.filter(c => !placees.has(c.id) && !exC.has(c.id));
+  const unite = fmt === 'trifold' ? 'volet' : 'page';
+  const nbRows = cfg.rows.length;
+
+  const optionsAjout = (ri, ci) => {
+    const libre = catsDispo.filter(c => !placees.has(c.id));
+    const deja = catsDispo.filter(c => placees.has(c.id));
+    return `<select class="pr-add" onchange="printBlocAjout(${ri},${ci},this.value);this.value=''">
+      <option value="">+ Ajouter…</option>
+      ${libre.length ? `<optgroup label="Catégories pas encore placées">${libre.map(c => `<option value="cat:${printEsc(c.id)}">${printEsc(printNettoie(c.name.fr))}${exC.has(c.id) ? ' (décochée)' : ''}</option>`).join('')}</optgroup>` : ''}
+      ${deja.length ? `<optgroup label="Déplacer ici une catégorie déjà placée">${deja.map(c => `<option value="cat:${printEsc(c.id)}">${printEsc(printNettoie(c.name.fr))}</option>`).join('')}</optgroup>` : ''}
+      <optgroup label="Autres blocs">
+        <option value="texte">✏️ Texte libre (accroche, titre ou petit paragraphe)</option>
+        <option value="infos">ℹ️ Adresses, horaires et QR codes</option>
+        <option value="photo">📷 Photo</option>
+      </optgroup></select>`;
+  };
+  const blocHtml = (b, ri, ci, bi, nCell, nCols) => {
+    const arg = `${ri},${ci},${bi}`;
+    let corps = '';
+    if (b.t === 'texte') {
+      corps = `<input value="${printEsc(b.titre || '')}" placeholder="Titre ou accroche (facultatif)" oninput="printBlocTexte(${arg},'titre',this.value)">
+        <textarea rows="2" placeholder="Petit paragraphe (facultatif)" oninput="printBlocTexte(${arg},'texte',this.value)">${printEsc(b.texte || '')}</textarea>`;
+    }
+    if (b.t === 'cat' && exC.has(b.id)) corps = '<div class="pr-erreur">Décochée en section 2 : pas imprimée.</div>';
+    if (b.t === 'photo' && !cfg.photo) corps = '<div class="pr-erreur">Aucune photo choisie (section 4).</div>';
+    const peutMonter = bi > 0 || ri > 0;
+    const peutDescendre = bi < nCell - 1 || ri < nbRows - 1;
+    return `<div class="pr-bloc"><div class="pr-bloc-hd"><b>${printEsc(printLibelleBloc(b))}</b>
+        ${nCols > 1 && ci > 0 ? `<button type="button" class="pr-mini" title="Colonne de gauche" onclick="printBlocBouge(${arg},'g')">◀</button>` : ''}
+        ${nCols > 1 && ci < nCols - 1 ? `<button type="button" class="pr-mini" title="Colonne de droite" onclick="printBlocBouge(${arg},'d')">▶</button>` : ''}
+        ${peutMonter ? `<button type="button" class="pr-mini" title="Monter" onclick="printBlocBouge(${arg},'h')">▲</button>` : ''}
+        ${peutDescendre ? `<button type="button" class="pr-mini" title="Descendre" onclick="printBlocBouge(${arg},'b')">▼</button>` : ''}
+        <button type="button" class="pr-mini" title="Retirer" onclick="printBlocSuppr(${arg})">✕</button></div>${corps}</div>`;
+  };
+
+  let h = `<p class="pr-aide">La carte se construit rangée par rangée, de haut en bas. Chaque rangée a 1, 2 ou 3 colonnes. Une rangée n'est jamais coupée : si elle ne tient plus, elle passe entière ${fmt === 'trifold' ? 'au volet suivant (lecture : volet 1 → 2 → 3 → rabat)' : 'à la page suivante'}.${fmt === 'a1' || fmt === 'trifold' ? ' La taille du texte s\'ajuste toute seule pour que tout tienne.' : ''}</p>`;
+  if (nonPlacees.length) h += `<div class="pr-alerte">Pas encore placées, donc pas imprimées : ${nonPlacees.map(c => printEsc(printNettoie(c.name.fr))).join(', ')}</div>`;
+  h += cfg.rows.map((r, ri) => {
+    const nCols = r.cols;
+    return `<div class="pr-row">
+      <div class="pr-row-hd"><b>Rangée ${ri + 1}</b>
+        <select onchange="printRowSet(${ri},'cols',parseInt(this.value,10))">${[1, 2, 3].map(n => `<option value="${n}" ${n === nCols ? 'selected' : ''}>${n} colonne${n > 1 ? 's' : ''}</option>`).join('')}</select>
+        ${nCols === 1 ? `<select onchange="printRowSet(${ri},'large',this.value==='1')"><option value="0" ${r.large ? '' : 'selected'}>Centrée</option><option value="1" ${r.large ? 'selected' : ''}>Pleine largeur</option></select>` : ''}
+        <span style="flex:1"></span>
+        ${ri > 0 ? `<button type="button" class="pr-mini" title="Monter la rangée" onclick="printRowBouge(${ri},-1)">▲</button>` : ''}
+        ${ri < nbRows - 1 ? `<button type="button" class="pr-mini" title="Descendre la rangée" onclick="printRowBouge(${ri},1)">▼</button>` : ''}
+        <button type="button" class="pr-mini" title="Supprimer la rangée" onclick="printRowSuppr(${ri})">✕</button>
+      </div>
+      ${ri > 0 ? `<label class="pr-opt" style="font-size:0.72rem;"><input type="checkbox" ${r.pageBreak ? 'checked' : ''} onchange="printRowSet(${ri},'pageBreak',this.checked)"> Commencer ${fmt === 'trifold' ? 'un nouveau volet' : 'une nouvelle page'}</label>` : ''}
+      <div class="pr-cells">${r.cells.slice(0, nCols).map((cell, ci) => `<div class="pr-cell">
+        ${nCols > 1 ? `<div class="pr-cell-t">Colonne ${ci + 1}</div>` : ''}
+        ${cell.map((b, bi) => blocHtml(b, ri, ci, bi, cell.length, nCols)).join('')}
+        ${optionsAjout(ri, ci)}</div>`).join('')}</div>
+    </div>`;
+  }).join('');
+  h += `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.3rem 0 0.8rem;">
+      <button type="button" class="aic-btn" onclick="printRowAjout(1)">+ Rangée 1 colonne</button>
+      <button type="button" class="aic-btn" onclick="printRowAjout(2)">+ Rangée 2 colonnes</button>
+      <button type="button" class="aic-btn" onclick="printRowAjout(3)">+ Rangée 3 colonnes</button>
+      <button type="button" class="aic-btn" onclick="printRangeesReinit()">↺ Repartir de la disposition automatique</button>
+    </div>`;
+  box.innerHTML = h;
+}
+function printRowAjout(n) {
+  const cells = []; for (let k = 0; k < n; k++) cells.push([]);
+  printRowsCfg().push({id:printUid('r'), cols:n, large:n > 1, pageBreak:false, cells});
+  printLayoutChange();
+}
+function printRowSuppr(ri) {
+  const rows = printRowsCfg(), r = rows[ri];
+  if (!r) return;
+  const n = r.cells.reduce((s, c) => s + c.length, 0);
+  if (n && !confirm('Supprimer la rangée ' + (ri + 1) + ' et ses ' + n + ' bloc(s) ? Les catégories retirées pourront être replacées ailleurs.')) return;
+  rows.splice(ri, 1);
+  printLayoutChange();
+}
+function printRowBouge(ri, sens) {
+  const rows = printRowsCfg(), j = ri + sens;
+  if (j < 0 || j >= rows.length) return;
+  [rows[ri], rows[j]] = [rows[j], rows[ri]];
+  printLayoutChange();
+}
+function printRowSet(ri, k, v) {
+  const r = printRowsCfg()[ri];
+  if (!r) return;
+  if (k === 'cols') {
+    v = Math.max(1, Math.min(3, v || 1));
+    while (r.cells.length < v) r.cells.push([]);
+    // Colonnes retirées : leurs blocs rejoignent la dernière colonne gardée (rien n'est perdu)
+    if (r.cells.length > v) {
+      const surplus = r.cells.splice(v).flat();
+      r.cells[v - 1] = r.cells[v - 1].concat(surplus);
+    }
+  }
+  r[k] = v;
+  printLayoutChange();
+}
+function printRangeesReinit() {
+  const fmt = printFmtAffiche || printFmt();
+  const cfg = printCfg(fmt);
+  if (cfg.rows.length && !confirm('Remplacer la disposition actuelle par la disposition automatique ? Les textes libres seront perdus.')) return;
+  cfg.rows = printRangeesDepuisAuto(fmt);
+  printLayoutChange();
+}
+function printBlocAjout(ri, ci, val) {
+  if (!val) return;
+  const rows = printRowsCfg(), r = rows[ri];
+  if (!r || !r.cells[ci]) return;
+  let b;
+  if (val.indexOf('cat:') === 0) {
+    const id = val.slice(4);
+    // Une catégorie n'apparaît qu'une fois : si elle est déjà placée, elle est déplacée ici
+    rows.forEach(rr => rr.cells.forEach((cell, k) => { rr.cells[k] = cell.filter(x => !(x.t === 'cat' && x.id === id)); }));
+    b = {t:'cat', id};
+  } else if (val === 'texte') b = {t:'texte', titre:'', texte:''};
+  else if (val === 'infos') b = {t:'infos'};
+  else if (val === 'photo') b = {t:'photo'};
+  if (!b) return;
+  r.cells[ci].push(b);
+  printLayoutChange();
+}
+function printBlocSuppr(ri, ci, bi) {
+  const r = printRowsCfg()[ri];
+  if (!r || !r.cells[ci]) return;
+  r.cells[ci].splice(bi, 1);
+  printLayoutChange();
+}
+// Déplacement d'un bloc : ◀ ▶ = colonne voisine ; ▲ ▼ = dans la colonne, puis rangée précédente/suivante
+function printBlocBouge(ri, ci, bi, sens) {
+  const rows = printRowsCfg(), r = rows[ri];
+  if (!r || !r.cells[ci]) return;
+  const cell = r.cells[ci];
+  const b = cell[bi];
+  if (!b) return;
+  if (sens === 'g' || sens === 'd') {
+    const cj = ci + (sens === 'g' ? -1 : 1);
+    if (cj < 0 || cj >= r.cols) return;
+    cell.splice(bi, 1); r.cells[cj].push(b);
+  } else if (sens === 'h') {
+    if (bi > 0) { [cell[bi - 1], cell[bi]] = [cell[bi], cell[bi - 1]]; }
+    else if (ri > 0) { const p = rows[ri - 1]; cell.splice(bi, 1); p.cells[Math.min(ci, p.cols - 1)].push(b); }
+  } else if (sens === 'b') {
+    if (bi < cell.length - 1) { [cell[bi + 1], cell[bi]] = [cell[bi], cell[bi + 1]]; }
+    else if (ri < rows.length - 1) { const n = rows[ri + 1]; cell.splice(bi, 1); n.cells[Math.min(ci, n.cols - 1)].unshift(b); }
+  }
+  printLayoutChange();
+}
+function printBlocTexte(ri, ci, bi, k, v) {
+  const r = printRowsCfg()[ri];
+  const b = r && r.cells[ci] && r.cells[ci][bi];
+  if (!b) return;
+  b[k] = v;
+  printApercuPlanifie();
+}
+
+// ── Photo ──
 function renderPrintPhoto() {
   const box = document.getElementById('printPhotoBox');
   if (!box) return;
@@ -4555,7 +5055,7 @@ function renderPrintPhoto() {
       <span style="flex:1;font-size:0.74rem;color:#888;">${cfg.photo ? 'Photo choisie' : 'Aucune photo'}</span>
       ${cfg.photo ? `<img src="${printEsc(cld(cfg.photo, 200))}" style="width:70px;height:46px;object-fit:cover;border-radius:4px;">
       <button type="button" class="aic-btn delete" onclick="printRetirerPhoto()">✕</button>` : ''}
-    </div>`;
+    </div>${printPhotoEtat ? `<div class="pr-erreur" style="${printPhotoEtat.indexOf('❌') === 0 ? '' : 'color:#888;'}">${printEsc(printPhotoEtat)}</div>` : ''}`;
 }
 function printChoisirPhoto() {
   const fmt = printFmtAffiche || printFmt();
@@ -4567,14 +5067,19 @@ function printChoisirPhoto() {
   input.onchange = async e => {
     const file = e.target.files[0];
     if (!file) { input.remove(); return; }
-    showToast('📷 Envoi de la photo...');
+    printPhotoEtat = '⏳ Envoi de la photo…'; renderPrintPhoto();
     try {
       const url = await uploadImageSecure(file);
       printCfg(fmt).photo = url;
+      printPhotoEtat = '';
       renderPrintPhoto();
+      renderPrintLayout();
+      printApercuPlanifie();
       showToast('📷 Photo ajoutée — pensez à « Enregistrer les réglages »');
     } catch (err) {
-      showToast('❌ Photo non envoyée : ' + ((err && err.message) || 'erreur') + ' (reconnectez-vous si besoin)');
+      // Le message reste affiché sous la photo (un toast disparaît trop vite pour être lu)
+      printPhotoEtat = '❌ Photo non envoyée : ' + ((err && err.message) || 'erreur inconnue') + '. Si le message parle d\'autorisation, reconnectez-vous à l\'administration.';
+      renderPrintPhoto();
     } finally {
       input.remove();
     }
@@ -4583,58 +5088,10 @@ function printChoisirPhoto() {
 }
 function printRetirerPhoto() {
   printCfg(printFmtAffiche || printFmt()).photo = '';
+  printPhotoEtat = '';
   renderPrintPhoto();
-}
-
-// ── Horaires : 7 jours, midi et soir ──
-function renderPrintHoraires(h) {
-  const box = document.getElementById('printHoraires');
-  if (!box) return;
-  const vals = Array.isArray(h) ? h : [];
-  const ti = (id, v) => `<input type="time" id="${id}" value="${printEsc(v || '')}" style="font-size:0.75rem;padding:0.2rem;border:1px solid #ddd;border-radius:5px;width:6.2rem;">`;
-  box.innerHTML = PRINT_JOURS.map((j, i) => {
-    const d = vals[i] || {};
-    return `<div style="display:flex;flex-wrap:wrap;gap:0.3rem 0.5rem;align-items:center;padding:0.35rem 0;border-bottom:1px solid #f0ece4;font-size:0.74rem;font-family:'Montserrat',sans-serif;">
-      <b style="width:5.2rem">${j}</b>
-      <label style="display:flex;gap:0.25rem;align-items:center;"><input type="checkbox" id="prh_f_${i}" ${d.ferme?'checked':''}> Fermé</label>
-      <span style="display:flex;gap:0.25rem;align-items:center;">Midi ${ti('prh_m1_'+i, d.m1)}–${ti('prh_m2_'+i, d.m2)}</span>
-      <span style="display:flex;gap:0.25rem;align-items:center;">Soir ${ti('prh_s1_'+i, d.s1)}–${ti('prh_s2_'+i, d.s2)}</span>
-    </div>`;
-  }).join('');
-}
-function printLireHoraires() {
-  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
-  if (!document.getElementById('prh_f_0')) return (currentDesign && currentDesign.print_horaires) || [];
-  return PRINT_JOURS.map((j, i) => ({
-    ferme: !!(document.getElementById('prh_f_' + i) || {}).checked,
-    m1: v('prh_m1_' + i), m2: v('prh_m2_' + i), s1: v('prh_s1_' + i), s2: v('prh_s2_' + i)
-  }));
-}
-// « 11:30 » → « 11h30 », « 09:00 » → « 9h »
-function printHeure(t) {
-  const m = /^(\d{1,2}):(\d{2})/.exec(t || '');
-  if (!m) return '';
-  return parseInt(m[1], 10) + 'h' + (m[2] === '00' ? '' : m[2]);
-}
-// Lignes à imprimer, en regroupant les jours qui se suivent avec les mêmes horaires (« Lundi – Vendredi : … »)
-function printLignesHoraires(h) {
-  const txt = (h || []).map(d => {
-    if (!d) return '';
-    if (d.ferme) return 'Fermé';
-    const plages = [[d.m1, d.m2], [d.s1, d.s2]]
-      .map(([a, b]) => (a && b) ? printHeure(a) + ' – ' + printHeure(b) : (a ? 'dès ' + printHeure(a) : ''))
-      .filter(Boolean);
-    return plages.join(' · ');
-  });
-  const lignes = [];
-  let i = 0;
-  while (i < 7) {
-    let j = i;
-    while (j + 1 < 7 && txt[j + 1] === txt[i]) j++;
-    if (txt[i]) lignes.push({jours: i === j ? PRINT_JOURS[i] : PRINT_JOURS[i] + ' – ' + PRINT_JOURS[j], heures: txt[i]});
-    i = j + 1;
-  }
-  return lignes;
+  renderPrintLayout();
+  printApercuPlanifie();
 }
 
 function printCollectEtab() {
@@ -4642,14 +5099,12 @@ function printCollectEtab() {
   if (!printPanelPret) return;
   currentDesign.print_nom = g('print_nom');
   currentDesign.print_slogan = g('print_slogan');
-  currentDesign.print_adresse = g('print_adresse');
-  currentDesign.print_tel = g('print_tel');
   currentDesign.print_infos = g('print_infos');
   currentDesign.print_mention = g('print_mention');
   currentDesign.print_qr_surplace = g('print_qr_surplace');
   currentDesign.print_qr_emporter = g('print_qr_emporter');
   currentDesign.print_qr_livraison = g('print_qr_livraison');
-  currentDesign.print_horaires = printLireHoraires();
+  printEtabs(); // restaurants : modifiés directement dans currentDesign.print_etabs
 }
 
 async function savePrintSettings() {
@@ -4663,6 +5118,7 @@ async function savePrintSettings() {
 function printSections(cfg) {
   const exC = new Set(cfg.exCats || []), exI = new Set(cfg.exItems || []);
   return printCats().filter(c => !exC.has(c.id)).map(c => ({
+    id: c.id,
     title: printNettoie(c.name.fr),
     subtitle: c.subtitle ? printNettoie(c.subtitle.fr) : '',
     groups: printPlatsDeCat(c).map(g => ({
@@ -4675,67 +5131,138 @@ function printSections(cfg) {
     })).filter(g => g.items.length)
   })).filter(s => s.groups.length);
 }
+// Rangées prêtes pour le moteur : blocs vides ou non imprimables retirés, rangées vides retirées
+function printRangeesData(cfg, sections) {
+  const parId = {};
+  sections.forEach(s => { parId[s.id] = s; });
+  return cfg.rows.map((r, ri) => {
+    const cells = r.cells.slice(0, r.cols).map(cell => cell.map(b => {
+      if (b.t === 'cat') return parId[b.id] ? {t:'cat', sec:parId[b.id]} : null;
+      if (b.t === 'texte') { const ti = String(b.titre || '').trim(), tx = String(b.texte || '').trim(); return (ti || tx) ? {t:'texte', titre:ti, texte:tx} : null; }
+      if (b.t === 'infos') return {t:'infos'};
+      if (b.t === 'photo') return cfg.photo ? {t:'photo'} : null;
+      return null;
+    }).filter(Boolean));
+    return {num:ri + 1, cols:r.cols, large:!!r.large, pageBreak:!!r.pageBreak, cells};
+  }).filter(r => r.cells.some(c => c.length));
+}
 
-function openPrintMenu() {
-  if (!printPanelPret) renderPrintPanel();
-  printCollectEtab();
-  const fmt = printFmt();
-  const cfg = printCollectFmt(fmt);
+// Données transmises au moteur de mise en page (fenêtre d'impression ou aperçu)
+function printConstruireDonnees(fmt) {
+  const cfg = printCfg(fmt);
   const sections = printSections(cfg);
-  if (!sections.length) { showToast('❌ Aucune catégorie (ou aucun plat) à imprimer'); return; }
-
-  // La fenêtre s'ouvre tout de suite (sinon le navigateur la bloque), puis on la remplit.
-  const win = window.open('', '_blank');
-  if (!win) { showToast('❌ Fenêtre bloquée — autorisez les fenêtres pop-up pour ce site'); return; }
-  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Préparation…</title></head><body style="font-family:sans-serif;padding:2rem;color:#555">Préparation de la carte…</body></html>');
-
+  const manuel = cfg.mode === 'manuel';
+  const rows = manuel ? printRangeesData(cfg, sections) : [];
+  if (manuel ? !rows.length : !sections.length) {
+    return {erreur: manuel ? 'Disposition manuelle : aucune rangée avec du contenu. Ajoutez des rangées dans « 3. Mise en page ».'
+                           : 'Aucune catégorie (ou aucun plat) à imprimer.'};
+  }
   const d = currentDesign || DESIGN_DEFAULTS;
   const logoEl = document.getElementById('logoTap');
   const lignes = s => String(s || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   const qrs = PRINT_QR_TYPES.map(q => ({label:q.label, sub:q.sub, url:(d['print_qr_' + q.key] || '').trim(), img:''})).filter(q => q.url);
+  const infos = fmt === 'trifold' ? true : (manuel ? rows.some(r => r.cells.some(c => c.some(b => b.t === 'infos'))) : cfg.infos);
   const data = {
-    fmt, cols: cfg.cols, fond: cfg.bg, newPage: cfg.newPage, infos: fmt === 'trifold' ? true : cfg.infos,
+    fmt, mode: manuel ? 'manuel' : 'auto', rows,
+    cols: cfg.cols, fond: cfg.bg, newPage: cfg.newPage, infos,
+    taille: Math.max(50, Math.min(150, parseInt(cfg.taille, 10) || 100)) / 100,
     photo: cfg.photo || '',
     colors: {rouge:d.rouge, creme:d.creme, texte:d.texte, brun:d.brun, vert:d.vert},
     fontTitle: d.font_title || DESIGN_DEFAULTS.font_title,
     fontItems: d.font_items || DESIGN_DEFAULTS.font_items,
-    nom: d.print_nom || '', slogan: d.print_slogan || '', adresse: d.print_adresse || '', tel: d.print_tel || '',
-    horaires: printLignesHoraires(d.print_horaires), infosPlus: lignes(d.print_infos), mention: d.print_mention || '',
+    nom: d.print_nom || '', slogan: d.print_slogan || '',
+    etabs: printEtabsData(cfg), infosPlus: lignes(d.print_infos), mention: d.print_mention || '',
     logo: (logoEl && logoEl.getAttribute('src')) || '',
     qrs, sections,
     // Polices du site : chargées par l'aperçu lui-même (voir printEngine), pour ne jamais bloquer la page si Google Fonts tarde
     fontHrefs: [...document.querySelectorAll('link[href*="fonts.googleapis"]')].map(l => l.href)
   };
-
-  const ecrire = () => {
-    const json = JSON.stringify(data).replace(/</g, '\\u003c');
-    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
-      + '<meta name="viewport" content="width=device-width,initial-scale=1">'
-      + '<title>' + PRINT_FORMATS[fmt].label + ' — Carte à imprimer</title>'
-      + '<style>@page{size:' + PRINT_FORMATS[fmt].page + ';margin:0}</style>'
-      + '</head><body><script>window.PRINT_DATA=' + json + ';(' + printEngine.toString() + ')();<' + '/script></body></html>';
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-  };
-
-  // QR codes (si la librairie QR se charge en moins de 4 s ; sinon la carte sort sans QR code)
-  if (!qrs.length || !data.infos) { ecrire(); return; }
+  return {data, needQr: qrs.length > 0 && infos};
+}
+function printPageHtml(data) {
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<title>' + PRINT_FORMATS[data.fmt].label + ' — Carte à imprimer</title>'
+    + '<style>@page{size:' + PRINT_FORMATS[data.fmt].page + ';margin:0}</style>'
+    + '</head><body><script>window.PRINT_DATA=' + json + ';(' + printEngine.toString() + ')();<' + '/script></body></html>';
+}
+// QR codes : générés une fois par lien et par couleur, gardés en mémoire (l'aperçu en direct les réutilise)
+const printQrCache = {};
+function printQrCle(q) { return q.url + '|' + ((currentDesign && currentDesign.texte) || ''); }
+function printGenererQrs(qrs, fin) {
+  const manque = qrs.filter(q => !printQrCache[printQrCle(q)]);
+  const appliquer = () => { qrs.forEach(q => { q.img = printQrCache[printQrCle(q)] || ''; }); };
+  if (!manque.length) { appliquer(); fin(); return; }
   let fait = false;
-  const fin = () => { if (fait) return; fait = true; ecrire(); };
-  setTimeout(fin, 4000);
+  const terminer = () => { if (fait) return; fait = true; appliquer(); fin(); };
+  setTimeout(terminer, 4000); // sans la librairie QR (réseau), la carte sort sans QR code
   try {
     loadQRious(() => {
       try {
-        qrs.forEach(q => {
+        manque.forEach(q => {
           const c = document.createElement('canvas');
-          new QRious({element:c, value:q.url, size:600, background:'#ffffff', foreground:d.texte || '#2C2010', padding:24, level:'M'});
-          q.img = c.toDataURL('image/png');
+          new QRious({element:c, value:q.url, size:600, background:'#ffffff', foreground:(currentDesign && currentDesign.texte) || '#2C2010', padding:24, level:'M'});
+          printQrCache[printQrCle(q)] = c.toDataURL('image/png');
         });
       } catch(e) {}
-      fin();
+      terminer();
     });
-  } catch(e) { fin(); }
+  } catch(e) { terminer(); }
+}
+
+function openPrintMenu() {
+  if (!printPanelPret) renderPrintPanel();
+  printCollectEtab();
+  const fmt = printFmt();
+  printCollectFmt(fmt);
+  const r = printConstruireDonnees(fmt);
+  if (r.erreur) { showToast('❌ ' + r.erreur); return; }
+
+  // La fenêtre s'ouvre tout de suite (sinon le navigateur la bloque), puis on la remplit.
+  const win = window.open('', '_blank');
+  if (!win) { showToast('❌ Fenêtre bloquée — autorisez les fenêtres pop-up pour ce site'); return; }
+  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Préparation…</title></head><body style="font-family:sans-serif;padding:2rem;color:#555">Préparation de la carte…</body></html>');
+  const ecrire = () => {
+    win.document.open();
+    win.document.write(printPageHtml(r.data));
+    win.document.close();
+  };
+  if (!r.needQr) { ecrire(); return; }
+  printGenererQrs(r.data.qrs, ecrire);
+}
+
+// ── Aperçu en direct dans le panneau ──
+let printApercuTimer = null;
+function printApercuPlanifie() {
+  clearTimeout(printApercuTimer);
+  printApercuTimer = setTimeout(printApercuMaj, 600);
+}
+function printApercuMaj() {
+  const fr = document.getElementById('printPrevFrame');
+  const sec = document.getElementById('as-print');
+  const det = document.getElementById('printPrevDetails');
+  if (!fr || !sec || !sec.classList.contains('active') || (det && !det.open) || !printPanelPret) return;
+  printCollectEtab();
+  const fmt = printFmtAffiche || printFmt();
+  printCollectFmt(fmt);
+  const etat = document.getElementById('printPrevEtat');
+  const r = printConstruireDonnees(fmt);
+  if (r.erreur) {
+    if (etat) etat.textContent = '';
+    fr.srcdoc = '<!DOCTYPE html><html><body style="font-family:sans-serif;color:#666;padding:20px;font-size:14px;">' + printEsc(r.erreur) + '</body></html>';
+    return;
+  }
+  // On garde la position de lecture dans l'aperçu d'une mise à jour à l'autre
+  let sy = 0;
+  try { sy = fr.contentWindow ? fr.contentWindow.scrollY : 0; } catch(e) {}
+  r.data.apercu = true;
+  r.data.scrollY = sy;
+  const afficher = () => {
+    if (etat) etat.textContent = '— ' + PRINT_FORMATS[fmt].label;
+    fr.srcdoc = printPageHtml(r.data);
+  };
+  if (r.needQr) printGenererQrs(r.data.qrs, afficher); else afficher();
 }
 
 // Moteur de mise en page — exécuté DANS la fenêtre d'aperçu (il n'utilise que window.PRINT_DATA).
@@ -4744,7 +5271,10 @@ function printEngine() {
   const C = D.colors;
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const qrs = (D.qrs || []).filter(q => q.img);
-  const coord = [D.adresse, D.tel].filter(Boolean);
+  const etabs = D.etabs || [];
+  // Coordonnées sous le nom (en-tête) : seulement s'il n'y a qu'un restaurant ; sinon elles sont dans le bloc d'infos
+  const coordEntete = etabs.length === 1 ? etabs[0].coord : [];
+  const manuel = D.mode === 'manuel';
 
   const css = `
   :root{--rouge:${C.rouge};--creme:${C.creme};--texte:${C.texte};--brun:${C.brun};--vert:${C.vert};
@@ -4753,6 +5283,7 @@ function printEngine() {
   html,body{background:#d9d4cc}
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact;color:var(--texte)}
   .bar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:#2b2420;color:#fff;font:600 13px/1.3 -apple-system,Segoe UI,Roboto,sans-serif}
+  .bar.mini{position:static;padding:6px 10px;font-size:11px}
   .bar button{font:inherit;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;background:var(--rouge);color:#fff}
   .bar .info{font-weight:400;opacity:.85;flex:1 1 260px}
   .bar .warn{flex-basis:100%;font-weight:600;color:#ffd27a}
@@ -4761,10 +5292,12 @@ function printEngine() {
   .page{position:relative;overflow:hidden;background:${D.fond ? 'var(--creme)' : '#fff'};box-shadow:0 4px 18px rgba(0,0,0,.18);break-after:page;page-break-after:always}
   .page:last-child{break-after:auto;page-break-after:auto}
   .frame{position:absolute}
+  .cell{display:flow-root}
   .cadre{position:absolute;border:calc(.5mm * var(--k)) solid var(--rouge);pointer-events:none}
   .cadre:after{content:"";position:absolute;inset:calc(1.4mm * var(--k));border:calc(.2mm * var(--k)) solid var(--rouge);opacity:.55}
   .pli{position:absolute;top:0;bottom:0;width:0;border-left:.2mm dashed rgba(0,0,0,.12)}
-  @media print{html,body{background:none}.bar{display:none}#apercu{width:auto!important;height:auto!important;overflow:visible}#pages{padding:0;gap:0;transform:none!important}.page{box-shadow:none}.pli{display:none}}
+  .vlab{position:absolute;top:2mm;font:600 9px/1 -apple-system,Segoe UI,Roboto,sans-serif;color:rgba(0,0,0,.35);letter-spacing:.08em;text-transform:uppercase}
+  @media print{html,body{background:none}.bar{display:none}#apercu{width:auto!important;height:auto!important;overflow:visible}#pages{padding:0;gap:0;transform:none!important}.page{box-shadow:none}.pli,.vlab{display:none}}
   #measure{position:absolute;left:-10000px;top:0;visibility:hidden}
   .orn{display:flex;align-items:center;justify-content:center;gap:calc(2mm * var(--o,1));margin:calc(2.2mm * var(--o,1)) auto 0;width:60%}
   .orn span{flex:1;height:0;border-top:calc(.25mm * var(--o,1)) solid var(--rouge);opacity:.6}
@@ -4791,15 +5324,26 @@ function printEngine() {
   .b-it .dots{flex:1 0 calc(5mm * var(--s));margin:0 calc(1.8mm * var(--s));border-bottom:calc(.3mm * var(--s)) dotted var(--brun);opacity:.45;transform:translateY(calc(-.8mm * var(--s)))}
   .b-it .p{margin-left:auto;font-family:var(--ft);font-weight:600;font-size:calc(12pt * var(--s));color:var(--rouge);white-space:nowrap;line-height:1.1}
   .b-it .d{font-family:var(--ft);font-style:italic;font-size:calc(10.5pt * var(--s));color:var(--brun);line-height:1.25;margin-top:calc(.5mm * var(--s));padding-right:calc(8mm * var(--s))}
-  /* Infos pratiques (coordonnées, horaires, QR codes) — taille réglée par --u */
+  /* Texte libre (accroche, titre ou petit paragraphe) */
+  .b-txt{text-align:center;padding:calc(4mm * var(--s)) calc(2mm * var(--s)) calc(2mm * var(--s))}
+  .b-txt .tt{font-family:var(--ft);font-style:italic;font-weight:600;font-size:calc(15pt * var(--s));color:var(--rouge);line-height:1.15}
+  .b-txt .tx{font-family:var(--ft);font-style:italic;font-size:calc(10.5pt * var(--s));color:var(--brun);line-height:1.4;margin-top:calc(1.5mm * var(--s))}
+  .b-txt .tt + .tx{margin-top:calc(1.5mm * var(--s))}
+  .b-photo{margin:calc(3mm * var(--s)) 0;--hs:var(--s)}
+  .b-photo img{height:auto;aspect-ratio:3/2}
+  /* Infos pratiques (restaurants, horaires, QR codes) — taille réglée par --u */
   .inf{font-family:var(--fi);color:var(--texte);text-align:center;--o:var(--u)}
   .inf .tt{font-family:var(--ft);font-style:italic;font-weight:600;font-size:calc(15pt * var(--u));color:var(--rouge)}
+  .etabs{display:flex;flex-wrap:wrap;justify-content:center;gap:calc(2mm * var(--u)) calc(8mm * var(--u))}
+  .etab{flex:0 1 auto;min-width:0}
+  .etab .en{font-family:var(--ft);font-weight:600;font-size:calc(11pt * var(--u));color:var(--rouge);margin-top:calc(3mm * var(--u))}
   .inf .co{font-size:calc(8pt * var(--u));letter-spacing:.06em;line-height:1.7;margin-top:calc(2mm * var(--u))}
-  .inf .ho{margin:calc(2.5mm * var(--u)) auto 0;border-collapse:collapse;font-size:calc(8pt * var(--u))}
+  .inf .en + .co{margin-top:calc(.8mm * var(--u))}
+  .inf .ho{margin:calc(1.5mm * var(--u)) auto 0;border-collapse:collapse;font-size:calc(8pt * var(--u))}
   .inf .ho td{padding:calc(.5mm * var(--u)) calc(1.5mm * var(--u));line-height:1.4;vertical-align:top}
   .inf .ho td:first-child{text-align:right;font-weight:600;letter-spacing:.05em;color:var(--brun)}
   .inf .ho td:last-child{text-align:left}
-  .inf .ho-t{font-family:var(--fi);font-weight:600;font-size:calc(7pt * var(--u));letter-spacing:.22em;text-transform:uppercase;color:var(--vert);margin-top:calc(3mm * var(--u))}
+  .inf .ho-t{font-family:var(--fi);font-weight:600;font-size:calc(7pt * var(--u));letter-spacing:.22em;text-transform:uppercase;color:var(--vert);margin-top:calc(2.5mm * var(--u))}
   .inf .plus{font-size:calc(7.5pt * var(--u));color:var(--brun);margin-top:calc(2mm * var(--u));line-height:1.6}
   .qrs{display:flex;justify-content:center;flex-wrap:wrap;gap:calc(4mm * var(--u));margin-top:calc(3.5mm * var(--u))}
   .qr{width:calc(24mm * var(--u));text-align:center}
@@ -4808,6 +5352,7 @@ function printEngine() {
   .qr span{display:block;font-family:var(--ft);font-style:italic;font-size:calc(8.5pt * var(--u));color:var(--brun)}
   .bande{display:flex;align-items:center;justify-content:center;gap:calc(14mm * var(--u));border-top:calc(.3mm * var(--u)) solid var(--rouge);padding-top:calc(6mm * var(--u))}
   .bande .inf{text-align:left}
+  .bande .etabs{justify-content:flex-start}
   .bande .inf .ho{margin-left:0}
   .bande .qrs{margin-top:0}
   /* Flyer : couverture et dos */
@@ -4826,33 +5371,49 @@ function printEngine() {
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
   const orn = (w) => `<div class="orn"${w ? ` style="width:${w}"` : ''}><span></span><i></i><span></span></div>`;
-  const horairesHtml = () => D.horaires.length
-    ? `<div class="ho-t">Horaires</div><table class="ho">${D.horaires.map(h => `<tr><td>${esc(h.jours)}</td><td>${esc(h.heures)}</td></tr>`).join('')}</table>` : '';
+  const etabsHtml = () => etabs.length ? `<div class="etabs">${etabs.map(e => `<div class="etab">${e.nom ? `<div class="en">${esc(e.nom)}</div>` : ''}${e.coord.length ? `<div class="co">${e.coord.map(esc).join('<br>')}</div>` : ''}${e.horaires.length ? `<div class="ho-t">Horaires</div><table class="ho">${e.horaires.map(h => `<tr><td>${esc(h.jours)}</td><td>${esc(h.heures)}</td></tr>`).join('')}</table>` : ''}</div>`).join('')}</div>` : '';
   const qrsHtml = () => qrs.length ? `<div class="qrs">${qrs.map(q => `<div class="qr"><img src="${esc(q.img)}" alt=""><b>${esc(q.label)}</b><span>${esc(q.sub)}</span></div>`).join('')}</div>` : '';
   const plusHtml = () => D.infosPlus.length ? `<div class="plus">${D.infosPlus.map(esc).join('<br>')}</div>` : '';
-  const aDesInfos = () => coord.length || D.horaires.length || qrs.length || D.infosPlus.length;
+  const aDesInfos = () => etabs.length || qrs.length || D.infosPlus.length;
+  const infosHtml = (style) => `<div class="inf" style="${style}"><div class="tt">Infos pratiques</div>${orn('40%')}${etabsHtml()}${plusHtml()}${qrsHtml()}</div>`;
 
-  // ── Blocs à placer, regroupés par catégorie (une catégorie = un groupe jamais coupé entre deux pages) ──
+  // Blocs HTML d'une catégorie (titre, sous-titres, plats)
+  function catBlocs(sec) {
+    const out = [];
+    out.push({keep:true, html:`<div class="b-cat"><div class="t">${esc(sec.title)}</div>${orn()}${sec.subtitle?`<div class="st">${esc(sec.subtitle)}</div>`:''}</div>`});
+    sec.groups.forEach(gr => {
+      if (gr.sub) out.push({keep:true, html:`<div class="b-sub">${esc(gr.sub)}</div>`});
+      gr.items.forEach(it => out.push({keep:false, html:`<div class="b-it"><div class="r"><span class="n">${esc(it.name)}</span><span class="dots"></span><span class="p">${esc(it.price)}</span></div>${it.desc?`<div class="d">${esc(it.desc)}</div>`:''}</div>`}));
+    });
+    return out;
+  }
+  // Disposition manuelle : HTML d'un bloc placé dans une colonne
+  function blocHtml(b) {
+    if (b.t === 'cat') return catBlocs(b.sec).map(x => x.html).join('');
+    if (b.t === 'texte') return `<div class="b-txt">${b.titre ? `<div class="tt">${esc(b.titre)}</div>` : ''}${b.texte ? `<div class="tx">${esc(b.texte).replace(/\n/g, '<br>')}</div>` : ''}</div>`;
+    if (b.t === 'infos') return aDesInfos() ? infosHtml('--u:var(--s);padding:calc(4mm * var(--s)) 0 calc(2mm * var(--s))') : '';
+    if (b.t === 'photo') return D.photo ? `<div class="encart b-photo"><img src="${esc(D.photo)}" alt=""></div>` : '';
+    return '';
+  }
+
+  // ── Disposition automatique : blocs à placer, regroupés par catégorie (une catégorie = un groupe jamais coupé) ──
   const blocks = [];
   const groups = [];
   const titres = [];
-  D.sections.forEach(sec => {
-    const g = [];
-    const add = (keep, html) => { g.push(blocks.length); blocks.push({keep, html}); };
-    add(true, `<div class="b-cat"><div class="t">${esc(sec.title)}</div>${orn()}${sec.subtitle?`<div class="st">${esc(sec.subtitle)}</div>`:''}</div>`);
-    sec.groups.forEach(gr => {
-      if (gr.sub) add(true, `<div class="b-sub">${esc(gr.sub)}</div>`);
-      gr.items.forEach(it => add(false, `<div class="b-it"><div class="r"><span class="n">${esc(it.name)}</span><span class="dots"></span><span class="p">${esc(it.price)}</span></div>${it.desc?`<div class="d">${esc(it.desc)}</div>`:''}</div>`));
+  if (!manuel) {
+    D.sections.forEach(sec => {
+      const g = [];
+      catBlocs(sec).forEach(b => { g.push(blocks.length); blocks.push(b); });
+      groups.push(g); titres.push(sec.title);
     });
-    groups.push(g); titres.push(sec.title);
-  });
-  // A4 / A5 : bloc « Infos pratiques » à la fin de la carte (taille liée au texte de la carte)
-  if ((D.fmt === 'a4' || D.fmt === 'a5') && D.infos && aDesInfos()) {
-    groups.push([blocks.length]); titres.push('Infos pratiques');
-    blocks.push({keep:false, html:`<div class="inf" style="--u:var(--s);padding:calc(6mm * var(--s)) 0 calc(2mm * var(--s))"><div class="tt">Infos pratiques</div>${orn('40%')}${coord.length?`<div class="co">${coord.map(esc).join('<br>')}</div>`:''}${horairesHtml()}${plusHtml()}${qrsHtml()}</div>`});
+    // A4 / A5 : bloc « Infos pratiques » à la fin de la carte (taille liée au texte de la carte)
+    if ((D.fmt === 'a4' || D.fmt === 'a5') && D.infos && aDesInfos()) {
+      groups.push([blocks.length]); titres.push('Infos pratiques');
+      blocks.push({keep:false, html:infosHtml('--u:var(--s);padding:calc(6mm * var(--s)) 0 calc(2mm * var(--s))')});
+    }
   }
 
-  const bar = document.createElement('div'); bar.className = 'bar';
+  const bar = document.createElement('div'); bar.className = 'bar' + (D.apercu ? ' mini' : '');
   const apercu = document.createElement('div'); apercu.id = 'apercu';
   const pagesEl = document.createElement('div'); pagesEl.id = 'pages';
   apercu.appendChild(pagesEl);
@@ -4925,14 +5486,64 @@ function printEngine() {
   }
   const toutPlace = r => r.ok && !r.debord && r.coupees.length === 0 && r.pos.filter(Boolean).length === blocks.length;
 
+  // ── Disposition manuelle : les rangées s'empilent de haut en bas ; une rangée trop haute pour ce qui reste
+  // passe entière à la page (au volet) suivant(e). avail(p) = hauteur utile (px) de la page p, ou null. ──
+  function placerRangees(innerW, gap, avail) {
+    const rowGap = 2.5 * PX * parseFloat(root.style.getPropertyValue('--s') || '1');
+    const lignes = D.rows.map(r => {
+      const rw = (r.cols === 1 && !r.large) ? innerW * 0.74 : innerW;
+      const cw = (rw - gap * (r.cols - 1)) / r.cols;
+      const cellules = r.cells.map(cell => cell.map(blocHtml).join(''));
+      meas.style.width = cw + 'mm';
+      const hs = cellules.map(html => {
+        meas.innerHTML = `<div class="cell">${html}</div>`;
+        return meas.firstElementChild.getBoundingClientRect().height;
+      });
+      return {r, rw, cw, cellules, h:Math.max(0, ...hs)};
+    });
+    const pos = [];
+    let p = 0, y = 0, vide = true, ok = true, trop = [];
+    let dispo = avail(0);
+    if (dispo == null) return {ok:false, pos, lignes, nPages:0, trop, nonPlacees:lignes.length};
+    for (let i = 0; i < lignes.length; i++) {
+      const L = lignes[i];
+      const besoin = L.h + (vide ? 0 : rowGap);
+      if (!vide && (L.r.pageBreak || y + besoin > dispo + 0.5)) {
+        const n = avail(p + 1);
+        if (n == null) { ok = false; return {ok, pos, lignes, nPages:p + 1, trop, nonPlacees:lignes.length - i}; }
+        p++; y = 0; vide = true; dispo = n;
+      }
+      const yy = vide ? 0 : y + rowGap;
+      if (L.h > dispo + 0.5) trop.push(L.r.num);
+      pos.push({i, p, y:yy});
+      y = yy + L.h; vide = false;
+    }
+    return {ok, pos, lignes, nPages:p + 1, trop, nonPlacees:0};
+  }
+  // Dessine sur une page les rangées placées sur la page (ou le volet) p
+  function dessinerRangees(page, res, p, x0, y0, innerW, gap) {
+    res.pos.filter(q => q.p === p).forEach(q => {
+      const L = res.lignes[q.i];
+      const x = x0 + (innerW - L.rw) / 2;
+      L.cellules.forEach((html, c) => {
+        if (!html) return;
+        frameEl(page, x + c * (L.cw + gap), y0 + q.y / PX, L.cw, L.h / PX).innerHTML = `<div class="cell">${html}</div>`;
+      });
+    });
+  }
+  const resOk = r => r.ok && !r.trop.length;
+  function signalerRangees(res, unite) {
+    if (res.trop.length) avert.push(`⚠️ Rangée${res.trop.length > 1 ? 's' : ''} ${res.trop.join(', ')} : trop haute${res.trop.length > 1 ? 's' : ''} pour une ${unite}, elle dépasse. Répartissez ses blocs sur deux rangées.`);
+    if (res.nonPlacees) avert.push(`⚠️ ${res.nonPlacees} rangée(s) ne rentrent pas et ne sont pas imprimées.`);
+  }
+
   const avert = [];
   const pages = [];
-  let largeurMaxMm = 0;
   function nouvellePage(wmm, hmm, k) {
     const p = document.createElement('div'); p.className = 'page';
     p.style.width = wmm + 'mm'; p.style.height = hmm + 'mm';
     p.style.setProperty('--k', String(k || 1));
-    pagesEl.appendChild(p); pages.push(p); largeurMaxMm = Math.max(largeurMaxMm, wmm);
+    pagesEl.appendChild(p); pages.push(p);
     return p;
   }
   function cadre(page, x, y, w, h) {
@@ -4954,7 +5565,16 @@ function printEngine() {
     if (res.debord) avert.push('⚠️ Un plat a une description trop longue pour une colonne : il dépasse légèrement.');
   }
   function enTeteHtml(avecCoord) {
-    return `<div class="hd">${D.logo?`<img src="${esc(D.logo)}" alt="">`:''}${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${D.slogan?`<div class="slogan">${esc(D.slogan)}</div>`:''}${avecCoord && coord.length?`<div class="coord">${coord.map(esc).join(' &nbsp;·&nbsp; ')}</div>`:''}${orn()}</div>`;
+    return `<div class="hd">${D.logo?`<img src="${esc(D.logo)}" alt="">`:''}${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${D.slogan?`<div class="slogan">${esc(D.slogan)}</div>`:''}${avecCoord && coordEntete.length?`<div class="coord">${coordEntete.map(esc).join(' &nbsp;·&nbsp; ')}</div>`:''}${orn()}</div>`;
+  }
+  // Recherche de la plus grande taille de texte qui fait tout tenir (entre lo et hi)
+  function plusGrandeTaille(lo, hi, tient) {
+    let trouve = null;
+    for (let it = 0; it < 16; it++) {
+      const mid = (lo + hi) / 2; setS(mid);
+      if (tient()) { trouve = mid; lo = mid; } else { hi = mid; }
+    }
+    return trouve;
   }
 
   // ── Formats « page » : A4 / A5 (plusieurs pages) et A1 (une seule page) ──
@@ -4968,65 +5588,75 @@ function printEngine() {
     const gap = 7 * k;
     const hd = enTeteHtml(D.infos && !(D.fmt === 'a1'));
     const hdH = mesurerHtml(hd, innerW) + 5 * cfg.hs;
-    const photoH = D.photo ? cfg.photoH : 0;
-    const photoGap = D.photo ? 6 * cfg.hs : 0;
-    // A1 : bande du bas avec coordonnées, horaires et QR codes
+    // En disposition manuelle, la photo et les infos sont des blocs placés dans les rangées
+    const photoH = (D.photo && !manuel) ? cfg.photoH : 0;
+    const photoGap = photoH ? 6 * cfg.hs : 0;
+    // A1 automatique : bande du bas avec adresses, horaires et QR codes
     let bandeHtml = '';
-    if (D.fmt === 'a1' && D.infos && aDesInfos()) {
-      const gauche = (coord.length || D.horaires.length || D.infosPlus.length)
-        ? `<div class="inf">${coord.length?`<div class="co" style="margin-top:0">${coord.map(esc).join('<br>')}</div>`:''}${horairesHtml()}${plusHtml()}</div>` : '';
+    if (!manuel && D.fmt === 'a1' && D.infos && aDesInfos()) {
+      const gauche = (etabs.length || D.infosPlus.length) ? `<div class="inf">${etabsHtml()}${plusHtml()}</div>` : '';
       bandeHtml = `<div class="bande">${gauche}${qrs.length ? `<div class="inf">${qrsHtml()}</div>` : ''}</div>`;
     }
     const bandeH = bandeHtml ? mesurerHtml(bandeHtml, innerW) + 4 * cfg.hs : 0;
     const footH = D.mention ? (mesurerHtml(`<div class="ft" style="position:static">${esc(D.mention)}</div>`, innerW) + 3 * cfg.fsFoot) : 0;
+    const h0 = H - 2 * m - hdH - photoH - photoGap - bandeH - footH;
+    const h1 = H - 2 * m - footH;
 
-    function geom(nCols) {
-      const colW = (innerW - gap * (nCols - 1)) / nCols;
-      return {colW, nCols, h0:(H - 2 * m - hdH - photoH - photoGap - bandeH - footH), h1:(H - 2 * m - footH)};
-    }
-    const frames = (g, maxPages) => p => (maxPages && p >= maxPages) ? null : new Array(g.nCols).fill((p === 0 ? g.h0 : g.h1) * PX);
-
-    let g, s, res;
-    if (multi) {
-      const nCols = cfg.cols === 'auto' ? cfg.autoCols : parseInt(cfg.cols, 10);
-      g = geom(nCols);
-      // Taille normale ; si une catégorie déborde d'une page, on resserre un peu le texte (jusqu'à 80 %) pour l'éviter
-      s = cfg.s; setS(s);
-      res = placer(mesurer(g.colW), frames(g, 0), D.newPage);
-      if (res.coupees.length) {
-        let lo = cfg.s * 0.8, hi = cfg.s, trouve = null;
-        for (let it = 0; it < 10; it++) {
-          const mid = (lo + hi) / 2; setS(mid);
-          const r = placer(mesurer(g.colW), frames(g, 0), D.newPage);
-          if (!r.coupees.length) { trouve = mid; lo = mid; } else { hi = mid; }
-        }
-        if (trouve != null) { s = trouve; setS(s); res = placer(mesurer(g.colW), frames(g, 0), D.newPage); }
-        else { s = cfg.s; setS(s); res = placer(mesurer(g.colW), frames(g, 0), D.newPage); }
+    let g = null, s, res, nPages;
+    if (manuel) {
+      const avail = p => (p === 0) ? h0 * PX : (multi ? h1 * PX : null);
+      if (multi) {
+        s = cfg.s * D.taille; setS(s);
+        res = placerRangees(innerW, gap, avail);
+      } else {
+        const trouve = plusGrandeTaille(cfg.smin, cfg.smax, () => resOk(placerRangees(innerW, gap, avail)));
+        if (trouve == null) avert.push('⚠️ Tout ne tient pas sur une seule page, même en petit : retirez des plats, des descriptions ou des rangées.');
+        s = trouve == null ? cfg.smin : trouve; setS(s);
+        res = placerRangees(innerW, gap, avail);
       }
+      signalerRangees(res, 'page');
+      nPages = res.nPages;
     } else {
-      // Une seule page : la plus grande taille de texte qui fait tout tenir (et le meilleur nombre de colonnes)
-      const essais = cfg.cols === 'auto' ? [2, 3, 4] : [parseInt(cfg.cols, 10)];
-      let best = null;
-      essais.forEach(nCols => {
-        const gg = geom(nCols);
-        let lo = cfg.smin, hi = cfg.smax, trouve = null;
-        for (let it = 0; it < 16; it++) {
-          const mid = (lo + hi) / 2; setS(mid);
-          if (toutPlace(placer(mesurer(gg.colW), frames(gg, 1), false))) { trouve = mid; lo = mid; } else { hi = mid; }
+      const geom = nCols => ({colW:(innerW - gap * (nCols - 1)) / nCols, nCols, h0, h1});
+      const frames = (gg, maxPages) => p => (maxPages && p >= maxPages) ? null : new Array(gg.nCols).fill((p === 0 ? gg.h0 : gg.h1) * PX);
+      if (multi) {
+        const nCols = cfg.cols === 'auto' ? cfg.autoCols : parseInt(cfg.cols, 10);
+        g = geom(nCols);
+        const base = cfg.s * D.taille;
+        // Taille choisie ; si une catégorie déborde d'une page, on resserre un peu le texte (jusqu'à 80 %) pour l'éviter
+        s = base; setS(s);
+        res = placer(mesurer(g.colW), frames(g, 0), D.newPage);
+        if (res.coupees.length) {
+          let lo = base * 0.8, hi = base, trouve = null;
+          for (let it = 0; it < 10; it++) {
+            const mid = (lo + hi) / 2; setS(mid);
+            const r = placer(mesurer(g.colW), frames(g, 0), D.newPage);
+            if (!r.coupees.length) { trouve = mid; lo = mid; } else { hi = mid; }
+          }
+          s = trouve != null ? trouve : base; setS(s);
+          res = placer(mesurer(g.colW), frames(g, 0), D.newPage);
         }
-        if (trouve != null && (!best || trouve > best.s * 1.04)) best = {s:trouve, g:gg};
-      });
-      if (!best) {
-        avert.push('⚠️ Tout ne tient pas sur une seule page, même en petit : décochez des catégories ou des plats, ou retirez les descriptions.');
-        const nCols = cfg.cols === 'auto' ? 4 : parseInt(cfg.cols, 10);
-        best = {s:cfg.smin, g:geom(nCols)};
+      } else {
+        // Une seule page : la plus grande taille de texte qui fait tout tenir (et le meilleur nombre de colonnes)
+        const essais = cfg.cols === 'auto' ? [2, 3, 4] : [parseInt(cfg.cols, 10)];
+        let best = null;
+        essais.forEach(nCols => {
+          const gg = geom(nCols);
+          const trouve = plusGrandeTaille(cfg.smin, cfg.smax, () => toutPlace(placer(mesurer(gg.colW), frames(gg, 1), false)));
+          if (trouve != null && (!best || trouve > best.s * 1.04)) best = {s:trouve, g:gg};
+        });
+        if (!best) {
+          avert.push('⚠️ Tout ne tient pas sur une seule page, même en petit : décochez des catégories ou des plats, ou retirez les descriptions.');
+          const nCols = cfg.cols === 'auto' ? 4 : parseInt(cfg.cols, 10);
+          best = {s:cfg.smin, g:geom(nCols)};
+        }
+        g = best.g; s = best.s; setS(s);
+        res = placer(mesurer(g.colW), frames(g, 0), false);
       }
-      g = best.g; s = best.s; setS(s);
-      res = placer(mesurer(g.colW), frames(g, 0), false);
+      signalerCoupes(res);
+      nPages = res.nPages;
     }
-    signalerCoupes(res);
 
-    const nPages = res.nPages;
     for (let p = 0; p < nPages; p++) {
       const page = nouvellePage(W, H, k);
       cadre(page, m * 0.45, m * 0.45, W - m * 0.9, H - m * 0.9);
@@ -5034,14 +5664,15 @@ function printEngine() {
       if (p === 0) {
         frameEl(page, m, m, innerW, hdH).innerHTML = hd;
         y0 = m + hdH;
-        if (D.photo) {
+        if (photoH) {
           const en = frameEl(page, m, y0, innerW, photoH);
           en.innerHTML = `<div class="encart" style="height:100%"><img src="${esc(D.photo)}" alt=""></div>`;
           y0 += photoH + photoGap;
         }
         if (bandeHtml) frameEl(page, m, H - m - footH - bandeH + 4 * cfg.hs, innerW, bandeH - 4 * cfg.hs).innerHTML = bandeHtml;
       }
-      for (let c = 0; c < g.nCols; c++) {
+      if (manuel) dessinerRangees(page, res, p, m, y0, innerW, gap);
+      else for (let c = 0; c < g.nCols; c++) {
         const idxs = blocsDe(res, p, c);
         if (!idxs.length) continue;
         remplir(frameEl(page, m + c * (g.colW + gap), y0, g.colW, (p === 0 ? g.h0 : g.h1)), idxs);
@@ -5053,32 +5684,45 @@ function printEngine() {
         page.appendChild(ft);
       }
     }
-    return `${nPages} page${nPages > 1 ? 's' : ''} · ${g.nCols} colonne${g.nCols > 1 ? 's' : ''} · texte à ${Math.round(s * 100)} %`;
+    const pg = `${nPages} page${nPages > 1 ? 's' : ''}`;
+    return manuel ? `${pg} · disposition manuelle · texte à ${Math.round(s * 100)} %`
+                  : `${pg} · ${g.nCols} colonne${g.nCols > 1 ? 's' : ''} · texte à ${Math.round(s * 100)} %`;
   }
 
   // ── Flyer dépliant 3 volets : 2 faces de 444 × 210 mm, 6 volets A5 ──
   // Face extérieure : [rabat intérieur | dos | couverture] ; face intérieure : [volet 1 | volet 2 | volet 3].
-  // La carte se lit volet 1 → 2 → 3 → rabat ; chaque catégorie tient entière dans un volet.
+  // La carte se lit volet 1 → 2 → 3 → rabat ; une catégorie (ou une rangée) n'est jamais coupée entre deux volets.
   function formatDepliant() {
     const PW = 148, H = 210, m = 11;
     const colW = PW - 2 * m, colH = H - 2 * m;
+    const gapV = 5;
     root.style.setProperty('--fs', '1');
-    const volets = max => p => (max && p >= max) ? null : [colH * PX];
-    let lo = 0.5, hi = 1.15, trouve = null;
-    for (let it = 0; it < 16; it++) {
-      const mid = (lo + hi) / 2; setS(mid);
-      if (toutPlace(placer(mesurer(colW), volets(4), false))) { trouve = mid; lo = mid; } else { hi = mid; }
+    let trouve, dessiner, tropLong = false;
+    if (manuel) {
+      const avail = p => p < 4 ? colH * PX : null;
+      trouve = plusGrandeTaille(0.5, 1.15, () => resOk(placerRangees(colW, gapV, avail)));
+      if (trouve == null) {
+        avert.push('⚠️ Tout ne rentre pas dans les 4 volets, même en petit : retirez des plats, des descriptions ou des rangées.');
+        trouve = 0.5; tropLong = true;
+      }
+      setS(trouve);
+      const res = placerRangees(colW, gapV, avail);
+      signalerRangees(res, 'volet');
+      dessiner = (face, x0, v) => dessinerRangees(face, res, v, x0 + m, m, colW, gapV);
+    } else {
+      const volets = max => p => (max && p >= max) ? null : [colH * PX];
+      trouve = plusGrandeTaille(0.5, 1.15, () => toutPlace(placer(mesurer(colW), volets(4), false)));
+      if (trouve == null) {
+        avert.push('⚠️ La carte est trop longue pour le flyer, même en petit : décochez des catégories ou des plats, ou retirez les descriptions.');
+        trouve = 0.5; tropLong = true;
+      }
+      setS(trouve);
+      const res = placer(mesurer(colW), volets(0), false);
+      signalerCoupes(res);
+      if (res.nPages > 4) avert.push('⚠️ Une partie de la carte ne rentre pas dans les 4 volets et n\'est pas imprimée.');
+      dessiner = (face, x0, v) => remplir(frameEl(face, x0 + m, m, colW, colH), blocsDe(res, v, 0));
     }
-    if (trouve == null) {
-      avert.push('⚠️ La carte est trop longue pour le flyer, même en petit : décochez des catégories ou des plats, ou retirez les descriptions.');
-      trouve = 0.5;
-    } else if (trouve < 0.72) {
-      avert.push('ℹ️ Le texte est assez petit (' + Math.round(trouve * 100) + ' %) : pour une meilleure lisibilité, décochez quelques plats ou retirez les descriptions.');
-    }
-    setS(trouve);
-    const res = placer(mesurer(colW), volets(0), false);
-    signalerCoupes(res);
-    if (res.nPages > 4) avert.push('⚠️ Une partie de la carte ne rentre pas dans les 4 volets et n\'est pas imprimée.');
+    if (!tropLong && trouve < 0.72) avert.push('ℹ️ Le texte est assez petit (' + Math.round(trouve * 100) + ' %) : pour une meilleure lisibilité, retirez quelques plats ou les descriptions.');
 
     const ext = nouvellePage(PW * 3, H, 148 / 210);
     const int = nouvellePage(PW * 3, H, 148 / 210);
@@ -5086,20 +5730,24 @@ function printEngine() {
       for (let v = 0; v < 3; v++) cadre(p, v * PW + m * 0.45, m * 0.45, PW - m * 0.9, H - m * 0.9);
       [1, 2].forEach(v => { const l = document.createElement('div'); l.className = 'pli'; l.style.left = (v * PW) + 'mm'; p.appendChild(l); });
     });
+    // Repères de lecture (écran seulement, jamais imprimés)
+    const repere = (p, v, txt) => { const l = document.createElement('div'); l.className = 'vlab'; l.style.left = (v * PW + 3) + 'mm'; l.textContent = txt; p.appendChild(l); };
+    repere(ext, 0, 'Rabat (volet 4)'); repere(ext, 1, 'Dos'); repere(ext, 2, 'Couverture');
+    repere(int, 0, 'Volet 1'); repere(int, 1, 'Volet 2'); repere(int, 2, 'Volet 3');
     // Face extérieure : rabat (4e volet de carte), dos (infos), couverture
-    remplir(frameEl(ext, m, m, colW, colH), blocsDe(res, 3, 0));
+    dessiner(ext, 0, 3);
     const dos = frameEl(ext, PW + m, m, colW, colH);
     dos.style.setProperty('--u', '1');
     dos.innerHTML = `<div class="back">${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${orn('40%')}
-      <div class="inf">${coord.length?`<div class="co">${coord.map(esc).join('<br>')}</div>`:''}${horairesHtml()}${plusHtml()}${qrsHtml()}</div>
+      <div class="inf">${etabsHtml()}${plusHtml()}${qrsHtml()}</div>
       ${D.mention?`<div class="mention">${esc(D.mention)}</div>`:''}</div>`;
-    // Le dos doit tenir dans son volet : on réduit si besoin (beaucoup d'horaires + 3 QR codes)
-    for (let u = 1; u > 0.55 && dos.scrollHeight > dos.clientHeight + 1; u -= 0.05) dos.style.setProperty('--u', String(u - 0.05));
+    // Le dos doit tenir dans son volet : on réduit si besoin (plusieurs restaurants, horaires, 3 QR codes)
+    for (let u = 1; u > 0.45 && dos.scrollHeight > dos.clientHeight + 1; u -= 0.05) dos.style.setProperty('--u', String(u - 0.05));
     const couv = frameEl(ext, 2 * PW + m, m, colW, colH);
     couv.innerHTML = `<div class="cover${D.photo ? ' avec-photo' : ''}">${D.logo?`<img class="logo" src="${esc(D.logo)}" alt="">`:''}${D.nom?`<div class="nom">${esc(D.nom)}</div>`:''}${D.slogan?`<div class="slogan">${esc(D.slogan)}</div>`:''}${D.photo?`<div class="encart"><img src="${esc(D.photo)}" alt=""></div>`:orn('45%')}<div class="la">La carte</div></div>`;
     // Face intérieure
-    for (let v = 0; v < 3; v++) remplir(frameEl(int, v * PW + m, m, colW, colH), blocsDe(res, v, 0));
-    return `2 faces de 444 × 210 mm (6 volets A5) · texte à ${Math.round(trouve * 100)} %`;
+    for (let v = 0; v < 3; v++) dessiner(int, v * PW, v);
+    return `2 faces de 444 × 210 mm (6 volets A5)${manuel ? ' · disposition manuelle' : ''} · texte à ${Math.round(trouve * 100)} %`;
   }
 
   function lancer() {
@@ -5110,7 +5758,8 @@ function printEngine() {
     else info = formatPages({W:210, H:297, m:15, multi:true, cols:D.cols, autoCols:2, s:1, hs:1, fsFoot:1, photoH:58});
     meas.innerHTML = '';
     const noms = {a4:'A4', a5:'A5', a1:'A1 (594 × 841 mm)', trifold:'Flyer dépliant 3 volets'};
-    bar.innerHTML = `<button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button><span class="info"><b>${noms[D.fmt] || ''}</b> — ${esc(info)}</span>${avert.map(a => `<span class="warn">${esc(a)}</span>`).join('')}`;
+    bar.innerHTML = (D.apercu ? '' : `<button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>`)
+      + `<span class="info"><b>${noms[D.fmt] || ''}</b> — ${esc(info)}</span>${avert.map(a => `<span class="warn">${esc(a)}</span>`).join('')}`;
     document.title = (noms[D.fmt] || 'Carte') + ' — carte à imprimer';
     // Aperçu à l'écran : les pages sont réduites (transform, qui ne change pas la mise en page du texte) pour tenir
     // dans la largeur de la fenêtre. Aucun effet à l'impression.
@@ -5122,6 +5771,7 @@ function printEngine() {
       apercu.style.height = (h * z) + 'px';
     };
     zoomer(); window.addEventListener('resize', zoomer);
+    if (D.scrollY) window.scrollTo(0, D.scrollY);
   }
 
   // Attente des polices (feuilles Google Fonts + chargement effectif des graisses utilisées) et des images,
@@ -5161,7 +5811,12 @@ function generateAllergenPDF(){
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
-  const warn = doc.splitTextToSize("Nos plats sont préparés dans une cuisine où tous les allergènes sont présents. Une contamination croisée ne peut être totalement exclue. En cas d'allergie sévère, informez notre équipe.", usableW);
+  // Option : ne pas lister les plats sans allergène — une phrase l'indique alors clairement en haut du tableau
+  const masquerVides = !!(document.getElementById('allergMasquerVides') || {}).checked;
+  const phraseVides = masquerVides
+    ? ' Les plats qui ne figurent pas dans ce tableau ne contiennent aucun des 14 allergènes réglementaires.'
+    : ' Une ligne sans aucun point signifie que le plat ne contient aucun des 14 allergènes réglementaires.';
+  const warn = doc.splitTextToSize("Nos plats sont préparés dans une cuisine où tous les allergènes sont présents. Une contamination croisée ne peut être totalement exclue. En cas d'allergie sévère, informez notre équipe." + phraseVides, usableW);
   doc.text(warn, pageW / 2, y, { align: 'center' });
   y += warn.length * 3.6 + 6;
 
@@ -5194,7 +5849,7 @@ function generateAllergenPDF(){
 
   const activeCats = cats.filter(c => !c.archived && c.inAllergenList !== false);
   activeCats.forEach(cat => {
-    const catItems = items.filter(it => !it.archived && itemBelongsToCat(it, cat.id));
+    const catItems = items.filter(it => !it.archived && itemBelongsToCat(it, cat.id) && (!masquerVides || getItemAllergens(it).length > 0));
     if (catItems.length === 0) return;
 
     if (y + rowH > pageH - margin) { doc.addPage(); y = margin; drawTableHeader(); }
