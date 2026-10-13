@@ -19,7 +19,26 @@
     "mode": "auto",
     "rows": [],
     "exEtabs": [],
-    "taille": 100
+    "taille": 100,
+    "source": "surplace",
+    "couv": {
+      "logo": true,
+      "nom": true,
+      "slogan": true,
+      "photo": true,
+      "photoStyle": "cadre",
+      "etabs": false,
+      "horaires": false,
+      "qrs": false,
+      "label": ""
+    },
+    "dos": {
+      "etabs": true,
+      "horaires": true,
+      "plus": true,
+      "qrs": true,
+      "mention": true
+    }
   },
   "print_nom": "Milo's Pizza",
   "print_slogan": "Le saviez vous ? Nous livrons gratuitement vos pizzas préférées partout dans Nice",
@@ -89,7 +108,30 @@
     "bg": true,
     "newPage": false,
     "infos": true,
-    "photo": ""
+    "photo": "",
+    "mode": "auto",
+    "rows": [],
+    "exEtabs": [],
+    "taille": 100,
+    "source": "emporter",
+    "couv": {
+      "logo": true,
+      "nom": false,
+      "slogan": true,
+      "photo": true,
+      "photoStyle": "cadre",
+      "etabs": true,
+      "horaires": true,
+      "qrs": true,
+      "label": "Menu a emporter & livraison"
+    },
+    "dos": {
+      "etabs": true,
+      "horaires": true,
+      "plus": true,
+      "qrs": true,
+      "mention": true
+    }
   },
   "print_cfg_a5": {
     "exCats": [],
