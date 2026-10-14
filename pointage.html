@@ -141,6 +141,10 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .cpt-pill-ok{background:#E8F5E9;color:#1E8449}
 .cpt-pill-warn{background:#FEF9E7;color:#D68910}
 .cpt-pill-bad{background:#FDEDEC;color:#C0392B}
+.cpt-unite{font-size:10px;font-weight:700;color:#6b5e4f;text-align:center;max-width:150px;line-height:1.15;margin-top:-2px}
+.cpt-tri{display:flex;gap:6px;margin-top:6px}
+.cpt-tri button{flex:1;border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer}
+.cpt-tri button.on{background:#fff;color:#1A1008;border-color:#fff}
 .cpt-qty-ctrl{display:flex;align-items:center;background:#fff;border:2px solid var(--bx);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(185,30,38,.18)}
 .cpt-qbtn{width:40px;height:40px;background:#FBE7E8;border:none;font-size:22px;font-weight:800;color:#B91E26;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .cpt-qbtn:active{background:#F5CDD0}
@@ -340,6 +344,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div id="cpt-resto-chip-wrap"></div>
         <div id="cpt-postes-chip-wrap"></div>
         <input type="text" id="cpt-search" class="ainp" placeholder="Rechercher un ingr&eacute;dient..." oninput="renderComptageList()">
+        <div id="cpt-tri-wrap"></div>
         <button type="button" onclick="cptDiagOuvrir()" style="margin-top:6px;background:transparent;border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">&#10067; Pourquoi un produit n'est pas demand&eacute; ou pas command&eacute; ?</button>
       </div>
       <div id="cpt-today-banner" style="display:none;margin-bottom:10px"></div>
@@ -1827,7 +1832,24 @@ async function marquerEtOuvrirWhatsappPointage(fournKey){
       if(!ok)return;
     }
   }
-  window.open(waUrl,'_blank');
+  // Téléphone / tablette : on ouvre directement l'application WhatsApp (lien whatsapp://), sans nouvel onglet.
+  // Avant (corrigé le 14/10/2026), le lien wa.me s'ouvrait dans un nouvel onglet Chrome qui restait tout blanc
+  // après le passage dans WhatsApp. Ordinateur : WhatsApp Web dans un nouvel onglet, comme avant.
+  var estMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  var texteWa=cmdfMsgTexts[fournKey];
+  var parti=false;
+  function marquerParti(){if(document.hidden)parti=true;}
+  if(estMobile&&texteWa!=null){
+    document.addEventListener('visibilitychange',marquerParti);
+    location.href='whatsapp://send?text='+encodeURIComponent(texteWa);
+    // WhatsApp absent ou lien refusé : la page n'a pas été quittée → on retombe sur le lien wa.me.
+    setTimeout(function(){
+      document.removeEventListener('visibilitychange',marquerParti);
+      if(!parti&&!document.hidden)window.open(waUrl,'_blank');
+    },4000);
+  }else{
+    window.open(waUrl,'_blank');
+  }
   // Ne marque RIEN tout de suite — impossible de savoir si le message a vraiment été envoyé dans WhatsApp.
   // On attend que l'utilisateur revienne sur cet onglet, puis on demande confirmation explicite.
   var handled=false;
@@ -1843,11 +1865,20 @@ async function marquerEtOuvrirWhatsappPointage(fournKey){
       // les comptageIds de toutes les lignes avant de marquer.
       var ids=[];g.items.forEach(function(it){(it.comptageIds||[]).forEach(function(id){if(id)ids.push(id);});});
       if(ids.length){
+        // On vérifie le résultat (corrigé le 14/10/2026) : avant, une erreur renvoyée par la base — ou une mise à jour
+        // refusée sans message, qui ne modifie aucune ligne — passait inaperçue et la commande revenait à l'écran.
         try{
-          await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids);
+          var mk=await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids).select('id,restaurant_id');
+          if(mk.error)throw mk.error;
+          var faits=(mk.data||[]).map(function(x){return x.id;});
+          var manquants=ids.filter(function(id){return faits.indexOf(id)<0;});
+          if(manquants.length){
+            console.error('marquage commande_envoyee incomplet',{demandes:ids,faits:faits});
+            alert('Attention : '+manquants.length+' article(s) sur '+ids.length+' n\'ont pas pu être marqués comme envoyés — ils vont réapparaître.\nFais une capture de ce message pour le support.\n(identifiants : '+manquants.slice(0,10).join(', ')+')');
+          }
         }catch(e){
           console.error('marquerEtOuvrirWhatsappPointage',e);
-          alert('Erreur : je n\'ai pas pu marquer les articles comme envoyés — ils risquent de réapparaître.');
+          alert('Erreur : je n\'ai pas pu marquer les articles comme envoyés — ils risquent de réapparaître.\n('+(e.message||e)+')');
         }
       }
       // Trace pour l'historique (Suivi côté admin) — n'empêche jamais l'action ci-dessus si ça échoue.
@@ -2587,6 +2618,8 @@ async function menuComptage(){
       var effectifs=RG.joursComptageEffectifs(s,cptReglesByCode[i.code]||[],cptSuppliersById);
       var comptageJours=effectifs.jours;
       var obj={code:i.code,nom:i.nom,categorie:cat,sousCategorie:i.sous_categorie||null,type_suivi:s.type_suivi||'qty',unite_comptage:s.unite_comptage||'piece',dernier:dernierByCode[i.code]||null,seuil_min:s.seuil_min!=null?s.seuil_min:null,cible:s.cible!=null?s.cible:null,colisage:s.colisage!=null?s.colisage:null,unite_commande:s.unite_commande||null,fournisseur_id:s.fournisseur_id||null,comptageJours:comptageJours,joursSource:effectifs.source};
+      // Emplacement (frigo, réserve…) réglé dans Admin › fiche ingrédient, par restaurant : sert au tri « par emplacement ».
+      obj.emplacement=String(s.emplacement||'').trim()||null;
       // Figé à l'ouverture de l'écran, jamais recalculé après une saisie de cette session : sans ça, un
       // article qu'on vient de compter passerait aussitôt pour "plus dû" et sauterait dans la section repliée
       // "Pas à compter aujourd'hui" — donnant l'impression que la saisie a disparu alors qu'elle est bien
@@ -2597,6 +2630,10 @@ async function menuComptage(){
       // il passait dans la section repliée « Pas à compter aujourd'hui » : le salarié ne le voyait pas, alors
       // que ce comptage figurait bien dans la commande fournisseur du jour (cas Stracciatella du dimanche 11/10).
       obj._dueAtLoad=aCompter.du||cptComptedToday(obj.dernier);
+      // Déjà compté aujourd'hui À L'OUVERTURE de l'écran (par un collègue ou par soi-même plus tôt) : rangé dans la
+      // liste repliée « ✓ Déjà comptés aujourd'hui » (14/10/2026). Figé à l'ouverture, comme _dueAtLoad : un produit
+      // qu'on compte pendant la séance reste à sa place (coché) au lieu de disparaître sous les doigts.
+      obj._dejaCompteAuChargement=cptComptedToday(obj.dernier);
       obj._retard=aCompter.retard?aCompter.jourPrevu:null; // jour prévu manqué (affiché sur la carte)
       return obj;
     }).filter(Boolean);
@@ -2633,7 +2670,7 @@ function cptCatColor(cat){
   return 'hsl('+h+',60%,55%)';
 }
 function cptCatSlug(cat){return cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');}
-function cptSecId(cat){return 'cpt-sec-'+cptCatSlug(cat);}
+function cptSecId(cat){return 'cpt-sec-'+(String(cat).charAt(0)==='@'?'e-':'')+cptCatSlug(cat);}
 // Mesure la hauteur réelle de la barre du haut (titre + recherche) et la pose en variable CSS, pour que les
 // en-têtes de catégorie collants (.cpt-sec-hdr) se collent juste en dessous, quelle que soit la taille d'écran
 // (les tailles de police/paddings changent avec les media queries, donc un chiffre fixe en CSS serait fragile).
@@ -2700,6 +2737,8 @@ function cptSecToggle(cat){
 // Sous-bloc "Pas à compter aujourd'hui" par catégorie : replié par défaut (Set des catégories DÉPLIÉES,
 // donc vide au départ = tout replié), mémorisé pour survivre aux rafraîchissements comme cptCollapsedCats.
 var cptExpandedNotDueCats=new Set();
+var cptDejaComptesOuvert=false; // liste « ✓ Déjà comptés aujourd'hui » repliée par défaut
+function cptToggleDejaComptes(){cptDejaComptesOuvert=!cptDejaComptesOuvert;renderComptageList();}
 function cptToggleNotDueCat(cat){
   if(cptExpandedNotDueCats.has(cat))cptExpandedNotDueCats.delete(cat);else cptExpandedNotDueCats.add(cat);
   renderComptageList();
@@ -2948,17 +2987,44 @@ function renderComptageList(){
     if(wrapEl)wrapEl.scrollTop=scrollBefore;
     return;
   }
+  // Tri « par catégorie » (comme avant) ou « par emplacement » (frigo, réserve… réglé dans l'admin) pour
+  // compter dans l'ordre où l'on passe devant les produits. Les clés d'emplacement sont préfixées « @ » pour
+  // ne jamais se mélanger aux noms de catégories (sections repliées / dépliées).
+  var parEmpl=cptTriMode()==='emplacement';
+  var cptCleGroupe=function(i){return parEmpl?('@'+(i.emplacement||'')):i.categorie;};
   var byCat={};
-  filtered.forEach(function(i){(byCat[i.categorie]=byCat[i.categorie]||[]).push(i);});
-  var catNames=Object.keys(byCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+  // Produits déjà comptés aujourd'hui à l'ouverture : hors des catégories, dans une liste repliée en tête.
+  var dejaComptes=filtered.filter(function(i){return i._dejaCompteAuChargement;});
+  filtered.filter(function(i){return !i._dejaCompteAuChargement;}).forEach(function(i){var k=cptCleGroupe(i);(byCat[k]=byCat[k]||[]).push(i);});
+  var catNames=Object.keys(byCat).sort(function(a,b){
+    if(parEmpl){if(a==='@')return 1;if(b==='@')return -1;} // « Sans emplacement » en dernier
+    return a.localeCompare(b,'fr',{numeric:true});
+  });
+  var listeHtml=function(lst){
+    if(!parEmpl)return cptItemsBySousCatHtml(lst);
+    return lst.slice().sort(function(a,b){return a.categorie.localeCompare(b.categorie,'fr')||a.nom.localeCompare(b.nom,'fr');}).map(comptageRowHtml).join('');
+  };
   var html='';
+  if(dejaComptes.length){
+    html+='<div class="cpt-sec">'
+      +'<div class="cpt-sec-hdr'+(cptDejaComptesOuvert?'':' coll')+'" style="background:#27AE60" onclick="cptToggleDejaComptes()">'
+        +'<h3>&#10003; D&eacute;j&agrave; compt&eacute;s aujourd\'hui</h3>'
+        +'<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.9);margin-right:4px;white-space:nowrap;">'+dejaComptes.length+' produit'+(dejaComptes.length>1?'s':'')+'</span>'
+        +'<span class="cpt-chev">&#9660;</span>'
+      +'</div>'
+      +'<div class="cpt-sec-body" style="display:'+(cptDejaComptesOuvert?'block':'none')+'">'
+        +dejaComptes.slice().sort(function(a,b){return a.categorie.localeCompare(b.categorie,'fr')||a.nom.localeCompare(b.nom,'fr');}).map(comptageRowHtml).join('')
+      +'</div>'
+      +'</div>';
+  }
   catNames.forEach(function(cat){
     var items=byCat[cat];
+    var titre=parEmpl?(cat.slice(1)?('&#128205; '+escCpt(cat.slice(1))):'Sans emplacement'):escCpt(cat);
     var dueItems=items.filter(function(i){return i._dueAtLoad;});
     var notDueItems=items.filter(function(i){return !i._dueAtLoad;});
     var nAlert=items.filter(function(i){var st=cptStatus(i);return st&&st.cls!=='ok';}).length;
     var nDone=dueItems.filter(function(i){return cptComptedToday(i.dernier);}).length;
-    var color=cptCatColor(cat);
+    var color=parEmpl?'#475569':cptCatColor(cat);
     var secId=cptSecId(cat);
     var collapsed=cptCollapsedCats.has(cat);
     var notDueCollapsed=!cptExpandedNotDueCats.has(cat); // replié par défaut : ce n'est pas "à faire aujourd'hui"
@@ -2967,21 +3033,44 @@ function renderComptageList(){
       +'<div style="font-size:10px;color:rgba(255,255,255,.78);cursor:pointer;padding:4px 2px;" onclick="cptToggleNotDueCat(\''+cat.replace(/'/g,"\\'")+'\')">'
         +(notDueCollapsed?'&#9656;':'&#9662;')+' &#128197; Pas &agrave; compter aujourd\'hui ('+notDueItems.length+')'
       +'</div>'
-      +'<div style="display:'+(notDueCollapsed?'none':'block')+'">'+cptItemsBySousCatHtml(notDueItems)+'</div>'
+      +'<div style="display:'+(notDueCollapsed?'none':'block')+'">'+listeHtml(notDueItems)+'</div>'
       +'</div>'
     ):'';
     html+='<div class="cpt-sec">'
       +'<div class="cpt-sec-hdr'+(collapsed?' coll':'')+'" id="'+secId+'-hdr" style="background:'+color+'" onclick="cptSecToggle(\''+cat.replace(/'/g,"\\'")+'\')">'
-        +'<h3>'+escCpt(cat)+'</h3>'
+        +'<h3>'+titre+'</h3>'
         +'<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.85);margin-right:4px;white-space:nowrap;">'+nDone+'/'+dueItems.length+' &#10003;</span>'
         +'<span class="cpt-sec-count'+(nAlert?' vis':'')+'">'+nAlert+'</span>'
         +'<span class="cpt-chev">&#9660;</span>'
       +'</div>'
-      +'<div class="cpt-sec-body" id="'+secId+'-body" style="display:'+(collapsed?'none':'block')+'">'+cptItemsBySousCatHtml(dueItems)+notDueHtml+'</div>'
+      +'<div class="cpt-sec-body" id="'+secId+'-body" style="display:'+(collapsed?'none':'block')+'">'+listeHtml(dueItems)+notDueHtml+'</div>'
       +'</div>';
   });
   box.innerHTML=html;
+  cptTriRender();
   if(wrapEl)wrapEl.scrollTop=scrollBefore;
+}
+// Choix du tri (mémorisé sur la tablette). Les boutons n'apparaissent que si au moins un produit a un emplacement.
+function cptTriMode(){
+  var m='categorie';
+  try{m=localStorage.getItem('cpt_tri')||'categorie';}catch(e){}
+  if(m==='emplacement'&&!cptIngredients.some(function(i){return i.emplacement;}))m='categorie';
+  return m;
+}
+function cptTriSet(m){
+  try{localStorage.setItem('cpt_tri',m);}catch(e){}
+  renderComptageList();
+}
+function cptTriRender(){
+  var w=document.getElementById('cpt-tri-wrap');
+  if(!w)return;
+  if(!cptIngredients.some(function(i){return i.emplacement;})){w.innerHTML='';return;}
+  var m=cptTriMode();
+  w.innerHTML='<div class="cpt-tri">'
+    +'<button type="button" class="'+(m!=='emplacement'?'on':'')+'" onclick="cptTriSet(\'categorie\')">&#128450; Par cat&eacute;gorie</button>'
+    +'<button type="button" class="'+(m==='emplacement'?'on':'')+'" onclick="cptTriSet(\'emplacement\')">&#128205; Par emplacement</button>'
+    +'</div>';
+  cptSyncBarHeight();
 }
 
 // Un ingrédient déjà compté AUJOURD'HUI (peu importe l'heure) — sert à distinguer d'un simple "Dernier
@@ -2998,6 +3087,21 @@ function dernierLabelCpt(dernier,unite){
   var parNom=dernier.compte_par_nom?(' par '+escCpt(dernier.compte_par_nom)):'';
   return 'Dernier : '+escCpt(dernier.valeur)+(unite?(' '+escCpt(unite)):'')+' — '+when+parNom;
 }
+// Ce que l'équipe doit compter, écrit sous la bulle (14/10/2026) :
+//  • produit compté en kg, g, L… → l'unité (« kg ») ;
+//  • produit compté « à la pièce » avec une unité de commande et sans colisage (ou colisage 1) : une pièce = une
+//    unité de commande → on écrit l'unité de commande (« boîte de 3 kg ») — c'est ce que l'on a sous les yeux ;
+//  • sinon « pièce ».
+// Simple libellé : la valeur enregistrée reste dans l'unité de comptage, aucun calcul ne change.
+function cptUniteAffichee(i,n){
+  if(i.type_suivi!=='qty')return '';
+  var uc=i.unite_comptage||'piece';
+  if(uc!=='piece')return uc==='l'?'L':uc;
+  var col=parseFloat(i.colisage);
+  var ucmd=String(i.unite_commande||'').trim();
+  var mot=(ucmd&&(isNaN(col)||col<=1))?ucmd:'pièce';
+  return RG.pluriel(mot,n);
+}
 
 function comptageRowHtml(i){
   var id='cpt-'+i.code;
@@ -3013,7 +3117,8 @@ function comptageRowHtml(i){
       +'<button type="button" class="cpt-qbtn" onclick="cptAdjQty(\''+i.code+'\',-1)">&minus;</button>'
       +'<input type="number" inputmode="decimal" step="0.1" class="cpt-qin" id="'+id+'-val" value="'+escCpt(val)+'" placeholder="0" onchange="saveComptage(\''+i.code+'\')">'
       +'<button type="button" class="cpt-qbtn" onclick="cptAdjQty(\''+i.code+'\',1)">+</button>'
-      +'</div>';
+      +'</div>'
+      +'<div class="cpt-unite">'+escCpt(cptUniteAffichee(i,parseFloat(val)||1))+'</div>';
   }else if(i.type_suivi==='two'){
     body='<div class="cpt-tog">'+cptChoiceBtn(i,'ok','OK','ok')+cptChoiceBtn(i,'commander','Cmd','bad')+'</div>';
   }else if(i.type_suivi==='yn'){
@@ -3026,7 +3131,9 @@ function comptageRowHtml(i){
     body='<div style="color:#8a8a8a;font-size:11px">Mode de suivi inconnu ("'+escCpt(i.type_suivi)+'")</div>';
   }
   var st=cptStatus(i);
-  var pill=st?('<span class="cpt-pill cpt-pill-'+st.cls+'">'+escCpt(st.label)+'</span>'):'';
+  // Écran épuré (demande des équipes, 14/10/2026) : plus de pastille de statut, de seuil / cible / colisage, de
+  // jours de comptage ni d'étiquette fournisseur sur la ligne. Le contour orange / rouge reste comme seul repère.
+  var pill='';
   var rowFlag=st&&st.cls==='bad'?' order':(st&&st.cls==='warn'?' warn':'');
   var doneToday=cptComptedToday(i.dernier);
   if(doneToday)rowFlag+=' done-today';
@@ -3042,9 +3149,7 @@ function comptageRowHtml(i){
     +'<span class="cpt-dot" style="background:'+cptCatColor(i.categorie)+'"></span>'
     +'<div class="cpt-info">'
       +'<div class="cpt-name">'+escCpt(i.nom)+doneBadge+undoBtn+notDueBadge+'</div>'
-      +cptMetaLine(i)
-      +'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?i.unite_comptage:null)+'</div>'
-      +'<div class="cpt-suptag-wrap">'+cptRoutingTag(i)+'</div>'
+      +(doneToday?'':'<div class="cpt-meta" id="'+id+'-derlbl">'+dernierLabelCpt(i.dernier,i.type_suivi==='qty'?cptUniteAffichee(i,parseFloat(i.dernier&&i.dernier.valeur)||1):null)+'</div>')
     +'</div>'
     +'<div class="cpt-ctrl">'+pill+body+'</div>'
     +'</div>';

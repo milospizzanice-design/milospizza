@@ -10232,6 +10232,14 @@ function renderIngredientsList(){
       +'<input type="text" class="fi" style="width:74px;font-size:10px;" placeholder="Unité cmd" title="Unité de commande (carton, bouteille, fût…) — juste le type de colis, pas besoin de redonner le nom du produit" value="'+esc(s.unite_commande||'')+'" oninput="ucmdPreview(this,\''+i.code+'\',\''+r.id+'\')" onchange="updateIngredientSeuil(\''+i.code+'\',\'unite_commande\',this.value,\''+r.id+'\')">'
       +'<span id="ucmd-prev-'+i.code+'-'+r.id+'" style="font-size:8px;color:var(--txm);white-space:nowrap;">'+(s.unite_commande?('= '+esc(s.unite_commande)+' de '+esc(i.nom)):'')+'</span>'
       +'</div>'
+      // Emplacement (frigo, chambre froide, réserve…) : la tablette peut trier le comptage par emplacement.
+      // Liste des emplacements déjà utilisés sur ce restaurant proposée à la saisie (pas de faute de frappe).
+      +(function(){
+        var dl='empl-'+i.code+'-'+r.id;
+        var deja={};Object.keys(rctIngredientSeuilsAll[r.id]||{}).forEach(function(c){var e=String((rctIngredientSeuilsAll[r.id][c]||{}).emplacement||'').trim();if(e)deja[e]=1;});
+        return '<input type="text" class="fi" style="width:110px;font-size:10px;" list="'+dl+'" placeholder="📍 Emplacement" title="Où se trouve ce produit dans ce restaurant (ex. 1 Frigo pizza, 2 Chambre froide). Sur la tablette, le comptage peut être trié par emplacement ; commencez par un numéro pour choisir l\'ordre." value="'+esc(s.emplacement||'')+'" onchange="updateIngredientSeuil(\''+i.code+'\',\'emplacement\',this.value,\''+r.id+'\')">'
+          +'<datalist id="'+dl+'">'+Object.keys(deja).sort(function(a,b){return a.localeCompare(b,'fr',{numeric:true});}).map(function(e){return '<option value="'+esc(e)+'">';}).join('')+'</datalist>';
+      })()
       +'</div>'
       +ingredientComptageJoursHtml(i.code,r.id,s)
       +((isCurrent||tousMode)?'<div style="margin-top:4px;"><button class="btn bs sm" onclick="openReglesCommandeModal(\''+i.code+'\')" style="font-size:10px;padding:3px 8px;">📅 Règles de commande'+(((rctIngredientRegles[r.id]||{})[i.code]&&(rctIngredientRegles[r.id]||{})[i.code].length)?' ('+(rctIngredientRegles[r.id]||{})[i.code].length+')':'')+'</button></div>'
@@ -11313,6 +11321,7 @@ function updateIngredientSeuil(ingredientCode,field,value,restoIdOverride){
       }
       if(field==='actif')payload.actif=!!value;
       else if(field==='fournisseur_id'||field==='unite_commande'||field==='unite_comptage')payload[field]=value||null;
+      else if(field==='emplacement')payload.emplacement=String(value||'').trim()||null; // colonne ajoutée par emplacement_comptage.sql
       else if(field!=='type_suivi')payload[field]=(value===''?null:parseFloat(value));
       sbCheck(await db.from('ingredient_seuils').upsert([payload],{onConflict:'restaurant_id,ingredient_code'}));
       rctIngredientSeuilsAll[resto]=rctIngredientSeuilsAll[resto]||{};
