@@ -7036,7 +7036,7 @@ function renderHomePage(l) {
     const isAbout = group.isAbout;
     const minH = isAbout ? '140px' : '220px';
     html += `<div onclick="openSectionPage('${key}')" style="position:relative;border-radius:16px;overflow:hidden;flex:${isAbout?'0 0 140px':'1'};min-height:${minH};cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.2);">
-      <img src="${cld(photo,500)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+      ${photo ? `<img src="${cld(photo,500)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">` : `<div style="position:absolute;inset:0;background:var(--brun,#3D2B1F);"></div>`}
       <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.2) 60%,transparent 100%);"></div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:1.2rem 1.4rem;">
         <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:${isAbout?'1.6rem':'2.2rem'};color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.5);">${title}</div>
@@ -7164,7 +7164,10 @@ async function init(){
   if (remoteHome) { homeConfig = remoteHome; try{localStorage.setItem('milos_home',JSON.stringify(remoteHome));}catch(e){} }
   if (remoteSections) {
     Object.keys(remoteSections).forEach(key=>{
-      if (HOME_GROUPS[key]) Object.assign(HOME_GROUPS[key], remoteSections[key]);
+      if (HOME_GROUPS[key]) {
+        Object.assign(HOME_GROUPS[key], remoteSections[key]);
+        if (remoteSections[key] && remoteSections[key].photo) HOME_PHOTOS[HOME_GROUPS[key].photoKey] = remoteSections[key].photo;
+      }
     });
   }
   renderMenu();
@@ -7275,7 +7278,10 @@ async function saveSections(){
     var g = HOME_GROUPS[key];
     sectionsConfig[key] = {
       title: g.title, subtitle: g.subtitle, aboutText: g.aboutText,
-      insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId
+      insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId,
+      // Photo de bannière choisie dans l'admin (adresse Cloudinary). Avant le 14/10/2026 elle n'était pas
+      // enregistrée : la nouvelle photo disparaissait au rechargement de la page.
+      photo: g.photo || ''
     };
   });
   var result = await saveKeyToGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json', sectionsConfig);
@@ -7293,10 +7299,11 @@ function triggerSectionPhotoUpload(key){
     showToast('\ud83d\udcf7 Upload en cours...');
     uploadImageSecure(file).then(function(url){
       HOME_PHOTOS[HOME_GROUPS[key].photoKey] = url;
+      HOME_GROUPS[key].photo = url;
       var prev = document.getElementById('sec_prev_'+key);
       if(prev){ prev.src=cld(url,150); prev.className='photo-preview visible'; }
-      renderHomePage(currentLang);
-      showToast('\ud83d\udcf7 Photo sauvegard\u00e9e !');
+      // Enregistrée tout de suite (sections.json, ou le brouillon) — elle part en ligne avec ✅ Publier.
+      saveSections();
     }).catch(function(){
       showToast('\u274c Erreur upload');
     });
