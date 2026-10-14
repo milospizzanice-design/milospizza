@@ -1,0 +1,198 @@
+{
+  "rouge": "#9B1C1C",
+  "creme": "#F5F0E8",
+  "texte": "#2C2010",
+  "brun": "#3D2B1F",
+  "vert": "#6B7E5A",
+  "font_title": "'Cormorant Garamond', serif",
+  "font_items": "'Montserrat', sans-serif",
+  "desc_size": 15,
+  "print_cfg_a4": {
+    "exCats": [],
+    "exItems": [],
+    "cols": "1",
+    "desc": true,
+    "bg": true,
+    "newPage": false,
+    "infos": true,
+    "photo": "",
+    "mode": "auto",
+    "rows": [],
+    "exEtabs": [],
+    "taille": 100,
+    "source": "surplace",
+    "couv": {
+      "logo": true,
+      "nom": true,
+      "slogan": true,
+      "photo": true,
+      "photoStyle": "cadre",
+      "etabs": false,
+      "horaires": false,
+      "qrs": false,
+      "label": ""
+    },
+    "dos": {
+      "etabs": true,
+      "horaires": true,
+      "plus": true,
+      "qrs": true,
+      "mention": true
+    }
+  },
+  "print_nom": "Milo's Pizza",
+  "print_slogan": "Le saviez vous ? Nous livrons gratuitement vos pizzas préférées partout dans Nice",
+  "print_adresse": "9 rue bavastro & 17 rue Dabray (à emporter & livraison)",
+  "print_tel": "0699389063",
+  "print_infos": "",
+  "print_mention": "Prix nets service compris · Allergènes disponibles sur demande",
+  "print_qr_surplace": "https://milospizza.restoglobal.fr/",
+  "print_qr_emporter": "https://milospizza.restoglobal.fr/emporter.html",
+  "print_qr_livraison": "https://milospizzaport.fr",
+  "print_horaires": [
+    {
+      "ferme": false,
+      "m1": "12:00",
+      "m2": "14:30",
+      "s1": "",
+      "s2": ""
+    },
+    {
+      "ferme": false,
+      "m1": "10:39",
+      "m2": "",
+      "s1": "10:36",
+      "s2": ""
+    },
+    {
+      "ferme": false,
+      "m1": "",
+      "m2": "",
+      "s1": "",
+      "s2": ""
+    },
+    {
+      "ferme": false,
+      "m1": "",
+      "m2": "",
+      "s1": "",
+      "s2": ""
+    },
+    {
+      "ferme": false,
+      "m1": "",
+      "m2": "",
+      "s1": "",
+      "s2": ""
+    },
+    {
+      "ferme": false,
+      "m1": "",
+      "m2": "",
+      "s1": "",
+      "s2": ""
+    },
+    {
+      "ferme": false,
+      "m1": "",
+      "m2": "",
+      "s1": "",
+      "s2": ""
+    }
+  ],
+  "print_cfg_trifold": {
+    "exCats": [],
+    "exItems": [],
+    "cols": "auto",
+    "desc": true,
+    "bg": true,
+    "newPage": false,
+    "infos": true,
+    "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1791963210/Milo_sPizza2-Nice-40_pokwma.jpg",
+    "mode": "auto",
+    "rows": [],
+    "exEtabs": [],
+    "taille": 100,
+    "source": "emporter",
+    "couv": {
+      "logo": true,
+      "nom": false,
+      "slogan": true,
+      "photo": true,
+      "photoStyle": "cadre",
+      "etabs": true,
+      "horaires": true,
+      "qrs": true,
+      "label": "Menu a emporter & livraison"
+    },
+    "dos": {
+      "etabs": true,
+      "horaires": true,
+      "plus": true,
+      "qrs": true,
+      "mention": true
+    }
+  },
+  "print_cfg_a5": {
+    "exCats": [],
+    "exItems": [],
+    "cols": "auto",
+    "desc": true,
+    "bg": true,
+    "newPage": false,
+    "infos": true,
+    "photo": ""
+  },
+  "print_etabs": [
+    {
+      "id": "emv6m7yz4x2k3i",
+      "nom": "Milo's Pizza Port",
+      "adresse": "9 rue bavastro",
+      "tel": "06.99.38.90.63",
+      "horaires": [
+        {
+          "id": "hmv6m7yz4io2xm",
+          "jours": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "ferme": false,
+          "m1": "12:00",
+          "m2": "14:30",
+          "s1": "18:00",
+          "s2": "22:30"
+        }
+      ]
+    },
+    {
+      "id": "emv6m8xcqrgopz",
+      "nom": "Milo's Pizza Dabray - Libération",
+      "adresse": "17 rue Dabray",
+      "tel": "07.64.55.54.01",
+      "horaires": [
+        {
+          "id": "hmv6m9mls289lg",
+          "jours": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "ferme": false,
+          "m1": "18:00",
+          "m2": "22:30",
+          "s1": "",
+          "s2": ""
+        }
+      ]
+    }
+  ]
+}
