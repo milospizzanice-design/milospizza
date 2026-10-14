@@ -7304,7 +7304,7 @@ function renderAdminSections(){
   html += "<button onclick='saveSections()' style='width:100%;background:#9B1C1C;color:#fff;border:none;border-radius:8px;padding:0.9rem;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;margin-top:0.5rem;'>&#x2713; Sauvegarder les sections</button>";
   
   var el = document.getElementById('adminSectionsList');
-  if(el) el.innerHTML = html;
+  if(el){ el.innerHTML = html; supplAjusterHauteurs(el); }
 }
 
 // ── Fenêtre « Suppléments » (14/10/2026) ──
@@ -7316,11 +7316,15 @@ function supplEditeurHtml(key){
   const liste = Array.isArray(g.supplements) ? g.supplements : [];
   return `<div class="cat-section-label" style="margin-top:0.8rem;">🧾 Fenêtre « Suppléments » <span style="font-weight:400;color:#999;">(${liste.length})</span></div>
     <p style="font-size:0.66rem;color:#888;margin:0 0 0.4rem;">Affichée quand on touche le lien de l'encart, si « Le lien renvoie vers » = Fenêtre « Suppléments ». Pensez à Enregistrer puis ✅ Publier.</p>
-    ${liste.map((x,i)=>`<div style="display:flex;gap:0.3rem;align-items:center;margin-bottom:0.3rem;">
-      <input class="admin-input" style="flex:1;margin:0;" value="${E(x.nom||'')}" placeholder="Nom" onchange="supplModif('${key}',${i},'nom',this.value)">
-      <input class="admin-input" style="width:72px;margin:0;text-align:right;" value="${E(String(x.prix||'').replace('€',''))}" placeholder="Prix" inputmode="decimal" onchange="supplModif('${key}',${i},'prix',this.value)">
-      <span style="font-size:0.85rem;color:var(--vert);font-weight:700;">€</span>
-      <button onclick="supplRetirer('${key}',${i})" style="background:none;border:none;color:#c0392b;font-size:0.95rem;cursor:pointer;">✕</button>
+    ${liste.length ? `<button class="aic-btn" style="width:100%;background:#fff;color:var(--rouge);border:1px solid var(--rouge);margin-bottom:0.5rem;" onclick="ouvrirSupplements('${key}')">👁 Voir la fenêtre comme les clients</button>` : ''}
+    ${liste.map((x,i)=>`<div style="border:1px solid #eee;border-radius:8px;padding:0.4rem 0.5rem;margin-bottom:0.35rem;background:#fff;">
+      <textarea class="admin-input" rows="1" style="width:100%;margin:0 0 0.3rem;resize:none;min-height:0;font-size:0.8rem;line-height:1.3;overflow:hidden;" placeholder="Nom du supplément" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" onchange="supplModif('${key}',${i},'nom',this.value)">${E(x.nom||'')}</textarea>
+      <div style="display:flex;gap:0.3rem;align-items:center;">
+        <input class="admin-input" style="width:80px;margin:0;text-align:right;" value="${E(String(x.prix||'').replace('€',''))}" placeholder="Prix" inputmode="decimal" onchange="supplModif('${key}',${i},'prix',this.value)">
+        <span style="font-size:0.85rem;color:var(--vert);font-weight:700;">€</span>
+        <span style="flex:1;"></span>
+        <button onclick="supplRetirer('${key}',${i})" style="background:none;border:none;color:#c0392b;font-size:0.75rem;cursor:pointer;">✕ Retirer</button>
+      </div>
     </div>`).join('')}
     <div style="display:flex;gap:0.4rem;margin-top:0.3rem;">
       <button class="aic-btn" style="flex:1;background:var(--vert);color:#fff;" onclick="supplAjouter('${key}')">+ Ajouter</button>
@@ -7328,7 +7332,9 @@ function supplEditeurHtml(key){
     </div>
     <div id="supplHibEtat_${key}" style="font-size:0.66rem;color:#888;margin-top:0.3rem;"></div>`;
 }
-function supplRafraichir(key){ const el=document.getElementById('sec_suppl_'+key); if(el) el.innerHTML=supplEditeurHtml(key); }
+// Hauteur des zones de nom ajustée au texte (seulement si l'onglet est visible : caché, la mesure vaut 0)
+function supplAjusterHauteurs(el){ if(el) el.querySelectorAll('textarea').forEach(t=>{ if(!t.offsetParent) return; t.style.height='auto'; if(t.scrollHeight) t.style.height=t.scrollHeight+'px'; }); }
+function supplRafraichir(key){ const el=document.getElementById('sec_suppl_'+key); if(el){ el.innerHTML=supplEditeurHtml(key); supplAjusterHauteurs(el); } }
 function supplModif(key,i,champ,val){
   const g=HOME_GROUPS[key]; if(!g||!g.supplements||!g.supplements[i]) return;
   if(champ==='prix'){ const c=String(val||'').replace('€','').trim(); g.supplements[i].prix = c ? c+'€' : ''; }
