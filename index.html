@@ -1185,7 +1185,32 @@ let githubSha = null;
 // ═══════════════════════════════════════
 // GITHUB PERSISTENCE
 // ═══════════════════════════════════════
+// Secours de lecture (14/10/2026) : si le relais GitHub (Worker) ne répond pas — jeton expiré, quota, panne —
+// on lit le même fichier directement sur le site (le dépôt est publié tel quel). Avant, la page retombait
+// sans rien dire sur la carte d'exemple intégrée au code : plus de photos, anciens prix, catégories vides.
+// Lecture seule : l'enregistrement passe toujours par le relais.
+async function lireFichierDuSite(filename) {
+  try {
+    const r = await fetch(filename + '?t=' + Date.now(), {cache: 'no-store'});
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
 async function loadFromGithub() {
+  const ok = await loadFromGithubRelais();
+  if (ok) return;
+  const file = isDraftMode ? DRAFT_FILE : DATA_FILE;
+  let p = await lireFichierDuSite(file);
+  if (!p && isDraftMode) p = await lireFichierDuSite(DATA_FILE);
+  if (p && p.items) {
+    if (p.cats) cats = p.cats;
+    items = p.items;
+    if (p.upsells) upsells = p.upsells;
+    console.warn('Relais GitHub indisponible : carte lue directement depuis ' + file);
+    renderMenu();
+  }
+}
+async function loadFromGithubRelais() {
   function decodeB64UTF8(b64) {
     const bin = atob(b64.replace(/\n/g,''));
     const bytes = new Uint8Array(bin.length);
@@ -1198,7 +1223,7 @@ async function loadFromGithub() {
     if (!res.ok) {
       if (isDraftMode) {
         const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(DATA_FILE)}`);
-        if (!res2.ok) return;
+        if (!res2.ok) return false;
         const d2 = await res2.json();
         if (d2.sha) githubSha = d2.sha;
         if (d2.content) {
@@ -1206,9 +1231,10 @@ async function loadFromGithub() {
           if (p2.cats) cats = p2.cats;
           if (p2.items) items = p2.items;
           if (p2.upsells) upsells = p2.upsells;
+          return true;
         }
       }
-      return;
+      return false;
     }
     const d = await res.json();
     if (d.sha) githubSha = d.sha;
@@ -1218,8 +1244,10 @@ async function loadFromGithub() {
       if (parsed.items) items = parsed.items;
       if (parsed.upsells) upsells = parsed.upsells;
       renderMenu();
+      return true;
     }
-  } catch(e){ console.error('loadFromGithub:', e); }
+    return false;
+  } catch(e){ console.error('loadFromGithub:', e); return false; }
 }
 
 async function saveToGithub() {
@@ -1309,11 +1337,11 @@ async function loadKeyFromGithub(filename) {
   try {
     const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`
     );
-    if (!res.ok) return null;
+    if (!res.ok) return await lireFichierDuSite(filename);
     const data = await res.json();
     if (!(githubShasPerimes[filename] || {})[data.sha]) githubShas[filename] = data.sha;
     return JSON.parse(new TextDecoder('utf-8').decode((s=>{const b=atob(s.replace(/\\n/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;})(data.content.replace(/\n/g,''))));
-  } catch(e){ return null; }
+  } catch(e){ return await lireFichierDuSite(filename); }
 }
 
 
