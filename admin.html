@@ -341,6 +341,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="plan-acts">
       <button class="btn bg2" onclick="savePl()">&#10003; Enregistrer</button>
       <button class="btn ba" onclick="openPlanDupli()">&#128203; Dupliquer sem.</button>
+      <button class="btn bs" onclick="ptDepuisSemaineAffichee()" title="Enregistre la semaine affichée comme planning type sur la fiche de chaque salarié">&#128204; Semaine &#8594; planning type</button>
       <button class="btn bp" onclick="openPDFMonth()">&#8595; PDF mensuel</button>
       <button class="btn bs" onclick="openAddSalFromPlan()">+ Salari&#233;</button>
     </div>
@@ -1130,8 +1131,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <input type="hidden" id="sapin">
     <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px">
       <div style="font-size:12px;font-weight:700;color:var(--bx);margin-bottom:6px">&#128197; Planning type hebdomadaire</div>
-      <div style="font-size:10px;color:var(--txm);margin-bottom:8px">Définissez les horaires habituels. À la validation, ils seront dupliqués sur 12 semaines à partir de la date choisie.</div>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:8px">Horaires habituels du salarié. Ils sont enregistrés automatiquement sur sa fiche à chaque modification. « Générer » les recopie sur 12 semaines à partir de la date choisie.</div>
+      <div id="sal-pt-etat" style="font-size:10px;margin-bottom:6px;min-height:12px"></div>
       <div id="sal-planning-type"></div>
+      <button type="button" class="btn bs sm" onclick="ptReprendreSemaineEnCours()" style="width:100%;margin-top:6px">&#128203; Reprendre son planning de la semaine en cours</button>
       <div class="fr" style="margin-top:8px"><label class="fl2">Appliquer à partir du</label><input type="date" class="fi" id="sal-pt-start"></div>
       <button class="btn ba sm" onclick="applyPlanningType()" style="width:100%;margin-top:6px">Générer le planning sur 12 semaines</button>
     </div>
@@ -1744,7 +1747,7 @@ async function saveCor(){
   loadMotifs();
   updateDemBadge();
   checkDepassements();
-  db.from('demandes_acompte').select('*').then(function(r){acoAllData=r.data||[];updateAcoBadge();});
+  RG.toutesLignes(function(){return db.from('demandes_acompte').select('*').order('id');}).then(function(r){acoAllData=r.data||[];updateAcoBadge();});
 }
 
 function expCSV(){
@@ -2928,7 +2931,7 @@ async function ensureComptageCatsCanonical(forceReload){
       db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('sous_categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('onglets_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
-      db.from('ingredients').select('code,nom,categorie,sous_categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true)
+      RG.toutesLignes(function(){return db.from('ingredients').select('code,nom,categorie,sous_categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).order('code');})
     ]);
     var catOrd=res[0],subOrd=res[1],ongOrd=res[2],ingRes=res[3];
     // ingByCat[categorie] = {direct:[{code,nom}], bySub:{sous_categorie:[{code,nom}]}}
@@ -3104,7 +3107,7 @@ async function roleComptageAutofillFromResto(restoId){
   if(!confirm('Cocher automatiquement, dans la liste ci-dessous, tous les ingrédients actuellement visibles sur '+restoLabel+' ?\n\nÇa remplace la sélection actuelle (catégories + exceptions) — à Enregistrer ensuite pour confirmer.'))return;
   var activeCodes={};
   try{
-    var seuilsRes=await db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId);
+    var seuilsRes=await RG.toutesLignes(function(){return db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId).order('ingredient_code');});
     (seuilsRes.data||[]).forEach(function(s){if(s.actif!==false)activeCodes[s.ingredient_code]=true;});
   }catch(e){console.error('roleComptageAutofillFromResto',e);alert('Erreur : '+e.message);return;}
   var tree=await ensureComptageCatsCanonical();
@@ -3210,7 +3213,7 @@ function renderRoleComptageCatsCheckboxes(selected,ingInclude,ingExclude){
   var filterRestos=(roleComptageFilterRestos||[]).slice();
   Promise.all([
     ensureComptageCatsCanonical(),
-    db.from('ingredient_seuils').select('restaurant_id,ingredient_code,actif')
+    RG.toutesLignes(function(){return db.from('ingredient_seuils').select('restaurant_id,ingredient_code,actif').order('restaurant_id').order('ingredient_code');})
   ]).then(function(res){
     if(!box)return;
     var tree=res[0];
@@ -3403,10 +3406,10 @@ async function drhGenerateData(){
   if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return null;}
   var les=emps.filter(function(e){return (resto==='all'||e.restaurant_id===resto||e.multi_site);});
   var empIdsDrh=les.map(function(e){return e.id;});
-  var pd=await db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59');
+  var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59').order('id');});
   var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to);
-  var crd=await db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh);
-  var apd=await db.from('absences_planning').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh);
+  var crd=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh).order('id');});
+  var apd=await RG.toutesLignes(function(){return db.from('absences_planning').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh).order('employee_id').order('date');});
   var result=[];
   les.forEach(function(em){
     var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
@@ -3914,8 +3917,8 @@ async function drawPlanningOnDoc(doc,empList,firstDay,lastDay,rl,monthLabel){
   var empIds=empList.map(function(e){return e.id;});
   var lastWeekEnd2=planAddD(planMonOf(lastDay),6);
   var loadEnd2=planDs(lastDay)>planDs(lastWeekEnd2)?planDs(lastDay):planDs(lastWeekEnd2);
-  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds);
-  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds);
+  var allCrs=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds).order('id');});
+  var allAbs=await RG.toutesLignes(function(){return db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds).order('employee_id').order('date');});
   var mplan={};
   (allCrs.data||[]).forEach(function(c){
     if(!mplan[c.employee_id])mplan[c.employee_id]={};
@@ -4064,8 +4067,8 @@ async function exportMonthPDF(){
   var empIds=filtered.map(function(e){return e.id;});
   var lastWeekEnd2=planAddD(planMonOf(lastDay),6);
   var loadEnd2=planDs(lastDay)>planDs(lastWeekEnd2)?planDs(lastDay):planDs(lastWeekEnd2);
-  var allCrs=await db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds);
-  var allAbs=await db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds);
+  var allCrs=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds).order('id');});
+  var allAbs=await RG.toutesLignes(function(){return db.from('absences_planning').select('*').gte('date',planDs(firstDay)).lte('date',loadEnd2).in('employee_id',empIds).order('employee_id').order('date');});
   var mplan={};
   (allCrs.data||[]).forEach(function(c){
     if(!mplan[c.employee_id])mplan[c.employee_id]={};
@@ -4542,7 +4545,7 @@ async function openAuditExceptionsIndiv(){
     });
     if(!concerned.length){box.innerHTML='<div style="color:#166534;font-size:12px;padding:10px;">Aucune exception individuelle restante — rien &agrave; nettoyer. &#128077;</div>';return;}
     if(!salDiagIngredientsCache.length){
-      var ingRes=await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true);
+      var ingRes=await RG.toutesLignes(function(){return db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).order('code');});
       salDiagIngredientsCache=ingRes.data||[];
     }
     var nomByCode={};salDiagIngredientsCache.forEach(function(i){nomByCode[i.code]=i.nom;});
@@ -4593,7 +4596,7 @@ async function renderComptageApercuList(preserveScroll){
   box.innerHTML='<div style="color:#aaa;font-size:11px;">Chargement...</div>';
   var restoId=caFilterResto;
   var tree=await ensureComptageCatsCanonical();
-  var seuilsRes=await db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId);
+  var seuilsRes=await RG.toutesLignes(function(){return db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId).order('ingredient_code');});
   var activeCodes={};
   (seuilsRes.data||[]).forEach(function(s){if(s.actif!==false)activeCodes[s.ingredient_code]=true;});
   var empsAtResto=(emps||[]).filter(function(e){
@@ -4754,7 +4757,7 @@ async function renderPlanningComptageList(){
   try{
     var tree=await ensureComptageCatsCanonical();
     var flat=flattenComptageTree(tree);
-    var seuilsRes=await db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId);
+    var seuilsRes=await RG.toutesLignes(function(){return db.from('ingredient_seuils').select('ingredient_code,actif').eq('restaurant_id',restoId).order('ingredient_code');});
     var activeCodes={};(seuilsRes.data||[]).forEach(function(s){if(s.actif!==false)activeCodes[s.ingredient_code]=true;});
     var crRes=await db.from('planning_creneaux').select('*').eq('date',pcgSelDate).eq('restaurant_id',restoId);
     if(crRes.error)throw crRes.error;
@@ -4802,7 +4805,7 @@ async function renderPlanningComptageList(){
   }
 }
 
-async function openAddSal(){curSal=null;tmpSalPlanningType=[];var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';await ensureRolesDataLoaded();renderSalPostesList(null);renderSalRolesList(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderSalDiagnosticSelectors(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
+async function openAddSal(){curSal=null;tmpSalPlanningType=[];ptEtat('');var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';await ensureRolesDataLoaded();renderSalPostesList(null);renderSalRolesList(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderSalDiagnosticSelectors(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
   openM('msa');}
 
@@ -4887,6 +4890,9 @@ function renderPlanningType(salId){
       h+='<span style="font-size:11px">-</span>';
       h+='<input type="time" data-day="'+i+'" data-slot="'+si+'" data-f="end" value="'+slot.end+'" onchange="ptSlotTime(this)" style="font-size:11px;padding:3px;border:1px solid var(--bd);border-radius:4px;width:72px">';
       h+='<button onclick="ptRemoveSlot('+i+','+si+')" style="background:#FEE2E2;color:#991B1B;border:none;border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:12px">&#10005;</button>';
+      // Créneau repris d'un autre établissement que celui du salarié : on l'indique (il y sera regénéré)
+      var emPt=salId?emp(salId):null;
+      if(slot.restaurant_id&&emPt&&slot.restaurant_id!==emPt.restaurant_id)h+='<span style="font-size:9px;color:var(--txm)">'+esc((window.RG&&RG.nomResto)?RG.nomResto(slot.restaurant_id):slot.restaurant_id)+'</span>';
       h+='</div>';
     });
     h+='</div>';
@@ -4904,16 +4910,132 @@ function ptAddSlot(day){
   if(lastSlot)pt[day].push({start:lastSlot.start,end:lastSlot.end});
   else pt[day].push({start:'17:00',end:'23:30'});
   renderPlanningType(curSal);
+  ptAutoSave();
 }
 
 function ptRemoveSlot(day,si){
   if(tmpSalPlanningType[day])tmpSalPlanningType[day].splice(si,1);
   renderPlanningType(curSal);
+  ptAutoSave();
 }
 
 function ptSlotTime(inp){
   var day=parseInt(inp.dataset.day);var si=parseInt(inp.dataset.slot);var f=inp.dataset.f;
   if(tmpSalPlanningType[day]&&tmpSalPlanningType[day][si])tmpSalPlanningType[day][si][f]=inp.value;
+  ptAutoSave();
+}
+
+// ── Enregistrement automatique du planning type (fiche salarié) ──
+// Avant (09/10/2026), le modèle n'était écrit sur la fiche qu'au clic sur « Générer » ou « Enregistrer » :
+// en fermant la fiche autrement, tout ce qui avait été saisi était perdu. Désormais chaque modification est
+// enregistrée tout de suite sur employees.planning_type (pour un salarié déjà créé).
+function ptEtat(html,couleur){
+  var el=document.getElementById('sal-pt-etat');
+  if(el){el.innerHTML=html||'';el.style.color=couleur||'var(--txm)';}
+}
+// Écrit le planning type d'un salarié. Renvoie {ok:true} ou {ok:false,msg}.
+async function ptEnregistrer(empId,pt){
+  try{
+    var r=await db.from('employees').update({planning_type:pt}).eq('id',empId).select('id');
+    if(r&&r.error){
+      var m=r.error.message||'';
+      return {ok:false,msg:(m.indexOf('planning_type')!==-1?'la colonne planning_type n\'existe pas dans Supabase (exécuter planning_type_salaries.sql)':m)};
+    }
+    if(!r||!r.data||!r.data.length)return {ok:false,msg:'aucune ligne modifiée côté Supabase (règle de sécurité RLS sur employees ?)'};
+    var e=emps.find(function(x){return x.id===empId;});
+    if(e)e.planning_type=JSON.parse(JSON.stringify(pt));
+    return {ok:true};
+  }catch(e){return {ok:false,msg:(e&&e.message)||String(e)};}
+}
+var ptAutoSaveTimer=null;
+function ptAutoSave(){
+  if(!curSal)return; // nouveau salarié : enregistré avec la fiche (saveSal)
+  var empId=curSal;
+  ptEtat('… enregistrement');
+  clearTimeout(ptAutoSaveTimer);
+  ptAutoSaveTimer=setTimeout(async function(){
+    var res=await ptEnregistrer(empId,tmpSalPlanningType);
+    if(curSal!==empId)return; // fiche changée entre-temps
+    if(res.ok)ptEtat('&#10003; Planning type enregistré sur la fiche','#166534');
+    else ptEtat('&#9888;&#65039; Non enregistré : '+esc(res.msg),'#B91C1C');
+  },600);
+}
+// Planning type à partir des créneaux réels d'une semaine (absences exclues). 0 = lundi.
+function ptDepuisCreneaux(rows){
+  var pt=[[],[],[],[],[],[],[]];
+  (rows||[]).forEach(function(c){
+    if(c.absence_code)return;
+    if(!c.heure_debut||!c.heure_fin||!c.date)return;
+    var j=(new Date(c.date+'T12:00:00').getDay()+6)%7;
+    pt[j].push({start:String(c.heure_debut).slice(0,5),end:String(c.heure_fin).slice(0,5),restaurant_id:c.restaurant_id||null});
+  });
+  pt.forEach(function(sl){sl.sort(function(a,b){return a.start.localeCompare(b.start);});});
+  return pt;
+}
+function ptEstVide(pt){return !Array.isArray(pt)||!pt.some(function(d){return d&&d.length;});}
+// Créneaux réels de la semaine commençant le lundi donné, pour une liste de salariés : {empId: pt}
+async function ptLireSemaine(empIds,lundi){
+  var r=await db.from('planning_creneaux').select('employee_id,date,heure_debut,heure_fin,restaurant_id,absence_code')
+    .gte('date',planDs(lundi)).lte('date',planDs(planAddD(lundi,6))).in('employee_id',empIds);
+  if(r&&r.error)throw new Error(r.error.message);
+  var parEmp={};
+  (r.data||[]).forEach(function(c){(parEmp[c.employee_id]=parEmp[c.employee_id]||[]).push(c);});
+  var out={};
+  empIds.forEach(function(id){out[id]=ptDepuisCreneaux(parEmp[id]||[]);});
+  return out;
+}
+// Fiche vide à l'ouverture : on la pré-remplit avec le planning réel de la semaine en cours (ou, à défaut, de
+// la semaine précédente) et on l'enregistre — il devient son planning par défaut.
+async function ptPreremplirSiVide(empId){
+  if(!ptEstVide(tmpSalPlanningType))return;
+  try{
+    var lundi=planMonOf(new Date());
+    var pt=(await ptLireSemaine([empId],lundi))[empId];
+    if(ptEstVide(pt)){lundi=planAddD(lundi,-7);pt=(await ptLireSemaine([empId],lundi))[empId];}
+    if(curSal!==empId||ptEstVide(pt)||!ptEstVide(tmpSalPlanningType))return;
+    tmpSalPlanningType=pt;
+    renderPlanningType(empId);
+    var res=await ptEnregistrer(empId,pt);
+    if(curSal!==empId)return;
+    var lib=lundi.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+    if(res.ok)ptEtat('&#10003; Pré-rempli avec son planning de la semaine du '+lib+' et enregistré sur la fiche','#166534');
+    else ptEtat('Pré-rempli avec la semaine du '+lib+', mais &#9888;&#65039; non enregistré : '+esc(res.msg),'#B91C1C');
+  }catch(e){console.warn('ptPreremplirSiVide',e);}
+}
+async function ptReprendreSemaineEnCours(){
+  if(!curSal){alert('Enregistrez d\'abord le salarié.');return;}
+  if(!ptEstVide(tmpSalPlanningType)&&!confirm('Remplacer son planning type par son planning réel de la semaine en cours ?'))return;
+  try{
+    var empId=curSal;
+    var pt=(await ptLireSemaine([empId],planMonOf(new Date())))[empId];
+    if(ptEstVide(pt)){alert('Aucun créneau cette semaine pour ce salarié.');return;}
+    tmpSalPlanningType=pt;
+    renderPlanningType(empId);
+    ptAutoSave();
+  }catch(e){alert('Erreur : '+((e&&e.message)||e));}
+}
+// Bouton du planning : la semaine affichée devient le planning type de chaque salarié qui y a au moins un
+// créneau (enregistré). Les salariés sans créneau cette semaine-là ne sont pas modifiés.
+async function ptDepuisSemaineAffichee(){
+  var lundi=planWkStart;
+  var lib=lundi.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+  var cibles=emps.filter(function(e){return e.actif!==false&&!e.archive;});
+  if(!cibles.length){alert('Aucun salarié actif.');return;}
+  if(!confirm('Enregistrer la semaine du '+lib+' comme planning type sur la fiche de chaque salarié (tous les établissements) ?\n\nSeuls les créneaux déjà enregistrés comptent (cliquez d\'abord sur « Enregistrer » si vous venez de modifier le planning). Les absences sont ignorées. Les salariés sans créneau cette semaine gardent leur planning type actuel.'))return;
+  try{
+    var parEmp=await ptLireSemaine(cibles.map(function(e){return e.id;}),lundi);
+    var faits=[],vides=[],erreurs=[];
+    for(var i=0;i<cibles.length;i++){
+      var e=cibles[i];var nom=((e.prenom||'')+' '+(e.nom||'')).trim();
+      var pt=parEmp[e.id];
+      if(ptEstVide(pt)){vides.push(nom);continue;}
+      var res=await ptEnregistrer(e.id,pt);
+      if(res.ok)faits.push(nom);else erreurs.push(nom+' : '+res.msg);
+    }
+    alert('✅ Planning type enregistré pour '+faits.length+' salarié(s).'
+      +(vides.length?'\n\nSans créneau cette semaine (inchangés) : '+vides.join(', '):'')
+      +(erreurs.length?'\n\n⚠️ Erreurs :\n'+erreurs.join('\n'):''));
+  }catch(e){alert('Erreur : '+((e&&e.message)||e));}
 }
 
 async function applyPlanningType(){
@@ -4969,7 +5091,7 @@ async function applyPlanningType(){
         if(planDs(crDate)<startVal)continue;
         var dstr=planDs(crDate);
         for(var s=0;s<slots.length;s++){
-          rows.push({employee_id:curSal,date:dstr,heure_debut:slots[s].start,heure_fin:slots[s].end,restaurant_id:em?em.restaurant_id:(planResto||null)});
+          rows.push({employee_id:curSal,date:dstr,heure_debut:slots[s].start,heure_fin:slots[s].end,restaurant_id:slots[s].restaurant_id||(em?em.restaurant_id:(planResto||null))});
         }
       }
     }
@@ -5043,7 +5165,7 @@ function renderSalDiagnosticSelectors(salId){
   if(salDiagIngredientsCache.length){fillProduits();}
   else{
     prodSel.innerHTML='<option value="">Chargement...</option>';
-    db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).then(function(res){
+    RG.toutesLignes(function(){return db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).order('code');}).then(function(res){
       salDiagIngredientsCache=res.data||[];
       fillProduits();
     });
@@ -5240,9 +5362,13 @@ async function openEditSal(id){
   await ensureRolesDataLoaded();
   renderSalPostesList(id);renderSalRolesList(id);renderSalComptageCatsOverrides(id);renderSalRestosSecList(id);renderSalDiagnosticSelectors(id);
   tmpSalPlanningType=(em&&Array.isArray(em.planning_type))?JSON.parse(JSON.stringify(em.planning_type)):[];
+  ptEtat(ptEstVide(tmpSalPlanningType)?'':'Planning type enregistré sur la fiche');
   renderPlanningType(id);
+  ptPreremplirSiVide(id);
+  // Date de départ de la génération : lundi prochain (ou la date d'embauche si elle est plus tard). Avant, la
+  // date d'embauche était proposée même passée : générer réécrivait alors des semaines déjà travaillées.
   var ptStart=document.getElementById('sal-pt-start');
-  if(ptStart){if(em&&em.date_debut){ptStart.value=em.date_debut;}else{var nm=new Date();nm.setDate(nm.getDate()+(8-((nm.getDay()||7))));ptStart.value=nm.toISOString().slice(0,10);}}
+  if(ptStart){var nm=planAddD(planMonOf(new Date()),7);var nmStr=planDs(nm);ptStart.value=(em&&em.date_debut&&em.date_debut>nmStr)?em.date_debut:nmStr;}
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='block';
   openM('msa');
 }
@@ -5317,8 +5443,8 @@ async function loadRc(){
   var period=document.getElementById('rcp').value;
   var dr=getDR(period);
   var les=emps.filter(function(e){return e.actif&&(resto==='all'||e.restaurant_id===resto);});
-  var pd=await db.from('time_entries').select('*').gte('timestamp',dr.s).lte('timestamp',dr.e);
-  var pld=await db.from('planning_creneaux').select('*').gte('date',dr.s.slice(0,10)).lte('date',dr.e.slice(0,10));
+  var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',dr.s).lte('timestamp',dr.e).order('id');});
+  var pld=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',dr.s.slice(0,10)).lte('date',dr.e.slice(0,10)).order('id');});
   var abd=await db.from('absences').select('*').gte('date_fin',dr.s.slice(0,10)).lte('date_debut',dr.e.slice(0,10));
   var h='';
   les.forEach(function(em){
@@ -6173,7 +6299,7 @@ async function checkDepassements(silencieux){
   var now=new Date();
   var monday=monOf(now);
   var sunday=new Date(monday);sunday.setDate(monday.getDate()+6);sunday.setHours(23,59,59);
-  var r=await db.from('time_entries').select('*').gte('timestamp',monday.toISOString()).lte('timestamp',sunday.toISOString());
+  var r=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',monday.toISOString()).lte('timestamp',sunday.toISOString()).order('id');});
   var entries=r.data||[];
   var alerts=[];
   emps.forEach(function(em){
@@ -6302,9 +6428,9 @@ async function showDashboard(refresh){
   // Récupérer toutes les nouveautés en parallèle
   var sinceDateOnly=since.toISOString().slice(0,10);
   var results=await Promise.all([
-    db.from('time_entries').select('id,employee_id,type,timestamp,manuel').gte('timestamp',sinceISO).order('timestamp',{ascending:false}),
+    RG.toutesLignes(function(){return db.from('time_entries').select('id,employee_id,type,timestamp,manuel').gte('timestamp',sinceISO).order('timestamp',{ascending:false}).order('id');}),
     db.from('demandes_absence').select('*').order('created_at',{ascending:false}),
-    db.from('demandes_acompte').select('*').order('created_at',{ascending:false}),
+    RG.toutesLignes(function(){return db.from('demandes_acompte').select('*').order('created_at',{ascending:false}).order('id');}),
     db.from('planning_lectures').select('*').gte('lu_at',sinceISO).order('lu_at',{ascending:false}),
     db.from('employees').select('id,prenom,nom,pin_reset_demande').eq('pin_reset_demande',true)
   ]);
@@ -6500,6 +6626,11 @@ function restoTagColors(id){
 }
 // Mêmes couleurs au format [r,g,b] pour les PDF.
 function pdfRgb(id,quoi){var c=RG.couleursResto(id);return quoi==='bg'?c.bgRgb:c.txRgb;}
+// Correctif du 14/10/2026 : Supabase ne renvoie que 1000 lignes par requête. Toutes les lectures de listes qui
+// peuvent dépasser ce nombre (fiches seuils, ingrédients, recettes, produits vendus, règles de commande, pointages,
+// plannings, ventes, suivi Labo…) passent par RG.toutesLignes (lecture par pages, restoglobal-commun.js) avec un
+// tri stable. Avant, les lignes au-delà de 1000 disparaissaient sans message (même cause que la levure absente
+// de la commande Masto côté tablette, 13/10/2026).
 function sbCheck(result){
   if(result&&result.error){
     console.error('Supabase error',result.error);
@@ -6519,14 +6650,14 @@ async function loadCaisseModule(){
   var list=document.getElementById('caisse-list');
   var summary=document.getElementById('caisse-summary');
   list.innerHTML='<div style="padding:16px;color:var(--txm);">Chargement…</div>';
-  var r=sbCheck(await db.from('hiboutik_mapping').select('*').order('hiboutik_nom'));
+  var r=sbCheck(await RG.toutesLignes(function(){return db.from('hiboutik_mapping').select('*').order('hiboutik_nom').order('hiboutik_product_id');}));
   caisseMapping=(r&&r.data)||[];
-  var rp=sbCheck(await db.from('produits_vendus').select('code,nom,categorie,sous_categorie').eq('restaurant_id','global').order('nom'));
+  var rp=sbCheck(await RG.toutesLignes(function(){return db.from('produits_vendus').select('code,nom,categorie,sous_categorie').eq('restaurant_id','global').order('nom').order('code');}));
   caisseProduitsVendus=(rp&&rp.data)||[];
   // Les ingrédients et la hiérarchie Onglet>Catégorie>Sous-catégorie ne sont normalement chargés
   // qu'en visitant l'onglet Recettes ; on s'assure ici qu'ils sont disponibles même si Caisse est ouvert en premier.
   if(!rctIngredients||!rctIngredients.length){
-    var ri=sbCheck(await db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'));
+    var ri=sbCheck(await RG.toutesLignes(function(){return db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom').order('code');}));
     rctIngredients=(ri&&ri.data)||[];
   }
   if(!Object.keys(rctCategoriesOrdre).length){
@@ -6550,8 +6681,8 @@ async function loadCaisseModule(){
   // existante et la reprendre automatiquement à la création d'un nouveau produit.
   if(!rctProduitsVendus||!rctProduitsVendus.length){
     var [pvR,rcR]=await Promise.all([
-      db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
-      db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL)
+      RG.toutesLignes(function(){return db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom').order('code');}),
+      RG.toutesLignes(function(){return db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL).order('produit_vendu_code').order('ingredient_code');})
     ]);
     rctProduitsVendus=pvR.data||[];
     rctRecettes={};
@@ -6909,14 +7040,14 @@ async function laboPeserLotPourLigne(commandeId,ligneId){
 }
 async function loadLaboModule(){
   try{
-    var r=sbCheck(await db.from('labo_lots').select('*').order('created_at',{ascending:false}));
+    var r=sbCheck(await RG.toutesLignes(function(){return db.from('labo_lots').select('*').order('created_at',{ascending:false}).order('id');}));
     laboLotsCache=r.data||[];
   }catch(e){
     console.error('Erreur chargement labo_lots',e);
     laboLotsCache=[];
   }
   try{
-    var ring=sbCheck(await db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).order('categorie').order('nom'));
+    var ring=sbCheck(await RG.toutesLignes(function(){return db.from('ingredients').select('code,nom,categorie').eq('restaurant_id',RCT_GLOBAL).eq('actif',true).order('categorie').order('nom').order('code');}));
     laboIngredientsCache=ring.data||[];
   }catch(e){
     console.error('Erreur chargement ingrédients (Labo)',e);
@@ -6927,7 +7058,7 @@ async function loadLaboModule(){
     var commandes=rc.data||[];
     if(commandes.length){
       var ids=commandes.map(function(c){return c.id;});
-      var rl=sbCheck(await db.from('labo_commandes_lignes').select('*').in('commande_id',ids));
+      var rl=sbCheck(await RG.toutesLignes(function(){return db.from('labo_commandes_lignes').select('*').in('commande_id',ids).order('id');}));
       var lignes=rl.data||[];
       commandes.forEach(function(c){
         c.lignes=lignes.filter(function(l){return l.commande_id===c.id;});
@@ -6943,7 +7074,7 @@ async function loadLaboModule(){
   try{
     var restosCmd=laboCommandesCache.map(function(c){return c.restaurant_id;}).filter(function(r,i,a){return r&&a.indexOf(r)===i;});
     if(restosCmd.length){
-      var ru=await db.from('ingredient_seuils').select('restaurant_id,ingredient_code,unite_comptage,type_suivi').in('restaurant_id',restosCmd);
+      var ru=await RG.toutesLignes(function(){return db.from('ingredient_seuils').select('restaurant_id,ingredient_code,unite_comptage,type_suivi').in('restaurant_id',restosCmd).order('restaurant_id').order('ingredient_code');});
       (ru.data||[]).forEach(function(r){laboUniteByRestoCode[r.restaurant_id+'|'+r.ingredient_code]=((r.type_suivi||'qty')==='qty'?(r.unite_comptage||'piece'):'piece');});
     }
   }catch(e){console.warn('unités de comptage (Labo)',e);}
@@ -7160,15 +7291,15 @@ async function loadLaboSuivi(){
     var cmdRes=sbCheck(await q);
     var commandes=cmdRes.data||[];
     var cmdIds=commandes.map(function(c){return c.id;});
-    var lignesRes=cmdIds.length?sbCheck(await db.from('labo_commandes_lignes').select('*').in('commande_id',cmdIds)):{data:[]};
+    var lignesRes=cmdIds.length?sbCheck(await RG.toutesLignes(function(){return db.from('labo_commandes_lignes').select('*').in('commande_id',cmdIds).order('id');})):{data:[]};
     var lignes=lignesRes.data||[];
     var envoisRes=cmdIds.length?sbCheck(await db.from('labo_envois').select('*').in('commande_id',cmdIds)):{data:[]};
     var envois=envoisRes.data||[];
     var envoiIds=envois.map(function(e){return e.id;});
-    var envoiLignesRes=envoiIds.length?sbCheck(await db.from('labo_envois_lignes').select('*').in('envoi_id',envoiIds)):{data:[]};
+    var envoiLignesRes=envoiIds.length?sbCheck(await RG.toutesLignes(function(){return db.from('labo_envois_lignes').select('*').in('envoi_id',envoiIds).order('id');})):{data:[]};
     var envoiLignes=envoiLignesRes.data||[];
     var elIds=envoiLignes.map(function(el){return el.id;});
-    var receptionsRes=elIds.length?sbCheck(await db.from('labo_receptions_lignes').select('*').in('envoi_ligne_id',elIds)):{data:[]};
+    var receptionsRes=elIds.length?sbCheck(await RG.toutesLignes(function(){return db.from('labo_receptions_lignes').select('*').in('envoi_ligne_id',elIds).order('envoi_ligne_id');})):{data:[]};
     var receptions=receptionsRes.data||[];
     var recByEl={};receptions.forEach(function(r){recByEl[r.envoi_ligne_id]=r;});
     var lotIds=envoiLignes.map(function(el){return el.lot_id;});
@@ -7186,7 +7317,7 @@ async function loadLaboSuivi(){
       return {commande:c,lignes:cLignes,envois:cEnvois};
     });
     // Envois fournisseurs externes (WhatsApp)
-    var fournRes=sbCheck(await db.from('commandes_fournisseurs_envois').select('*').gte('envoye_le',from+'T00:00:00').lte('envoye_le',to+'T23:59:59').order('envoye_le',{ascending:false}));
+    var fournRes=sbCheck(await RG.toutesLignes(function(){return db.from('commandes_fournisseurs_envois').select('*').gte('envoye_le',from+'T00:00:00').lte('envoye_le',to+'T23:59:59').order('envoye_le',{ascending:false});}));
     fournSuiviCache=(fournRes.data||[]).map(function(f){
       var items=f.items||[];
       if(resto!=='all')items=items.filter(function(it){return it.resto===resto;});
@@ -7708,13 +7839,13 @@ async function loadRecettesModule(){
   }
   try{
     var [pv,rc,ing,pr,icouts,ic,dispo,catOrd,subOrd,ongOrd,fourn]=await Promise.all([
-      db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
-      db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL),
-      db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom'),
+      RG.toutesLignes(function(){return db.from('produits_vendus').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom').order('code');}),
+      RG.toutesLignes(function(){return db.from('recettes').select('*').eq('restaurant_id',RCT_GLOBAL).order('produit_vendu_code').order('ingredient_code');}),
+      RG.toutesLignes(function(){return db.from('ingredients').select('*').eq('restaurant_id',RCT_GLOBAL).order('categorie').order('nom').order('code');}),
       db.from('produits').select('*').eq('restaurant_id',resto).order('nom'),
-      db.from('ingredient_couts').select('*').eq('restaurant_id',RCT_GLOBAL),
-      db.from('ingredient_composition').select('*').eq('restaurant_id',resto),
-      db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto),
+      RG.toutesLignes(function(){return db.from('ingredient_couts').select('*').eq('restaurant_id',RCT_GLOBAL).order('ingredient_code');}),
+      RG.toutesLignes(function(){return db.from('ingredient_composition').select('*').eq('restaurant_id',resto).order('ingredient_code').order('sub_ingredient_code');}),
+      RG.toutesLignes(function(){return db.from('produit_vendu_disponibilite').select('*').eq('restaurant_id',resto).order('produit_vendu_code');}),
       db.from('categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('sous_categories_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
       db.from('onglets_ordre').select('*').eq('restaurant_id',RCT_GLOBAL),
@@ -7777,7 +7908,7 @@ async function loadRecettesModule(){
     rctIngredientSeuilsAll={};
     try{
       if(rctPendingSeuilSaves.length)await Promise.all(rctPendingSeuilSaves.slice()); // attend les sauvegardes en cours pour ne pas re-fetcher une valeur pas encore commitée côté serveur
-      var seuilsRes=await db.from('ingredient_seuils').select('*');
+      var seuilsRes=await RG.toutesLignes(function(){return db.from('ingredient_seuils').select('*').order('restaurant_id').order('ingredient_code');});
       if(seuilsRes&&!seuilsRes.error)(seuilsRes.data||[]).forEach(function(s){
         rctIngredientSeuilsAll[s.restaurant_id]=rctIngredientSeuilsAll[s.restaurant_id]||{};
         rctIngredientSeuilsAll[s.restaurant_id][s.ingredient_code]=s;
@@ -7789,7 +7920,7 @@ async function loadRecettesModule(){
     // mode "🌍 Tous les restaurants" du popup Règles de commande, qui affiche/édite les 3 côte à côte.
     rctIngredientRegles={};
     try{
-      var reglesRes=await db.from('ingredient_regles_commande').select('*');
+      var reglesRes=await RG.toutesLignes(function(){return db.from('ingredient_regles_commande').select('*').order('id');});
       if(reglesRes&&!reglesRes.error)(reglesRes.data||[]).forEach(function(r){
         rctIngredientRegles[r.restaurant_id]=rctIngredientRegles[r.restaurant_id]||{};
         rctIngredientRegles[r.restaurant_id][r.ingredient_code]=rctIngredientRegles[r.restaurant_id][r.ingredient_code]||[];
@@ -9757,7 +9888,7 @@ async function calculerConsommationTheorique(){
   resultEl.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">⏳ Calcul en cours…</div>';
   try{
     var resto=rctResto();
-    var r=sbCheck(await db.from('ventes').select('*').eq('restaurant_id',resto).gte('periode_debut',debut).lte('periode_fin',fin));
+    var r=sbCheck(await RG.toutesLignes(function(){return db.from('ventes').select('*').eq('restaurant_id',resto).gte('periode_debut',debut).lte('periode_fin',fin).order('periode_debut').order('periode_fin').order('source').order('produit_vendu_code');}));
     var ventesRows=r.data||[];
     if(!ventesRows.length){resultEl.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">Aucune vente importée sur cette période. Importe d\'abord un fichier caisse ci-dessus.</div>';return;}
     var res=computeConsommationTheorique(ventesRows);
@@ -10518,7 +10649,7 @@ async function updateIngredientUniteDefaut(code,unite){
 async function mergeOldPerRestoPrices(){
   if(!confirm('Fusionner les anciens prix enregistrés séparément par restaurant en un seul prix commun par ingrédient ?\n\nEn cas de prix différent entre restaurants pour un même ingrédient, celui du premier établissement de la liste (Réglages) est gardé en priorité (à revérifier ensuite dans la fiche ingrédient). Le fournisseur n\'est pas repris automatiquement.'))return;
   try{
-    var r=sbCheck(await db.from('ingredient_couts').select('*').neq('restaurant_id',RCT_GLOBAL));
+    var r=sbCheck(await RG.toutesLignes(function(){return db.from('ingredient_couts').select('*').neq('restaurant_id',RCT_GLOBAL).order('restaurant_id').order('ingredient_code');}));
     var rows=r.data||[];
     if(!rows.length){alert('Aucun ancien prix par restaurant trouvé — rien à fusionner.');return;}
     var priority=(restosData||[]).map(function(x){return x.id;});
@@ -12949,7 +13080,7 @@ async function init(){
   loadMotifs();
   updateDemBadge();
   checkDepassements();
-  db.from('demandes_acompte').select('*').then(function(r){acoAllData=r.data||[];updateAcoBadge();});
+  RG.toutesLignes(function(){return db.from('demandes_acompte').select('*').order('id');}).then(function(r){acoAllData=r.data||[];updateAcoBadge();});
   planUpdateLabel();await loadPl();
   showDashboard();
 }
