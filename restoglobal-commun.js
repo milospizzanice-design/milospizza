@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-07';
+  RG.VERSION='2026-10-14';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -216,7 +216,11 @@
       return {quantite:arrondi2(nbColis*col),nbColis:nbColis,texte:RG.texteConditionnement(nbColis,col,ucmd,s.unite_comptage)};
     }
     var q=arrondi2(besoin);
-    return {quantite:q,nbColis:null,texte:RG.formatNombre(q)+RG.suffixeUnite(s.unite_comptage)};
+    // Compté à la pièce sans conditionnement : « 3 sachets » (unité de commande) ou « 3 unités » ;
+    // compté en kg, L… : « 5 kg » comme avant.
+    var uc=s.unite_comptage;
+    if(!uc||uc==='piece')return {quantite:q,nbColis:null,texte:RG.formatNombre(q)+' '+RG.pluriel(ucmd||'unité',q)};
+    return {quantite:q,nbColis:null,texte:RG.formatNombre(q)+RG.suffixeUnite(uc)};
   };
 
   RG.formatNombre=function(x){
@@ -236,10 +240,13 @@
     if(!/[sxz]$/i.test(w))parts[0]=w+'s';
     return parts.join(' ');
   };
-  // « 2 packs de 6 », « 1 carton de 5 kg », « 3 colis de 12 » (sans conditionnement renseigné).
+  // Texte de la quantité commandée, dans l'unité de commande du produit : « 1 sachet », « 2 packs », et
+  // « 3 unités » quand aucune unité de commande n'est renseignée. Le colisage n'est plus écrit (décision du
+  // 14/10/2026 : le fournisseur connaît ses conditionnements ; avant « 2 packs de 6 », « 3 colis de 12 »).
+  // colisage et uniteComptage restent en paramètres (même appel partout) mais ne sont plus affichés.
   RG.texteConditionnement=function(nbColis,colisage,uniteCommande,uniteComptage){
-    var mot=(uniteCommande||'').trim()||'colis';
-    return nbColis+' '+RG.pluriel(mot,nbColis)+' de '+RG.formatNombre(colisage)+RG.suffixeUnite(uniteComptage);
+    var mot=(uniteCommande||'').trim()||'unité';
+    return RG.formatNombre(nbColis)+' '+RG.pluriel(mot,nbColis);
   };
   // Texte du stock compté, pour les messages et historiques.
   RG.texteStock=function(s,valeur){
@@ -262,7 +269,7 @@
   RG.MODELE_MESSAGE_CLE='modele_message_commande';
   RG.MODELE_MESSAGE_DEFAUT={
     entete:'📦 Nouvelle commande — {fournisseur}\nRestaurant : {restaurant}\nCommandé par : {par}\nDate : {date}\nAdresse de livraison : {adresse}\n──────────────',
-    ligne:'- {produit}{restos} — stock : {stock} — commande : {commande}',
+    ligne:'- {produit}{restos} stock {stock} commande {commande}',
     pied:'──────────────\nMerci de nous prévenir en cas de rupture de stock.'
   };
   RG.VARIABLES_MESSAGE={
