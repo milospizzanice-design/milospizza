@@ -5206,7 +5206,10 @@ async function saveSections(){
       insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId,
       // Photo de bannière choisie dans l'admin (adresse Cloudinary). Avant le 14/10/2026 elle n'était pas
       // enregistrée : la nouvelle photo disparaissait au rechargement de la page.
-      photo: g.photo || ''
+      photo: g.photo || '',
+      // Liste de la fenêtre « Suppléments » (gérée depuis l'admin de la carte sur place, index.html) :
+      // conservée telle quelle, sinon un enregistrement depuis cette page l'effacerait.
+      supplements: Array.isArray(g.supplements) ? g.supplements : []
     };
   });
   var result = await saveKeyToGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json', sectionsConfig);

@@ -78,6 +78,16 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .modal-allergen-pill{background:var(--creme-fonce);border-radius:12px;padding:0.2rem 0.5rem;font-size:0.62rem;font-family:'Montserrat',sans-serif;color:var(--brun);white-space:nowrap;}
 .supplements-insert{display:flex;flex-direction:column;gap:0.4rem;background:var(--rouge);border-radius:10px;margin:0 1rem 0.8rem;padding:0.85rem 1rem;flex-shrink:0;box-shadow:0 2px 8px rgba(155,28,28,0.25);}
 .supplements-insert-text{font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:600;color:#fff;line-height:1.4;}
+.suppl-pop{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;}
+.suppl-pop-box{background:var(--creme,#F5F0E8);width:100%;max-width:520px;max-height:82vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden;}
+@media (min-width:700px){.suppl-pop{align-items:center}.suppl-pop-box{border-radius:16px}}
+.suppl-pop-hd{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:1rem 1.2rem 0.6rem;}
+.suppl-pop-hd h3{font-family:'Playfair Display',serif;font-style:italic;color:var(--rouge);font-size:1.4rem;margin:0;}
+.suppl-pop-hd button{background:none;border:0;font-size:1.4rem;color:var(--brun,#3D2B1F);cursor:pointer;line-height:1;}
+.suppl-pop-list{overflow-y:auto;padding:0 1.2rem 1.2rem;-webkit-overflow-scrolling:touch;}
+.suppl-pop-row{display:flex;align-items:baseline;gap:0.4rem;padding:0.45rem 0;border-bottom:1px dotted rgba(0,0,0,.15);font-family:'Montserrat',sans-serif;font-size:0.8rem;color:var(--texte,#2C2010);}
+.suppl-pop-row span:first-child{flex:1;}
+.suppl-pop-row span:last-child{font-weight:700;color:var(--rouge);white-space:nowrap;}
 .supplements-insert-link{font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:#fff;text-decoration:underline;text-underline-offset:3px;align-self:flex-start;opacity:0.9;}
 .modal-close{width:100%;background:var(--brun);color:#fff;border:none;padding:0.8rem;font-family:'Montserrat',sans-serif;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;}
 
@@ -1018,6 +1028,10 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 // CLOUD_NAME et UPLOAD_PRESET ne sont plus exposés ici : l'upload passe désormais
 // par le Worker (route /admin/upload-image), qui signe la requête Cloudinary côté serveur.
 const PROXY_URL='https://milos-github-proxy.milospizza-nice.workers.dev';
+// Worker Hiboutik (hiboutik-sync-worker.js) : route en lecture seule /hiboutik-modifiers pour la liste des suppléments.
+const HIB_SYNC_URL='https://hiboutik-sync.milospizza-nice.workers.dev';
+// Valeur spéciale de « Le lien renvoie vers » : ouvre la fenêtre des suppléments au lieu d'une catégorie.
+const SUPPL_LIEN='__supplements__';
 const GITHUB_REPO='milospizzanice-design/milospizza';
 const DATA_FILE='menudata.json';
 let currentLang='fr';
@@ -2204,6 +2218,7 @@ function openEditSectionModal(key){
     <label class="admin-label" style="margin-top:0.4rem;">Le lien renvoie vers</label>
     <select class="cat-select" id="esm_linkcat">
       <option value="">— Aucun lien —</option>
+      <option value="${SUPPL_LIEN}" ${group.insertLinkCatId===SUPPL_LIEN?'selected':''}>🧾 Fenêtre « Suppléments » (liste à gérer dans Sections)</option>
       ${catOpts}
     </select>
     ` : ''}
@@ -6836,9 +6851,11 @@ function openSectionPage(groupKey) {
   if (suppInsert) {
     if (group.insertText && group.insertText.trim()) {
       const linkCat = group.insertLinkCatId ? cats.find(c=>c.id===group.insertLinkCatId && !c.archived) : null;
+      const linkSuppl = group.insertLinkCatId === SUPPL_LIEN && (group.supplements||[]).length;
       suppInsert.innerHTML = `
         <div class="supplements-insert-text">✨ ${group.insertText}</div>
         ${linkCat ? `<a href="#" onclick="goToCategoryLink('${linkCat.id}');return false;" class="supplements-insert-link">${group.insertLinkLabel||'Voir'}</a>` : ''}
+        ${linkSuppl ? `<a href="#" onclick="ouvrirSupplements('${groupKey}');return false;" class="supplements-insert-link">${group.insertLinkLabel||'Voir'}</a>` : ''}
       `;
       suppInsert.style.display = 'flex';
     } else {
@@ -7232,10 +7249,12 @@ function renderAdminSections(){
       html += "<label class='admin-label' style='margin-top:0.4rem;'>Le lien renvoie vers</label>";
       html += "<select class='cat-select' id='sec_insert_cat_"+key+"'>";
       html += "<option value=''>— Aucun lien —</option>";
+      html += "<option value='"+SUPPL_LIEN+"' "+(group.insertLinkCatId===SUPPL_LIEN?'selected':'')+">🧾 Fenêtre « Suppléments » (liste ci-dessous)</option>";
       cats.filter(function(c){return !c.archived;}).forEach(function(c){
         html += "<option value='"+c.id+"' "+(group.insertLinkCatId===c.id?'selected':'')+">"+c.name.fr+"</option>";
       });
       html += "</select>";
+      html += "<div id='sec_suppl_"+key+"'>"+supplEditeurHtml(key)+"</div>";
     }
     html += "</div>";
   }
@@ -7244,6 +7263,79 @@ function renderAdminSections(){
   
   var el = document.getElementById('adminSectionsList');
   if(el) el.innerHTML = html;
+}
+
+// ── Fenêtre « Suppléments » (14/10/2026) ──
+// La liste est gérée dans Admin › Sections (encart de la section), et peut être remplie depuis Hiboutik :
+// seuls les modificateurs actifs écrits EN MAJUSCULES sont repris (ce sont les suppléments proposés sur place).
+function supplEditeurHtml(key){
+  const g = HOME_GROUPS[key]; if(!g) return '';
+  const E = printEsc;
+  const liste = Array.isArray(g.supplements) ? g.supplements : [];
+  return `<div class="cat-section-label" style="margin-top:0.8rem;">🧾 Fenêtre « Suppléments » <span style="font-weight:400;color:#999;">(${liste.length})</span></div>
+    <p style="font-size:0.66rem;color:#888;margin:0 0 0.4rem;">Affichée quand on touche le lien de l'encart, si « Le lien renvoie vers » = Fenêtre « Suppléments ». Pensez à Enregistrer puis ✅ Publier.</p>
+    ${liste.map((x,i)=>`<div style="display:flex;gap:0.3rem;align-items:center;margin-bottom:0.3rem;">
+      <input class="admin-input" style="flex:1;margin:0;" value="${E(x.nom||'')}" placeholder="Nom" onchange="supplModif('${key}',${i},'nom',this.value)">
+      <input class="admin-input" style="width:72px;margin:0;text-align:right;" value="${E(String(x.prix||'').replace('€',''))}" placeholder="Prix" inputmode="decimal" onchange="supplModif('${key}',${i},'prix',this.value)">
+      <span style="font-size:0.85rem;color:var(--vert);font-weight:700;">€</span>
+      <button onclick="supplRetirer('${key}',${i})" style="background:none;border:none;color:#c0392b;font-size:0.95rem;cursor:pointer;">✕</button>
+    </div>`).join('')}
+    <div style="display:flex;gap:0.4rem;margin-top:0.3rem;">
+      <button class="aic-btn" style="flex:1;background:var(--vert);color:#fff;" onclick="supplAjouter('${key}')">+ Ajouter</button>
+      <button class="aic-btn" style="flex:1;background:var(--brun,#3D2B1F);color:#fff;" id="supplHibBtn_${key}" onclick="supplDepuisHiboutik('${key}')">🔄 Récupérer depuis Hiboutik</button>
+    </div>
+    <div id="supplHibEtat_${key}" style="font-size:0.66rem;color:#888;margin-top:0.3rem;"></div>`;
+}
+function supplRafraichir(key){ const el=document.getElementById('sec_suppl_'+key); if(el) el.innerHTML=supplEditeurHtml(key); }
+function supplModif(key,i,champ,val){
+  const g=HOME_GROUPS[key]; if(!g||!g.supplements||!g.supplements[i]) return;
+  if(champ==='prix'){ const c=String(val||'').replace('€','').trim(); g.supplements[i].prix = c ? c+'€' : ''; }
+  else g.supplements[i].nom = String(val||'').trim();
+}
+function supplAjouter(key){ const g=HOME_GROUPS[key]; if(!g) return; (g.supplements=g.supplements||[]).push({nom:'',prix:''}); supplRafraichir(key); }
+function supplRetirer(key,i){ const g=HOME_GROUPS[key]; if(!g||!g.supplements) return; g.supplements.splice(i,1); supplRafraichir(key); }
+function supplPrixTexte(n){
+  if(n==null||isNaN(n)||n<=0) return '';
+  return (Math.round(n*100)/100).toFixed(2).replace('.',',').replace(/,00$/,'')+'€'; // 1.5 → « 1,50€ », 2 → « 2€ »
+}
+async function supplDepuisHiboutik(key){
+  const g=HOME_GROUPS[key]; if(!g) return;
+  const btn=document.getElementById('supplHibBtn_'+key), etat=document.getElementById('supplHibEtat_'+key);
+  if(btn){btn.disabled=true;btn.textContent='⏳ Lecture de Hiboutik…';}
+  try{
+    const res=await fetch(HIB_SYNC_URL+'/hiboutik-modifiers');
+    let data=null; try{data=await res.json();}catch(e){}
+    if(!res.ok||!data||!Array.isArray(data.modifiers)) throw new Error((data&&data.error)||('code '+res.status+(res.status===404?' — mettez en ligne la nouvelle version du programme Hiboutik (Cloudflare)':'')));
+    const maj = t => /[A-ZÀ-ÖØ-Þ]/.test(t) && t === t.toLocaleUpperCase('fr');
+    const retenus = data.modifiers.filter(m => m.actif !== false && m.label && maj(m.label));
+    const vus=new Set(), liste=[];
+    retenus.forEach(m => { const k=m.label.toLowerCase(); if(vus.has(k)) return; vus.add(k); liste.push({nom:m.label, prix:supplPrixTexte(m.prix)}); });
+    liste.sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+    if(!liste.length){ if(etat) etat.textContent='Aucun modificateur actif en majuscules trouvé ('+data.modifiers.length+' modificateurs lus).'; return; }
+    const deja=(g.supplements||[]).length;
+    if(deja && !confirm(liste.length+' suppléments trouvés dans Hiboutik.\nRemplacer la liste actuelle ('+deja+') par celle-ci ?')) return;
+    g.supplements=liste;
+    supplRafraichir(key);
+    const e2=document.getElementById('supplHibEtat_'+key);
+    if(e2) e2.textContent='✓ '+liste.length+' suppléments repris de Hiboutik (sur '+data.modifiers.length+' modificateurs). Vérifiez, puis Enregistrer.';
+  }catch(e){
+    if(etat) etat.textContent='❌ '+(e.message||e);
+  }finally{
+    const b=document.getElementById('supplHibBtn_'+key); if(b){b.disabled=false;b.textContent='🔄 Récupérer depuis Hiboutik';}
+  }
+}
+function ouvrirSupplements(key){
+  const g=HOME_GROUPS[key]; if(!g) return;
+  const E=printEsc;
+  const liste=(g.supplements||[]).filter(x=>x&&x.nom);
+  const pop=document.createElement('div');
+  pop.className='suppl-pop';
+  pop.onclick=e=>{ if(e.target===pop) pop.remove(); };
+  pop.innerHTML=`<div class="suppl-pop-box" role="dialog" aria-modal="true">
+    <div class="suppl-pop-hd"><h3>Suppléments</h3><button aria-label="Fermer" onclick="this.closest('.suppl-pop').remove()">✕</button></div>
+    <div class="suppl-pop-list">${liste.map(x=>`<div class="suppl-pop-row"><span>${E(x.nom)}</span><span>${E(x.prix||'')}</span></div>`).join('')}</div>
+  </div>`;
+  document.body.appendChild(pop);
 }
 
 async function saveSections(){
@@ -7281,7 +7373,9 @@ async function saveSections(){
       insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId,
       // Photo de bannière choisie dans l'admin (adresse Cloudinary). Avant le 14/10/2026 elle n'était pas
       // enregistrée : la nouvelle photo disparaissait au rechargement de la page.
-      photo: g.photo || ''
+      photo: g.photo || '',
+      // Liste de la fenêtre « Suppléments » : [{nom, prix}] (prix écrit comme sur la carte, ex. « 1,50€ »).
+      supplements: Array.isArray(g.supplements) ? g.supplements : []
     };
   });
   var result = await saveKeyToGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json', sectionsConfig);
