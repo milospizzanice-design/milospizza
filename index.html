@@ -654,6 +654,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <button class="admin-sidebar-btn" id="stab_categories" onclick="switchAdminTab('categories')">📂 Catégories</button>
         <button class="admin-sidebar-btn" id="stab_about_histoire" onclick="switchAdminTab('about_histoire')">ℹ️ Notre Histoire</button>
         <button class="admin-sidebar-btn" id="stab_upsell" onclick="switchAdminTab('upsell')">💡 Suggestions</button>
+        <button class="admin-sidebar-btn" id="stab_prixemporter" onclick="switchAdminTab('prixemporter')">🥡 Prix à emporter</button>
         <button class="admin-sidebar-btn" id="stab_print" onclick="switchAdminTab('print')">🖨️ Impression</button>
         <button class="admin-sidebar-btn" id="stab_qrcode" onclick="switchAdminTab('qrcode')">📲 QR Code</button>
         <button class="admin-sidebar-btn" id="stab_import" onclick="switchAdminTab('import')">📥 Import carte</button>
@@ -827,6 +828,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
               <option value="emporter">🥡 À emporter — plats et prix de la page à emporter</option>
               <option value="livraison">🛵 Livraison — même carte que la vente à emporter</option>
             </select>
+            <button type="button" class="aic-btn" style="background:#fff;color:var(--rouge);border:1px solid var(--rouge);margin:0.3rem 0;" onclick="switchAdminTab('prixemporter')">🥡 Régler les prix à emporter de tous les plats →</button>
             <p class="pr-aide">Mêmes règles que les sites : un plat, une catégorie ou une sous-catégorie masqué(e) sur ce canal n'apparaît pas ; à emporter, le prix à emporter est utilisé s'il est renseigné (sinon le prix sur place).</p>
             <p class="pr-aide">Décochez une catégorie pour la retirer. Touchez son nom pour choisir les plats un par un.</p>
             <div id="printCatList" style="margin-bottom:0.6rem;"></div>
@@ -953,6 +955,13 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
           <button class="admin-save-btn" style="width:100%;margin-top:0.5rem;background:var(--brun);" onclick="saveQRDesignAsMain()">💾 Enregistrer pour la planche</button>
           <p id="qrDesignSavedNote" style="display:none;font-size:0.68rem;color:var(--vert);margin-top:0.5rem;text-align:center;">✓ Ce design est actuellement utilisé dans l'onglet "Planche" — <span style="text-decoration:underline;cursor:pointer;" onclick="clearQRDesignSaved()">retirer</span></p>
         </div>
+      </div>
+
+      <!-- PRIX À EMPORTER (tous les plats sur un seul écran) -->
+      <div class="admin-section" id="as-prixemporter">
+        <p style="font-size:0.75rem;color:#888;margin-bottom:0.6rem;line-height:1.5;">Prix à emporter / livraison de tous les plats. <b>Case vide = même prix que sur place</b> (le prix sur place est écrit en gris dans la case). Décochez 🥡 pour retirer un plat de la carte à emporter. Chaque modification est enregistrée automatiquement ; pensez à ✅ Publier. Ces prix sont ceux du site à emporter et de l'impression « À emporter / Livraison ».</p>
+        <div id="prixEmporterEtat" style="font-size:0.7rem;color:var(--vert);min-height:1em;margin-bottom:0.4rem;"></div>
+        <div id="prixEmporterListe"></div>
       </div>
 
       <!-- IMPORT MENU -->
@@ -1689,6 +1698,7 @@ function renderAdminContent(){
   if(currentAdminTab==='sections') renderAdminSections();
   if(currentAdminTab==='import') { /* statique, rien à pré-charger */ }
   if(currentAdminTab==='print') renderPrintPanel();
+  if(currentAdminTab==='prixemporter') renderPrixEmporter();
   // Fill cat selects
   const opts = cats.filter(c=>!c.archived).map(c=>`<option value="${c.id}">${c.name.fr}</option>`).join('');
   ['newItemCat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
@@ -1896,6 +1906,88 @@ function onPriceEmporterChange(id, val){
   autoSaveItems().then(ok=>{
     showToast(ok ? '✓ Prix à emporter enregistré' : '❌ Échec de l\'enregistrement - réessayez');
   });
+}
+
+// ── Écran « 🥡 Prix à emporter » (15/10/2026) : tous les plats sur un seul écran, par catégorie ──
+// it.priceEmporter : vide = même prix que sur place. it.dispoEmporter : false = absent de la carte à emporter.
+// Les prix multiples (priceVariants) sont communs aux deux cartes : affichés pour information seulement.
+let prixEmporterTimer = null;
+function prixEmporterSauverBientot(){
+  const etat = document.getElementById('prixEmporterEtat');
+  if (etat) { etat.style.color = '#888'; etat.textContent = '⏳ Enregistrement…'; }
+  clearTimeout(prixEmporterTimer);
+  prixEmporterTimer = setTimeout(async () => {
+    const ok = await autoSaveItems();
+    const e2 = document.getElementById('prixEmporterEtat');
+    if (e2) { e2.style.color = ok ? 'var(--vert)' : 'var(--rouge)'; e2.textContent = ok ? '✓ Enregistré — pensez à ✅ Publier' : '❌ Échec de l\'enregistrement — réessayez'; }
+  }, 1200);
+}
+function renderPrixEmporter(){
+  const box = document.getElementById('prixEmporterListe'); if (!box) return;
+  const E = printEsc;
+  const nb = v => String(v || '').replace('€', '').trim();
+  const html = cats.filter(c => !c.archived).map(c => {
+    const its = items.filter(it => !it.archived && it.cat === c.id);
+    if (!its.length) return '';
+    const catMasquee = c.dispoEmporter === false;
+    return `<div style="margin-bottom:1rem;">
+      <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;background:var(--creme-fonce);border-radius:8px;padding:0.45rem 0.6rem;margin-bottom:0.4rem;">
+        <b style="flex:1;font-size:0.78rem;color:var(--rouge);">${E(c.name.fr)}${catMasquee ? ' <span style="font-weight:400;color:#B45309;font-size:0.68rem;">(catégorie masquée à emporter)</span>' : ''}</b>
+        <span style="font-size:0.66rem;color:#666;">Écart</span>
+        <input class="admin-input" id="pe_ecart_${c.id}" style="width:58px;margin:0;text-align:right;padding:0.3rem;" placeholder="-1" inputmode="decimal">
+        <span style="font-size:0.7rem;color:var(--vert);font-weight:700;">€</span>
+        <button class="aic-btn" style="background:var(--vert);color:#fff;padding:0.3rem 0.5rem;" onclick="prixEmporterEcart('${c.id}')">Appliquer</button>
+        <button class="aic-btn" style="background:#fff;color:#666;border:1px solid #ddd;padding:0.3rem 0.5rem;" onclick="prixEmporterEcart('${c.id}',true)">= sur place</button>
+      </div>
+      ${its.map(it => {
+        const variantes = it.priceVariants && it.priceVariants.length;
+        const absent = it.dispoEmporter === false;
+        return `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.2rem;border-bottom:1px solid #f0ebe3;${absent ? 'opacity:.5;' : ''}">
+          <label title="Disponible à emporter" style="flex-shrink:0;cursor:pointer;"><input type="checkbox" ${absent ? '' : 'checked'} onchange="prixEmporterDispo('${it.id}',this.checked)"> 🥡</label>
+          <div style="flex:1;min-width:0;font-size:0.76rem;line-height:1.25;">${E(it.name.fr || '(sans nom)')}
+            <div style="font-size:0.64rem;color:#999;">Sur place : ${variantes ? it.priceVariants.map(v => E((v.label || '') + ' ' + (v.price || ''))).join(' · ') + ' (prix multiples, identiques à emporter)' : E(it.price || '—')}</div></div>
+          ${variantes ? '' : `<input class="admin-input" style="width:70px;margin:0;text-align:right;${it.priceEmporter ? 'font-weight:700;color:var(--rouge);' : ''}" value="${E(nb(it.priceEmporter))}" placeholder="${E(nb(it.price))}" inputmode="decimal" onchange="prixEmporterSet('${it.id}',this.value,this)"><span style="font-size:0.8rem;color:var(--vert);font-weight:700;">€</span>`}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+  box.innerHTML = html || '<p style="color:#aaa;font-size:0.8rem;">Aucun plat.</p>';
+}
+function prixEmporterSet(id, val, input){
+  const it = items.find(i => i.id === id); if (!it) return;
+  const clean = String(val || '').replace('€', '').trim();
+  if (clean && parsePriceValue(clean) !== parsePriceValue(it.price)) it.priceEmporter = clean + '€';
+  else delete it.priceEmporter;
+  if (input) { input.value = it.priceEmporter ? clean : ''; input.style.fontWeight = it.priceEmporter ? '700' : ''; input.style.color = it.priceEmporter ? 'var(--rouge)' : ''; }
+  prixEmporterSauverBientot();
+}
+function prixEmporterDispo(id, on){
+  const it = items.find(i => i.id === id); if (!it) return;
+  it.dispoEmporter = !!on;
+  renderPrixEmporter();
+  prixEmporterSauverBientot();
+}
+// Applique un écart (ex. -1) au prix sur place de tous les plats de la catégorie, ou remet « = sur place ».
+function prixEmporterEcart(catId, remettre){
+  const its = items.filter(it => !it.archived && it.cat === catId && !(it.priceVariants && it.priceVariants.length));
+  if (remettre) {
+    if (!confirm('Remettre le même prix que sur place pour les ' + its.length + ' plats de cette catégorie ?')) return;
+    its.forEach(it => { delete it.priceEmporter; });
+  } else {
+    const el = document.getElementById('pe_ecart_' + catId);
+    const d = parseFloat(String(el && el.value || '').replace(',', '.'));
+    if (isNaN(d) || !d) { showToast('❌ Tapez un écart, ex. -1 ou 0,5'); return; }
+    if (!confirm('Prix à emporter = prix sur place ' + (d > 0 ? '+ ' : '− ') + Math.abs(d).toString().replace('.', ',') + ' € pour les ' + its.length + ' plats de cette catégorie ?')) return;
+    its.forEach(it => {
+      const base = parsePriceValue(it.price);
+      if (!base) return;
+      const v = Math.round((base + d) * 100) / 100;
+      if (v <= 0 || v === base) { delete it.priceEmporter; return; }
+      it.priceEmporter = v.toFixed(2).replace('.', ',').replace(/,00$/, '') + '€';
+    });
+  }
+  renderPrixEmporter();
+  prixEmporterSauverBientot();
 }
 
 let _editModalItemId = null;
@@ -6381,7 +6473,10 @@ function importDessiner() {
     <label class="pr-opt"><input type="radio" name="importMode" value="emporter" ${emp ? 'checked' : ''} onchange="importSetMode(this.value)"> <b>🥡 À emporter / livraison</b> — rend les plats reconnus disponibles à emporter avec leur prix à emporter (le prix sur place ne change pas)</label>
     <label class="admin-label" style="margin-top:0.6rem;">Catégories</label>
     ${blocCats}
-    <label class="pr-opt" style="margin-top:0.5rem;"><input type="checkbox" id="importMasquerAbsents"> Masquer ${emp ? 'à emporter' : 'sur place'} les plats des catégories ci-dessus qui ne sont pas dans ce document</label>
+    <label class="admin-label" style="margin-top:0.6rem;">Les autres plats de la carte ${emp ? 'à emporter' : 'sur place'}</label>
+    <label class="pr-opt"><input type="radio" name="importPerim" value="tout" ${P.perimetre === 'tout' ? 'checked' : ''} onchange="importSetPerim(this.value)"> <b>La carte ${emp ? 'à emporter' : 'sur place'} = exactement ce document</b> — tout ce qui n'y est pas est masqué ${emp ? 'à emporter' : 'sur place'} (plats et catégories) ; ses catégories sont affichées</label>
+    <label class="pr-opt"><input type="radio" name="importPerim" value="cats" ${P.perimetre === 'cats' ? 'checked' : ''} onchange="importSetPerim(this.value)"> Masquer seulement les plats absents dans les catégories ci-dessus</label>
+    <label class="pr-opt"><input type="radio" name="importPerim" value="rien" ${!P.perimetre || P.perimetre === 'rien' ? 'checked' : ''} onchange="importSetPerim(this.value)"> Ne rien masquer (ajouter / mettre à jour seulement)</label>
     <label class="admin-label" style="margin-top:0.6rem;">Plats <span style="font-size:0.65rem;color:#aaa;">(vert = reconnu · rouge = nouveau · gris = ignoré)</span></label>
     ${blocPlats}
     ${P.mode ? '' : '<p style="font-size:0.72rem;color:var(--rouge);font-weight:700;margin-top:0.6rem;">⬆️ Choisissez d\'abord « Sur place » ou « À emporter / livraison » en haut.</p>'}
@@ -6389,7 +6484,14 @@ function importDessiner() {
     <button class="admin-save-btn" style="background:#aaa;margin-top:0.4rem;" onclick="cancelImportPreview()">✕ Annuler</button>
   `;
 }
-function importSetMode(m) { if (_importPreviewData) { _importPreviewData.mode = m; importDessiner(); } }
+function importSetMode(m) {
+  const P = _importPreviewData; if (!P) return;
+  P.mode = m;
+  // Carte à emporter importée d'un flyer : par défaut, la carte à emporter devient exactement ce flyer (15/10/2026).
+  if (!P.perimetreManuel) P.perimetre = (m === 'emporter') ? 'tout' : 'rien';
+  importDessiner();
+}
+function importSetPerim(v) { const P = _importPreviewData; if (!P) return; P.perimetre = v; P.perimetreManuel = true; importDessiner(); }
 function importSetCat(k, v) { const P = _importPreviewData; if (!P) return; P.catChoix[P.data.categories[k]] = v; importDessiner(); }
 function importSetPlat(i, v) {
   const P = _importPreviewData; if (!P) return;
@@ -6414,16 +6516,18 @@ async function confirmImportMenu(){
   {
     const nAssoc = P.lignes.filter(l => l.choix !== '__new__' && l.choix !== '__skip__').length;
     const nNouv = P.lignes.filter(l => l.choix === '__new__').length;
-    const masq = !!document.getElementById('importMasquerAbsents')?.checked;
+    const masq = P.perimetre === 'cats' || P.perimetre === 'tout';
     if(!confirm('Importer comme carte ' + (emp ? '« À EMPORTER / LIVRAISON »' : '« SUR PLACE »') + ' ?\n\n'
       + '• ' + nAssoc + ' plat(s) reconnu(s) : ' + (emp ? 'prix à emporter mis à jour (prix sur place inchangés)' : 'PRIX SUR PLACE REMPLACÉS par ceux du document') + '\n'
       + '• ' + nNouv + ' nouveau(x) plat(s) créé(s), sans photo\n'
-      + (masq ? '• les plats absents du document seront MASQUÉS ' + (emp ? 'à emporter' : 'sur place') + '\n' : '')
+      + (P.perimetre === 'tout' ? '• la carte ' + (emp ? 'à emporter' : 'SUR PLACE') + ' deviendra EXACTEMENT ce document : tous les autres plats et catégories seront MASQUÉS ' + (emp ? 'à emporter' : 'sur place') + ' (réactivables ensuite)\n'
+        : masq ? '• les plats absents du document seront MASQUÉS ' + (emp ? 'à emporter' : 'sur place') + ' dans ces catégories\n' : '')
       + '\nVérifiez avant de valider.')) return;
   }
   const champ = emp ? 'dispoEmporter' : 'dispoSurPlace';
   const autre = emp ? 'dispoSurPlace' : 'dispoEmporter';
-  const masquerAbsents = !!document.getElementById('importMasquerAbsents')?.checked;
+  const perimetre = P.perimetre || 'rien';
+  const masquerAbsents = perimetre === 'cats' || perimetre === 'tout';
   const empty = {fr:'',en:'',it:'',de:'',zh:'',ru:'',es:''};
   const avert = [];
   let nbMaj = 0, nbNew = 0, nbCatNew = 0, nbMasques = 0;
@@ -6433,6 +6537,8 @@ async function confirmImportMenu(){
   P.data.categories.forEach(catName => {
     const choix = P.catChoix[catName];
     if (choix && choix !== '__new__' && cats.some(c => c.id === choix)) { catNameToId[catName] = choix; return; }
+    // Nouvelle catégorie seulement si un nouveau plat doit y aller (sinon catégorie vide inutile)
+    if (!P.lignes.some(l => l.choix === '__new__' && (l.it.category || '') === catName)) return;
     const id = 'cat_' + Date.now() + Math.random().toString(36).slice(2,6);
     const c = {id, name:{...empty, fr:catName, en:catName, it:catName, de:catName}, archived:false};
     c[autre] = false; // nouvelle catégorie : seulement sur la carte importée
@@ -6459,7 +6565,7 @@ async function confirmImportMenu(){
       nv[autre] = false; // nouveau plat : seulement sur la carte importée
       items.push(nv); touches.add(id); nbNew++;
       const c = cats.find(x => x.id === nv.cat);
-      if (c && c[champ] === false) avert.push(`« ${it.name} » ajouté dans « ${importCatNom(c)} », catégorie masquée ${emp ? 'à emporter' : 'sur place'} : il n'apparaîtra pas tant qu'elle reste masquée.`);
+      if (perimetre !== 'tout' && c && c[champ] === false) avert.push(`« ${it.name} » ajouté dans « ${importCatNom(c)} », catégorie masquée ${emp ? 'à emporter' : 'sur place'} : il n'apparaîtra pas tant qu'elle reste masquée.`);
       return;
     }
     const ex = items.find(x => x.id === l.choix);
@@ -6478,16 +6584,38 @@ async function confirmImportMenu(){
       }
     }
     const c = cats.find(x => x.id === ex.cat);
-    if (c && c[champ] === false) avert.push(`« ${ex.name.fr} » est dans « ${importCatNom(c)} », catégorie masquée ${emp ? 'à emporter' : 'sur place'}.`);
-    else if (c && ex.subcat && !subcatVisible(c, ex.subcat, champ)) avert.push(`« ${ex.name.fr} » est dans la sous-catégorie « ${ex.subcat} », masquée ${emp ? 'à emporter' : 'sur place'}.`);
+    if (perimetre !== 'tout' && c && c[champ] === false) avert.push(`« ${ex.name.fr} » est dans « ${importCatNom(c)} », catégorie masquée ${emp ? 'à emporter' : 'sur place'}.`);
+    else if (perimetre !== 'tout' && c && ex.subcat && !subcatVisible(c, ex.subcat, champ)) avert.push(`« ${ex.name.fr} » est dans la sous-catégorie « ${ex.subcat} », masquée ${emp ? 'à emporter' : 'sur place'}.`);
   });
 
   // Plats absents du document (seulement dans les catégories existantes rapprochées)
-  if (masquerAbsents) {
+  let nbCatsMasquees = 0;
+  if (perimetre === 'cats') {
     const catsVisees = new Set(Object.values(catNameToId));
     items.forEach(x => {
       if (x.archived || touches.has(x.id) || !catsVisees.has(x.cat) || x[champ] === false) return;
       x[champ] = false; nbMasques++;
+    });
+  }
+  // « La carte = exactement ce document » : seuls les plats du document restent visibles sur ce canal ; leurs
+  // catégories (et sous-catégories) sont rendues visibles, toutes les autres catégories sont masquées.
+  if (perimetre === 'tout') {
+    const catsGardees = new Set();
+    items.forEach(x => {
+      if (x.archived) return;
+      if (touches.has(x.id)) { x[champ] = true; catsGardees.add(x.cat); return; }
+      if (x[champ] !== false) { x[champ] = false; nbMasques++; }
+    });
+    Object.values(catNameToId).forEach(id => catsGardees.add(id));
+    cats.forEach(c => {
+      if (c.archived) return;
+      if (catsGardees.has(c.id)) {
+        c[champ] = true;
+        if (c.subcatsDispo) Object.keys(c.subcatsDispo).forEach(sc => {
+          const garde = items.some(x => touches.has(x.id) && x.cat === c.id && x.subcat === sc);
+          if (garde && c.subcatsDispo[sc]) c.subcatsDispo[sc][champ] = true;
+        });
+      } else if (c[champ] !== false) { c[champ] = false; nbCatsMasquees++; }
     });
   }
 
@@ -6498,7 +6626,7 @@ async function confirmImportMenu(){
   document.getElementById('importPreviewArea').innerHTML = `
     <div style="background:var(--creme-fonce);border-radius:8px;padding:0.8rem 0.9rem;font-size:0.74rem;line-height:1.6;">
       <strong style="color:${ok ? 'var(--vert)' : 'var(--rouge)'}">${ok ? '✓ Import enregistré' : '❌ Import fait mais pas enregistré — cliquez sur 💾 Enregistrer'}</strong><br>
-      ${nbMaj} plat(s) reconnu(s) mis à jour · ${nbNew} nouveau(x) plat(s) · ${nbCatNew} nouvelle(s) catégorie(s)${masquerAbsents ? ' · ' + nbMasques + ' plat(s) masqué(s) ' + (emp ? 'à emporter' : 'sur place') : ''}
+      ${nbMaj} plat(s) reconnu(s) mis à jour · ${nbNew} nouveau(x) plat(s) · ${nbCatNew} nouvelle(s) catégorie(s)${masquerAbsents ? ' · ' + nbMasques + ' plat(s)' + (nbCatsMasquees ? ' et ' + nbCatsMasquees + ' catégorie(s)' : '') + ' masqué(s) ' + (emp ? 'à emporter' : 'sur place') : ''}
       ${avert.length ? '<div style="margin-top:0.5rem;color:#8a5a00;">' + avert.map(a => '⚠️ ' + E(a)).join('<br>') + '</div>' : ''}
       <div style="margin-top:0.5rem;color:#666;">Vérifiez dans « Plats », puis ✅ Publier pour mettre en ligne.</div>
     </div>`;
