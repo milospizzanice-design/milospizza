@@ -83,7 +83,7 @@
     {
       "id": "charcuterie",
       "name": {
-        "fr": "Pizza Charcuterie 🐷",
+        "fr": "Pizzas Charcuterie 🐷",
         "en": "Charcuterie Pizza",
         "it": "Pizza Salumi",
         "de": "Charcuterie-Pizza",
@@ -96,12 +96,17 @@
       "extras": [
         "supplements"
       ],
-      "subcats": []
+      "subcats": [],
+      "hideFromMenu": false,
+      "inAllergenList": true,
+      "isSupplementsCategory": false,
+      "dispoSurPlace": true,
+      "dispoEmporter": true
     },
     {
       "id": "viandes",
       "name": {
-        "fr": "Pizza Viandes & Poissons 🥩 🐟",
+        "fr": "Pizzas Viandes & Poissons 🥩 🐟",
         "en": "Meat & Fish Pizza",
         "it": "Pizza Carne & Pesce",
         "de": "Fleisch & Fisch-Pizza",
@@ -111,7 +116,12 @@
       },
       "collapsible": false,
       "archived": false,
-      "subcats": []
+      "subcats": [],
+      "hideFromMenu": false,
+      "inAllergenList": true,
+      "isSupplementsCategory": false,
+      "dispoSurPlace": true,
+      "dispoEmporter": true
     },
     {
       "id": "desserts",
@@ -1463,32 +1473,31 @@
       ]
     },
     {
-      "id": "i65",
+      "id": "i68",
       "cat": "cat_1782506338268",
       "subcat": null,
       "name": {
-        "fr": "Caïpirinha",
-        "en": "Caipirinha",
-        "it": "Caipirinha",
-        "de": "Caipirinha",
-        "zh": "卡比利亚",
-        "ru": "Кайпиринья",
-        "es": "Caïpirinha"
+        "fr": "Virgin Milo's",
+        "en": "Virgin Milo's",
+        "it": "Virgin Milo's",
+        "de": "Virgin Milo's",
+        "zh": "无酒精米洛",
+        "ru": "Вирджин Мило",
+        "es": "Virgin Milo's"
       },
       "desc": {
-        "fr": "Cachaça, citron vert, cassonade, sucre de canne",
-        "en": "Cachaça, lime, brown sugar, cane sugar",
-        "it": "Cachaça, lime, zucchero di canna",
-        "de": "Cachaça, Limette, Rohrzucker",
-        "zh": "卡沙萨，青柠，红糖，蔗糖",
-        "ru": "Кашаса, лайм, тростниковый сахар",
-        "es": "Cachaça, lima, azúcar moreno, azúcar de caña"
+        "fr": "Purée et jus de fruits de la passion, jus de citron vert, sucre de canne",
+        "en": "Passion fruit purée and juice, lime juice, cane sugar",
+        "it": "Purea e succo di frutto della passione, succo di lime, zucchero di canna",
+        "de": "Maracujapüree und -saft, Limettensaft, Rohrzucker",
+        "zh": "百香果泥和果汁，青柠汁，蔗糖",
+        "ru": "Пюре и сок маракуйи, сок лайма, тростниковый сахар",
+        "es": "Puré y zumo de maracuyá, zumo de lima, azúcar de caña"
       },
-      "price": "12€",
+      "price": "9€",
       "photo": "",
       "archived": false,
-      "allergens": [],
-      "dispoEmporter": false
+      "allergens": []
     },
     {
       "id": "i66",
@@ -1942,31 +1951,32 @@
       ]
     },
     {
-      "id": "i68",
+      "id": "i65",
       "cat": "cat_1782506338268",
       "subcat": null,
       "name": {
-        "fr": "Virgin Milo's",
-        "en": "Virgin Milo's",
-        "it": "Virgin Milo's",
-        "de": "Virgin Milo's",
-        "zh": "无酒精米洛",
-        "ru": "Вирджин Мило",
-        "es": "Virgin Milo's"
+        "fr": "Caïpirinha",
+        "en": "Caipirinha",
+        "it": "Caipirinha",
+        "de": "Caipirinha",
+        "zh": "卡比利亚",
+        "ru": "Кайпиринья",
+        "es": "Caïpirinha"
       },
       "desc": {
-        "fr": "Purée et jus de fruits de la passion, jus de citron vert, sucre de canne",
-        "en": "Passion fruit purée and juice, lime juice, cane sugar",
-        "it": "Purea e succo di frutto della passione, succo di lime, zucchero di canna",
-        "de": "Maracujapüree und -saft, Limettensaft, Rohrzucker",
-        "zh": "百香果泥和果汁，青柠汁，蔗糖",
-        "ru": "Пюре и сок маракуйи, сок лайма, тростниковый сахар",
-        "es": "Puré y zumo de maracuyá, zumo de lima, azúcar de caña"
+        "fr": "Cachaça, citron vert, cassonade, sucre de canne",
+        "en": "Cachaça, lime, brown sugar, cane sugar",
+        "it": "Cachaça, lime, zucchero di canna",
+        "de": "Cachaça, Limette, Rohrzucker",
+        "zh": "卡沙萨，青柠，红糖，蔗糖",
+        "ru": "Кашаса, лайм, тростниковый сахар",
+        "es": "Cachaça, lima, azúcar moreno, azúcar de caña"
       },
-      "price": "9€",
+      "price": "12€",
       "photo": "",
       "archived": false,
-      "allergens": []
+      "allergens": [],
+      "dispoEmporter": false
     },
     {
       "id": "i1",
