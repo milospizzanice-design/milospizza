@@ -624,6 +624,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
             <option value="name_asc">Nom A-Z</option>
           </select>
         </div>
+        <p style="font-size:0.68rem;color:#8a5a00;background:#FFF7E6;border-radius:8px;padding:0.45rem 0.6rem;margin:0 0 0.5rem;">🥡 Les prix de cette liste sont les <b>prix à emporter</b> (en rouge = différent du prix sur place). Le prix sur place ne change pas.</p>
         <div id="adminItemsList" style="padding-bottom:4.5rem;"></div>
       </div>
 
@@ -1663,7 +1664,7 @@ function renderAdminItems(list){
     const priceCell = hasVariants
       ? `<button class="plat-price-bubble plat-price-multi" onclick="openItemEditModal('${it.id}')">🏷 ${it.priceVariants.length}</button>`
       : `<div class="plat-price-wrap">
-           <input class="plat-price-num" id="p_${it.id}" value="${(it.price||'').replace('€','').trim()}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
+           <input class="plat-price-num" id="p_${it.id}" value="${(it.priceEmporter||it.price||'').replace('€','').trim()}" title="Prix à emporter${it.priceEmporter?' (sur place : '+(it.price||'—')+')':' — identique au prix sur place'}" style="${it.priceEmporter?'color:var(--rouge);font-weight:800;':''}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
            <span class="plat-price-suffix">€</span>
          </div>`;
     return `<div class="plat-row" id="row_${it.id}">
@@ -1681,11 +1682,18 @@ async function autoSaveItems(){
   return !!(result && result.content && result.content.sha);
 }
 
+// Sur cette page (carte à emporter), le prix saisi est le PRIX À EMPORTER (it.priceEmporter) — corrigé le
+// 15/10/2026 : avant, il remplaçait le prix sur place. Égal au prix sur place (ou vide) = pas de prix à emporter
+// particulier. Le prix sur place se règle depuis la carte sur place.
+function prixEmporterDepuisSaisie(it, val){
+  const clean = String(val||'').replace('€','').trim();
+  if(clean && parsePriceValue(clean) !== parsePriceValue(it.price)) it.priceEmporter = clean + '€';
+  else delete it.priceEmporter;
+}
 function onPriceChange(id, val){
   const it = items.find(i=>i.id===id);
   if(!it) return;
-  const clean = val.replace('€','').trim();
-  it.price = clean ? clean + '€' : '';
+  prixEmporterDepuisSaisie(it, val);
   autoSaveItems().then(ok=>{
     showToast(ok ? '✓ Prix enregistré' : '❌ Échec de l\'enregistrement - réessayez');
   });
@@ -1715,7 +1723,7 @@ function openItemEditModal(itemId){
   if (_editModalItemId) {
     const prevPriceEl = document.getElementById('p_'+_editModalItemId);
     const prevIt = items.find(i=>i.id===_editModalItemId);
-    if(prevPriceEl && prevIt){ const clean=prevPriceEl.value.replace('€','').trim(); prevIt.price = clean ? clean+'€' : ''; }
+    if(prevPriceEl && prevIt){ prixEmporterDepuisSaisie(prevIt, prevPriceEl.value); }
   }
   _editModalItemId = itemId;
   const it = items.find(i=>i.id===itemId);
@@ -3471,7 +3479,7 @@ function collectItemEdits(){
     const d=document.getElementById('d_'+it.id);
     const ph=document.getElementById('ph_'+it.id);
     if(n && n.value.trim()) it.name.fr=n.value.trim();
-    if(p){ const clean=p.value.replace('€','').trim(); it.price = clean ? clean+'€' : ''; }
+    if(p){ prixEmporterDepuisSaisie(it, p.value); }
     if(d)it.desc.fr=d.value;
     if(ph)it.photo=ph.value;
     // Collect allergens
@@ -3778,7 +3786,7 @@ function openSupplementsPopup(){
         <div style="font-family:'Playfair Display',serif;color:var(--rouge);font-size:1rem;margin-bottom:0.4rem;">${famName}</div>
         ${suppItems.filter(it=>(it.subcat||'Autres')===famName).map(it=>`
           <div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid var(--creme-fonce);font-family:'Montserrat',sans-serif;font-size:0.82rem;">
-            <span>${it.name.fr||''}</span><span style="font-weight:700;color:var(--vert);">+${it.price||''}</span>
+            <span>${it.name.fr||''}</span><span style="font-weight:700;color:var(--vert);">+${it.priceEmporter||it.price||''}</span>
           </div>
         `).join('')}
       </div>
@@ -4270,7 +4278,7 @@ function generateMenuPDF(){
       doc.setFontSize((it.priceVariants && it.priceVariants.length ? 7.5 : NAME_SIZE) * scale);
       const priceText = (it.priceVariants && it.priceVariants.length)
         ? it.priceVariants.map(v => `${v.label||''} ${v.price||''}`.trim()).join(' / ')
-        : (it.price || '');
+        : (it.priceEmporter || it.price || '');
       doc.text(priceText, pageW - margin, y, { align: 'right' });
 
       y += nameLines.length * 5.5 * scale + 2 * scale;
