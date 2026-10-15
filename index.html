@@ -6296,6 +6296,53 @@ async function importReduirePdf(file, etat) {
   return new File([blob], (file.name || 'carte').replace(/\.pdf$/i, '') + '-reduit.pdf', {type: 'application/pdf'});
 }
 
+// PDF → morceaux à lire un par un (15/10/2026) : une page par morceau, et une page en largeur (flyer dépliant
+// 3 volets) coupée en 3 volets. Chaque morceau est envoyé à part à l'IA puis les résultats sont réunis : une
+// carte entière en une seule fois donnait une réponse trop longue (« Réponse IA non valide »).
+async function importDecouperPdf(file, etat) {
+  const pdfjs = await importChargerPdfJs();
+  const pdf = await pdfjs.getDocument({data: await file.arrayBuffer()}).promise;
+  const nb = Math.min(pdf.numPages, 12);
+  const morceaux = [];
+  for (let n = 1; n <= nb; n++) {
+    etat('⏳ Préparation (page ' + n + '/' + nb + ')…');
+    const page = await pdf.getPage(n);
+    const v1 = page.getViewport({scale: 1});
+    const volets = (v1.width / v1.height > 1.6) ? 3 : 1;
+    const z = Math.min(2200 / Math.max(v1.width / volets, v1.height), 5);
+    const vp = page.getViewport({scale: z});
+    const c = document.createElement('canvas');
+    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({canvasContext: ctx, viewport: vp}).promise;
+    const lv = Math.floor(c.width / volets);
+    for (let v = 0; v < volets; v++) {
+      const cv = document.createElement('canvas');
+      cv.width = lv; cv.height = c.height;
+      cv.getContext('2d').drawImage(c, v * lv, 0, lv, c.height, 0, 0, lv, c.height);
+      const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85));
+      if (blob) morceaux.push(new File([blob], 'page' + n + (volets > 1 ? '-volet' + (v + 1) : '') + '.jpg', {type: 'image/jpeg'}));
+      cv.width = cv.height = 0;
+    }
+    c.width = c.height = 0;
+  }
+  return morceaux;
+}
+async function importEnvoyerMorceau(f) {
+  const token = localStorage.getItem('milos_token');
+  const fd = new FormData();
+  fd.append('file', f, f.name || 'carte');
+  const res = await fetch(`${PROXY_URL}/admin/import-menu`, {
+    method: 'POST',
+    headers: token ? {'Authorization': 'Bearer ' + token} : {},
+    body: fd
+  });
+  let data = null;
+  try { data = await res.json(); } catch(e) {}
+  return {status: res.status, ok: res.ok && !!(data && data.categories), data, erreur: (data && data.error) || ('code ' + res.status)};
+}
+
 async function analyzeMenuFile(){
   const input = document.getElementById('importFileInput');
   let file = input.files[0];
@@ -6305,36 +6352,53 @@ async function analyzeMenuFile(){
   const etat = t => { btn.textContent = t; };
   btn.disabled = true; area.innerHTML = '';
   const nomOrigine = file.name || '';
+  const E = printEsc;
+  const encadre = (html, rouge) => `<div style="background:${rouge ? '#FDECEA' : '#FFF7E6'};border-radius:8px;padding:0.7rem 0.9rem;font-size:0.74rem;line-height:1.5;color:${rouge ? '#7a1f1f' : '#7a4a00'};margin-bottom:0.6rem;">${html}</div>`;
   try {
     const estPdf = /pdf/i.test(file.type || '') || /\.pdf$/i.test(nomOrigine);
-    if (file.size > IMPORT_MAX_OCTETS) {
-      if (estPdf) {
-        try { file = await importReduirePdf(file, etat); }
-        catch(e) { throw new Error('PDF trop lourd (' + Math.round(file.size/1024/1024) + ' Mo) et impossible à réduire ici : ' + (e.message || e)); }
-      } else {
-        etat('⏳ Réduction de la photo…');
-        file = await reduireImageAvantEnvoi(file);
+    let morceaux;
+    if (estPdf) {
+      try { morceaux = await importDecouperPdf(file, etat); }
+      catch(e) {
+        // pdf.js indisponible : ancien fonctionnement (fichier entier, réduit s'il est trop lourd)
+        if (file.size > IMPORT_MAX_OCTETS) file = await importReduirePdf(file, etat);
+        morceaux = [file];
       }
-      if (file.size > IMPORT_MAX_OCTETS) throw new Error('Fichier encore trop lourd après réduction (' + Math.round(file.size/1024/1024) + ' Mo) — exportez moins de pages');
-    }
-    etat('⏳ Analyse en cours…');
-    const token = localStorage.getItem('milos_token');
-    const fd = new FormData();
-    fd.append('file', file, file.name || 'carte');
-    const res = await fetch(`${PROXY_URL}/admin/import-menu`, {
-      method: 'POST',
-      headers: token ? {'Authorization': 'Bearer ' + token} : {},
-      body: fd
-    });
-    let data = null;
-    try { data = await res.json(); } catch(e) {}
-    if(!res.ok || !data || !data.categories){
-      showToast('❌ ' + ((data && data.error) || ('Analyse impossible (code ' + res.status + ')')));
     } else {
-      data.items = data.items || [];
-      renderImportPreview(data, nomOrigine);
+      if (file.size > IMPORT_MAX_OCTETS) { etat('⏳ Réduction de la photo…'); file = await reduireImageAvantEnvoi(file); }
+      morceaux = [file];
+    }
+    if (!morceaux.length) throw new Error('Document vide');
+    const cats = [], itemsLus = [], vus = new Set(), echecs = [];
+    for (let i = 0; i < morceaux.length; i++) {
+      etat('⏳ Lecture par l\'IA ' + (morceaux.length > 1 ? '(' + (i + 1) + '/' + morceaux.length + ')' : '') + '…');
+      const r = await importEnvoyerMorceau(morceaux[i]);
+      if (r.status === 401 || r.status === 403) {
+        area.innerHTML = encadre('🔒 <b>Votre connexion a expiré.</b> Ouvrez <a href="login.html" target="_blank" rel="noopener">login.html</a> dans un nouvel onglet, connectez-vous, puis revenez ici et relancez « Analyser le document ».', true);
+        showToast('❌ Session expirée : reconnectez-vous');
+        btn.disabled = false; btn.textContent = '🔍 Analyser le document';
+        return;
+      }
+      if (!r.ok) { echecs.push(morceaux[i].name.replace(/\.jpg$/, '') + ' : ' + r.erreur); continue; }
+      (r.data.categories || []).forEach(c => { if (c && !cats.includes(c)) cats.push(c); });
+      (r.data.items || []).forEach(it => {
+        const k = importNorm(it.category) + '|' + importNorm(it.name);
+        if (!it.name || vus.has(k)) return; // même plat lu deux fois (ex. volet répété) : gardé une fois
+        vus.add(k); itemsLus.push(it);
+      });
+    }
+    if (!itemsLus.length) {
+      area.innerHTML = encadre('❌ <b>Aucun plat n\'a pu être lu.</b><br>' + (echecs.length ? echecs.map(E).join('<br>') : 'Le document ne contient pas de carte lisible.'), true);
+      showToast('❌ Analyse impossible');
+    } else {
+      renderImportPreview({categories: cats, items: itemsLus}, nomOrigine);
+      if (echecs.length && _importPreviewData) {
+        _importPreviewData.avertLecture = encadre('⚠️ <b>' + echecs.length + ' partie(s) du document n\'ont pas pu être lues</b> — leurs plats manquent ci-dessous (vous pouvez les ajouter ensuite à la main) :<br>' + echecs.map(E).join('<br>'));
+        importDessiner();
+      }
     }
   } catch(e){
+    area.innerHTML = encadre('❌ ' + E(e.message || 'Erreur lors de l\'analyse'), true);
     showToast('❌ ' + (e.message || 'Erreur lors de l\'analyse'));
   }
   btn.disabled = false; btn.textContent = '🔍 Analyser le document';
@@ -6463,7 +6527,7 @@ function importDessiner() {
       }).join('');
   }).join('');
 
-  area.innerHTML = `
+  area.innerHTML = (P.avertLecture || '') + `
     <div style="background:var(--creme-fonce);border-radius:8px;padding:0.7rem 0.9rem;margin-bottom:0.8rem;">
       <strong style="font-size:0.78rem;color:var(--rouge)">${P.data.categories.length} catégorie(s), ${P.data.items.length} plat(s) lus — vérifiez avant d'importer</strong>
       <div style="font-size:0.7rem;color:#555;margin-top:0.3rem;">${nbAssoc} reconnu(s) parmi vos plats · ${nbNew} nouveau(x)</div>
