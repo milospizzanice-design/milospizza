@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-17';
+  RG.VERSION='2026-10-17b';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -100,6 +100,140 @@
   RG.minutesTravaillees=function(entries){
     return RG.appairerPointages(entries).shifts.reduce(function(s,sh){return s+sh.mins;},0);
   };
+  // ── Analyse des pointages face au planning (écran « Aujourd'hui », fiche salarié, tablette) ─────────────
+  RG.POINTAGE_DEPASSEMENT_MIN=30; // dépassement signalé au-delà de 30 min après la fin prévue
+  function pad2(n){return ('0'+n).slice(-2);}
+  RG.heureCourte=function(ts){var d=new Date(ts);return pad2(d.getHours())+':'+pad2(d.getMinutes());};
+  RG.dureeTexte=function(min){
+    var m=Math.abs(Math.round(min||0)),h=Math.floor(m/60),r=m%60;
+    return (min<0?'−':'')+(h?h+' h '+pad2(r):r+' min');
+  };
+  // Créneau de planning → bornes réelles (un créneau qui finit après minuit se termine le lendemain).
+  RG.bornesCreneau=function(c){
+    var p=String(c.date).split('-'),d=String(c.heure_debut||'').slice(0,5).split(':'),f=String(c.heure_fin||'').slice(0,5).split(':');
+    var debut=new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),parseInt(d[0],10)||0,parseInt(d[1],10)||0,0,0);
+    var fin=new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),parseInt(f[0],10)||0,parseInt(f[1],10)||0,0,0);
+    if(fin<=debut)fin.setDate(fin.getDate()+1);
+    return {debut:debut,fin:fin};
+  };
+  // opts : entries (time_entries), creneaux (planning_creneaux), jours ['AAAA-MM-JJ'], absents {'empId|jour':libellé}
+  //        (absences du jour : aucune alerte de présence), maintenant (Date, facultatif).
+  // Renvoie {journees:{'empId|jour':{employee_id,jour,creneaux,sessions,minutes,minutesPrevues,anomalies,absent}},
+  //          anomalies:[...]} — une anomalie : {cle,type,niveau('rouge'|'orange'),employee_id,jour,titre,detail,
+  //          minutes,ref,heureConseillee(Date|null),entree,sortie}.
+  RG.analyserPointages=function(opts){
+    var maintenant=opts.maintenant||new Date();
+    var aujourdhui=RG.bizDateKey(maintenant);
+    var tol=RG.POINTAGE_RETARD_TOLERANCE_MIN,oubli=RG.POINTAGE_SORTIE_OUBLIEE_APRES_MIN,dep=RG.POINTAGE_DEPASSEMENT_MIN;
+    var jours={};(opts.jours||[]).forEach(function(j){jours[j]=true;});
+    var absents=opts.absents||{};
+    var parJour={};
+    function journee(emp,jour){
+      var k=emp+'|'+jour;
+      if(!parJour[k])parJour[k]={employee_id:Number(emp)||emp,jour:jour,entries:[],creneaux:[],sessions:[],minutes:0,minutesPrevues:0,anomalies:[],absent:absents[k]||null};
+      return parJour[k];
+    }
+    RG.pointagesValides(opts.entries).forEach(function(e){
+      var j=RG.bizDateKey(e.timestamp);if(!jours[j])return;
+      journee(e.employee_id,j).entries.push(e);
+    });
+    (opts.creneaux||[]).forEach(function(c){
+      if(!jours[c.date]||c.absence_code)return;
+      var b=RG.bornesCreneau(c);
+      journee(c.employee_id,c.date).creneaux.push({debut:b.debut,fin:b.fin,brut:c,session:null,couvert:false});
+    });
+    Object.keys(absents).forEach(function(k){var p=k.split('|');if(jours[p[1]])journee(p[0],p[1]);});
+    var toutes=[];
+    Object.keys(parJour).forEach(function(k){
+      var J=parJour[k],emp=J.employee_id,jour=J.jour;
+      J.creneaux.sort(function(a,b){return a.debut-b.debut;});
+      J.creneaux.forEach(function(c){J.minutesPrevues+=Math.round((c.fin-c.debut)/60000);});
+      var a=RG.appairerPointages(J.entries);
+      var sessions=[];
+      a.shifts.forEach(function(s){sessions.push({in:new Date(s.in),out:new Date(s.out),mins:s.mins,entree:s.entree,sortie:s.sortie,etat:'ferme'});});
+      a.enCours.forEach(function(e){sessions.push({in:new Date(e.timestamp),out:null,entree:e,etat:'en_cours'});});
+      a.sansSortie.forEach(function(e){sessions.push({in:new Date(e.timestamp),out:null,entree:e,etat:'sans_sortie'});});
+      sessions.sort(function(x,y){return x.in-y.in;});
+      J.sessions=sessions;
+      J.minutes=a.shifts.reduce(function(s,x){return s+x.mins;},0);
+      function ajoute(o){
+        o.employee_id=emp;o.jour=jour;
+        o.cle=o.type+'|'+emp+'|'+jour+'|'+(o.ref||'');
+        J.anomalies.push(o);toutes.push(o);
+      }
+      // Rattacher chaque passage (entrée → sortie) au créneau prévu le plus proche.
+      sessions.forEach(function(s){
+        var best=null,ecart=Infinity;
+        J.creneaux.forEach(function(c){
+          if(c.session)return;
+          if(s.in<c.debut-180*60000||s.in>c.fin)return;
+          var d=Math.abs(s.in-c.debut);if(d<ecart){ecart=d;best=c;}
+        });
+        if(best){best.session=s;s.creneau=best;}
+      });
+      // Un créneau non rattaché mais couvert à moitié par un passage (pause non badgée) n'est pas une absence.
+      J.creneaux.forEach(function(c){
+        if(c.session)return;
+        var duree=c.fin-c.debut;
+        c.couvert=sessions.some(function(s){
+          var fin=s.out||(s.etat==='en_cours'?maintenant:s.in);
+          return Math.min(fin,c.fin)-Math.max(s.in,c.debut)>=duree/2;
+        });
+      });
+      J.creneaux.forEach(function(c){
+        var plage=RG.heureCourte(c.debut)+'–'+RG.heureCourte(c.fin);
+        var s=c.session;
+        if(s){
+          var retard=Math.round((s.in-c.debut)/60000);
+          if(retard>tol)ajoute({type:'retard',niveau:'orange',ref:RG.heureCourte(c.debut),minutes:retard,
+            titre:'Retard '+RG.dureeTexte(retard),detail:'Prévu à '+RG.heureCourte(c.debut)+', badgé à '+RG.heureCourte(s.in)+'.',entree:s.entree});
+          if(s.out){
+            var avance=Math.round((c.fin-s.out)/60000);
+            if(avance>tol)ajoute({type:'depart',niveau:'orange',ref:RG.heureCourte(c.debut),minutes:avance,
+              titre:'Départ anticipé '+RG.dureeTexte(avance),detail:'Prévu jusqu’à '+RG.heureCourte(c.fin)+', sorti à '+RG.heureCourte(s.out)+'.',sortie:s.sortie});
+            var plus=Math.round((s.out-c.fin)/60000);
+            if(plus>=dep)ajoute({type:'depassement',niveau:'orange',ref:RG.heureCourte(c.debut),minutes:plus,
+              titre:'Dépassement '+RG.dureeTexte(plus),detail:'Prévu jusqu’à '+RG.heureCourte(c.fin)+', sorti à '+RG.heureCourte(s.out)+'.',sortie:s.sortie});
+          }else if(s.etat==='en_cours'&&maintenant-c.fin>oubli*60000){
+            ajoute({type:'sortie_oubliee',niveau:'rouge',ref:String(s.entree.id),heureConseillee:c.fin,
+              titre:'Sortie oubliée',detail:'Entrée à '+RG.heureCourte(s.in)+', fin prévue à '+RG.heureCourte(c.fin)+', toujours pas de sortie.',entree:s.entree});
+          }
+          return;
+        }
+        if(c.couvert||J.absent)return;
+        if(maintenant<c.debut.getTime()+tol*60000)return; // pas encore l'heure
+        if(maintenant<c.fin){
+          ajoute({type:'pas_arrive',niveau:'rouge',ref:RG.heureCourte(c.debut),heureConseillee:c.debut,
+            minutes:Math.round((maintenant-c.debut)/60000),
+            titre:'Pas badgé à l’arrivée',detail:'Prévu à '+RG.heureCourte(c.debut)+' ('+plage+'), aucun badge depuis '+RG.dureeTexte(Math.round((maintenant-c.debut)/60000))+'.'});
+        }else{
+          ajoute({type:'absent',niveau:'rouge',ref:RG.heureCourte(c.debut),heureConseillee:c.debut,
+            titre:'Aucun badge',detail:'Créneau prévu '+plage+' sans aucun badge.'});
+        }
+      });
+      sessions.forEach(function(s){
+        if(s.etat==='sans_sortie')ajoute({type:'sortie_oubliee',niveau:'rouge',ref:String(s.entree.id),
+          heureConseillee:s.creneau?s.creneau.fin:null,titre:'Sortie oubliée',
+          detail:'Entrée à '+RG.heureCourte(s.in)+(s.creneau?' (fin prévue '+RG.heureCourte(s.creneau.fin)+')':'')+', aucune sortie badgée.',entree:s.entree});
+        if(!s.creneau)ajoute({type:'hors_planning',niveau:'orange',ref:String(s.entree.id),
+          titre:'Badge hors planning',detail:'Entrée à '+RG.heureCourte(s.in)+(s.out?', sortie à '+RG.heureCourte(s.out):'')+' sans créneau prévu.',entree:s.entree});
+      });
+      a.sansEntree.forEach(function(e){
+        ajoute({type:'entree_oubliee',niveau:'rouge',ref:String(e.id),titre:'Entrée oubliée',
+          detail:'Sortie à '+RG.heureCourte(e.timestamp)+' sans entrée badgée.',sortie:e,
+          heureConseillee:(function(){var c=J.creneaux.find(function(c){return !c.session&&c.debut<=new Date(e.timestamp);});return c?c.debut:null;})()});
+      });
+      J.entries.forEach(function(e){
+        if(e.ip_ok===false)ajoute({type:'ip',niveau:'orange',ref:String(e.id),titre:'Badge depuis un appareil inconnu',
+          detail:(e.type==='entree'?'Entrée':'Sortie')+' à '+RG.heureCourte(e.timestamp)+(e.ip_address?' (adresse '+e.ip_address+')':'')+'.',entree:e});
+      });
+      delete J.entries;
+    });
+    var ordre={rouge:0,orange:1};
+    toutes.sort(function(x,y){return (ordre[x.niveau]-ordre[y.niveau])||(x.jour<y.jour?1:x.jour>y.jour?-1:0);});
+    return {journees:parJour,anomalies:toutes,aujourdhui:aujourdhui};
+  };
+
   // Prochain badgeage d'un salarié d'après son dernier pointage valide : 'sortie' si une entrée est ouverte
   // dans la journée métier en cours (même après minuit), sinon 'entree'.
   RG.prochainTypeBadge=function(dernier){

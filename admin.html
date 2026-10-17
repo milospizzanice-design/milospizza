@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Admin RH</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-17"></script>
+<script src="restoglobal-commun.js?v=2026-10-17b"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -177,6 +177,71 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;height:100%}
   body.ing-tree-active #ing-tree-panel{display:block !important;position:fixed;top:0;left:0;bottom:0;width:260px;box-shadow:none;border-right:1px solid var(--bd);}
   body.ing-tree-active #page-recettes .page{margin-left:270px;}
 }
+
+/* ── Pointage : écran « Aujourd'hui » et fiche salarié (17/10/2026) ── */
+#mc.op,#mab.op,#modal-ficheexp.op{z-index:260}
+.pj-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:6px}
+.pj-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pj-stat{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pj-stat b{font-size:26px;line-height:1.1;color:var(--tx)}
+.pj-stat span{font-size:12px;color:var(--txm);line-height:1.25}
+.pj-stat.alerte{background:var(--bx);border-color:var(--bx)}
+.pj-stat.alerte b,.pj-stat.alerte span{color:#fff}
+.pj-h2{font-size:16px;font-weight:700;margin:18px 0 8px;color:var(--tx);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.pj-leg{font-size:11px;font-weight:400;color:var(--txm);display:flex;gap:6px;align-items:center}
+.pj-leg i{display:inline-block;width:14px;height:5px;border-radius:3px}
+.pj-al{background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:8px;border:2px solid #D97706}
+.pj-al.rouge{border-color:var(--bx)}
+.pj-al.fait{border:1px solid var(--bd);opacity:.85}
+.pj-al-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.pj-pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.pj-pill.rouge{background:#F8DADB;color:#8E1A20}.pj-pill.orange{background:#FCEBD5;color:#8A4204}
+.pj-pill.vert{background:#E6EDDF;color:#3F4D34}.pj-pill.gris{background:#EFEAE2;color:#4A423C}
+.pj-al-t{font-size:15px;font-weight:700;color:var(--tx)}
+.pj-al-t a{color:inherit}
+.pj-al-d{font-size:13px;color:var(--txm);margin-top:2px;line-height:1.4}
+.pj-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pj-btn{min-height:42px;padding:0 14px;border-radius:10px;font-size:13px;font-weight:700;border:1px solid var(--bd);background:#fff;color:var(--tx);cursor:pointer;font-family:inherit}
+.pj-btn.p{background:var(--bx);border-color:var(--bx);color:#fff}
+.pj-lien{background:none;border:none;color:var(--txm);text-decoration:underline;font-size:12px;cursor:pointer;padding:8px;min-height:40px}
+.pj-ok{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px;color:#3F4D34;font-weight:600;font-size:14px}
+.pj-note{background:#F8DADB;color:#8E1A20;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.4;margin-bottom:10px}
+.pj-sub{font-size:12px;color:var(--txm)}
+.pj-team{background:#fff;border:1px solid var(--bd);border-radius:14px;overflow:hidden}
+.pj-row{padding:10px 14px;border-top:1px solid #F0EBE3;cursor:pointer}
+.pj-axis{display:flex;justify-content:space-between;padding:8px 14px 2px;font-size:10px;color:var(--txm)}
+.pj-row-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.pj-row-top>.pj-pill{flex-shrink:0}
+.pj-nom{font-size:14px;font-weight:700;color:var(--tx)}
+.pj-bars{position:relative;height:16px;margin-top:6px}
+.pj-track{position:absolute;left:0;right:0;height:6px;border-radius:3px;background:#F3EEE6}
+.pj-seg{position:absolute;height:6px;border-radius:3px}
+.pj-now{position:absolute;top:-3px;width:2px;height:21px;background:var(--bx)}
+details.pj-det{margin-top:14px}
+details.pj-det>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;padding:0 14px;background:#fff;border:1px solid var(--bd);border-radius:12px;font-size:14px;font-weight:600;color:var(--tx);margin-bottom:8px}
+.pj-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.pj-nav .pj-btn{width:44px;padding:0;font-size:20px}
+.pj-tot{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.pj-tot b{font-size:28px;color:var(--tx)}
+.pj-prog{height:10px;border-radius:5px;background:#EFEAE2;overflow:hidden}
+.pj-prog i{display:block;height:100%;background:#6B7E5A;border-radius:5px}
+.pj-jour{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:10px 12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start}
+.pj-jour.rouge{border:2px solid var(--bx)}
+.pj-jour.repos{opacity:.7}
+.pj-jour-l{width:36px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.pj-jour-l span{font-size:11px;color:var(--txm);text-transform:uppercase}
+.pj-jour-l b{font-size:19px;color:var(--tx)}
+.fiche-md{max-width:560px;display:flex;flex-direction:column;height:90vh;padding:0;overflow:hidden}
+.fiche-head{padding:16px 16px 8px}
+.fiche-av{width:44px;height:44px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0}
+.fiche-tabs{position:relative;display:flex;gap:6px;overflow-x:auto;padding:4px 16px 10px;border-bottom:1px solid var(--bd);-webkit-overflow-scrolling:touch;flex-shrink:0}
+.fiche-tab{flex-shrink:0;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);background:#fff;font-size:13px;font-weight:600;color:var(--tx);cursor:pointer;white-space:nowrap;font-family:inherit}
+.fiche-tab.on{background:var(--tx);border-color:var(--tx);color:#fff}
+.fiche-body{flex:1;overflow-y:auto;padding:12px 16px 24px;background:#FAF6F0;-webkit-overflow-scrolling:touch}
+@media (max-width:640px){
+  #modal-absfiche{padding:0}
+  #modal-absfiche .fiche-md{max-width:none;height:100%;max-height:none;border-radius:0}
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 </head>
@@ -238,14 +303,25 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="page" id="page-rh" style="display:none;">
   <div id="rc" style="display:none">
     <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd);overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <div class="subtab on" id="rcsubtab-pt" onclick="rcSubTab('pt')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx);white-space:nowrap">Pointages</div>
+      <div class="subtab on" id="rcsubtab-auj" onclick="rcSubTab('auj')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx);white-space:nowrap">Aujourd'hui</div>
+      <div class="subtab" id="rcsubtab-pt" onclick="rcSubTab('pt')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Pointages</div>
       <div class="subtab" id="rcsubtab-pr" onclick="rcSubTab('pr')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Pr&#233;sences</div>
       <div class="subtab" id="rcsubtab-recap" onclick="rcSubTab('recap')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">R&#233;cap</div>
       <div class="subtab" id="rcsubtab-ab" onclick="rcSubTab('ab')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Demandes</div>
     </div>
 
+    <!-- Sous-onglet Aujourd'hui (17/10/2026) : alertes à traiter, équipe du jour, journal des badges -->
+    <div id="rc-pane-auj">
+      <div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <select class="fs" id="auj-r" onchange="loadAuj()"><option value="all">Tous restaurants</option></select>
+        <button class="btn bs sm" onclick="loadAuj()">&#8635; Actualiser</button>
+        <span id="auj-maj" style="font-size:11px;color:var(--txm)"></span>
+      </div>
+      <div id="auj-body"></div>
+    </div>
+
     <!-- Sous-onglet Pointages -->
-    <div id="rc-pane-pt">
+    <div id="rc-pane-pt" style="display:none">
       <div id="alc"></div>
       <div class="stats">
         <div class="stat"><div class="sv" id="sp">-</div><div class="sl">Pr&#233;sents</div></div>
@@ -1348,6 +1424,7 @@ function fillRestaurantSelect(selectId,opts){
 }
 function fillAllRestaurantSelects(){
   fillRestaurantSelect('fr',{allLabel:'Tous restaurants'});
+  fillRestaurantSelect('auj-r',{allLabel:'Tous restaurants'});
   fillRestaurantSelect('rcr',{allLabel:'Tous'});
   fillRestaurantSelect('abr',{allLabel:'Tous'});
   fillRestaurantSelect('sar',{});
@@ -1567,11 +1644,11 @@ function goTab(name,el){
 }
 
 // ── Sous-navigation de l'onglet Récap (Pointages/Présences/Récap/Demandes) ──
-var rcCurrentSub='pt';
+var rcCurrentSub='auj';
 function rcSubTab(which){
   rcCurrentSub=which;
-  var panes={pt:'rc-pane-pt',pr:'rc-pane-pr',recap:'rc-pane-recap',ab:'rc-pane-ab'};
-  var tabs={pt:'rcsubtab-pt',pr:'rcsubtab-pr',recap:'rcsubtab-recap',ab:'rcsubtab-ab'};
+  var panes={auj:'rc-pane-auj',pt:'rc-pane-pt',pr:'rc-pane-pr',recap:'rc-pane-recap',ab:'rc-pane-ab'};
+  var tabs={auj:'rcsubtab-auj',pt:'rcsubtab-pt',pr:'rcsubtab-pr',recap:'rcsubtab-recap',ab:'rcsubtab-ab'};
   Object.keys(panes).forEach(function(k){
     var pane=document.getElementById(panes[k]);
     var tab=document.getElementById(tabs[k]);
@@ -1581,6 +1658,7 @@ function rcSubTab(which){
       tab.style.color=(k===which)?'var(--bx)':'var(--txm)';
     }
   });
+  if(which==='auj')loadAuj();
   if(which==='pt')loadPt();
   if(which==='pr')loadPr();
   if(which==='recap')loadRc();
@@ -1721,14 +1799,14 @@ function renderAlerts(){
   });
 }
 
-function openCor(){document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
-function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=new Date().toISOString().slice(0,16);document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
+function openCor(){document.getElementById('ccd').value=ptDateLocale(new Date());document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
+function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=ptDateLocale(new Date());document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
 function openCorEntry(entryId){
   var entry=pts.find(function(p){return p.id===entryId;});
   if(!entry){alert('Pointage introuvable.');return;}
   document.getElementById('cce').value=entry.employee_id;
   document.getElementById('cct').value=entry.type;
-  document.getElementById('ccd').value=entry.timestamp.slice(0,16);
+  document.getElementById('ccd').value=ptDateLocale(entry.timestamp);
   document.getElementById('ccm').value='';
   document.getElementById('ccn').value='';
   document.getElementById('cc-orig-id').value=entryId;
@@ -1755,6 +1833,7 @@ async function saveCor(){
   }
   closeM('mc');
   document.getElementById('ccn').value='';
+  pointageRafraichir();
   await loadPt();
   loadMotifs();
   updateDemBadge();
@@ -2903,6 +2982,8 @@ function applyGlobalRestoDefault(id){
 
   var rcrSel=document.getElementById('rcr');
   if(rcrSel){rcrSel.value=id;if(rcCurrentSub==='recap')loadRc();}
+  var ajuSel=document.getElementById('auj-r');
+  if(ajuSel&&ajuSel.querySelector('option[value="'+String(id).replace(/"/g,'')+'"]')){ajuSel.value=id;if(rcCurrentSub==='auj')loadAuj();}
 
   var abrSel=document.getElementById('abr');
   if(abrSel){abrSel.value=id;if(rcCurrentSub==='ab')loadAb();}
@@ -5628,33 +5709,514 @@ async function loadAb(){
 
 // Fiche récap absences d'un salarié
 var ficheCurEmp=null;
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════
+// POINTAGE — écran « Aujourd'hui » et fiche salarié en onglets (17/10/2026).
+// Les règles (retard, sortie oubliée, hors planning…) viennent de RG.analyserPointages
+// (restoglobal-commun.js), partagées avec la tablette. Le suivi des alertes traitées est dans la table
+// pointage_alertes (script pointage_alertes.sql) ; si elle n'existe pas encore, il est gardé sur cet appareil.
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════
+var ptTableAlertesOk=true;
+var ptAnomaliesIndex={};   // cle → anomalie affichée (pour les boutons)
+var ptTraitementsCache={}; // cle → ligne pointage_alertes
+var ptQuiCache=null;
+var PT_STATUT_LIB={justifie:'justifié',non_justifie:'non justifié',vu:'vu',valide:'validé',refuse:'refusé'};
+var PT_ACTIONS={
+  sortie_oubliee:[['sortie','Saisir l’heure de sortie',1]],
+  entree_oubliee:[['entree','Saisir l’heure d’entrée',1]],
+  pas_arrive:[['entree','Saisir l’entrée',1],['absent','Marquer absent',0]],
+  absent:[['absent','Marquer absent',1],['entree','Saisir le pointage',0],['vu','Ignorer',0]],
+  retard:[['justifie','Justifié',1],['non_justifie','Non justifié',0]],
+  depart:[['justifie','Justifié',1],['non_justifie','Non justifié',0]],
+  depassement:[['valide','Heures validées',1],['refuse','Non validées',0]],
+  hors_planning:[['valide','Valider',1],['vu','Vu',0]],
+  ip:[['vu','Vu',1]]
+};
+
+function ptDateLocale(d){
+  var x=d?new Date(d):new Date();
+  return x.getFullYear()+'-'+planPad(x.getMonth()+1)+'-'+planPad(x.getDate())+'T'+planPad(x.getHours())+':'+planPad(x.getMinutes());
+}
+function ptJourLib(jour){
+  var auj=RG.bizDateKey();
+  if(jour===auj)return 'Aujourd’hui';
+  if(jour===planDs(planAddD(new Date(auj+'T12:00:00'),-1)))return 'Hier';
+  var d=new Date(jour+'T12:00:00');
+  return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+}
+function ptHM(min){var m=Math.round(min||0);var s=m<0?'−':'';m=Math.abs(m);return s+Math.floor(m/60)+' h '+planPad(m%60);}
+function ptJoursEntre(debut,fin){var out=[];var c=new Date(debut+'T12:00:00'),e=new Date(fin+'T12:00:00');while(c<=e){out.push(planDs(c));c=planAddD(c,1);}return out;}
+async function ptQui(){
+  if(ptQuiCache!==null)return ptQuiCache;
+  try{var s=await db.auth.getSession();ptQuiCache=(s.data&&s.data.session&&s.data.session.user&&s.data.session.user.email)||'';}catch(e){ptQuiCache='';}
+  return ptQuiCache;
+}
+function ptTraitementsLocaux(){try{return JSON.parse(localStorage.getItem('pt_alertes_local')||'{}');}catch(e){return {};}}
+function ptEnregistrerLocal(map){try{localStorage.setItem('pt_alertes_local',JSON.stringify(map));}catch(e){}}
+
+async function ptChargerTraitements(empIds,jourDebut,jourFin){
+  var map={};
+  try{
+    var r=await RG.toutesLignes(function(){
+      var q=db.from('pointage_alertes').select('*').gte('jour',jourDebut).lte('jour',jourFin).order('cle');
+      if(empIds&&empIds.length)q=q.in('employee_id',empIds);
+      return q;
+    });
+    if(r.error)throw r.error;
+    ptTableAlertesOk=true;
+    (r.data||[]).forEach(function(x){map[x.cle]=x;});
+  }catch(e){
+    ptTableAlertesOk=false;
+    var loc=ptTraitementsLocaux();
+    Object.keys(loc).forEach(function(k){var x=loc[k];if(x.jour>=jourDebut&&x.jour<=jourFin)map[k]=x;});
+  }
+  Object.keys(map).forEach(function(k){ptTraitementsCache[k]=map[k];});
+  return map;
+}
+
+// Charge pointages, planning, absences et traitements d'une liste de salariés sur des journées métier.
+async function ptChargerDonnees(empIds,jourDebut,jourFin){
+  var pb=RG.bizPeriodeBornes(jourDebut,jourFin);
+  if(!empIds.length)empIds=[-1];
+  var res=await Promise.all([
+    RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).in('employee_id',empIds).order('id');}),
+    RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',jourDebut).lte('date',jourFin).in('employee_id',empIds).order('id');}),
+    RG.toutesLignes(function(){return db.from('absences_planning').select('*').gte('date',jourDebut).lte('date',jourFin).in('employee_id',empIds).order('employee_id').order('date');}),
+    RG.toutesLignes(function(){return db.from('absences').select('*').gte('date_fin',jourDebut).lte('date_debut',jourFin).in('employee_id',empIds).order('id');}),
+    ptChargerTraitements(empIds,jourDebut,jourFin)
+  ]);
+  var jours=ptJoursEntre(jourDebut,jourFin);
+  var ABSP_L={am:'Arrêt maladie',ai:'Absence injustifiée',cp:'Congés payés',rec:'Récupération'};
+  var absents={};
+  (res[2].data||[]).forEach(function(a){absents[a.employee_id+'|'+a.date]=ABSP_L[a.code]||a.code;});
+  (res[3].data||[]).forEach(function(a){
+    jours.forEach(function(j){if(j>=a.date_debut&&j<=a.date_fin&&!absents[a.employee_id+'|'+j])absents[a.employee_id+'|'+j]=getMotifNom(a.type);});
+  });
+  var entries=res[0].data||[],creneaux=res[1].data||[];
+  var analyse=RG.analyserPointages({entries:entries,creneaux:creneaux,jours:jours,absents:absents});
+  analyse.anomalies.forEach(function(a){ptAnomaliesIndex[a.cle]=a;});
+  return {entries:entries,creneaux:creneaux,absents:absents,analyse:analyse,traitements:res[4],jours:jours,
+    erreur:res[0].error||res[1].error||null};
+}
+
+function ptAnomalieTraitable(a){return ['sortie_oubliee','entree_oubliee'].indexOf(a.type)<0;}
+function ptEstOuverte(a,trait){return !(ptAnomalieTraitable(a)&&trait&&trait[a.cle]);}
+
+// Carte d'une alerte. o.nom : afficher le nom du salarié (écran Aujourd'hui) ; o.jour : afficher le jour.
+function ptCarteHtml(a,trait,o){
+  o=o||{};
+  var t=trait&&trait[a.cle];
+  var fait=ptAnomalieTraitable(a)&&!!t;
+  var em=emp(a.employee_id);
+  var h='<div class="pj-al '+(fait?'fait':a.niveau)+'">';
+  h+='<div class="pj-al-top"><span class="pj-pill '+(fait?'vert':a.niveau)+'">'+(fait?'Réglé':(a.niveau==='rouge'?'À régler':'À vérifier'))+'</span>';
+  if(o.jour!==false)h+='<span class="pj-sub">'+esc(ptJourLib(a.jour))+'</span>';
+  h+='</div>';
+  h+='<div class="pj-al-t">'+esc(a.titre);
+  if(o.nom)h+=' — <a href="#" onclick="openAbsEmpFiche('+a.employee_id+');return false">'+esc(em.prenom+' '+em.nom)+'</a>';
+  h+='</div><div class="pj-al-d">'+esc(a.detail)+'</div>';
+  if(fait){
+    h+='<div class="pj-acts" style="align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#3F4D34">'+esc((PT_STATUT_LIB[t.statut]||t.statut).replace(/^./,function(c){return c.toUpperCase();}))+(t.traite_par?' <span style="font-weight:400;color:var(--txm)">par '+esc(t.traite_par)+'</span>':'')+'</span>';
+    h+='<button class="pj-lien" onclick="ptAnnuler(\''+esc(a.cle)+'\')">Annuler</button></div>';
+  }else{
+    var acts=PT_ACTIONS[a.type]||[['vu','Vu',1]];
+    h+='<div class="pj-acts">';
+    acts.forEach(function(x){h+='<button class="pj-btn'+(x[2]?' p':'')+'" onclick="ptAction(\''+esc(a.cle)+'\',\''+x[0]+'\')">'+esc(x[1])+'</button>';});
+    h+='</div>';
+  }
+  return h+'</div>';
+}
+
+async function ptAction(cle,action){
+  var a=ptAnomaliesIndex[cle];if(!a)return;
+  if(action==='sortie'){
+    var conseil=a.heureConseillee||null;
+    ptOuvrirCorrection(a.employee_id,'sortie',conseil||new Date(),'Sortie oubliée — heure réelle de départ');return;
+  }
+  if(action==='entree'){
+    ptOuvrirCorrection(a.employee_id,'entree',a.heureConseillee||new Date(),'Entrée oubliée — heure réelle d’arrivée');return;
+  }
+  if(action==='absent'){ptMarquerAbsent(a.employee_id,a.jour);return;}
+  await ptTraiter(a,action);
+}
+async function ptTraiter(a,statut,note){
+  var row={cle:a.cle,employee_id:a.employee_id,jour:a.jour,type:a.type,statut:statut,note:note||null,traite_par:await ptQui(),traite_le:new Date().toISOString()};
+  if(ptTableAlertesOk){
+    var r=await db.from('pointage_alertes').upsert(row,{onConflict:'cle'});
+    if(r.error){ptTableAlertesOk=false;}
+  }
+  if(!ptTableAlertesOk){var loc=ptTraitementsLocaux();loc[a.cle]=row;ptEnregistrerLocal(loc);}
+  ptTraitementsCache[a.cle]=row;
+  pointageRafraichir();
+}
+async function ptAnnuler(cle){
+  if(ptTableAlertesOk){var r=await db.from('pointage_alertes').delete().eq('cle',cle);if(r.error)ptTableAlertesOk=false;}
+  if(!ptTableAlertesOk){var loc=ptTraitementsLocaux();delete loc[cle];ptEnregistrerLocal(loc);}
+  delete ptTraitementsCache[cle];
+  pointageRafraichir();
+}
+// Correction manuelle pré-remplie (heure locale ; avant, l'heure UTC était proposée → décalage de 1 à 2 h).
+function ptOuvrirCorrection(empId,type,date,titre){
+  document.getElementById('cce').value=empId;
+  document.getElementById('cct').value=type;
+  document.getElementById('ccd').value=ptDateLocale(date);
+  document.getElementById('cc-orig-id').value='';
+  document.getElementById('ccm').value='oubli';
+  document.getElementById('ccn').value='';
+  document.getElementById('mc-title').textContent=titre||'Correction manuelle';
+  openM('mc');
+}
+function ptMarquerAbsent(empId,jour){
+  updateMotifSelects();
+  document.getElementById('ab-edit-id').value='';
+  document.getElementById('mab-title').textContent='Marquer une absence';
+  document.getElementById('ab-del-btn').style.display='none';
+  document.getElementById('abe').value=empId;
+  document.getElementById('abf').value=jour;
+  document.getElementById('abt2').value=jour;
+  document.getElementById('abn').value='';
+  document.getElementById('abfi').value='';
+  openM('mab');
+}
+// Appelé après une correction de pointage, une absence ou un traitement d'alerte.
+function pointageRafraichir(){
+  var pane=document.getElementById('rc-pane-auj');
+  if(pane&&pane.style.display!=='none'&&document.getElementById('rc').style.display!=='none')loadAuj();
+  var fiche=document.getElementById('modal-absfiche');
+  if(fiche&&fiche.classList.contains('op')){ficheAnoCache=null;ficheTab(ficheOnglet);ficheEntete();}
+}
+
+// ── Écran « Aujourd'hui » ─────────────────────────────────────────────────────────────────────────────
+async function loadAuj(){
+  var body=document.getElementById('auj-body');if(!body)return;
+  if(!body.innerHTML.trim())body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Chargement...</div>';
+  var resto=document.getElementById('auj-r').value||'all';
+  var auj=RG.bizDateKey();
+  var hier=planDs(planAddD(new Date(auj+'T12:00:00'),-1));
+  var actifs=emps.filter(function(e){return empActifNow(e);});
+  var d=await ptChargerDonnees(actifs.map(function(e){return e.id;}),hier,auj);
+  if(d.erreur){body.innerHTML='<div class="pj-ok" style="color:#8E1A20">Erreur de lecture : '+esc(d.erreur.message||'')+'</div>';return;}
+  // Salariés concernés par le restaurant choisi : rattachés, prévus ou ayant badgé ici.
+  var concernes={};
+  actifs.forEach(function(e){if(resto==='all'||e.restaurant_id===resto)concernes[e.id]=true;});
+  if(resto!=='all'){
+    d.creneaux.forEach(function(c){if(c.restaurant_id===resto)concernes[c.employee_id]=true;});
+    d.entries.forEach(function(e){if(e.restaurant_id===resto)concernes[e.employee_id]=true;});
+  }
+  var trait=d.traitements;
+  var anos=d.analyse.anomalies.filter(function(a){return concernes[a.employee_id];});
+  var ouvertes=anos.filter(function(a){return ptEstOuverte(a,trait);});
+  var reglees=anos.filter(function(a){return !ptEstOuverte(a,trait);});
+  // Équipe du jour
+  var equipe=[];
+  Object.keys(d.analyse.journees).forEach(function(k){
+    var J=d.analyse.journees[k];
+    if(J.jour!==auj||!concernes[J.employee_id])return;
+    if(!J.creneaux.length&&!J.sessions.length&&!J.absent)return;
+    equipe.push(J);
+  });
+  var presents=equipe.filter(function(J){return J.sessions.some(function(s){return s.etat==='en_cours';});}).length;
+  var attendus=equipe.filter(function(J){return J.creneaux.length&&!J.absent;}).length;
+  var h='';
+  if(!ptTableAlertesOk)h+='<div class="pj-note">Le suivi des alertes est gardé sur cet appareil seulement : exécutez le script <b>pointage_alertes.sql</b> dans Supabase pour le partager avec toute l’équipe.</div>';
+  h+='<div class="pj-stats">';
+  h+='<div class="pj-stat"><b style="color:#4F5E42">'+presents+'</b><span>Présents maintenant</span></div>';
+  h+='<div class="pj-stat"><b>'+attendus+'</b><span>Attendus aujourd’hui</span></div>';
+  h+='<div class="pj-stat'+(ouvertes.length?' alerte':'')+'"><b>'+ouvertes.length+'</b><span>Alertes à traiter</span></div>';
+  h+='</div>';
+  h+='<div class="pj-h2">À traiter</div>';
+  if(!ouvertes.length)h+='<div class="pj-ok">Tout est en ordre : aucun oubli de badge.</div>';
+  ouvertes.forEach(function(a){h+=ptCarteHtml(a,trait,{nom:true});});
+  if(reglees.length){
+    h+='<details class="pj-det"><summary>Réglées ('+reglees.length+')</summary>';
+    reglees.forEach(function(a){h+=ptCarteHtml(a,trait,{nom:true});});
+    h+='</details>';
+  }
+  h+=ptEquipeHtml(equipe,d.analyse.anomalies,trait);
+  // Journal des badges du jour (y compris les pointages corrigés, barrés)
+  var jb=RG.bizJourneeBornes();
+  var journal=d.entries.filter(function(e){return concernes[e.employee_id]&&new Date(e.timestamp)>=jb.debut;})
+    .sort(function(a,b){return new Date(b.timestamp)-new Date(a.timestamp);});
+  window._ajuJournal=journal;
+  h+='<details class="pj-det"><summary>Journal des badges ('+journal.length+')</summary><div class="pj-team">';
+  if(!journal.length)h+='<div class="pj-row" style="cursor:default;color:#aaa">Aucun badge aujourd’hui</div>';
+  journal.forEach(function(e){
+    var em=emp(e.employee_id);
+    h+='<div class="pj-row" style="cursor:default;display:flex;gap:10px;align-items:center'+(e.remplace?';opacity:.5;text-decoration:line-through':'')+'">';
+    h+='<b style="width:44px">'+RG.heureCourte(e.timestamp)+'</b><span style="flex:1">'+esc(em.prenom+' '+em.nom)+'</span>';
+    h+='<span class="pj-sub">'+(e.type==='entree'?'Entrée':'Sortie')+(e.manuel?' · manuel':'')+'</span></div>';
+  });
+  h+='</div><div style="margin-top:8px"><button class="pj-btn" onclick="ajuExportCSV()">Exporter en CSV</button></div></details>';
+  body.innerHTML=h;
+  var maj=document.getElementById('auj-maj');
+  if(maj)maj.textContent='Mis à jour à '+RG.heureCourte(new Date());
+}
+
+function ptEquipeHtml(equipe,anomalies,trait){
+  var h='<div class="pj-h2"><span>Équipe du jour</span><span class="pj-leg"><i style="background:#CFC8BC"></i>Prévu <i style="background:#6B7E5A"></i>Badgé</span></div>';
+  if(!equipe.length)return h+'<div class="pj-ok" style="color:var(--txm)">Personne n’est prévu ni n’a badgé aujourd’hui.</div>';
+  var auj=RG.bizDateKey();
+  var base=new Date(auj+'T00:00:00').getTime();
+  var maintenant=Date.now();
+  function hr(d){return (new Date(d).getTime()-base)/3600000;}
+  var hMin=9,hMax=24;
+  equipe.forEach(function(J){
+    J.creneaux.forEach(function(c){hMin=Math.min(hMin,Math.floor(hr(c.debut)));hMax=Math.max(hMax,Math.ceil(hr(c.fin)));});
+    J.sessions.forEach(function(s){hMin=Math.min(hMin,Math.floor(hr(s.in)));if(s.out)hMax=Math.max(hMax,Math.ceil(hr(s.out)));});
+  });
+  hMax=Math.max(hMax,Math.min(31,Math.ceil(hr(maintenant))));
+  var span=hMax-hMin;
+  function pct(d){return Math.max(0,Math.min(100,(hr(d)-hMin)/span*100));}
+  var ticks=[];var pas=span>18?4:3;
+  for(var t=hMin;t<=hMax;t+=pas)ticks.push((t%24)+'h');
+  equipe.sort(function(a,b){
+    var da=a.creneaux[0]?a.creneaux[0].debut:(a.sessions[0]?a.sessions[0].in:0);
+    var db2=b.creneaux[0]?b.creneaux[0].debut:(b.sessions[0]?b.sessions[0].in:0);
+    return da-db2;
+  });
+  h+='<div class="pj-team"><div class="pj-axis">'+ticks.map(function(x){return '<span>'+x+'</span>';}).join('')+'</div>';
+  equipe.forEach(function(J){
+    var em=emp(J.employee_id);
+    var mesAno=anomalies.filter(function(a){return a.employee_id===J.employee_id&&a.jour===auj&&ptEstOuverte(a,trait);});
+    var enCours=J.sessions.filter(function(s){return s.etat==='en_cours';})[0];
+    var retard=mesAno.some(function(a){return a.type==='retard';});
+    var statut,ton;
+    var rouge=mesAno.filter(function(a){return a.niveau==='rouge';})[0];
+    var prochain=J.creneaux.filter(function(c){return c.debut>maintenant&&!c.session;})[0];
+    if(J.absent){statut='Absent : '+J.absent;ton='gris';}
+    else if(rouge){statut=rouge.titre;ton='rouge';}
+    else if(enCours){statut='En poste depuis '+RG.heureCourte(enCours.in);ton=retard?'orange':'vert';}
+    else if(prochain){statut='Attendu à '+RG.heureCourte(prochain.debut);ton='gris';}
+    else if(J.sessions.length){var der=J.sessions[J.sessions.length-1];statut=der.out?'Parti à '+RG.heureCourte(der.out):'Passé';ton=mesAno.length?'orange':'gris';}
+    else {statut='—';ton='gris';}
+    var prevu=J.creneaux.length?'prévu '+J.creneaux.map(function(c){return RG.heureCourte(c.debut)+'–'+RG.heureCourte(c.fin);}).join(' · '):'pas au planning';
+    h+='<div class="pj-row" onclick="openAbsEmpFiche('+J.employee_id+')">';
+    h+='<div class="pj-row-top"><div style="min-width:0"><div class="pj-nom">'+esc(em.prenom+' '+em.nom)+'</div><div class="pj-sub">'+esc(em.secteur||'')+(em.secteur?' · ':'')+esc(prevu)+'</div></div>';
+    h+='<span class="pj-pill '+ton+'">'+esc(statut)+'</span></div>';
+    h+='<div class="pj-bars"><div class="pj-track" style="top:0"></div><div class="pj-track" style="top:9px"></div>';
+    J.creneaux.forEach(function(c){var l=pct(c.debut);h+='<div class="pj-seg" style="top:0;background:#CFC8BC;left:'+l+'%;width:'+Math.max(1,pct(c.fin)-l)+'%"></div>';});
+    J.sessions.forEach(function(s){
+      var fin=s.out||(s.etat==='en_cours'?new Date(maintenant):new Date(s.in.getTime()+15*60000));
+      var l=pct(s.in);var col=s.etat==='sans_sortie'?'#B91E26':(retard?'#D97706':'#6B7E5A');
+      h+='<div class="pj-seg" style="top:9px;background:'+col+';left:'+l+'%;width:'+Math.max(1,pct(fin)-l)+'%"></div>';
+    });
+    h+='<div class="pj-now" style="left:'+pct(maintenant)+'%"></div></div></div>';
+  });
+  return h+'</div>';
+}
+
+function ajuExportCSV(){
+  var rows=[['Prenom','Nom','Restaurant','Type','Date','Heure','Manuel','Remplace']];
+  (window._ajuJournal||[]).forEach(function(e){
+    var em=emp(e.employee_id);
+    rows.push([em.prenom,em.nom,e.restaurant_id,e.type,fmtD(e.timestamp),fmt(e.timestamp),e.manuel?'oui':'non',e.remplace?'oui':'non']);
+  });
+  var csv=rows.map(function(r){return r.map(function(v){return String(v==null?'':v).replace(/;/g,',');}).join(';');}).join('\n');
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='badges_'+RG.bizDateKey()+'.csv';a.click();
+}
+
+// ── Fiche salarié en onglets ──────────────────────────────────────────────────────────────────────────
+var ficheOnglet='sem',ficheSemDecal=0,ficheMoisDecal=0,ficheAnoCache=null;
+var FICHE_ONGLETS=['sem','mois','ano','abs','plan','doc','pt'];
+
 function openAbsEmpFiche(empId){
-  var em=emp(empId);if(!em)return;
-  ficheCurEmp=empId;
+  var em=emp(empId);if(!em||em.prenom==='?')return;
+  ficheCurEmp=empId;ficheSemDecal=0;ficheMoisDecal=0;ficheAnoCache=null;
   document.getElementById('absfiche-name').textContent=em.prenom+' '+em.nom;
-  document.getElementById('absfiche-sub').textContent=rctRestoLabel(em.restaurant_id)+' \u2022 '+(em.secteur||'salle')+(em.heures_contrat?' \u2022 '+em.heures_contrat+'h/sem':'');
+  document.getElementById('absfiche-av').textContent=((em.prenom||'?')[0]+(em.nom||'')[0]||'').toUpperCase();
+  document.getElementById('absfiche-sub').textContent=[em.secteur||'',rctRestoLabel(em.restaurant_id),em.heures_contrat?em.heures_contrat+' h/sem':''].filter(Boolean).join(' · ');
   document.getElementById('absfiche-edit').setAttribute('data-id',empId);
-  ficheTab('abs');
+  document.getElementById('absfiche-chips').innerHTML='';
+  ficheTab('sem');
   openM('modal-absfiche');
+  ficheEntete();
 }
 
 function ficheTab(which){
-  ['abs','dem','plan','pt','doc'].forEach(function(t){
-    var pane=document.getElementById('fiche-pane-'+t);
+  if(FICHE_ONGLETS.indexOf(which)<0)which='sem';
+  ficheOnglet=which;
+  FICHE_ONGLETS.forEach(function(t){
+    var pane=document.getElementById(t==='abs'?'fiche-pane-absdem':'fiche-pane-'+t);
     var tab=document.getElementById('fiche-tab-'+t);
-    if(t===which){
-      pane.style.display='block';
-      tab.style.borderBottom='2px solid var(--bx)';tab.style.color='var(--bx)';
-    }else{
-      pane.style.display='none';
-      tab.style.borderBottom='none';tab.style.color='var(--txm)';
-    }
+    if(pane)pane.style.display=(t===which)?'block':'none';
+    if(tab)tab.classList.toggle('on',t===which);
   });
-  if(which==='abs')ficheLoadAbs();
+  var tabOn=document.getElementById('fiche-tab-'+which);
+  if(tabOn){var bar=tabOn.parentNode;
+    if(tabOn.offsetLeft<bar.scrollLeft||tabOn.offsetLeft+tabOn.offsetWidth>bar.scrollLeft+bar.clientWidth)bar.scrollLeft=Math.max(0,tabOn.offsetLeft-16);}
+  if(which==='sem')ficheLoadSem();
+  else if(which==='mois')ficheLoadMois();
+  else if(which==='ano')ficheLoadAno();
+  else if(which==='abs'){ficheLoadAbs();ficheLoadDem();}
   else if(which==='plan')ficheLoadPlan();
   else if(which==='pt')ficheLoadPt();
   else if(which==='doc')ficheLoadDoc();
-  else if(which==='dem')ficheLoadDem();
+}
+
+// Anomalies des 31 derniers jours (en-tête + onglet Anomalies), gardées le temps de la fiche.
+async function ficheAnomalies(){
+  if(ficheAnoCache&&ficheAnoCache.emp===ficheCurEmp)return ficheAnoCache;
+  var auj=RG.bizDateKey();
+  var debut=planDs(planAddD(new Date(auj+'T12:00:00'),-30));
+  var d=await ptChargerDonnees([ficheCurEmp],debut,auj);
+  ficheAnoCache={emp:ficheCurEmp,d:d};
+  return ficheAnoCache;
+}
+async function ficheEntete(){
+  var empId=ficheCurEmp;
+  var c=await ficheAnomalies();
+  if(empId!==ficheCurEmp)return;
+  var d=c.d,auj=RG.bizDateKey();
+  var J=d.analyse.journees[empId+'|'+auj];
+  var enCours=J&&J.sessions.filter(function(s){return s.etat==='en_cours';})[0];
+  var ouvertes=d.analyse.anomalies.filter(function(a){return ptEstOuverte(a,d.traitements);});
+  var h='';
+  if(J&&J.absent)h+='<span class="pj-pill gris">Absent : '+esc(J.absent)+'</span>';
+  else if(enCours)h+='<span class="pj-pill vert">En poste depuis '+RG.heureCourte(enCours.in)+'</span>';
+  h+='<span class="pj-pill '+(ouvertes.length?(ouvertes.some(function(a){return a.niveau==='rouge';})?'rouge':'orange'):'vert')+'">'+(ouvertes.length?ouvertes.length+' anomalie'+(ouvertes.length>1?'s':'')+' à traiter':'Aucune anomalie')+'</span>';
+  document.getElementById('absfiche-chips').innerHTML=h;
+  var tab=document.getElementById('fiche-tab-ano');
+  if(tab)tab.textContent='Anomalies'+(ouvertes.length?' ('+ouvertes.length+')':'');
+}
+
+function ficheEtatJour(J,jour,trait){
+  var auj=RG.bizDateKey();
+  if(J&&J.absent)return {lib:'Absent : '+J.absent,ton:'gris'};
+  var ouvertes=J?J.anomalies.filter(function(a){return ptEstOuverte(a,trait);}):[];
+  if(ouvertes.length){var rg=ouvertes.some(function(a){return a.niveau==='rouge';});return {lib:rg?'À régler':'À vérifier',ton:rg?'rouge':'orange'};}
+  if(jour>auj)return {lib:(J&&J.creneaux.length)?'À venir':'Repos',ton:'gris'};
+  if(J&&J.sessions.some(function(s){return s.etat==='en_cours';}))return {lib:'En poste',ton:'vert'};
+  if(!J||(!J.creneaux.length&&!J.sessions.length))return {lib:'Repos',ton:'gris'};
+  var reg=J.anomalies.filter(function(a){return !ptEstOuverte(a,trait);});
+  if(reg.length){var t=trait[reg[0].cle];return {lib:reg[0].titre+' · '+(PT_STATUT_LIB[t.statut]||t.statut),ton:'vert'};}
+  return {lib:'Conforme',ton:'vert'};
+}
+
+async function ficheLoadSem(){
+  var body=document.getElementById('fiche-pane-sem');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  var empId=ficheCurEmp,em=emp(empId);
+  var lundi=planAddD(monOf(new Date(RG.bizDateKey()+'T12:00:00')),ficheSemDecal*7);
+  var jours=ptJoursEntre(planDs(lundi),planDs(planAddD(lundi,6)));
+  var d=await ptChargerDonnees([empId],jours[0],jours[6]);
+  if(empId!==ficheCurEmp||ficheOnglet!=='sem')return;
+  var auj=RG.bizDateKey();
+  var total=0,prevuTot=0;
+  jours.forEach(function(j){var J=d.analyse.journees[empId+'|'+j];if(J){total+=J.minutes;prevuTot+=J.minutesPrevues;}});
+  var contrat=(parseFloat(em.heures_contrat)||0)*60;
+  var lib='Du '+new Date(jours[0]+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' au '+new Date(jours[6]+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  var h='<div class="pj-nav"><button class="pj-btn" aria-label="Semaine précédente" onclick="ficheSemDecal--;ficheLoadSem()">‹</button><b>'+lib+'</b><button class="pj-btn" aria-label="Semaine suivante" onclick="ficheSemDecal++;ficheLoadSem()">›</button></div>';
+  var pctv=contrat?Math.min(100,Math.round(total/contrat*100)):0;
+  h+='<div class="pj-tot"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b>'+ptHM(total)+'</b><span class="pj-sub">'+(contrat?'sur '+ptHM(contrat)+' au contrat':'prévu '+ptHM(prevuTot))+'</span></div>';
+  if(contrat)h+='<div class="pj-prog"><i style="width:'+pctv+'%"></i></div>';
+  var semFinie=jours[6]<auj;
+  h+='<div class="pj-sub">Prévu au planning : '+ptHM(prevuTot)+(contrat?(semFinie?' · écart au contrat : '+(total-contrat>=0?'+':'')+ptHM(total-contrat):' · semaine en cours'):'')+'</div></div>';
+  jours.forEach(function(j){
+    var J=d.analyse.journees[empId+'|'+j];
+    var dt=new Date(j+'T12:00:00');
+    var etat=ficheEtatJour(J,j,d.traitements);
+    var prevu=J&&J.creneaux.length?J.creneaux.map(function(c){return RG.heureCourte(c.debut)+'–'+RG.heureCourte(c.fin);}).join(' · '):(J&&J.absent?J.absent:'repos');
+    var badge=J&&J.sessions.length?J.sessions.map(function(s){return RG.heureCourte(s.in)+(s.out?'–'+RG.heureCourte(s.out):(s.etat==='en_cours'?' → en cours':' → ?'));}).join(' · '):'—';
+    var ouvertes=J?J.anomalies.filter(function(a){return ptEstOuverte(a,d.traitements);}):[];
+    var ecart='';
+    if(J&&j<=auj&&(J.minutes||J.minutesPrevues)&&!J.sessions.some(function(s){return s.etat==='en_cours';})){var e=J.minutes-J.minutesPrevues;ecart=(e>=0?'+':'')+ptHM(e);}
+    h+='<div class="pj-jour'+(ouvertes.some(function(a){return a.niveau==='rouge';})?' rouge':'')+(etat.lib==='Repos'?' repos':'')+'">';
+    h+='<div class="pj-jour-l"><span>'+RG.JOURS_COURTS[dt.getDay()]+'</span><b>'+dt.getDate()+'</b></div>';
+    h+='<div style="flex:1;min-width:0"><div class="pj-sub">Prévu '+esc(prevu)+'</div><div style="font-size:13px;font-weight:600">Badgé '+esc(badge)+'</div>';
+    h+='<span class="pj-pill '+etat.ton+'" style="display:inline-block;margin-top:4px">'+esc(etat.lib)+'</span></div>';
+    h+='<div style="text-align:right;flex-shrink:0"><b style="font-size:14px">'+(J&&J.minutes?ptHM(J.minutes):'—')+'</b><div class="pj-sub">'+ecart+'</div></div>';
+    h+='</div>';
+    ouvertes.forEach(function(a){h+=ptCarteHtml(a,d.traitements,{jour:false});});
+  });
+  h+='<div style="margin-top:10px"><button class="pj-btn" onclick="ptOuvrirCorrection('+empId+',\'entree\',new Date(),\'Ajouter un pointage\')">+ Ajouter un pointage</button></div>';
+  body.innerHTML=h;
+}
+
+async function ficheLoadMois(){
+  var body=document.getElementById('fiche-pane-mois');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  var empId=ficheCurEmp,em=emp(empId);
+  var ref=new Date(RG.bizDateKey()+'T12:00:00');
+  var premier=new Date(ref.getFullYear(),ref.getMonth()+ficheMoisDecal,1,12);
+  var dernier=new Date(premier.getFullYear(),premier.getMonth()+1,0,12);
+  var debut=planDs(premier),fin=planDs(dernier),auj=RG.bizDateKey();
+  var finCalc=fin<auj?fin:auj;
+  var moisCle=debut.slice(0,7);
+  var d=debut<=auj?await ptChargerDonnees([empId],debut,finCalc):null;
+  var cleMois='mois|'+empId+'|'+moisCle;
+  var tm=await ptChargerTraitements([empId],debut,debut);
+  if(empId!==ficheCurEmp||ficheOnglet!=='mois')return;
+  var total=0,prevu=0,joursTrav=0,joursAbs=0;
+  var ouvertes=[];
+  if(d){
+    d.jours.forEach(function(j){var J=d.analyse.journees[empId+'|'+j];if(!J)return;total+=J.minutes;prevu+=J.minutesPrevues;if(J.minutes)joursTrav++;if(J.absent)joursAbs++;});
+    ouvertes=d.analyse.anomalies.filter(function(a){return ptEstOuverte(a,d.traitements);});
+  }
+  var contratMois=Math.round((parseFloat(em.heures_contrat)||0)*60*52/12);
+  var titre=PLAN_MONTHS[premier.getMonth()]+' '+premier.getFullYear();
+  var h='<div class="pj-nav"><button class="pj-btn" aria-label="Mois précédent" onclick="ficheMoisDecal--;ficheLoadMois()">‹</button><b>'+titre+(fin>auj&&debut<=auj?' · au '+new Date(auj+'T12:00:00').getDate():'')+'</b><button class="pj-btn" aria-label="Mois suivant" onclick="ficheMoisDecal++;ficheLoadMois()">›</button></div>';
+  if(!d){body.innerHTML=h+'<div class="pj-ok" style="color:var(--txm)">Mois à venir.</div>';return;}
+  h+='<div class="pj-grid">';
+  h+='<div class="pj-stat"><b>'+ptHM(total)+'</b><span>Heures travaillées</span></div>';
+  h+='<div class="pj-stat"><b>'+ptHM(prevu)+'</b><span>Prévues au planning</span></div>';
+  if(contratMois)h+='<div class="pj-stat"><b>'+ptHM(contratMois)+'</b><span>Contrat du mois</span></div>';
+  h+='<div class="pj-stat"><b>'+joursTrav+' j</b><span>Jours travaillés'+(joursAbs?' · '+joursAbs+' j absent':'')+'</span></div>';
+  h+='</div>';
+  // Détail par semaine
+  h+='<div class="pj-team" style="margin-top:10px">';
+  var sem=monOf(premier);
+  while(sem<=dernier){
+    var sj=ptJoursEntre(planDs(sem),planDs(planAddD(sem,6))).filter(function(j){return j>=debut&&j<=finCalc;});
+    if(sj.length){
+      var t=0,p=0;sj.forEach(function(j){var J=d.analyse.journees[empId+'|'+j];if(J){t+=J.minutes;p+=J.minutesPrevues;}});
+      h+='<div class="pj-row" style="cursor:default;display:flex;justify-content:space-between;gap:8px"><span>Semaine du '+new Date(sj[0]+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'</span><span><b>'+ptHM(t)+'</b> <span class="pj-sub">/ prévu '+ptHM(p)+'</span></span></div>';
+    }
+    sem=planAddD(sem,7);
+  }
+  h+='</div>';
+  var valide=tm[cleMois];
+  var rouges=ouvertes.filter(function(a){return a.niveau==='rouge';});
+  if(valide){
+    h+='<div class="pj-al fait" style="margin-top:12px"><div class="pj-acts" style="margin:0;align-items:center;justify-content:space-between"><b style="color:#3F4D34">Mois validé le '+new Date(valide.traite_le).toLocaleDateString('fr-FR')+(valide.traite_par?' par '+esc(valide.traite_par):'')+'</b><button class="pj-lien" onclick="ptAnnuler(\''+cleMois+'\')">Annuler</button></div></div>';
+  }else if(fin>auj){
+    h+='<div class="pj-note" style="margin-top:12px;background:#EFEAE2;color:#4A423C">Le mois pourra être validé à partir du '+new Date(fin+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+'.'+(ouvertes.length?' '+ouvertes.length+' point'+(ouvertes.length>1?'s':'')+' à traiter d’ici là.':'')+'</div>';
+  }else if(rouges.length){
+    h+='<div class="pj-note" style="margin-top:12px">'+rouges.length+' oubli'+(rouges.length>1?'s':'')+' de badge à corriger avant de valider le mois (onglet Anomalies).</div>';
+    h+='<button class="pj-btn" style="width:100%;margin-top:6px" onclick="ficheTab(\'ano\')">Voir les anomalies</button>';
+  }else{
+    if(ouvertes.length)h+='<div class="pj-note" style="margin-top:12px;background:#FCEBD5;color:#8A4204">'+ouvertes.length+' point'+(ouvertes.length>1?'s':'')+' à vérifier (retards, dépassements…). Vous pouvez quand même valider.</div>';
+    h+='<button class="pj-btn p" style="width:100%;margin-top:12px;min-height:48px" onclick="ficheValiderMois(\''+moisCle+'\')">Valider le mois</button>';
+  }
+  h+='<div class="pj-grid" style="margin-top:10px"><button class="pj-btn" onclick="ficheExportMois(\''+debut+'\',\''+fin+'\')">Export paie du mois</button><button class="pj-btn" onclick="ficheTab(\'ano\')">Anomalies</button></div>';
+  body.innerHTML=h;
+}
+async function ficheValiderMois(moisCle){
+  await ptTraiter({cle:'mois|'+ficheCurEmp+'|'+moisCle,employee_id:ficheCurEmp,jour:moisCle+'-01',type:'mois'},'valide');
+}
+function ficheExportMois(debut,fin){
+  ficheExportOpen();
+  document.getElementById('ficheexp-from').value=debut;
+  document.getElementById('ficheexp-to').value=fin;
+}
+
+async function ficheLoadAno(){
+  var body=document.getElementById('fiche-pane-ano');
+  body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
+  var empId=ficheCurEmp;
+  var c=await ficheAnomalies();
+  if(empId!==ficheCurEmp||ficheOnglet!=='ano')return;
+  var d=c.d;
+  var ouvertes=d.analyse.anomalies.filter(function(a){return ptEstOuverte(a,d.traitements);});
+  var reglees=d.analyse.anomalies.filter(function(a){return !ptEstOuverte(a,d.traitements);});
+  var h='<div class="pj-sub" style="margin-bottom:8px">30 derniers jours. Une sortie ou une entrée oubliée se règle en saisissant l’heure réelle.</div>';
+  if(!ouvertes.length)h+='<div class="pj-ok">Aucune anomalie à traiter.</div>';
+  ouvertes.forEach(function(a){h+=ptCarteHtml(a,d.traitements,{});});
+  if(reglees.length){
+    h+='<details class="pj-det"><summary>Réglées ('+reglees.length+')</summary>';
+    reglees.forEach(function(a){h+=ptCarteHtml(a,d.traitements,{});});
+    h+='</details>';
+  }
+  body.innerHTML=h;
 }
 
 
@@ -5988,6 +6550,7 @@ async function deleteAb(){
   closeM('mab');
   await loadAb();
   if(ficheAbsRetour){ficheAbsRetour=false;openM('modal-absfiche');ficheTab('abs');}
+  pointageRafraichir();
 }
 
 async function saveAb(){
@@ -6013,6 +6576,7 @@ async function saveAb(){
   document.getElementById('abn').value='';fi.value='';
   await loadAb();
   if(ficheAbsRetour){ficheAbsRetour=false;openM('modal-absfiche');ficheTab('abs');}
+  pointageRafraichir();
 }
 
 async function renderSal(){
@@ -13207,30 +13771,45 @@ async function init(){
   </div>
 </div>
 
-<!-- Modal fiche absences salarié -->
+<!-- Modal fiche salarié en onglets (17/10/2026) — plein écran sur téléphone -->
 <div class="mb" id="modal-absfiche">
-  <div class="md" style="max-width:480px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <div style="flex:1">
-        <div class="mdt" id="absfiche-name" style="margin:0;text-align:left"></div>
-        <div style="font-size:11px;color:var(--txm)" id="absfiche-sub"></div>
+  <div class="md fiche-md">
+    <div class="fiche-head">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="fiche-av" id="absfiche-av"></div>
+        <div style="flex:1;min-width:0">
+          <div class="mdt" id="absfiche-name" style="margin:0;text-align:left;font-size:18px"></div>
+          <div style="font-size:12px;color:var(--txm)" id="absfiche-sub"></div>
+        </div>
+        <button class="btn bp sm" onclick="ficheExportOpen()" title="Export paie" aria-label="Export paie">&#128203;</button>
+        <button class="btn bs sm" id="absfiche-edit" data-id="" onclick="absFicheEdit()" title="Param&#233;trer le salari&#233;" aria-label="Param&#233;trer le salari&#233;">&#9998;</button>
+        <button class="btn bs sm" onclick="closeM('modal-absfiche')" title="Fermer" aria-label="Fermer">&#10005;</button>
       </div>
-      <button class="btn bp sm" onclick="ficheExportOpen()" title="Export paie">&#128203;</button>
-      <button class="btn bs sm" id="absfiche-edit" data-id="" onclick="absFicheEdit()" title="Param&#233;trer le salari&#233;">&#9998;</button>
+      <div id="absfiche-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
     </div>
-    <div style="display:flex;gap:4px;border-bottom:2px solid var(--bd);margin-bottom:10px">
-      <div class="fiche-tab on" id="fiche-tab-abs" onclick="ficheTab('abs')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Absences</div>
-      <div class="fiche-tab" id="fiche-tab-dem" onclick="ficheTab('dem')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Demandes</div>
-      <div class="fiche-tab" id="fiche-tab-plan" onclick="ficheTab('plan')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Planning</div>
-      <div class="fiche-tab" id="fiche-tab-pt" onclick="ficheTab('pt')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Pointages</div>
-      <div class="fiche-tab" id="fiche-tab-doc" onclick="ficheTab('doc')" style="padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txm)">Documents</div>
+    <div class="fiche-tabs">
+      <button class="fiche-tab on" id="fiche-tab-sem" onclick="ficheTab('sem')">Semaine</button>
+      <button class="fiche-tab" id="fiche-tab-mois" onclick="ficheTab('mois')">Mois</button>
+      <button class="fiche-tab" id="fiche-tab-ano" onclick="ficheTab('ano')">Anomalies</button>
+      <button class="fiche-tab" id="fiche-tab-abs" onclick="ficheTab('abs')">Absences &amp; demandes</button>
+      <button class="fiche-tab" id="fiche-tab-plan" onclick="ficheTab('plan')">Planning</button>
+      <button class="fiche-tab" id="fiche-tab-doc" onclick="ficheTab('doc')">Documents</button>
+      <button class="fiche-tab" id="fiche-tab-pt" onclick="ficheTab('pt')">Badges</button>
     </div>
-    <div id="fiche-pane-abs" style="max-height:50vh;overflow-y:auto"></div>
-    <div id="fiche-pane-dem" style="max-height:50vh;overflow-y:auto;display:none"></div>
-    <div id="fiche-pane-plan" style="max-height:50vh;overflow-y:auto;display:none"></div>
-    <div id="fiche-pane-pt" style="max-height:50vh;overflow-y:auto;display:none"></div>
-    <div id="fiche-pane-doc" style="max-height:50vh;overflow-y:auto;display:none"></div>
-    <div class="ma"><button class="btn bs" onclick="closeM('modal-absfiche')">Fermer</button></div>
+    <div class="fiche-body">
+      <div id="fiche-pane-sem"></div>
+      <div id="fiche-pane-mois" style="display:none"></div>
+      <div id="fiche-pane-ano" style="display:none"></div>
+      <div id="fiche-pane-absdem" style="display:none">
+        <div class="pj-h2" style="margin-top:0">Absences</div>
+        <div id="fiche-pane-abs"></div>
+        <div class="pj-h2">Demandes</div>
+        <div id="fiche-pane-dem"></div>
+      </div>
+      <div id="fiche-pane-plan" style="display:none"></div>
+      <div id="fiche-pane-doc" style="display:none"></div>
+      <div id="fiche-pane-pt" style="display:none"></div>
+    </div>
   </div>
 </div>
 
