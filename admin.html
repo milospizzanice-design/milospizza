@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Admin RH</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-14"></script>
+<script src="restoglobal-commun.js?v=2026-10-17"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -1587,35 +1587,41 @@ function rcSubTab(which){
   if(which==='ab')abSubTab('dem');
 }
 
+// Correctif du 17/10/2026 : périodes en JOURNÉES MÉTIER (7h → 7h, heure locale) pour qu'une sortie badgée
+// après minuit reste dans la bonne journée. s/e : bornes à envoyer à la base (e exclue) ; ds/de : dates
+// 'AAAA-MM-JJ' du premier et du dernier jour (pour le planning). Avant, les jours étaient découpés en UTC.
 function getDR(p){
-  var n=new Date(),y=n.getFullYear(),mo=n.getMonth(),d=n.getDate();
-  if(p==='today'){return{s:new Date(y,mo,d,0,0,0).toISOString(),e:new Date(y,mo,d,23,59,59).toISOString()};}
-  if(p==='yesterday'){return{s:new Date(y,mo,d-1,0,0,0).toISOString(),e:new Date(y,mo,d-1,23,59,59).toISOString()};}
-  if(p==='week'){var m=monOf(n);var su=new Date(m);su.setDate(m.getDate()+6);su.setHours(23,59,59);return{s:m.toISOString(),e:su.toISOString()};}
-  var s=new Date(y,mo,1);var e=new Date(y,mo+1,0,23,59,59);return{s:s.toISOString(),e:e.toISOString()};
+  var auj=new Date(RG.bizDateKey()+'T12:00:00');
+  var ds,de;
+  if(p==='today'){ds=de=planDs(auj);}
+  else if(p==='yesterday'){var hier=planAddD(auj,-1);ds=de=planDs(hier);}
+  else if(p==='week'){var m=monOf(auj);ds=planDs(m);de=planDs(planAddD(m,6));}
+  else{ds=planDs(new Date(auj.getFullYear(),auj.getMonth(),1));de=planDs(new Date(auj.getFullYear(),auj.getMonth()+1,0));}
+  var b=RG.bizPeriodeBornes(ds,de);
+  return {s:b.debutISO,e:b.finISO,ds:ds,de:de};
 }
 
+// Durée d'un créneau de planning en minutes ; un créneau qui finit après minuit (18:00 → 00:30) compte
+// 6h30 au lieu d'une durée négative (correctif du 17/10/2026).
+function dureeCreneauMin(debut,fin){
+  var d=String(debut||'').slice(0,5).split(':'),f=String(fin||'').slice(0,5).split(':');
+  var m=(parseInt(f[0],10)*60+(parseInt(f[1],10)||0))-(parseInt(d[0],10)*60+(parseInt(d[1],10)||0));
+  if(isNaN(m))return 0;
+  return m<0?m+1440:m;
+}
+
+// Minutes travaillées : règle commune RG.minutesTravaillees (restoglobal-commun.js) — pointages corrigés
+// (« remplace ») ignorés, journées métier, entrées/sorties appariées dans l'ordre chronologique.
 function calcW(entries){
-  // Appariement entrée/sortie JOUR PAR JOUR (et non sur toute la période d'un coup) :
-  // si un badgeage manque un jour donné (oubli de sortie/entrée), seul ce jour est
-  // affecté, au lieu de décaler l'appariement de tous les jours suivants de la période
-  // (ce qui faisait "disparaître" des heures réellement travaillées plus loin dans le mois).
-  var byDay={};
-  entries.forEach(function(e){var d=e.timestamp.slice(0,10);(byDay[d]=byDay[d]||[]).push(e);});
-  var t=0;
-  Object.keys(byDay).forEach(function(d){
-    var day=byDay[d];
-    var ins=day.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
-    var outs=day.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
-    ins.forEach(function(inn,i){if(outs[i])t+=(new Date(outs[i].timestamp)-new Date(inn.timestamp))/60000;});
-  });
-  return Math.round(t);
+  return RG.minutesTravaillees(entries);
 }
 
+// Salariés avec une sortie manquante (entrée suivie d'une autre entrée) ou encore en service.
 function missingEx(entries){
-  var ins={},outs={};
-  entries.forEach(function(e){if(e.type==='entree')ins[e.employee_id]=true;else outs[e.employee_id]=true;});
-  return Object.keys(ins).filter(function(id){return !outs[id];}).map(Number);
+  var a=RG.appairerPointages(entries);
+  var ids={};
+  a.sansSortie.concat(a.enCours).forEach(function(e){ids[e.employee_id]=true;});
+  return Object.keys(ids).map(Number);
 }
 
 
@@ -1647,10 +1653,13 @@ async function loadPt(){
   var empId=document.getElementById('fe').value;
   var period=document.getElementById('fd').value;
   var dr=getDR(period);
-  var q=db.from('time_entries').select('*').gte('timestamp',dr.s).lte('timestamp',dr.e).order('timestamp',{ascending:false}).limit(200);
-  if(resto!=='all')q=q.eq('restaurant_id',resto);
-  if(empId!=='all')q=q.eq('employee_id',parseInt(empId));
-  var r=await q;
+  // Correctif du 17/10/2026 : plus de limite à 200 pointages (le mois entier était tronqué) — lecture par pages.
+  var r=await RG.toutesLignes(function(){
+    var q=db.from('time_entries').select('*').gte('timestamp',dr.s).lt('timestamp',dr.e).order('timestamp',{ascending:false}).order('id');
+    if(resto!=='all')q=q.eq('restaurant_id',resto);
+    if(empId!=='all')q=q.eq('employee_id',parseInt(empId));
+    return q;
+  });
   pts=r.data||[];
   renderPt();
   renderAlerts();
@@ -1682,22 +1691,25 @@ function renderPt(){
   tb.innerHTML=h;
 }
 
+// « Aujourd'hui » = journée métier en cours (7h → 7h), pointages corrigés ignorés.
+function ptsDuJour(){
+  var today=RG.bizDateKey();
+  return RG.pointagesValides(pts).filter(function(e){return RG.bizDateKey(e.timestamp)===today;});
+}
 function updateStats(){
-  var today=new Date().toISOString().slice(0,10);
-  var te=pts.filter(function(e){return e.timestamp.startsWith(today);});
+  var te=ptsDuJour();
   var pres=new Set(te.filter(function(e){return e.type==='entree';}).map(function(e){return e.employee_id;})).size;
   document.getElementById('sp').textContent=pres;
   document.getElementById('spt').textContent=pts.length;
   var mx=missingEx(te);
-  var sx=pts.filter(function(e){return !e.ip_ok&&e.timestamp.startsWith(today);}).length;
+  var sx=te.filter(function(e){return !e.ip_ok;}).length;
   document.getElementById('sal').textContent=mx.length+sx;
 }
 
 function renderAlerts(){
-  var today=new Date().toISOString().slice(0,10);
-  var te=pts.filter(function(e){return e.timestamp.startsWith(today);});
+  var te=ptsDuJour();
   var mx=missingEx(te);
-  var sx=pts.filter(function(e){return !e.ip_ok&&e.timestamp.startsWith(today);});
+  var sx=te.filter(function(e){return !e.ip_ok;});
   var c=document.getElementById('alc');c.innerHTML='';
   mx.forEach(function(id){
     var em=emp(id);
@@ -1764,9 +1776,10 @@ function expCSV(){
 }
 
 async function loadPr(){
-  var today=new Date().toISOString().slice(0,10);
-  var r=await db.from('time_entries').select('*').gte('timestamp',today+'T00:00:00').lte('timestamp',today+'T23:59:59').order('timestamp');
-  var entries=r.data||[];
+  // Journée métier en cours (7h → 7h), pointages corrigés ignorés (correctif du 17/10/2026).
+  var jb=RG.bizJourneeBornes();
+  var r=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',jb.debut.toISOString()).lt('timestamp',jb.fin.toISOString()).order('timestamp').order('id');});
+  var entries=RG.pointagesValides(r.data||[]);
   var body=document.getElementById('prb');if(!body)return;
   var actifs=emps.filter(function(e){return empActifNow(e);});
   var h='';
@@ -3381,19 +3394,12 @@ function openDrhExport(){
 
 // Calcule les shifts (créneaux travaillés) d'une journée à partir des pointages
 // Retourne [{in, out, mins}] - chaque paire entrée/sortie = 1 shift = 1 repas
+// Correctif du 17/10/2026 : règle commune RG.appairerPointages (pointages corrigés ignorés, appariement
+// chronologique : une entrée sans sortie ne s'associe plus à la sortie du service suivant).
 function drhDayShifts(entries){
-  var ins=entries.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
-  var outs=entries.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
-  var shifts=[];
-  ins.forEach(function(inn,i){
-    if(outs[i]){
-      var mins=Math.round((new Date(outs[i].timestamp)-new Date(inn.timestamp))/60000);
-      var manuel=inn.manuel||outs[i].manuel;
-      var motif=[inn.manuel?inn.motif:null,outs[i].manuel?outs[i].motif:null].filter(Boolean).join(' / ');
-      shifts.push({in:inn.timestamp,out:outs[i].timestamp,mins:mins,manuel:manuel,motif:motif});
-    }
+  return RG.appairerPointages(entries).shifts.map(function(sh){
+    return {in:sh.in,out:sh.out,mins:sh.mins,manuel:sh.manuel,motif:sh.motif};
   });
-  return shifts;
 }
 
 function fmtHM(mins){var h=Math.floor(mins/60);var m=mins%60;return h+'h'+String(m).padStart(2,'0');}
@@ -3406,7 +3412,9 @@ async function drhGenerateData(){
   if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return null;}
   var les=emps.filter(function(e){return (resto==='all'||e.restaurant_id===resto||e.multi_site);});
   var empIdsDrh=les.map(function(e){return e.id;});
-  var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59').order('id');});
+  // Journées métier (7h → 7h, heure locale) : les sorties après minuit du dernier jour sont incluses.
+  var pbDrh=RG.bizPeriodeBornes(from,to);
+  var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',pbDrh.debutISO).lt('timestamp',pbDrh.finISO).order('id');});
   var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to);
   var crd=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh).order('id');});
   var apd=await RG.toutesLignes(function(){return db.from('absences_planning').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh).order('employee_id').order('date');});
@@ -3421,8 +3429,7 @@ async function drhGenerateData(){
     ecr.forEach(function(c){if(!planByDay[c.date])planByDay[c.date]=[];planByDay[c.date].push(c);});
     var absPlanByDay={};
     eap.forEach(function(a){absPlanByDay[a.date]=a.code;});
-    var byDay={};
-    ep.forEach(function(p){var d=p.timestamp.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(p);});
+    var byDay=RG.pointagesParJour(ep);
     var days=[];
     var cur=new Date(from+'T12:00:00');var end=new Date(to+'T12:00:00');
     while(cur<=end){days.push(planDs(cur));cur=planAddD(cur,1);}
@@ -3443,8 +3450,7 @@ async function drhGenerateData(){
       var absCrLabels=[];var absCrMins=0;
       absCreneaux.forEach(function(c){
         absCrLabels.push((ABSP_L[c.absence_code]||c.absence_code));
-        var ss=c.heure_debut.slice(0,5).split(':');var se=c.heure_fin.slice(0,5).split(':');
-        absCrMins+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+        absCrMins+=dureeCreneauMin(c.heure_debut,c.heure_fin);
       });
       // Absence jour entier: priorité à l'absence planning
       var absLabel='';
@@ -3478,13 +3484,13 @@ async function drhGenerateData(){
 // ── EXPORT PAIE INDIVIDUEL (1 salarié sur une période) ──────────────────────
 async function drhGenerateOne(empId,from,to){
   var em=emp(empId);if(!em)return null;
-  var pd=await db.from('time_entries').select('*').gte('timestamp',from+'T00:00:00').lte('timestamp',to+'T23:59:59').eq('employee_id',empId);
+  var pbOne=RG.bizPeriodeBornes(from,to);
+  var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',pbOne.debutISO).lt('timestamp',pbOne.finISO).eq('employee_id',empId).order('id');});
   var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to).eq('employee_id',empId);
   var crd=await db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).eq('employee_id',empId);
   var apd=await db.from('absences_planning').select('*').gte('date',from).lte('date',to).eq('employee_id',empId);
   var ep=pd.data||[];var ea=abd.data||[];
-  var byDay={};
-  ep.forEach(function(p){var d=p.timestamp.slice(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(p);});
+  var byDay=RG.pointagesParJour(ep);
   var planByDay={};(crd.data||[]).forEach(function(c){if(!planByDay[c.date])planByDay[c.date]=[];planByDay[c.date].push(c);});
   var absPlanByDay={};(apd.data||[]).forEach(function(a){absPlanByDay[a.date]=a.code;});
   var ABSP_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
@@ -5443,9 +5449,10 @@ async function loadRc(){
   var period=document.getElementById('rcp').value;
   var dr=getDR(period);
   var les=emps.filter(function(e){return e.actif&&(resto==='all'||e.restaurant_id===resto);});
-  var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',dr.s).lte('timestamp',dr.e).order('id');});
-  var pld=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',dr.s.slice(0,10)).lte('date',dr.e.slice(0,10)).order('id');});
-  var abd=await db.from('absences').select('*').gte('date_fin',dr.s.slice(0,10)).lte('date_debut',dr.e.slice(0,10));
+  // Dates du planning = dr.ds / dr.de (avant : dr.s.slice(0,10), date UTC qui ajoutait la veille au « prévu »).
+  var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',dr.s).lt('timestamp',dr.e).order('id');});
+  var pld=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',dr.ds).lte('date',dr.de).order('id');});
+  var abd=await db.from('absences').select('*').gte('date_fin',dr.ds).lte('date_debut',dr.de);
   var h='';
   les.forEach(function(em){
     var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
@@ -5453,8 +5460,7 @@ async function loadRc(){
     var ea=(abd.data||[]).filter(function(a){return a.employee_id===em.id;});
     var w=calcW(ep);
     var pl=epl.reduce(function(s,p){
-      var ss=p.heure_debut.slice(0,5).split(':');var se=p.heure_fin.slice(0,5).split(':');
-      return s+((parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1])));
+      return s+dureeCreneauMin(p.heure_debut,p.heure_fin);
     },0);
     var diff=w-pl;
     var sa=diff>=180;
@@ -5861,8 +5867,7 @@ function ficheLoadPlan(){
           weekHtml+='<div style="display:flex;gap:8px;font-size:11px;padding:2px 0"><span style="width:70px;color:var(--txm)">'+DAYS[dd].slice(0,3)+' '+dt.getDate()+'</span><span style="flex:1">';
           if(dayCrs.length){
             weekHtml+=dayCrs.map(function(c){
-              var ss=c.heure_debut.slice(0,5).split(':');var se=c.heure_fin.slice(0,5).split(':');
-              weekMins+=(parseInt(se[0])*60+parseInt(se[1]))-(parseInt(ss[0])*60+parseInt(ss[1]));
+              weekMins+=dureeCreneauMin(c.heure_debut,c.heure_fin);
               return '<span style="color:var(--bx);font-weight:600">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</span>';
             }).join(', ');
           }
@@ -6067,19 +6072,22 @@ async function computeSalIndicateurs(){
   var ids=actifs.map(function(e){return e.id;});
   if(!ids.length)return indic;
   // Aujourd'hui
+  // Journée métier en cours (7h → 7h) : après minuit on regarde encore la journée de la veille.
   var now=new Date();
-  var todayStr=planDs(now);
-  var dayStart=todayStr+'T00:00:00';
-  var dayEnd=todayStr+'T23:59:59';
+  var todayStr=RG.bizDateKey(now);
+  var jbInd=RG.bizJourneeBornes(now);
   // Charger en parallèle: pointages du jour, créneaux du jour, demandes en attente, acomptes en attente
   var res=await Promise.all([
-    db.from('time_entries').select('employee_id,type,timestamp').gte('timestamp',dayStart).lte('timestamp',dayEnd).in('employee_id',ids),
+    RG.toutesLignes(function(){return db.from('time_entries').select('id,employee_id,type,timestamp,remplace').gte('timestamp',jbInd.debut.toISOString()).lt('timestamp',jbInd.fin.toISOString()).in('employee_id',ids).order('id');}),
     db.from('planning_creneaux').select('employee_id,heure_debut,heure_fin').eq('date',todayStr).in('employee_id',ids),
     db.from('demandes_absence').select('employee_id,statut').eq('statut','att').in('employee_id',ids),
     db.from('demandes_acompte').select('employee_id,statut').eq('statut','att').in('employee_id',ids)
   ]);
-  var pts=res[0].data||[];var crs=res[1].data||[];var dabs=res[2].data||[];var daco=res[3].data||[];
+  var pts=RG.pointagesValides(res[0].data||[]);var crs=res[1].data||[];var dabs=res[2].data||[];var daco=res[3].data||[];
+  // Minutes depuis minuit de la journée métier : après minuit on continue à compter (0h30 = 24h30), et une
+  // fin de créneau avant le début (ex. 18:00 → 00:30) est aussi reportée après minuit.
   var nowMin=now.getHours()*60+now.getMinutes();
+  if(now.getHours()<RG.HEURE_DEBUT_JOURNEE)nowMin+=1440;
   actifs.forEach(function(em){
     var info={enPoste:false,depuis:'',probleme:false,urgent:false,taches:0};
     // Pointages du jour pour ce salarié, triés
@@ -6094,7 +6102,7 @@ async function computeSalIndicateurs(){
     // Cas 1: créneau prévu, heure de début passée, mais aucune entrée badgée
     mesCr.forEach(function(c){
       var deb=c.heure_debut.slice(0,5).split(':');var debMin=parseInt(deb[0])*60+parseInt(deb[1]);
-      if(nowMin>debMin+15){ // 15 min de tolérance
+      if(nowMin>debMin+RG.POINTAGE_RETARD_TOLERANCE_MIN){ // tolérance de retard (restoglobal-commun.js)
         var aBadge=mine.some(function(p){return p.type==='entree';});
         if(!aBadge)info.probleme=true;
       }
@@ -6102,8 +6110,13 @@ async function computeSalIndicateurs(){
     // Cas 2: entrée badgée mais pas de sortie, et tous les créneaux sont finis
     if(last&&last.type==='entree'&&mesCr.length){
       var maxFin=0;
-      mesCr.forEach(function(c){var f=c.heure_fin.slice(0,5).split(':');var fm=parseInt(f[0])*60+parseInt(f[1]);if(fm>maxFin)maxFin=fm;});
-      if(nowMin>maxFin+30)info.probleme=true; // 30 min après la fin théorique
+      mesCr.forEach(function(c){
+        var f=c.heure_fin.slice(0,5).split(':');var fm=parseInt(f[0])*60+parseInt(f[1]);
+        var d=c.heure_debut.slice(0,5).split(':');var dm=parseInt(d[0])*60+parseInt(d[1]);
+        if(fm<=dm)fm+=1440; // créneau qui finit après minuit
+        if(fm>maxFin)maxFin=fm;
+      });
+      if(nowMin>maxFin+RG.POINTAGE_SORTIE_OUBLIEE_APRES_MIN)info.probleme=true; // délai après la fin théorique
     }
     // Tâches: demandes en attente
     info.taches=dabs.filter(function(d){return d.employee_id===em.id;}).length+daco.filter(function(d){return d.employee_id===em.id;}).length;
@@ -6296,10 +6309,10 @@ function salDepasseSeuil(id){return !!salDepassementsIds[id];}
 async function checkDepassements(silencieux){
   salDepassementsIds={};
   // Calcule pour chaque salarié les heures travaillées cette semaine vs contrat
-  var now=new Date();
-  var monday=monOf(now);
-  var sunday=new Date(monday);sunday.setDate(monday.getDate()+6);sunday.setHours(23,59,59);
-  var r=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',monday.toISOString()).lte('timestamp',sunday.toISOString()).order('id');});
+  // Semaine en journées métier (lundi 7h → lundi suivant 7h) : la sortie de dimanche après minuit compte.
+  var monday=monOf(new Date(RG.bizDateKey()+'T12:00:00'));
+  var pbSem=RG.bizPeriodeBornes(planDs(monday),planDs(planAddD(monday,6)));
+  var r=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',pbSem.debutISO).lt('timestamp',pbSem.finISO).order('id');});
   var entries=r.data||[];
   var alerts=[];
   emps.forEach(function(em){

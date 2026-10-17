@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-14';
+  RG.VERSION='2026-10-17';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -33,6 +33,77 @@
     var debut=new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),RG.HEURE_DEBUT_JOURNEE,0,0,0);
     var fin=new Date(debut);fin.setDate(fin.getDate()+1);
     return {debut:debut,fin:fin,key:key};
+  };
+  // Bornes d'une période de journées métier, dates 'AAAA-MM-JJ' incluses : du 1er jour 7h au lendemain du
+  // dernier jour 7h (exclu). Une sortie badgée à 0h30 appartient ainsi à la journée de la veille.
+  RG.bizPeriodeBornes=function(dateDebut,dateFin){
+    var a=String(dateDebut).split('-'),b=String(dateFin||dateDebut).split('-');
+    var debut=new Date(parseInt(a[0],10),parseInt(a[1],10)-1,parseInt(a[2],10),RG.HEURE_DEBUT_JOURNEE,0,0,0);
+    var fin=new Date(parseInt(b[0],10),parseInt(b[1],10)-1,parseInt(b[2],10)+1,RG.HEURE_DEBUT_JOURNEE,0,0,0);
+    return {debut:debut,fin:fin,debutISO:debut.toISOString(),finISO:fin.toISOString()};
+  };
+
+  // ── Pointages (badgeuse) ────────────────────────────────────────────────────────────────────────────────
+  // Une seule règle pour la tablette et l'admin (correctif du 17/10/2026) :
+  //  - un pointage marqué « remplace » (corrigé par un manager) ne compte plus ;
+  //  - les jours sont des journées métier (7h → 7h, heure locale) et non des dates UTC ;
+  //  - entrées et sorties sont appariées dans l'ordre chronologique : une entrée suivie d'une autre entrée
+  //    est une sortie oubliée, une sortie sans entrée ouverte est une entrée oubliée. (Avant, la 1re entrée
+  //    du jour était associée à la 1re sortie, etc. : une sortie oubliée le midi donnait 11h → 23h.)
+  // Seuils d'alerte par défaut (le restaurant pourra les régler plus tard).
+  RG.POINTAGE_RETARD_TOLERANCE_MIN=5;
+  RG.POINTAGE_SORTIE_OUBLIEE_APRES_MIN=60;
+  RG.pointagesValides=function(entries){
+    return (entries||[]).filter(function(e){return e&&e.timestamp&&!e.remplace;});
+  };
+  RG.pointagesParJour=function(entries){
+    var parJour={};
+    RG.pointagesValides(entries).forEach(function(e){
+      var k=RG.bizDateKey(e.timestamp);(parJour[k]=parJour[k]||[]).push(e);
+    });
+    return parJour;
+  };
+  // Renvoie {shifts:[{employee_id,jour,in,out,mins,manuel,motif,entree,sortie}], sansSortie:[entrées],
+  // sansEntree:[sorties], enCours:[entrées ouvertes de la journée métier en cours]}. Plusieurs salariés acceptés.
+  RG.appairerPointages=function(entries){
+    var tri=RG.pointagesValides(entries).slice().sort(function(a,b){
+      return (new Date(a.timestamp)-new Date(b.timestamp))||((a.id||0)-(b.id||0));
+    });
+    var res={shifts:[],sansSortie:[],sansEntree:[],enCours:[]};
+    var ouvert={};
+    tri.forEach(function(e){
+      var emp=String(e.employee_id);
+      var o=ouvert[emp];
+      if(e.type==='entree'){
+        if(o)res.sansSortie.push(o);
+        ouvert[emp]=e;
+      }else if(e.type==='sortie'){
+        if(o&&RG.bizDateKey(o.timestamp)===RG.bizDateKey(e.timestamp)){
+          var mins=Math.round((new Date(e.timestamp)-new Date(o.timestamp))/60000);
+          var motif=[o.manuel?o.motif:null,e.manuel?e.motif:null].filter(Boolean).join(' / ');
+          res.shifts.push({employee_id:e.employee_id,jour:RG.bizDateKey(o.timestamp),in:o.timestamp,out:e.timestamp,
+            mins:mins,manuel:!!(o.manuel||e.manuel),motif:motif,entree:o,sortie:e});
+        }else{
+          if(o)res.sansSortie.push(o);
+          res.sansEntree.push(e);
+        }
+        ouvert[emp]=null;
+      }
+    });
+    var aujourdhui=RG.bizDateKey();
+    Object.keys(ouvert).forEach(function(emp){
+      var o=ouvert[emp];if(!o)return;
+      if(RG.bizDateKey(o.timestamp)===aujourdhui)res.enCours.push(o);else res.sansSortie.push(o);
+    });
+    return res;
+  };
+  RG.minutesTravaillees=function(entries){
+    return RG.appairerPointages(entries).shifts.reduce(function(s,sh){return s+sh.mins;},0);
+  };
+  // Prochain badgeage d'un salarié d'après son dernier pointage valide : 'sortie' si une entrée est ouverte
+  // dans la journée métier en cours (même après minuit), sinon 'entree'.
+  RG.prochainTypeBadge=function(dernier){
+    return (dernier&&dernier.type==='entree'&&RG.bizDateKey(dernier.timestamp)===RG.bizDateKey())?'sortie':'entree';
   };
 
   // ── Calendrier du fournisseur ───────────────────────────────────────────────────────────────────────────

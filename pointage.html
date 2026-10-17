@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pointage</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-14"></script>
+<script src="restoglobal-commun.js?v=2026-10-17"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bx:#B91E26;--cr:#EEF1EA;--panel:#587861}
@@ -1118,10 +1118,11 @@ var consentCanvas,consentCtx,consentDrawing=false,consentHasSign=false;
 // ── ACTIONS DU MENU (emp déjà identifié) ────────────────────────────────────
 async function menuPointer(){
   document.getElementById('camname').textContent=emp.prenom+' '+emp.nom;
-  var lr=await db.from('time_entries').select('type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
-  var lastB=lr.data&&lr.data[0];
-  var lastIsToday=lastB&&pDs(new Date(lastB.timestamp))===pDs(new Date());
-  var enService=lastB&&lastB.type==='entree'&&lastIsToday;
+  // Correctif du 17/10/2026 : dernier pointage VALIDE (un pointage corrigé par un manager est ignoré) et
+  // journée métier 7h → 7h (RG.prochainTypeBadge) : une sortie badgée après minuit reste une SORTIE.
+  var lr=await db.from('time_entries').select('id,type,timestamp,remplace').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(10);
+  var lastB=RG.pointagesValides(lr.data||[])[0];
+  var enService=RG.prochainTypeBadge(lastB)==='sortie';
   var isEntree=!enService;
   var statusEl=document.getElementById('camstatus');
   if(statusEl){
@@ -3577,9 +3578,11 @@ loadPinEmployes();
 startIdleScreen();
 async function badge(){
   await loadDelaiBadge();
-  var r=await db.from('time_entries').select('id,type,timestamp').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(1);
-  var last=r.data&&r.data[0];
-  var lastIsToday=last&&pDs(new Date(last.timestamp))===pDs(new Date());
+  // Correctif du 17/10/2026 : on ignore les pointages corrigés (remplace) et on raisonne en journée métier
+  // (7h → 7h, RG.bizDateKey) — avant, une sortie badgée après minuit était enregistrée comme une ENTRÉE.
+  var r=await db.from('time_entries').select('id,type,timestamp,remplace').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(10);
+  var last=RG.pointagesValides(r.data||[])[0];
+  var lastIsToday=last&&RG.bizDateKey(last.timestamp)===RG.bizDateKey();
   // Contrôle du délai minimum entre 2 badgeages (uniquement si le dernier badgeage date d'aujourd'hui)
   if(last&&last.timestamp&&lastIsToday){
     var diffMin=(new Date()-new Date(last.timestamp))/60000;
@@ -3591,7 +3594,7 @@ async function badge(){
   }
   // Une entrée non suivie d'une sortie la veille (ou avant) ne compte plus : on repart à zéro chaque jour.
   var oubliVeille=last&&last.type==='entree'&&!lastIsToday;
-  var type=(last&&lastIsToday&&last.type==='entree')?'sortie':'entree';
+  var type=RG.prochainTypeBadge(last);
   // Interdiction de badger avant l'heure de prise de poste (avec tolérance), configurable par l'admin
   if(type==='entree'){
     try{
