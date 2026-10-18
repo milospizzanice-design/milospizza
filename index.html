@@ -89,6 +89,12 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .suppl-pop-row span:first-child{flex:1;}
 .suppl-pop-row span:last-child{font-weight:700;color:var(--rouge);white-space:nowrap;}
 .supplements-insert-link{font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:700;color:#fff;text-decoration:underline;text-underline-offset:3px;align-self:flex-start;opacity:0.9;}
+.supplements-insert.cliquable{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.supplements-insert.cliquable:active{transform:scale(0.99);}
+/* Bouton blanc bien visible : on comprend tout de suite qu'il faut toucher la bannière (18/10/2026) */
+.supplements-insert-btn{align-self:flex-start;display:inline-flex;align-items:center;gap:0.45rem;background:#fff;color:var(--rouge);font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:800;letter-spacing:0.02em;padding:0.5rem 0.95rem;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,0.18);text-decoration:none;animation:supplPouls 2.4s ease-in-out 1s 3;}
+.supplements-insert-btn b{font-size:1.05rem;line-height:1;}
+@keyframes supplPouls{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 .modal-close{width:100%;background:var(--brun);color:#fff;border:none;padding:0.8rem;font-family:'Montserrat',sans-serif;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;}
 
 /* ADMIN FAB */
@@ -225,6 +231,28 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .pr-add{width:100%;font-size:0.75rem;padding:0.3rem;border:1px dashed #bbb;border-radius:6px;background:#fff;color:#666;}
 .pr-alerte{background:#FEF3C7;color:#92400E;border-radius:8px;padding:0.45rem 0.6rem;font-size:0.72rem;margin-bottom:0.5rem;font-family:'Montserrat',sans-serif;}
 .pr-erreur{color:#B91C1C;font-size:0.72rem;margin-top:0.3rem;font-family:'Montserrat',sans-serif;line-height:1.4;}
+/* Impression : choix du format en cartes, puis éditeur plein écran (18/10/2026) */
+.pr-choix{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0.6rem;margin-bottom:1rem;}
+.pr-choix-carte{display:flex;align-items:center;gap:0.7rem;text-align:left;background:#fff;border:1.5px solid #e5ded2;border-radius:12px;padding:0.8rem 0.9rem;cursor:pointer;font-family:'Montserrat',sans-serif;color:var(--brun);box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.pr-choix-carte:hover{border-color:var(--rouge);}
+.pr-choix-carte .pr-ci{font-size:1.6rem;line-height:1;flex-shrink:0;}
+.pr-choix-carte b{display:block;font-size:0.85rem;color:var(--rouge);}
+.pr-choix-carte small{display:block;font-size:0.68rem;color:#888;margin-top:0.15rem;line-height:1.35;}
+.pr-editeur{display:none;position:fixed;inset:0;z-index:2000;background:#F5F0E8;flex-direction:column;--prh:44vh;}
+.pr-editeur.open{display:flex;}
+.pr-editeur.pr-grand{--prh:72vh;}
+.pr-ed-bar{flex:none;display:flex;align-items:center;gap:0.4rem;padding:calc(env(safe-area-inset-top,0px) + 0.5rem) 0.7rem 0.5rem;background:#2b2420;color:#fff;font-family:'Montserrat',sans-serif;}
+.pr-ed-bar b{flex:1;min-width:0;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pr-ed-btn{flex:none;font-family:inherit;font-size:0.78rem;font-weight:700;border:0;border-radius:8px;padding:0.55rem 0.75rem;cursor:pointer;background:#3d332d;color:#fff;}
+.pr-ed-imp{background:var(--vert);}
+.pr-ed-fermer{background:var(--rouge);}
+@media (max-width:480px){.pr-ed-txt{display:none;}.pr-ed-btn{padding:0.55rem 0.75rem;font-size:0.95rem;}}
+.pr-editeur .pr-wrap{flex:1;min-height:0;display:flex!important;flex-direction:column!important;gap:0!important;align-items:stretch!important;}
+.pr-editeur .pr-prev:not(.pr-plein){flex:none!important;width:auto;min-width:0;position:relative!important;top:auto;margin:0!important;padding:0.4rem 0.5rem 0.3rem;background:#e9e3d9;border-bottom:2px solid #d8cfc0;box-shadow:0 2px 6px rgba(0,0,0,.08);z-index:2;}
+.pr-editeur .pr-prev summary{display:none;}
+.pr-editeur .pr-prev:not(.pr-plein) #printPrevFrame{height:calc(var(--prh) - 3rem)!important;}
+.pr-editeur .pr-reglages{flex:1 1 auto!important;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0.8rem max(1rem, calc((100% - 720px) / 2)) calc(2rem + env(safe-area-inset-bottom,0px));}
+.pr-prev.pr-plein{z-index:2100;}
 .floating-save{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--rouge);color:#fff;border:none;border-radius:30px;padding:0.85rem 2rem;font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 20px rgba(155,28,28,0.45);z-index:350;display:none;white-space:nowrap;transition:transform 0.2s,box-shadow 0.2s;}
 .floating-save:hover{transform:translateX(-50%) scale(1.04);box-shadow:0 6px 25px rgba(155,28,28,0.55);}
 .floating-save.draft-save{background:#E67E22;box-shadow:0 4px 20px rgba(230,126,34,0.45);}
@@ -308,6 +336,14 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .admin-save-btn.draft-save{background:#E67E22;}
 .draft-badge{display:inline-block;background:#E67E22;color:#fff;font-size:0.55rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border-radius:4px;padding:0.1rem 0.35rem;margin-left:0.4rem;vertical-align:middle;}
 
+/* Invitation aux allergènes en bas de chaque page de la carte (18/10/2026) */
+.allerg-invite{display:flex;align-items:center;gap:0.7rem;margin:1.6rem 0 0.5rem;padding:0.8rem 1rem;background:#fff;border:1.5px solid rgba(155,28,28,0.35);border-radius:12px;cursor:pointer;text-align:left;width:100%;font-family:'Montserrat',sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.06);-webkit-tap-highlight-color:transparent;}
+.allerg-invite:active{transform:scale(0.99);}
+.allerg-invite .ai-ico{font-size:1.3rem;line-height:1;flex-shrink:0;}
+.allerg-invite .ai-txt{flex:1;min-width:0;}
+.allerg-invite .ai-t{display:block;font-size:0.72rem;color:var(--brun);opacity:0.85;}
+.allerg-invite .ai-b{display:block;font-size:0.82rem;font-weight:800;color:var(--rouge);margin-top:0.1rem;}
+.allerg-invite .ai-fl{font-size:1.3rem;color:var(--rouge);font-weight:700;flex-shrink:0;}
 .footer{text-align:center;padding:1rem;font-size:0.65rem;color:var(--gris);letter-spacing:0.05em;border-top:1px solid var(--creme-fonce);max-width:700px;margin:0 auto;}
 
 /* ALLERGENES */
@@ -791,15 +827,31 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
       <!-- PRINT / PDF -->
       <div class="admin-section" id="as-print">
-        <p style="font-size:0.75rem;color:#888;margin-bottom:0.8rem">Créez une carte élégante à imprimer avec les couleurs et polices du Design. Le contenu, la disposition et la photo sont propres à chaque format. L'aperçu se met à jour à chaque modification.</p>
+        <p style="font-size:0.75rem;color:#888;margin-bottom:0.8rem">Choisissez ce que vous voulez imprimer : un éditeur s'ouvre en plein écran, avec l'aperçu en haut et, en dessous, uniquement les réglages de ce format. Couleurs et polices = celles du Design.</p>
+        <!-- 18/10/2026 : choix du format en cartes ; chaque format s'ouvre dans l'éditeur plein écran #printEditeur -->
+        <div class="pr-choix">
+          <button type="button" class="pr-choix-carte" onclick="printOuvrirEditeur('a4')"><span class="pr-ci">📄</span><span><b>Carte A4</b><small>Carte sur table, plusieurs pages si besoin</small></span></button>
+          <button type="button" class="pr-choix-carte" onclick="printOuvrirEditeur('a5')"><span class="pr-ci">📃</span><span><b>Petite carte A5</b><small>Plusieurs pages si besoin</small></span></button>
+          <button type="button" class="pr-choix-carte" onclick="printOuvrirEditeur('a1')"><span class="pr-ci">🪧</span><span><b>Affiche A1</b><small>Affiche extérieure, tout sur une page</small></span></button>
+          <button type="button" class="pr-choix-carte" onclick="printOuvrirEditeur('trifold')"><span class="pr-ci">📖</span><span><b>Flyer dépliant 3 volets</b><small>Fermé A5, ouvert 444 × 210 mm</small></span></button>
+          <button type="button" class="pr-choix-carte" onclick="printOuvrirEditeur('qr')"><span class="pr-ci">📲</span><span><b>Affichette QR code</b><small>Table, vitrine, comptoir · recto carte, verso avis</small></span></button>
+        </div>
 
+        <div id="printEditeur" class="pr-editeur" role="dialog" aria-modal="true" aria-labelledby="printEdTitre">
+        <div class="pr-ed-bar">
+          <b id="printEdTitre">Impression</b>
+          <button type="button" class="pr-ed-btn" onclick="printEnregistrerReglages()" title="Enregistrer les réglages">💾<span class="pr-ed-txt"> Enregistrer</span></button>
+          <button type="button" class="pr-ed-btn pr-ed-imp" onclick="openPrintMenu()" title="Ouvrir la version à imprimer">🖨️<span class="pr-ed-txt"> Imprimer</span></button>
+          <button type="button" class="pr-ed-btn pr-ed-fermer" onclick="printFermerEditeur()" title="Fermer (les réglages sont enregistrés)">✕<span class="pr-ed-txt"> Fermer</span></button>
+        </div>
         <div class="pr-wrap">
-          <!-- Aperçu en direct (à droite sur ordinateur, en haut et repliable sur téléphone) -->
+          <!-- Aperçu en direct : figé en haut de l'éditeur, on fait défiler la carte à l'intérieur -->
           <div class="pr-prev">
             <details id="printPrevDetails" open ontoggle="if(this.open&&window.printApercuMaj)printApercuMaj()">
               <summary>👁 Aperçu en direct <span id="printPrevEtat" style="font-weight:400;color:#999;"></span></summary>
               <div class="pr-outils">
                 <button type="button" class="pr-hors-plein" onclick="printApercuPlein(true)">⛶ Plein écran</button>
+                <button type="button" class="pr-hors-plein" id="printPrevTaille" onclick="printApercuTaille()">↕ Agrandir</button>
                 <button type="button" onclick="printApercuZoom(-1)" aria-label="Réduire">−</button>
                 <span class="pr-zoomval" id="printZoomVal">Ajusté</span>
                 <button type="button" onclick="printApercuZoom(1)" aria-label="Agrandir">+</button>
@@ -809,24 +861,22 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
               <iframe id="printPrevFrame" title="Aperçu de la carte à imprimer"></iframe>
             </details>
           </div>
-          <!-- Téléphone : l'aperçu s'ouvre en plein écran depuis n'importe où dans les réglages -->
-          <button type="button" class="pr-fab" onclick="printApercuPlein(true)">👁 Aperçu</button>
 
           <div class="pr-reglages">
-            <div class="admin-label pr-titre">1. Format</div>
-            <div style="margin-bottom:0.6rem;">
-              <label class="pr-opt"><input type="radio" name="printFmt" value="a4" checked onchange="printChangeFormat()"> <b>A4</b>&nbsp;— carte sur table (plusieurs pages si besoin)</label>
-              <label class="pr-opt"><input type="radio" name="printFmt" value="a5" onchange="printChangeFormat()"> <b>A5</b>&nbsp;— petite carte (plusieurs pages si besoin)</label>
-              <label class="pr-opt"><input type="radio" name="printFmt" value="a1" onchange="printChangeFormat()"> <b>A1</b>&nbsp;— affiche extérieure, tout sur une page</label>
-              <label class="pr-opt"><input type="radio" name="printFmt" value="trifold" onchange="printChangeFormat()"> <b>Flyer dépliant 3 volets</b>&nbsp;— fermé A5, ouvert 444 × 210 mm</label>
-              <label class="pr-opt"><input type="radio" name="printFmt" value="qr" onchange="printChangeFormat()"> <b>Affichette QR code</b>&nbsp;— QR code à scanner, format au choix (table, vitrine, comptoir)</label>
+            <!-- Choix du format : fait avec les cartes ci-dessus (boutons radio gardés, cachés, lus par printFmt()) -->
+            <div style="display:none;">
+              <label><input type="radio" name="printFmt" value="a4" checked> A4</label>
+              <label><input type="radio" name="printFmt" value="a5"> A5</label>
+              <label><input type="radio" name="printFmt" value="a1"> A1</label>
+              <label><input type="radio" name="printFmt" value="trifold"> Flyer</label>
+              <label><input type="radio" name="printFmt" value="qr"> Affichette QR code</label>
             </div>
 
-            <!-- Affichette QR code (17/10/2026) : remplace les sections 2 à 4 quand ce format est choisi -->
+            <!-- Affichette QR code : ses réglages remplacent « Contenu », « Mise en page » et « Photo » -->
             <div id="printQrBox"></div>
 
             <div id="printBlocCarte">
-            <div class="admin-label pr-titre">2. Contenu à afficher <span id="printFmtNom" style="color:#aaa;font-size:0.65rem;"></span></div>
+            <div class="admin-label pr-titre">Contenu à afficher <span id="printFmtNom" style="color:#aaa;font-size:0.65rem;"></span></div>
             <label class="admin-label">Source de la carte</label>
             <select class="cat-select" id="printSource" onchange="printSetSource(this.value)">
               <option value="surplace">🍽️ Sur place — plats et prix du site sur place</option>
@@ -840,7 +890,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
             <label class="admin-label">Restaurants affichés sur ce format</label>
             <div id="printEtabsFmt" style="margin-bottom:0.6rem;"></div>
 
-            <div class="admin-label pr-titre">3. Mise en page</div>
+            <div class="admin-label pr-titre">Mise en page</div>
             <label class="admin-label">Disposition</label>
             <label class="pr-opt"><input type="radio" name="printMode" value="auto" onchange="printSetMode(this.value)"> <b>Automatique</b> — les catégories s'enchaînent dans l'ordre de la carte</label>
             <label class="pr-opt"><input type="radio" name="printMode" value="manuel" onchange="printSetMode(this.value)"> <b>Manuelle</b> — vous composez la page rangée par rangée</label>
@@ -863,27 +913,31 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
             <div id="printLayoutBox"></div>
             <div id="printCouvBox"></div>
 
-            <div class="admin-label pr-titre">4. Photo</div>
+            <div class="admin-label pr-titre">Photo</div>
             <p id="printPhotoAide" class="pr-aide"></p>
             <div id="printPhotoBox" style="margin-bottom:0.6rem;"></div>
             </div><!-- fin #printBlocCarte -->
 
-            <div class="admin-label pr-titre">5. Enseigne et textes <span style="color:#aaa;font-size:0.65rem;">(communs à tous les formats)</span></div>
+            <div class="admin-label pr-titre">Enseigne et textes <span style="color:#aaa;font-size:0.65rem;">(communs à tous les formats)</span></div>
             <label class="admin-label">Nom affiché</label>
             <input class="admin-input" id="print_nom">
             <label class="admin-label">Accroche sous le nom <span style="font-size:0.65rem;color:#aaa;">(facultatif)</span></label>
             <input class="admin-input" id="print_slogan" placeholder="ex. Pizzas artisanales au feu de bois">
+            <div id="printBlocTextesCarte"><!-- inutile pour l'affichette QR code : masqué -->
             <p class="pr-aide" style="margin-top:0.3rem;">D'autres accroches peuvent être placées n'importe où dans la page : disposition « Manuelle », puis « + Ajouter… » › « Texte libre ».</p>
             <label class="admin-label">Infos complémentaires <span style="font-size:0.65rem;color:#aaa;">(une par ligne, facultatif)</span></label>
             <textarea class="admin-input" id="print_infos" rows="2" style="resize:vertical;" placeholder="ex. Terrasse · Parking à 50 m"></textarea>
             <label class="admin-label">Mention en bas de page</label>
             <input class="admin-input" id="print_mention">
+            </div>
 
-            <div class="admin-label pr-titre">6. Restaurants, adresses et horaires <span style="color:#aaa;font-size:0.65rem;">(communs à tous les formats)</span></div>
-            <p class="pr-aide">Pour chaque restaurant : une ligne par horaire, en cochant les jours où il s'applique. À l'impression, les jours qui se suivent sont regroupés (« Lundi – Vendredi »). Le choix des restaurants affichés se fait format par format (section 2).</p>
+            <div id="printBlocEtabs"><!-- inutile pour l'affichette QR code : masqué -->
+            <div class="admin-label pr-titre">Restaurants, adresses et horaires <span style="color:#aaa;font-size:0.65rem;">(communs à tous les formats)</span></div>
+            <p class="pr-aide">Pour chaque restaurant : une ligne par horaire, en cochant les jours où il s'applique. À l'impression, les jours qui se suivent sont regroupés (« Lundi – Vendredi »). Le choix des restaurants affichés se fait format par format (rubrique « Contenu à afficher »).</p>
             <div id="printEtabsEdit"></div>
+            </div>
 
-            <div class="admin-label pr-titre">7. QR codes <span style="color:#aaa;font-size:0.65rem;">(lien vide = pas de QR code)</span></div>
+            <div class="admin-label pr-titre">Liens des QR codes <span style="color:#aaa;font-size:0.65rem;">(lien vide = pas de QR code)</span></div>
             <label class="admin-label">Sur place — lien de la carte</label>
             <input class="admin-input" id="print_qr_surplace" placeholder="https://…">
             <label class="admin-label">Vente à emporter — lien de commande</label>
@@ -891,11 +945,12 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
             <label class="admin-label">Livraison — lien de commande</label>
             <input class="admin-input" id="print_qr_livraison" placeholder="https://… (ex. votre page de livraison)">
 
-            <button class="admin-save-btn" style="background:var(--vert);margin:0.8rem 0 0.5rem;" onclick="savePrintSettings()">💾 Enregistrer les réglages</button>
+            <button class="admin-save-btn" style="background:var(--vert);margin:0.8rem 0 0.5rem;" onclick="printEnregistrerReglages()">💾 Enregistrer les réglages</button>
             <button class="admin-save-btn" id="printBtnCreer" onclick="openPrintMenu()">🖨️ Créer la carte à imprimer</button>
-            <p class="pr-aide" style="margin-top:0.6rem;line-height:1.5;">La carte s'ouvre dans un nouvel onglet : cliquez sur « Imprimer / Enregistrer en PDF ». Pour l'A1 et le dépliant (à envoyer à un imprimeur), faites-le depuis un ordinateur avec Chrome ou Edge, choisissez « Enregistrer au format PDF », marges « Aucune » et cochez « Graphiques d'arrière-plan ». Pensez à « Enregistrer les réglages » puis ✅ Publier pour les retrouver la prochaine fois.</p>
+            <p class="pr-aide" style="margin-top:0.6rem;line-height:1.5;">La carte s'ouvre dans un nouvel onglet : cliquez sur « Imprimer / Enregistrer en PDF ». Pour l'A1 et le dépliant (à envoyer à un imprimeur), faites-le depuis un ordinateur avec Chrome ou Edge, choisissez « Enregistrer au format PDF », marges « Aucune » et cochez « Graphiques d'arrière-plan ». Les réglages sont enregistrés en fermant l'éditeur ; pensez ensuite à ✅ Publier pour les mettre en ligne.</p>
           </div>
         </div>
+        </div><!-- fin #printEditeur -->
 
         <p style="font-size:0.75rem;color:#888;margin:1.2rem 0 0.6rem;border-top:1px solid #eee;padding-top:1rem;">Générez le PDF du tableau des allergènes (par catégorie), à imprimer et laisser à disposition en restaurant. Une catégorie se retire du tableau depuis sa fiche (réglage « liste des allergènes »).</p>
         <label class="pr-opt"><input type="checkbox" id="allergMasquerVides"> Ne pas lister les plats sans allergène (une phrase l'indique en haut du tableau)</label>
@@ -1577,6 +1632,19 @@ function openModal(id) {
   }
   document.getElementById('modalOverlay').classList.add('open');
 }
+// Invitation à consulter la liste des allergènes, en bas de chaque page de la carte (18/10/2026)
+const ALLERG_INVITE = {
+  fr:['Allergies ou intolérances ?','Consulter la liste des allergènes'],
+  en:['Allergies or intolerances?','See the allergen list'],
+  it:['Allergie o intolleranze?','Consulta l\u2019elenco degli allergeni'],
+  de:['Allergien oder Unverträglichkeiten?','Allergenliste ansehen'],
+  es:['¿Alergias o intolerancias?','Consultar la lista de alérgenos']
+};
+function allergInviteHTML(l){
+  const t = ALLERG_INVITE[l] || ALLERG_INVITE.en;
+  return `<button type="button" class="allerg-invite" onclick="openAllergenPopup()"><span class="ai-ico">⚠️</span><span class="ai-txt"><span class="ai-t">${t[0]}</span><span class="ai-b">${t[1]}</span></span><span class="ai-fl">›</span></button>`;
+}
+
 function openAllergenPopup(){
   renderAllergenPage(currentLang, 'allergenPopupBody');
   document.getElementById('allergenPopupOverlay').classList.add('open');
@@ -3618,7 +3686,7 @@ function renderAboutBlocks(){
         </div>
       </div>
       ${b.type==='text'
-        ? `<textarea class="admin-input" style="margin:0;min-height:80px;resize:vertical;" placeholder="Écrivez votre texte ici...">${(b.content||'').replace(/</g,'&lt;')}</textarea>`
+        ? `<textarea class="admin-input" style="margin:0;min-height:80px;resize:vertical;" placeholder="Écrivez votre texte ici..." oninput="aboutTexteSaisi('${b.id}',this.value)">${(b.content||'').replace(/</g,'&lt;')}</textarea>`
         : `<div class="about-photo-grid" id="aphotos_${b.id}">
             ${(b.urls||[]).map((url,pi)=>`
               <div class="about-photo-thumb">
@@ -3633,6 +3701,10 @@ function renderAboutBlocks(){
       }
     </div>`).join('');
 }
+
+// Le texte tapé est gardé à chaque frappe : avant (18/10/2026), ajouter, déplacer ou supprimer un bloc, ou
+// ajouter une photo, redessinait la liste et effaçait le texte pas encore enregistré.
+function aboutTexteSaisi(id, v){ const b=_aboutBlocks.find(x=>x.id===id); if(b) b.content=v; }
 
 function addAboutBlock(type){
   _aboutBlocks.push({id:'b'+Date.now(), type, content:'', urls:[]});
@@ -4797,7 +4869,7 @@ function renderPrintQr() {
   const liens = PRINT_QR_TYPES.map(q => {
     const url = printQrLien(q.key);
     return `<label class="pr-opt"><input type="radio" name="printQrLien" value="${q.key}" ${c.lien === q.key ? 'checked' : ''} onchange="printCollectQr();renderPrintQr()"> <b>${printEsc(q.label)}</b>`
-      + `<span style="display:block;margin-left:1.4rem;font-size:0.66rem;color:${url ? '#999' : '#B91C1C'};word-break:break-all;">${url ? printEsc(url) : 'Aucun lien : à renseigner en section 7'}</span></label>`;
+      + `<span style="display:block;margin-left:1.4rem;font-size:0.66rem;color:${url ? '#999' : '#B91C1C'};word-break:break-all;">${url ? printEsc(url) : 'Aucun lien : à renseigner plus bas, dans « Liens des QR codes »'}</span></label>`;
   }).join('');
   const avis = c.avis.map((a, i) => `<div class="pr-card" style="padding:0.5rem 0.6rem;">
       <div class="pr-card-hd"><b>Lien d'avis ${i + 1}</b>
@@ -4809,14 +4881,14 @@ function renderPrintQr() {
       ${String(a.url || '').trim() ? '' : '<div class="pr-erreur">Lien vide : ce QR code ne sera pas imprimé.</div>'}
     </div>`).join('');
   box.innerHTML = `
-    <div class="admin-label pr-titre">2. Affichette QR code</div>
+    <div class="admin-label pr-titre">Affichette QR code : format et lien</div>
     <label class="admin-label">Format du papier</label>
     <select class="cat-select" id="printQrPapier" style="margin-bottom:0.6rem;">
       ${Object.keys(PRINT_QR_PAPIERS).map(k => `<option value="${k}" ${c.papier === k ? 'selected' : ''}>${printEsc(PRINT_QR_PAPIERS[k].label)}</option>`).join('')}
     </select>
     <label class="admin-label">Le QR code du recto ouvre</label>
     ${liens}
-    <div class="admin-label pr-titre">3. Recto : textes</div>
+    <div class="admin-label pr-titre">Recto : textes</div>
     <label class="admin-label">Invitation à scanner <span style="font-size:0.65rem;color:#aaa;">(vide = texte proposé)</span></label>
     <input class="admin-input" id="printQrTitre" maxlength="70" value="${printEsc(c.titre)}" placeholder="${printEsc(PRINT_QR_TITRES[c.lien])}">
     <label class="admin-label">Aide sous le QR code <span style="font-size:0.65rem;color:#aaa;">(vide = texte proposé)</span></label>
@@ -4824,7 +4896,7 @@ function renderPrintQr() {
     ${cb('printQrAllerg', c.allerg, 'Indiquer que la liste des allergènes est disponible')}
     <textarea class="admin-input" id="printQrAllergTexte" rows="2" maxlength="200" style="resize:vertical;" placeholder="${printEsc(PRINT_QR_ALLERG_DEF)}">${printEsc(c.allergTexte)}</textarea>
     <p class="pr-aide" style="margin-top:0.3rem;">Vide = « ${printEsc(PRINT_QR_ALLERG_DEF)} »</p>
-    <div class="admin-label pr-titre">4. Verso : laisser un avis</div>
+    <div class="admin-label pr-titre">Verso : laisser un avis</div>
     ${cb('printQrVerso', c.verso, '<b>Imprimer aussi un verso</b> (le fichier contient alors 2 pages : recto puis verso)', ' onchange="printCollectQr();renderPrintQr()"')}
     ${c.verso ? `
     <p class="pr-aide">À l'impression, choisissez « Recto verso », retournement <b>sur le bord long</b>.</p>
@@ -4845,8 +4917,8 @@ function renderPrintQr() {
     <p class="pr-aide" style="color:#8a5a00;background:#FFF7E6;border-radius:8px;padding:0.45rem 0.6rem;">⚠️ Ne promettez ni cadeau, ni réduction, ni tirage au sort en échange d'un avis : c'est interdit par Google et TripAdvisor (avis supprimés, fiche pénalisée) et par la loi française sur les avis en ligne.</p>` : ''}
     <div class="admin-label pr-titre">Présentation (recto et verso)</div>
     ${cb('printQrLogo', c.logo, 'Logo')}
-    ${cb('printQrNom', c.nom, 'Nom de l\'enseigne (section 5)')}
-    ${cb('printQrSlogan', c.slogan, 'Accroche sous le nom (section 5)')}
+    ${cb('printQrNom', c.nom, 'Nom de l\'enseigne (rubrique « Enseigne et textes »)')}
+    ${cb('printQrSlogan', c.slogan, 'Accroche sous le nom (rubrique « Enseigne et textes »)')}
     ${cb('printQrFond', c.fond, 'Fond couleur crème (sinon blanc, plus économique en encre)')}
     <p class="pr-aide">Tout se met à l'échelle du papier choisi. Les QR codes gardent toujours un fond blanc pour rester lisibles par les téléphones.</p>`;
 }
@@ -4905,9 +4977,9 @@ function printConstruireDonneesQr() {
   const papier = PRINT_QR_PAPIERS[c.papier];
   const type = PRINT_QR_TYPES.find(q => q.key === c.lien) || PRINT_QR_TYPES[0];
   const url = String((currentDesign || {})['print_qr_' + c.lien] || '').trim();
-  if (!url) return {erreur: 'Aucun lien pour « ' + type.label + ' » : renseignez-le en section 7 (QR codes), ou choisissez un autre lien.'};
+  if (!url) return {erreur: 'Aucun lien pour « ' + type.label + ' » : renseignez-le dans « Liens des QR codes », ou choisissez un autre lien.'};
   const qrsVerso = c.verso ? c.avis.filter(a => a.url).map(a => ({label:a.label, sub:'', url:a.url, img:''})) : [];
-  if (c.verso && !qrsVerso.length) return {erreur: 'Verso : aucun lien d\'avis renseigné (section 4). Ajoutez un lien, ou décochez « Imprimer aussi un verso ».'};
+  if (c.verso && !qrsVerso.length) return {erreur: 'Verso : aucun lien d\'avis renseigné (rubrique « Verso »). Ajoutez un lien, ou décochez « Imprimer aussi un verso ».'};
   const d = currentDesign || DESIGN_DEFAULTS;
   const logoEl = document.getElementById('logoTap');
   const qrs = [{label:type.label, sub:type.sub, url, img:''}];
@@ -4939,7 +5011,7 @@ function printConstruireDonneesQr() {
 }
 // Tous les QR codes à générer pour une impression (recto, et verso de l'affichette)
 function printTousLesQrs(data) { return (data.qrs || []).concat(data.qrsVerso || []); }
-// Raccourci depuis l'onglet « 📲 QR Code » : ouvre Impression sur l'affichette, avec le canal affiché là-bas
+// Raccourci depuis l'onglet « 📲 QR Code » : ouvre l'éditeur de l'affichette, avec le canal affiché là-bas
 function printOuvrirAffichetteQr() {
   const radio = document.querySelector('input[name="printFmt"][value="qr"]');
   if (!radio) return;
@@ -4952,7 +5024,64 @@ function printOuvrirAffichetteQr() {
     if (r) r.checked = true;
   }
   switchAdminTab('print');
+  printOuvrirEditeur('qr');
 }
+
+// ── Éditeur plein écran (18/10/2026) : un format à la fois, aperçu figé en haut, réglages du format en dessous ──
+// Les réglages sont enregistrés en fermant l'éditeur (s'ils ont changé), pour ne plus rien perdre.
+const PRINT_ED_TITRES = {a4:'📄 Carte A4', a5:'📃 Petite carte A5', a1:'🪧 Affiche A1', trifold:'📖 Flyer dépliant 3 volets', qr:'📲 Affichette QR code'};
+let printEdInstantane = '';
+function printInstantane() {
+  const d = currentDesign || {};
+  const o = {};
+  Object.keys(d).forEach(k => { if (k.indexOf('print_') === 0) o[k] = d[k]; });
+  return JSON.stringify(o);
+}
+function printEditeurOuvert() {
+  const ed = document.getElementById('printEditeur');
+  return !!(ed && ed.classList.contains('open'));
+}
+function printOuvrirEditeur(fmt) {
+  if (!PRINT_FORMATS[fmt]) return;
+  if (printPanelPret && printFmtAffiche) { printCollectEtab(); printCollectFmt(printFmtAffiche); }
+  const radio = document.querySelector('input[name="printFmt"][value="' + fmt + '"]');
+  if (radio) radio.checked = true;
+  const ed = document.getElementById('printEditeur');
+  if (!ed) return;
+  const det = document.getElementById('printPrevDetails');
+  if (det) det.open = true;
+  ed.classList.add('open');
+  const t = document.getElementById('printEdTitre'); if (t) t.textContent = PRINT_ED_TITRES[fmt] || 'Impression';
+  renderPrintPanel();
+  printCollectEtab(); printCollectFmt(fmt);
+  printEdInstantane = printInstantane();
+  const rg = ed.querySelector('.pr-reglages'); if (rg) rg.scrollTop = 0;
+  printApercuMaj();
+}
+async function printFermerEditeur() {
+  const ed = document.getElementById('printEditeur');
+  if (!ed) return;
+  if (printPanelPret) { printCollectEtab(); if (printFmtAffiche) printCollectFmt(printFmtAffiche); }
+  printApercuPlein(false);
+  ed.classList.remove('open');
+  if (printInstantane() !== printEdInstantane) await printEnregistrerReglages();
+}
+async function printEnregistrerReglages() {
+  await savePrintSettings();
+  printEdInstantane = printInstantane();
+}
+function printApercuTaille() {
+  const ed = document.getElementById('printEditeur');
+  if (!ed) return;
+  const grand = ed.classList.toggle('pr-grand');
+  const b = document.getElementById('printPrevTaille'); if (b) b.textContent = grand ? '↕ Réduire' : '↕ Agrandir';
+  setTimeout(() => { try { const fr = document.getElementById('printPrevFrame'); if (fr && fr.contentWindow) fr.contentWindow.dispatchEvent(new Event('resize')); } catch(e) {} }, 50);
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !printEditeurOuvert()) return;
+  const prev = document.querySelector('.pr-prev.pr-plein');
+  if (prev) printApercuPlein(false); else printFermerEditeur();
+});
 
 // Catégories visibles sur le canal choisi, dans l'ordre de la carte (mêmes règles que le site)
 function printCats(src) {
@@ -5147,7 +5276,7 @@ function renderPrintEtabsFmt() {
   const etabs = printEtabs();
   box.innerHTML = etabs.length
     ? etabs.map((e, i) => `<label class="pr-opt"><input type="checkbox" class="print-etab-cb" value="${printEsc(e.id)}" ${ex.has(e.id) ? '' : 'checked'} onchange="printCollectFmt()"> ${printEsc(printNomEtab(e, i))}</label>`).join('')
-    : '<p class="pr-aide">Aucun restaurant : ajoutez-les en section 6.</p>';
+    : '<p class="pr-aide">Aucun restaurant : ajoutez-les dans « Restaurants, adresses et horaires ».</p>';
 }
 
 // ── Panneau d'administration ──
@@ -5162,6 +5291,8 @@ function renderPrintPanel() {
   if (blocCarte) blocCarte.style.display = estQr ? 'none' : '';
   const btnCreer = document.getElementById('printBtnCreer');
   if (btnCreer) btnCreer.textContent = estQr ? '🖨️ Créer l\'affichette à imprimer' : '🖨️ Créer la carte à imprimer';
+  ['printBlocTextesCarte', 'printBlocEtabs'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = estQr ? 'none' : ''; });
+  const edT = document.getElementById('printEdTitre'); if (edT) edT.textContent = PRINT_ED_TITRES[fmt] || 'Impression';
   if (!estQr) { const qb = document.getElementById('printQrBox'); if (qb) qb.innerHTML = ''; }
   const nomFmt = document.getElementById('printFmtNom');
   if (nomFmt) nomFmt.textContent = '— ' + PRINT_FORMATS[fmt].label + ' · ' + printSrc(cfg.source).label;
@@ -5256,7 +5387,7 @@ function renderPrintMiseEnPage() {
   montrer('printOptTaille', fmt === 'a4' || fmt === 'a5');
   const aide = document.getElementById('printPhotoAide');
   if (aide) aide.textContent = fmt === 'trifold'
-    ? 'Photo de la couverture du flyer (réglages de la couverture en section 3), et du bloc « Photo » si vous en placez un en disposition manuelle.'
+    ? 'Photo de la couverture du flyer (réglages de la couverture dans « Mise en page »), et du bloc « Photo » si vous en placez un en disposition manuelle.'
     : (manuel ? 'Photo utilisée par le bloc « Photo » : placez-le où vous voulez dans une rangée.'
               : ({a1:'Grande photo sous le titre de l\'affiche.', a4:'Bandeau photo en haut de la première page.', a5:'Bandeau photo en haut de la première page.'})[fmt]);
   renderPrintLayout();
@@ -5276,8 +5407,8 @@ function renderPrintCouv() {
       <div class="pr-card-hd"><b>Couverture du flyer (première page)</b></div>
       ${cb('couv', 'logo', 'Logo', cv)}
       ${cb('couv', 'nom', 'Nom de l\'enseigne', cv)}
-      ${cb('couv', 'slogan', 'Accroche (section 5)', cv)}
-      ${cb('couv', 'photo', 'Photo (section 4)' + (cfg.photo ? '' : ' — <span style="color:#B91C1C">aucune photo choisie</span>'), cv)}
+      ${cb('couv', 'slogan', 'Accroche (rubrique « Enseigne et textes »)', cv)}
+      ${cb('couv', 'photo', 'Photo (rubrique « Photo »)' + (cfg.photo ? '' : ' — <span style="color:#B91C1C">aucune photo choisie</span>'), cv)}
       <div style="margin:-0.2rem 0 0.5rem 1.4rem;">
         <select class="cat-select" style="font-size:0.8rem;" onchange="printCouvSet('couv','photoStyle',this.value)">
           <option value="cadre" ${cv.photoStyle !== 'fond' ? 'selected' : ''}>Photo encadrée</option>
@@ -5289,13 +5420,13 @@ function renderPrintCouv() {
       ${cb('couv', 'qrs', 'QR codes', cv)}
       <label class="admin-label">Texte en bas de la couverture</label>
       <input class="admin-input" value="${printEsc(cv.label || '')}" placeholder="${printEsc(printSrc(cfg.source).couv)}" oninput="printCouvSet('couv','label',this.value)">
-      <p class="pr-aide" style="margin-top:0.3rem;">Vide = « ${printEsc(printSrc(cfg.source).couv)} ». Les restaurants affichés sont ceux cochés en section 2. Tout se réduit automatiquement pour tenir sur la couverture.</p>
+      <p class="pr-aide" style="margin-top:0.3rem;">Vide = « ${printEsc(printSrc(cfg.source).couv)} ». Les restaurants affichés sont ceux cochés dans « Contenu à afficher ». Tout se réduit automatiquement pour tenir sur la couverture.</p>
     </div>
     <div class="pr-card">
       <div class="pr-card-hd"><b>Dos du flyer</b></div>
       ${cb('dos', 'etabs', 'Adresses et téléphones des restaurants', ds)}
       ${cb('dos', 'horaires', 'Horaires d\'ouverture', ds)}
-      ${cb('dos', 'plus', 'Infos complémentaires (section 5)', ds)}
+      ${cb('dos', 'plus', 'Infos complémentaires (rubrique « Enseigne et textes »)', ds)}
       ${cb('dos', 'qrs', 'QR codes', ds)}
       ${cb('dos', 'mention', 'Mention en bas de page', ds)}
     </div>`;
@@ -5436,8 +5567,8 @@ function renderPrintLayout() {
       corps = `<input value="${printEsc(b.titre || '')}" placeholder="Titre ou accroche (facultatif)" oninput="printBlocTexte(${arg},'titre',this.value)">
         <textarea rows="2" placeholder="Petit paragraphe (facultatif)" oninput="printBlocTexte(${arg},'texte',this.value)">${printEsc(b.texte || '')}</textarea>`;
     }
-    if (b.t === 'cat' && exC.has(b.id)) corps = '<div class="pr-erreur">Décochée en section 2 : pas imprimée.</div>';
-    if (b.t === 'photo' && !cfg.photo) corps = '<div class="pr-erreur">Aucune photo choisie (section 4).</div>';
+    if (b.t === 'cat' && exC.has(b.id)) corps = '<div class="pr-erreur">Décochée dans « Contenu à afficher » : pas imprimée.</div>';
+    if (b.t === 'photo' && !cfg.photo) corps = '<div class="pr-erreur">Aucune photo choisie (rubrique « Photo »).</div>';
     const peutMonter = bi > 0 || ri > 0;
     const peutDescendre = bi < nCell - 1 || ri < nbRows - 1;
     return `<div class="pr-bloc"><div class="pr-bloc-hd"><b>${printEsc(printLibelleBloc(b))}</b>
@@ -5681,7 +5812,7 @@ function printConstruireDonnees(fmt) {
   const manuel = cfg.mode === 'manuel';
   const rows = manuel ? printRangeesData(cfg, sections) : [];
   if (manuel ? !rows.length : !sections.length) {
-    return {erreur: manuel ? 'Disposition manuelle : aucune rangée avec du contenu. Ajoutez des rangées dans « 3. Mise en page ».'
+    return {erreur: manuel ? 'Disposition manuelle : aucune rangée avec du contenu. Ajoutez des rangées dans « Mise en page ».'
                            : 'Aucune catégorie (ou aucun plat) à imprimer.'};
   }
   const d = currentDesign || DESIGN_DEFAULTS;
@@ -5795,7 +5926,7 @@ function printApercuMaj() {
   const fr = document.getElementById('printPrevFrame');
   const sec = document.getElementById('as-print');
   const det = document.getElementById('printPrevDetails');
-  if (!fr || !sec || !sec.classList.contains('active') || (det && !det.open) || !printPanelPret) return;
+  if (!fr || !sec || !sec.classList.contains('active') || (det && !det.open) || !printPanelPret || !printEditeurOuvert()) return;
   printCollectEtab();
   const fmt = printFmtAffiche || printFmt();
   printCollectFmt(fmt);
@@ -7416,6 +7547,17 @@ function buildSectionTabs(groupCats){
 }
 function tabKeyToBtnId(key){ return 'stab_'+key.replace(/[^a-zA-Z0-9_]/g,'_'); }
 
+// Bannière rouge de la section : action au toucher, ou null si rien à ouvrir
+function bannerSupplAction(group, groupKey){
+  const choix = group.insertLinkCatId || '';
+  const cat = choix && choix !== SUPPL_LIEN ? cats.find(c=>c.id===choix && !c.archived) : null;
+  if (cat) return () => goToCategoryLink(cat.id);
+  if ((group.supplements||[]).some(x=>x&&x.nom)) return () => ouvrirSupplements(groupKey);
+  const suppCat = cats.find(c=>c.isSupplementsCategory && !c.archived);
+  if (suppCat && items.some(it=>!it.archived && it.cat===suppCat.id)) return () => openSupplementsPopup();
+  return null;
+}
+
 function goToCategoryLink(catId){
   const cat = cats.find(c=>c.id===catId);
   if(!cat) return;
@@ -7452,12 +7594,15 @@ function openSectionPage(groupKey) {
   }
   if (suppInsert) {
     if (group.insertText && group.insertText.trim()) {
-      const linkCat = group.insertLinkCatId ? cats.find(c=>c.id===group.insertLinkCatId && !c.archived) : null;
-      const linkSuppl = group.insertLinkCatId === SUPPL_LIEN && (group.supplements||[]).length;
+      // 18/10/2026 : toute la bannière est cliquable, avec un bouton blanc bien visible. Destination : celle choisie
+      // dans Sections (catégorie ou fenêtre « Suppléments ») ; sinon, par défaut, la liste des suppléments si elle existe.
+      const action = bannerSupplAction(group, groupKey);
+      suppInsert.classList.toggle('cliquable', !!action);
+      suppInsert.onclick = action;
+      suppInsert.setAttribute('role', action ? 'button' : 'note');
       suppInsert.innerHTML = `
         <div class="supplements-insert-text">✨ ${group.insertText}</div>
-        ${linkCat ? `<a href="#" onclick="goToCategoryLink('${linkCat.id}');return false;" class="supplements-insert-link">${group.insertLinkLabel||'Voir'}</a>` : ''}
-        ${linkSuppl ? `<a href="#" onclick="ouvrirSupplements('${groupKey}');return false;" class="supplements-insert-link">${group.insertLinkLabel||'Voir'}</a>` : ''}
+        ${action ? `<span class="supplements-insert-btn">${(group.insertLinkLabel||'').trim() || 'Voir les suppléments'} <b>›</b></span>` : ''}
       `;
       suppInsert.style.display = 'flex';
     } else {
@@ -7621,7 +7766,7 @@ function showSectionTab(tabKey) {
 
   const sc = document.getElementById('sectionContent');
   if (sc) {
-    sc.innerHTML = html || '<p style="text-align:center;color:#aaa;padding:2rem">Aucun plat</p>';
+    sc.innerHTML = (html || '<p style="text-align:center;color:#aaa;padding:2rem">Aucun plat</p>') + allergInviteHTML(l);
     sc.scrollTop = 0;
   }
 }
@@ -7983,7 +8128,10 @@ async function saveSections(){
       // enregistrée : la nouvelle photo disparaissait au rechargement de la page.
       photo: g.photo || '',
       // Liste de la fenêtre « Suppléments » : [{nom, prix}] (prix écrit comme sur la carte, ex. « 1,50€ »).
-      supplements: Array.isArray(g.supplements) ? g.supplements : []
+      supplements: Array.isArray(g.supplements) ? g.supplements : [],
+      // Blocs de la page « Notre Histoire » (textes et photos). Correctif du 18/10/2026 : ils n'étaient pas
+      // enregistrés dans sections.json, le texte saisi disparaissait au rechargement de la page.
+      aboutBlocks: Array.isArray(g.aboutBlocks) ? g.aboutBlocks : undefined
     };
   });
   var result = await saveKeyToGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json', sectionsConfig);
