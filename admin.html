@@ -1,12 +1,11 @@
 <!DOCTYPE html>
-<!-- VERSION: v2026.06.18-PDF-FIX -->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Admin RH</title>
+<title>Administration</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-17b"></script>
+<script src="restoglobal-commun.js?v=2026-10-18"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -242,6 +241,22 @@ details.pj-det>summary{cursor:pointer;min-height:44px;display:flex;align-items:c
   #modal-absfiche{padding:0}
   #modal-absfiche .fiche-md{max-width:none;height:100%;max-height:none;border-radius:0}
 }
+.reg-sec{font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;letter-spacing:.06em;margin:22px 2px 8px;padding-bottom:6px;border-bottom:2px solid var(--bd)}
+.sal-sec{border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;background:#fff}
+.sal-sec>summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:13px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:6px}
+.sal-sec>summary::-webkit-details-marker{display:none}
+.sal-sec>summary::after{content:'\25B8';margin-left:auto;color:var(--txm);transition:transform .2s}
+.sal-sec[open]>summary::after{transform:rotate(90deg)}
+.sal-sec-c{padding:0 14px 10px}
+/* Barre du haut sur téléphone : elle ne doit jamais dépasser la largeur de l'écran
+   (sinon l'iPhone dézoome toute la page et une bande vide apparaît à droite). */
+@media (max-width:640px){
+  .bar{flex-wrap:wrap;row-gap:6px;padding:8px 12px}
+  .bar img{width:40px}
+  .bar-t{flex:1 0 auto;white-space:nowrap} /* le titre garde sa largeur, le sélecteur se réduit */
+  .bar-d{order:9;flex-basis:100%}
+  #global-resto-select{min-width:0;max-width:100%;flex:1 1 120px}
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 </head>
@@ -254,7 +269,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div id="login-overlay" style="position:fixed;inset:0;background:#7a1419;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
   <div style="background:#fff;border-radius:18px;padding:32px 26px;width:100%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,.3)">
     <div style="text-align:center;font-size:22px;font-weight:800;color:#B91E26;margin-bottom:4px" data-enseigne-nom="Restoglobal"></div>
-    <div style="text-align:center;font-size:13px;color:#888;margin-bottom:24px">Administration RH</div>
+    <div style="text-align:center;font-size:13px;color:#888;margin-bottom:24px">Administration</div>
     <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">Email</label>
     <input type="email" id="login-email" autocomplete="username" style="width:100%;padding:13px;font-size:15px;border:2px solid #ddd;border-radius:10px;margin-bottom:14px" placeholder="email@exemple.com">
     <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">Mot de passe</label>
@@ -266,7 +281,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 <div class="bar">
   <img data-enseigne-logo alt="" style="display:none">
-  <div class="bar-t">Admin RH</div>
+  <div class="bar-t">Administration</div>
   <div class="bar-d" id="bd"></div>
   <select id="global-resto-select" onchange="onGlobalRestoChange()" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:600;"></select>
   <button onclick="doLogout()" title="Se déconnecter" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;white-space:nowrap">↪ Déconnexion</button>
@@ -298,15 +313,13 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
   <div class="tab on" onclick="goTab('pl',this)">Planning</div>
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
-  <div class="tab" onclick="goTab('pm',this)">&#9881; Paramètres</div>
 </div>
 <div class="page" id="page-rh" style="display:none;">
   <div id="rc" style="display:none">
     <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd);overflow-x:auto;-webkit-overflow-scrolling:touch">
       <div class="subtab on" id="rcsubtab-auj" onclick="rcSubTab('auj')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx);white-space:nowrap">Aujourd'hui</div>
       <div class="subtab" id="rcsubtab-pt" onclick="rcSubTab('pt')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Pointages</div>
-      <div class="subtab" id="rcsubtab-pr" onclick="rcSubTab('pr')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Pr&#233;sences</div>
-      <div class="subtab" id="rcsubtab-recap" onclick="rcSubTab('recap')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">R&#233;cap</div>
+      <div class="subtab" id="rcsubtab-recap" onclick="rcSubTab('recap')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Heures &amp; paie</div>
       <div class="subtab" id="rcsubtab-ab" onclick="rcSubTab('ab')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Demandes</div>
     </div>
 
@@ -322,12 +335,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
     <!-- Sous-onglet Pointages -->
     <div id="rc-pane-pt" style="display:none">
-      <div id="alc"></div>
-      <div class="stats">
-        <div class="stat"><div class="sv" id="sp">-</div><div class="sl">Pr&#233;sents</div></div>
-        <div class="stat"><div class="sv" id="spt">-</div><div class="sl">Pointages</div></div>
-        <div class="stat"><div class="sv" id="sal">-</div><div class="sl">Alertes</div></div>
-      </div>
+      <!-- 18/10/2026 : compteurs et alertes retirés d'ici (ils sont dans « Aujourd'hui ») — journal filtrable + corrections -->
       <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
         <select class="fs" id="fr" onchange="loadPt()">
           <option value="all">Tous restaurants</option>
@@ -350,10 +358,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
     </div>
 
-    <!-- Sous-onglet Présences -->
-    <div id="rc-pane-pr" style="display:none"><div id="prb"></div></div>
-
-    <!-- Sous-onglet Récap -->
+    <!-- Sous-onglet Heures & paie (Présences supprimé le 18/10/2026 : l'équipe du jour est dans « Aujourd'hui ») -->
     <div id="rc-pane-recap" style="display:none">
       <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
         <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option></select>
@@ -430,59 +435,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
   <div id="sa" style="display:none">
     <div class="plan-rtabs" id="sa-resto-tabs"></div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="btn bs" onclick="openComptageApercu()">&#128065; Aper&#231;u comptage</button>
-      <button class="btn bs" onclick="openPlanningComptageJour()">&#128197; Planning comptage du jour</button>
-      <button class="btn bs" onclick="openAuditExceptionsIndiv()">&#128269; Audit exceptions comptage</button>
-      <button class="btn bp" onclick="openAddSal()">+ Ajouter</button>
-    </div>
     <div id="sab"></div>
   </div>
-  <div id="pm" style="display:none">
-    <div class="card">
-      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
-        <span>&#127918; Postes disponibles</span>
-        <button class="btn bp sm" onclick="openAddPoste()">+ Ajouter</button>
-      </div>
-      <div id="pm-postes"></div>
-    </div>
-    <div class="card">
-      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
-        <span>&#128100; R&#244;les des salari&#233;s</span>
-        <button class="btn bp sm" onclick="openAddRole()">+ Ajouter</button>
-      </div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">D&#233;finissez les r&#244;les (ex: Pizzaiolo, T&#233;l&#233;phone, Livreur). Vous pourrez ensuite les attribuer à chaque salari&#233; depuis sa fiche.</div>
-      <div id="pm-roles"></div>
-    </div>
-    <div class="card">
-      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
-        <span>&#128203; Motifs d'absence</span>
-        <button class="btn bp sm" onclick="openAddMotif()">+ Ajouter</button>
-      </div>
-      <div id="pm-motifs"></div>
-    </div>
-    <div class="card">
-      <div class="sec-title">&#9888; Alerte d&#233;passement</div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Un pop-up appara&#238;t &#224; la connexion si un salari&#233; d&#233;passe ses heures de contrat de plus que ce seuil (par semaine).</div>
-      <div class="fr"><label class="fl2">Seuil (heures)</label><input type="number" class="fi" id="pm-seuil" step="0.5" min="0" value="2" onchange="saveSeuilParam()"></div>
-    </div>
-    <div class="card">
-      <div class="sec-title">&#9201; Badgeage tablette</div>
-      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">D&#233;lai minimum entre deux badgeages successifs. En de&#231;&#224;, le badgeage est bloqu&#233; (message &laquo; contacter un manager &raquo;). &#201;vite les doubles pointages accidentels.</div>
-      <div class="fr"><label class="fl2">D&#233;lai minimum (minutes)</label><input type="number" class="fi" id="pm-delai-badge" step="5" min="0" value="60" onchange="saveDelaiBadge()"></div>
-    </div>
-    <div class="card">
-      <div class="sec-title">&#128101; Secteurs</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="display:flex;align-items:center;gap:8px"><span style="background:#FEE2E2;color:#991B1B;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Cuisine</span><span style="font-size:12px;color:var(--txm)">Pizzaiolo, Après cuisson, Labo, Barman</span></div>
-        <div style="display:flex;align-items:center;gap:8px"><span style="background:#FEF3C7;color:#92400E;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Salle</span><span style="font-size:12px;color:var(--txm)">Serveur, Téléphone, Manager</span></div>
-        <div style="display:flex;align-items:center;gap:8px"><span style="background:#D1FAE5;color:#065F46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Livraison</span><span style="font-size:12px;color:var(--txm)">Livreur</span></div>
-      </div>
-    </div>
-  </div>
-  
-  
-  
+  <!-- 18/10/2026 : les Paramètres RH (postes, rôles, motifs, heures sup., badgeage) sont dans Réglages -->
 </div>
 
 <!-- ══ MODULE RECETTES ══ -->
@@ -565,6 +520,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
         <button class="btn bs sm" onclick="openBesoinsComptageModal()">🛒 Besoins (comptage)</button>
         <button class="btn bp sm" id="ing-tree-toggle-btn" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
+      </div>
+      <!-- Outils de comptage (déplacés de RH › Salariés le 18/10/2026) -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn bs sm" onclick="openComptageApercu()">&#128065; Aper&#231;u comptage</button>
+        <button class="btn bs sm" onclick="openPlanningComptageJour()">&#128197; Qui compte quoi aujourd'hui</button>
+        <button class="btn bs sm" onclick="openAuditExceptionsIndiv()">&#128269; Audit exceptions comptage</button>
       </div>
       <div id="rct-ing-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
       <div id="rct-ing-list-container"></div>
@@ -1042,6 +1003,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 <div id="page-reglages" style="display:none;">
   <div class="page" style="padding-top:14px;">
+    <!-- 18/10/2026 : tous les réglages au même endroit, en trois rubriques (avant : RH › Paramètres + Réglages) -->
+    <div class="reg-sec" style="margin-top:0">&#127970; G&#233;n&#233;ral</div>
     <div class="card">
       <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
         <span>&#127962; &#201;tablissements</span>
@@ -1064,6 +1027,42 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <button class="btn bp sm" onclick="sauverEnseigne()">Enregistrer l'enseigne</button>
     </div>
+    <div class="reg-sec">&#128101; RH &amp; pointage</div>
+    <div class="card">
+      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>&#127918; Postes du planning</span>
+        <button class="btn bp sm" onclick="openAddPoste()">+ Ajouter</button>
+      </div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Les postes indiqu&#233;s sur les cr&#233;neaux du planning et sur la fiche des salari&#233;s (postes ma&#238;tris&#233;s). Chaque poste est rattach&#233; &#224; un secteur (cuisine, salle, livraison), qui sert &#224; regrouper l'&#233;quipe dans le planning.</div>
+      <div id="pm-postes"></div>
+    </div>
+    <div class="card">
+      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>&#128100; R&#244;les de comptage</span>
+        <button class="btn bp sm" onclick="openAddRole()">+ Ajouter</button>
+      </div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Ce que chaque salari&#233; compte sur la tablette : un r&#244;le donne acc&#232;s &#224; des cat&#233;gories de comptage. Attribuez les r&#244;les depuis la fiche de chaque salari&#233;.</div>
+      <div id="pm-roles"></div>
+    </div>
+    <div class="card">
+      <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>&#128203; Motifs d'absence</span>
+        <button class="btn bp sm" onclick="openAddMotif()">+ Ajouter</button>
+      </div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Une seule liste pour tout : absences, statut d'un jour ou d'un cr&#233;neau du planning, demandes des salari&#233;s, exports paie et PDF. Un motif ajout&#233; ici est propos&#233; partout.</div>
+      <div id="pm-motifs"></div>
+    </div>
+    <div class="card">
+      <div class="sec-title">&#9888; Heures sup. de la semaine</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Un pop-up appara&#238;t &#224; la connexion si un salari&#233; d&#233;passe ses heures de contrat de la semaine de plus que ce seuil. (&#192; ne pas confondre avec le &laquo;&nbsp;D&#233;passement&nbsp;&raquo; de l'&#233;cran Aujourd'hui, qui signale une sortie badg&#233;e 30 min apr&#232;s la fin d'un cr&#233;neau.)</div>
+      <div class="fr"><label class="fl2">Seuil (heures par semaine)</label><input type="number" class="fi" id="pm-seuil" step="0.5" min="0" value="2" onchange="saveSeuilParam()"></div>
+    </div>
+    <div class="card">
+      <div class="sec-title">&#9201; Badgeage tablette</div>
+      <div style="font-size:11px;color:var(--txm);margin-bottom:8px">D&#233;lai minimum entre deux badgeages successifs. En de&#231;&#224;, le badgeage est bloqu&#233; (message &laquo; contacter un manager &raquo;). &#201;vite les doubles pointages accidentels.</div>
+      <div class="fr"><label class="fl2">D&#233;lai minimum (minutes)</label><input type="number" class="fi" id="pm-delai-badge" step="5" min="0" value="60" onchange="saveDelaiBadge()"></div>
+    </div>
+    <div class="reg-sec">&#128230; Commandes</div>
     <div class="card">
       <div class="sec-title">&#9993;&#65039; Message type de commande fournisseur</div>
       <div style="font-size:11px;color:var(--txm);margin-bottom:8px">Un seul mod&egrave;le pour tous les fournisseurs, utilis&eacute; partout : tablette (Commandes fournisseurs), admin (Besoins, Renvoyer). Modifie-le ici, tout suit automatiquement.<br>Variables &mdash; en-t&ecirc;te et pied : <b>{fournisseur}</b> <b>{restaurant}</b> <b>{par}</b> <b>{date}</b> <b>{adresse}</b> &middot; ligne produit : <b>{produit}</b> <b>{restos}</b> <b>{stock}</b> <b>{commande}</b>.<br>Une ligne dont toutes les variables sont vides dispara&icirc;t (ex. adresse non renseign&eacute;e). {commande} s'&eacute;crit tout seul &agrave; partir du colisage et de l'unit&eacute; de commande de la fiche produit (ex. &laquo;&nbsp;2 packs de 6&nbsp;&raquo;).</div>
@@ -1138,7 +1137,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt" id="mab-title">Saisir une absence</div>
     <input type="hidden" id="ab-edit-id">
     <div class="fr"><label class="fl2">Salari&#233;</label><select class="fi" id="abe"></select></div>
-    <div class="fr"><label class="fl2">Type</label><select class="fi" id="abt"><option value="cp">Cong&#233;s pay&#233;s</option><option value="rtt">RTT</option><option value="maladie">Arr&#234;t maladie</option><option value="injustifie">Injustifi&#233;e</option><option value="ferie">F&#233;ri&#233;</option><option value="autre">Autre</option></select></div>
+    <div class="fr"><label class="fl2">Type</label><select class="fi" id="abt"></select></div>
     <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="abf"></div>
     <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="abt2"></div>
     <div class="fr"><label class="fl2">Note</label><input type="text" class="fi" id="abn"></div>
@@ -1151,6 +1150,8 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="msa">
   <div class="md">
     <div class="mdt" id="msat">Nouveau salari&#233;</div>
+    <!-- 18/10/2026 : fiche rangée en rubriques repliables (identité ouverte par défaut) -->
+    <details class="sal-sec" open><summary>&#128100; Identit&#233; &amp; contrat</summary><div class="sal-sec-c">
     <div class="fr"><label class="fl2">Pr&#233;nom</label><input type="text" class="fi" id="sap"></div>
     <div class="fr"><label class="fl2">Nom</label><input type="text" class="fi" id="san"></div>
     <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="sar" onchange="renderSalRestosSecList(curSal)"></select></div>
@@ -1166,27 +1167,19 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="sal-postes-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
     </div>
     <div class="fr">
-      <label class="fl2">R&#244;les</label>
+      <label class="fl2">R&#244;les de comptage</label>
       <div id="sal-roles-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
     </div>
-    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
-      <label class="fl2">Personnalisation comptage rapide (optionnel)</label>
-      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">Ajuste les cat&#233;gories visibles dans "Comptage rapide" en plus de ce que donnent ses r&#244;les.</div>
-      <div style="font-size:10px;font-weight:700;color:#166534;margin-bottom:2px">+ Ajouter des cat&#233;gories</div>
-      <div id="sal-comptage-cats-add-list" style="display:block;margin-bottom:8px;max-height:220px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
-      <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:2px">- Retirer des cat&#233;gories (m&#234;me si le r&#244;le les donne)</div>
-      <div id="sal-comptage-cats-remove-list" style="display:block;max-height:220px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
-    </div>
-    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
-      <label class="fl2">&#128269; Diagnostiquer un produit pour ce salari&#233;</label>
-      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">V&#233;rifie, &#233;tape par &#233;tape, pourquoi un produit appara&#238;t (ou pas) dans le comptage de ce salari&#233; sur un restaurant donn&#233; &#8212; rejoue exactement le m&#234;me calcul que l'app de pointage, sur l'&#233;tat actuellement affich&#233; ci-dessus (pas besoin d'enregistrer avant de tester).</div>
-      <div style="display:flex;gap:6px;margin-bottom:6px">
-        <select class="fi" id="saldiag-resto" style="flex:1"></select>
-        <select class="fi" id="saldiag-produit" style="flex:2"></select>
-      </div>
-      <button type="button" class="btn bs sm" onclick="salDiagnostiquerProduit()">Diagnostiquer</button>
-      <div id="saldiag-result" style="margin-top:8px;font-size:11px;"></div>
-    </div>
+    </div></details>
+    <details class="sal-sec"><summary>&#128197; Planning type</summary><div class="sal-sec-c">
+      <div style="font-size:10px;color:var(--txm);margin-bottom:8px">Horaires habituels du salarié. Ils sont enregistrés automatiquement sur sa fiche à chaque modification. « Générer » les recopie sur 12 semaines à partir de la date choisie.</div>
+      <div id="sal-pt-etat" style="font-size:10px;margin-bottom:6px;min-height:12px"></div>
+      <div id="sal-planning-type"></div>
+      <button type="button" class="btn bs sm" onclick="ptReprendreSemaineEnCours()" style="width:100%;margin-top:6px">&#128203; Reprendre son planning de la semaine en cours</button>
+      <div class="fr" style="margin-top:8px"><label class="fl2">Appliquer à partir du</label><input type="date" class="fi" id="sal-pt-start"></div>
+      <button class="btn ba sm" onclick="applyPlanningType()" style="width:100%;margin-top:6px">Générer le planning sur 12 semaines</button>
+    </div></details>
+    <details class="sal-sec"><summary>&#128273; Badge &amp; code PIN</summary><div class="sal-sec-c">
     <div class="fr">
       <label class="fl2">Badge NFC (UID)</label>
       <div style="display:flex;gap:6px;align-items:center">
@@ -1205,15 +1198,27 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <button type="button" class="btn bs sm" id="sa-pin-reset-btn" onclick="resetSalPin()" style="margin-top:8px;display:none">&#128260; R&#233;initialiser son code PIN</button>
     </div>
     <input type="hidden" id="sapin">
-    <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px">
-      <div style="font-size:12px;font-weight:700;color:var(--bx);margin-bottom:6px">&#128197; Planning type hebdomadaire</div>
-      <div style="font-size:10px;color:var(--txm);margin-bottom:8px">Horaires habituels du salarié. Ils sont enregistrés automatiquement sur sa fiche à chaque modification. « Générer » les recopie sur 12 semaines à partir de la date choisie.</div>
-      <div id="sal-pt-etat" style="font-size:10px;margin-bottom:6px;min-height:12px"></div>
-      <div id="sal-planning-type"></div>
-      <button type="button" class="btn bs sm" onclick="ptReprendreSemaineEnCours()" style="width:100%;margin-top:6px">&#128203; Reprendre son planning de la semaine en cours</button>
-      <div class="fr" style="margin-top:8px"><label class="fl2">Appliquer à partir du</label><input type="date" class="fi" id="sal-pt-start"></div>
-      <button class="btn ba sm" onclick="applyPlanningType()" style="width:100%;margin-top:6px">Générer le planning sur 12 semaines</button>
+    </div></details>
+    <details class="sal-sec"><summary>&#129518; Comptage sur la tablette</summary><div class="sal-sec-c">
+    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
+      <label class="fl2">Personnalisation comptage rapide (optionnel)</label>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">Ajuste les cat&#233;gories visibles dans "Comptage rapide" en plus de ce que donnent ses r&#244;les.</div>
+      <div style="font-size:10px;font-weight:700;color:#166534;margin-bottom:2px">+ Ajouter des cat&#233;gories</div>
+      <div id="sal-comptage-cats-add-list" style="display:block;margin-bottom:8px;max-height:220px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
+      <div style="font-size:10px;font-weight:700;color:#991B1B;margin-bottom:2px">- Retirer des cat&#233;gories (m&#234;me si le r&#244;le les donne)</div>
+      <div id="sal-comptage-cats-remove-list" style="display:block;max-height:220px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
     </div>
+    <div class="fr" style="background:#F9FAFB;border:1px solid var(--bd);border-radius:10px;padding:10px">
+      <label class="fl2">&#128269; Diagnostiquer un produit pour ce salari&#233;</label>
+      <div style="font-size:10px;color:var(--txm);margin-bottom:6px">V&#233;rifie, &#233;tape par &#233;tape, pourquoi un produit appara&#238;t (ou pas) dans le comptage de ce salari&#233; sur un restaurant donn&#233; &#8212; rejoue exactement le m&#234;me calcul que l'app de pointage, sur l'&#233;tat actuellement affich&#233; ci-dessus (pas besoin d'enregistrer avant de tester).</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select class="fi" id="saldiag-resto" style="flex:1"></select>
+        <select class="fi" id="saldiag-produit" style="flex:2"></select>
+      </div>
+      <button type="button" class="btn bs sm" onclick="salDiagnostiquerProduit()">Diagnostiquer</button>
+      <div id="saldiag-result" style="margin-top:8px;font-size:11px;"></div>
+    </div>
+    </div></details>
     <div style="border-top:1px solid var(--bd);margin:12px 0 8px;padding-top:10px" id="msa-archive-zone">
       <button type="button" class="btn ba sm" id="msa-archive-btn" onclick="closeM('msa');openArchiveSal(curSal)" style="width:100%">&#128193; Archiver ce salari&#233;</button>
     </div>
@@ -1238,10 +1243,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <label class="fl2">Statut du cr&#233;neau</label>
       <select class="fi" id="pedit-statut">
         <option value="">Travaill&#233; (normal)</option>
-        <option value="cp">Cong&#233;s pay&#233;s</option>
-        <option value="rec">R&#233;cup&#233;ration</option>
-        <option value="am">Arr&#234;t maladie</option>
-        <option value="ai">Absence injustifi&#233;e</option>
       </select>
     </div>
     <div class="fr" id="pedit-postes-row">
@@ -1270,10 +1271,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <label class="fl2">Statut du cr&#233;neau</label>
       <select class="fi" id="pcr-statut">
         <option value="">Travaill&#233; (normal)</option>
-        <option value="cp">Cong&#233;s pay&#233;s</option>
-        <option value="rec">R&#233;cup&#233;ration</option>
-        <option value="am">Arr&#234;t maladie</option>
-        <option value="ai">Absence injustifi&#233;e</option>
       </select>
     </div>
     <div class="fr" id="pcr-postes-row">
@@ -1364,7 +1361,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 var db=supabase.createClient(SURL,SKEY);
 // Logique métier partagée avec la tablette (restoglobal-commun.js) : une seule copie de chaque règle.
 if(!window.RG){alert('Fichier restoglobal-commun.js introuvable : il doit être mis en ligne à côté de admin.html. Les besoins, messages de commande et le Labo ne fonctionneront pas correctement sans lui.');}
-else{RG.chargerModeleMessage(db);RG.chargerEnseigne(db).then(function(){RG.appliquerEnseigne('Admin');});} // message type et enseigne prêts dès l'ouverture de l'admin
+else{RG.chargerModeleMessage(db);RG.chargerEnseigne(db).then(function(){RG.appliquerEnseigne('Administration');});} // message type et enseigne prêts dès l'ouverture de l'admin
 // Nom de l'enseigne (Réglages > Enseigne) pour les documents et mails : jamais écrit en dur.
 function enseigneNom(){return (window.RG&&RG.ENSEIGNE&&RG.ENSEIGNE.nom)||'';}
 function enseignePrefixe(){var n=enseigneNom();return n?(n+' \u2014 '):'';}
@@ -1526,7 +1523,7 @@ function goModule(name){
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
   if(name==='caisse')loadCaisseModule();
-  if(name==='reglages'){renderModeleMessageEditor();renderEnseigneEditor();}
+  if(name==='reglages'){renderModeleMessageEditor();renderEnseigneEditor();loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
 }
 // ── Message type de commande (Réglages) — stocké dans app_config, lu par la tablette et l'admin via
 // restoglobal-commun.js (RG.chargerModeleMessage / RG.construireMessage). ──
@@ -1572,7 +1569,7 @@ async function sauverEnseigne(){
   try{
     await RG.enregistrerEnseigne(db,nom,enseigneLogoEnCours);
     enseigneLogoEnCours=undefined;
-    RG.appliquerEnseigne('Admin');
+    RG.appliquerEnseigne('Administration');
     alert('✅ Enseigne enregistrée. La tablette l\'affichera à sa prochaine ouverture.');
   }catch(e){alert('Erreur : '+e.message);}
 }
@@ -1631,7 +1628,7 @@ function goHome(){
 }
 
 function goTab(name,el){
-  ['sa','pl','rc','pm'].forEach(function(id){
+  ['sa','pl','rc'].forEach(function(id){
     var e=document.getElementById(id);if(e)e.style.display='none';
   });
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
@@ -1640,15 +1637,14 @@ function goTab(name,el){
   if(name==='pl'){planUpdateLabel();loadPl();}
   if(name==='rc')rcSubTab(rcCurrentSub);
   if(name==='sa')renderSal();
-  if(name==='pm'){loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
 }
 
-// ── Sous-navigation de l'onglet Récap (Pointages/Présences/Récap/Demandes) ──
+// ── Sous-navigation de l'onglet Récap (Aujourd'hui / Pointages / Heures & paie / Demandes) ──
 var rcCurrentSub='auj';
 function rcSubTab(which){
   rcCurrentSub=which;
-  var panes={auj:'rc-pane-auj',pt:'rc-pane-pt',pr:'rc-pane-pr',recap:'rc-pane-recap',ab:'rc-pane-ab'};
-  var tabs={auj:'rcsubtab-auj',pt:'rcsubtab-pt',pr:'rcsubtab-pr',recap:'rcsubtab-recap',ab:'rcsubtab-ab'};
+  var panes={auj:'rc-pane-auj',pt:'rc-pane-pt',recap:'rc-pane-recap',ab:'rc-pane-ab'};
+  var tabs={auj:'rcsubtab-auj',pt:'rcsubtab-pt',recap:'rcsubtab-recap',ab:'rcsubtab-ab'};
   Object.keys(panes).forEach(function(k){
     var pane=document.getElementById(panes[k]);
     var tab=document.getElementById(tabs[k]);
@@ -1660,7 +1656,6 @@ function rcSubTab(which){
   });
   if(which==='auj')loadAuj();
   if(which==='pt')loadPt();
-  if(which==='pr')loadPr();
   if(which==='recap')loadRc();
   if(which==='ab')abSubTab('dem');
 }
@@ -1693,15 +1688,6 @@ function dureeCreneauMin(debut,fin){
 function calcW(entries){
   return RG.minutesTravaillees(entries);
 }
-
-// Salariés avec une sortie manquante (entrée suivie d'une autre entrée) ou encore en service.
-function missingEx(entries){
-  var a=RG.appairerPointages(entries);
-  var ids={};
-  a.sansSortie.concat(a.enCours).forEach(function(e){ids[e.employee_id]=true;});
-  return Object.keys(ids).map(Number);
-}
-
 
 function empActifNow(em){
   if(em.archive){
@@ -1740,8 +1726,6 @@ async function loadPt(){
   });
   pts=r.data||[];
   renderPt();
-  renderAlerts();
-  updateStats();
 }
 
 function renderPt(){
@@ -1767,36 +1751,6 @@ function renderPt(){
     h+='</tr>';
   });
   tb.innerHTML=h;
-}
-
-// « Aujourd'hui » = journée métier en cours (7h → 7h), pointages corrigés ignorés.
-function ptsDuJour(){
-  var today=RG.bizDateKey();
-  return RG.pointagesValides(pts).filter(function(e){return RG.bizDateKey(e.timestamp)===today;});
-}
-function updateStats(){
-  var te=ptsDuJour();
-  var pres=new Set(te.filter(function(e){return e.type==='entree';}).map(function(e){return e.employee_id;})).size;
-  document.getElementById('sp').textContent=pres;
-  document.getElementById('spt').textContent=pts.length;
-  var mx=missingEx(te);
-  var sx=te.filter(function(e){return !e.ip_ok;}).length;
-  document.getElementById('sal').textContent=mx.length+sx;
-}
-
-function renderAlerts(){
-  var te=ptsDuJour();
-  var mx=missingEx(te);
-  var sx=te.filter(function(e){return !e.ip_ok;});
-  var c=document.getElementById('alc');c.innerHTML='';
-  mx.forEach(function(id){
-    var em=emp(id);
-    c.innerHTML+='<div class="al"><div class="alt">⚠ Sortie non enregistrée</div>'+em.prenom+' '+em.nom+' — <button class="btn ba sm" onclick="openCorFor('+id+',&quot;sortie&quot;)">Corriger</button></div>';
-  });
-  sx.forEach(function(e){
-    var em=emp(e.employee_id);
-    c.innerHTML+='<div class="al red"><div class="alt">IP suspecte</div>'+em.prenom+' '+em.nom+' — '+e.ip_address+'</div>';
-  });
 }
 
 function openCor(){document.getElementById('ccd').value=ptDateLocale(new Date());document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
@@ -1854,35 +1808,6 @@ function expCSV(){
   var a=document.createElement('a');a.href=url;a.download='pointages_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
 
-async function loadPr(){
-  // Journée métier en cours (7h → 7h), pointages corrigés ignorés (correctif du 17/10/2026).
-  var jb=RG.bizJourneeBornes();
-  var r=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',jb.debut.toISOString()).lt('timestamp',jb.fin.toISOString()).order('timestamp').order('id');});
-  var entries=RG.pointagesValides(r.data||[]);
-  var body=document.getElementById('prb');if(!body)return;
-  var actifs=emps.filter(function(e){return empActifNow(e);});
-  var h='';
-  actifs.forEach(function(em){
-    var ee=entries.filter(function(e){return e.employee_id===em.id;});
-    var ins=ee.filter(function(e){return e.type==='entree';}).sort(function(a,b){return new Date(b.timestamp)-new Date(a.timestamp);});
-    var outs=ee.filter(function(e){return e.type==='sortie';}).sort(function(a,b){return new Date(b.timestamp)-new Date(a.timestamp);});
-    var li=ins[0],lo=outs[0];
-    var ip=li&&(!lo||new Date(li.timestamp)>new Date(lo.timestamp));
-    var w=calcW(ee);
-    var sb=ip?'<span class="bg present">● Présent</span>':lo?'<span class="bg sorti">Sorti</span>':'<span class="bg absent">Absent</span>';
-    var rl=rctRestoLabel(em.restaurant_id);
-    h+='<div style="width:38px;height:38px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
-    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</div>';
-    h+='<div style="font-size:11px;margin-top:2px"><span class="bg '+em.restaurant_id+'">'+rl+'</span></div></div>';
-    h+='<div style="text-align:right">'+sb;
-    if(li)h+='<div style="font-size:11px;color:var(--txm);margin-top:3px">↗ '+fmt(li.timestamp)+(lo?' &nbsp;↙ '+fmt(lo.timestamp):'')+'</div>';
-    if(w>0)h+='<div style="font-size:13px;font-weight:700;color:var(--bx)">'+toHM(w)+'</div>';
-    h+='</div></div></div>';
-  });
-  body.innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
-}
-
-
 // ── PLANNING VARIABLES ──────────────────────────────────────────────────────
 var planResto=''; // fixé par le sélecteur de restaurant en haut de page (premier établissement par défaut)
 var planWkStart=planMonOf(new Date());
@@ -1892,8 +1817,6 @@ var planDirty=false;
 var PLAN_DAYS=['L','Ma','Me','J','V','S','D'];
 var PLAN_DAYSFULL=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 var PLAN_MONTHS=['Janvier','F\u00e9vrier','Mars','Avril','Mai','Juin','Juillet','Ao\u00fbt','Septembre','Octobre','Novembre','D\u00e9cembre'];
-var ABS_OPTS=[{v:'',l:'-- Aucune --'},{v:'am',l:'AM - Arr\u00eat maladie'},{v:'ai',l:'AI - Abs. injustifi\u00e9e'},{v:'cp',l:'CP - Cong\u00e9s pay\u00e9s'},{v:'rec',l:'R\u00e9cup - R\u00e9cup\u00e9ration'}];
-var ABS_STYLES={am:'background:#FEE2E2;color:#991B1B',ai:'background:#111;color:#fff',cp:'background:#EDE9FE;color:#5B21B6',rec:'background:#D1FAE5;color:#065F46'};
 
 function planMonOf(d){var x=new Date(d);var day=x.getDay();x.setDate(x.getDate()-(day===0?6:day-1));x.setHours(0,0,0,0);return x;}
 function planAddD(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x;}
@@ -1982,8 +1905,8 @@ function renderPlan(){
   var dates=planGetWeekDates();
   var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
   var SECCOLORS={cuisine:'#991B1B',salle:'#92400E',livraison:'#065F46'};
-  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'Récup'};
-  var ABS_S={am:'background:#FEE2E2;color:#991B1B',ai:'background:#111;color:#fff',cp:'background:#EDE9FE;color:#5B21B6',rec:'background:#D1FAE5;color:#065F46'};
+  var ABS_L=motifsCarte('court'); // liste commune des motifs (Réglages)
+  var ABS_S=motifsCarte('style');
 
   // Titre
   var tblTitle=document.getElementById('plan-tbl-title');
@@ -2037,9 +1960,7 @@ function renderPlan(){
             var crIdx=(planData[em.id]&&planData[em.id][dstr])?planData[em.id][dstr].indexOf(cr):crs.indexOf(cr);
             var absTag='';var crStyle='cursor:pointer;display:block;padding:1px 2px;border-radius:3px';
             if(cr.absence_code){
-              var acL={cp:'CP',rec:'R\u00e9cup',am:'AM',ai:'AI'};
-              var acC={cp:'#5B21B6',rec:'#065F46',am:'#991B1B',ai:'#1F2937'};
-              var acB={cp:'#EDE9FE',rec:'#D1FAE5',am:'#FEE2E2',ai:'#E5E7EB'};
+              var acL=motifsCarte('court'),acC=motifsCarte('couleur'),acB=motifsCarte('fond');
               crStyle+=';background:'+(acB[cr.absence_code]||'#eee');
               absTag=' <span style="font-size:7px;font-weight:700;color:'+(acC[cr.absence_code]||'#333')+'">'+(acL[cr.absence_code]||cr.absence_code)+'</span>';
             }
@@ -2096,7 +2017,7 @@ function renderPlan(){
       });
       h+='<button class="add-c" data-eid="'+emp.id+'" data-d="'+dstr+'" onclick="planOpenCrBtn(this)">+</button>';
       h+='<select class="abs-sel" data-eid="'+emp.id+'" data-d="'+dstr+'" onchange="planSetAbs(this)">';
-      var ABS_OPTS3=[{v:'',l:'-- Aucune --'},{v:'am',l:'AM'},{v:'ai',l:'AI'},{v:'cp',l:'CP'},{v:'rec',l:'Récup'}];
+      var ABS_OPTS3=[{v:'',l:'-- Aucune --'}].concat(motifs.map(function(m){return {v:m.id,l:m.court||m.nom};}));
       ABS_OPTS3.forEach(function(o){h+='<option value="'+o.v+'"'+(absCode===o.v?' selected':'')+'>'+o.l+'</option>';});
       h+='</select></div>';
     });
@@ -2599,21 +2520,74 @@ function openPDFMonth(){
 }
 
 
-// ── PARAMÈTRES / POSTES ──────────────────────────────────────────────────────
-var POSTES_DEFAULT=[
-  {id:1,nom:'Pizzaiolo',secteur:'cuisine'},
-  {id:2,nom:'Apr\u00e8s cuisson',secteur:'cuisine'},
-  {id:3,nom:'T\u00e9l\u00e9phone',secteur:'salle'},
-  {id:4,nom:'Serveur',secteur:'salle'},
-  {id:5,nom:'Barman',secteur:'cuisine'},
-  {id:6,nom:'Livreur',secteur:'livraison'},
-  {id:7,nom:'Labo',secteur:'cuisine'},
-  {id:8,nom:'Manager',secteur:'salle'}
-];
-var postes=JSON.parse(localStorage.getItem('rg_postes')||'null')||POSTES_DEFAULT;
+// ── RÉGLAGES RH ENREGISTRÉS EN BASE (app_config) ────────────────────────────────────────────────────────
+// Correctif du 18/10/2026 : postes du planning, motifs d'absence et seuil d'heures sup. étaient enregistrés
+// seulement dans le navigateur de l'appareil (localStorage) — chaque téléphone ou ordinateur avait sa propre
+// liste. Ils sont désormais dans app_config, comme le délai de badgeage, donc communs à tous les appareils.
+// Reprise automatique : la première fois, la liste déjà présente sur l'appareil est recopiée en base.
+// Rien de propre à un restaurant n'est écrit ici (marque blanche) : la liste des postes vient de la base.
+var CFG_POSTES='postes_planning',CFG_SEUIL='seuil_heures_sup'; // motifs d'absence : RG.MOTIFS_CLE
+var reglagesRhCharges=false;
+async function cfgLire(cle){
+  var r=await db.from('app_config').select('value').eq('key',cle).maybeSingle();
+  if(r.error)throw r.error;
+  return r.data?r.data.value:null;
+}
+async function cfgEcrire(cle,valeur){
+  var r=await db.from('app_config').upsert({key:cle,value:String(valeur)},{onConflict:'key'});
+  if(r.error)throw r.error;
+}
+function cfgJson(txt){try{return txt?JSON.parse(txt):null;}catch(e){return null;}}
+function localJson(cle){try{return JSON.parse(localStorage.getItem(cle)||'null');}catch(e){return null;}}
+// Une liste enregistrée en base a une origine : 'reprise' (script SQL de reprise), 'appareil' (recopiée depuis un
+// appareil) ou 'admin' (modifiée dans Réglages). Une liste de reprise est remplacée UNE fois par celle d'un
+// appareil qui en avait une : c'est elle qui était réellement utilisée.
+async function chargerReglagesRH(){
+  // Postes du planning
+  try{
+    var bp=cfgJson(await cfgLire(CFG_POSTES));
+    var lp=localJson('rg_postes');
+    if(bp&&Array.isArray(bp.liste)&&!(bp.source==='reprise'&&Array.isArray(lp)&&lp.length)){
+      postes=bp.liste;
+    }else if(Array.isArray(lp)&&lp.length){
+      postes=lp;
+      await cfgEcrire(CFG_POSTES,JSON.stringify({source:'appareil',liste:postes}));
+    }else{
+      postes=(bp&&Array.isArray(bp.liste))?bp.liste:[];
+    }
+  }catch(e){console.warn('chargerReglagesRH postes',e);postes=localJson('rg_postes')||[];}
+  // Motifs d'absence (liste commune admin + tablette, RG.chargerMotifsAbsence)
+  try{
+    var cm=await RG.chargerMotifsAbsence(db);
+    var lm=localJson('rg_motifs');
+    if(!cm.enBase&&Array.isArray(lm)&&lm.length)await RG.enregistrerMotifsAbsence(db,lm,'appareil');
+    motifs=RG.MOTIFS;
+  }catch(e){console.warn('chargerReglagesRH motifs',e);motifs=normaliserMotifs(localJson('rg_motifs')||MOTIFS_DEFAULT);}
+  // Seuil d'heures sup. de la semaine
+  try{
+    var bs=await cfgLire(CFG_SEUIL);
+    if(bs!=null&&bs!==''&&!isNaN(parseFloat(bs))){
+      seuilDepassement=parseFloat(bs);
+    }else{
+      var ls=parseFloat(localStorage.getItem('rg_seuil_depassement'));
+      seuilDepassement=isNaN(ls)?2:ls;
+      if(!isNaN(ls))await cfgEcrire(CFG_SEUIL,seuilDepassement);
+    }
+  }catch(e){console.warn('chargerReglagesRH seuil',e);}
+  reglagesRhCharges=true;
+}
+async function sauverPostes(){
+  try{await cfgEcrire(CFG_POSTES,JSON.stringify({source:'admin',liste:postes}));}
+  catch(e){alert('Erreur : les postes n’ont pas pu être enregistrés ('+e.message+').');}
+}
+async function sauverMotifs(){
+  try{motifs=await RG.enregistrerMotifsAbsence(db,motifs,'admin');}
+  catch(e){alert('Erreur : les motifs n’ont pas pu être enregistrés ('+e.message+').');}
+}
+
+// ── POSTES DU PLANNING ───────────────────────────────────────────────────────────────────────────────────
+var postes=[];
 var curPosteId=null;
-
-
 
 // ── DÉLAI BADGEAGE (partagé avec la tablette via app_config) ─────────────────
 async function loadDelaiBadge(){
@@ -2630,52 +2604,105 @@ async function saveDelaiBadge(){
   if(r.error)alert('Erreur sauvegarde: '+r.error.message);
 }
 
-// ── SEUIL DÉPASSEMENT HEURES ────────────────────────────────────────────────
-var seuilDepassement=parseFloat(localStorage.getItem('rg_seuil_depassement')||'2');
-function saveSeuilLocal(){localStorage.setItem('rg_seuil_depassement',String(seuilDepassement));}
+// ── HEURES SUP. DE LA SEMAINE (seuil au-delà du contrat) ────────────────────
+var seuilDepassement=2;
 function loadSeuilParam(){
   var inp=document.getElementById('pm-seuil');
   if(inp)inp.value=seuilDepassement;
 }
-function saveSeuilParam(){
+async function saveSeuilParam(){
   var inp=document.getElementById('pm-seuil');
-  if(inp){seuilDepassement=parseFloat(inp.value)||2;saveSeuilLocal();}
+  if(!inp)return;
+  var v=parseFloat(String(inp.value).replace(',','.'));
+  seuilDepassement=isNaN(v)||v<0?2:v;
+  inp.value=seuilDepassement;
+  try{await cfgEcrire(CFG_SEUIL,seuilDepassement);}
+  catch(e){alert('Erreur sauvegarde : '+e.message);}
 }
 
-// ── MOTIFS D'ABSENCE PERSONNALISABLES ───────────────────────────────────────
-var MOTIFS_DEFAULT=[
-  {id:'cp',nom:'Cong\u00e9s pay\u00e9s',couleur:'#5B21B6'},
-  {id:'rtt',nom:'RTT',couleur:'#1E40AF'},
-  {id:'maladie',nom:'Arr\u00eat maladie',couleur:'#991B1B'},
-  {id:'injustifie',nom:'Absence injustifi\u00e9e',couleur:'#1F2937'},
-  {id:'ferie',nom:'F\u00e9ri\u00e9',couleur:'#92400E'},
-  {id:'autre',nom:'Autre',couleur:'#6B7280'}
-];
-var motifs=JSON.parse(localStorage.getItem('rg_motifs')||'null')||MOTIFS_DEFAULT;
+// ── MOTIFS D'ABSENCE : UNE SEULE LISTE COMMUNE ──────────────────────────────
+// Définie une seule fois dans restoglobal-commun.js (RG.MOTIFS_ABSENCE_DEFAUT, RG.MOTIFS_ALIAS,
+// RG.normaliserMotifs, RG.chargerMotifsAbsence) et partagée avec la tablette. Utilisée partout ici : absences,
+// statut d'un jour ou d'un créneau du planning, demandes des salariés, fiche salarié, exports paie et PDF.
+// Avant le 18/10/2026, il existait trois listes écrites en dur avec des codes différents (« maladie » et « am »).
+// Les anciens codes restent reconnus : rien n'est à modifier dans les données déjà enregistrées.
+var _RGM=window.RG||{};
+var MOTIFS_DEFAULT=_RGM.MOTIFS_ABSENCE_DEFAUT||[];
+var MOTIFS_ALIAS=_RGM.MOTIFS_ALIAS||{};
+var MOTIFS_TABLETTE=_RGM.MOTIFS_BASE||[]; // motifs de base (planning, demandes) : protégés contre la suppression
+function normaliserMotifs(liste){return _RGM.normaliserMotifs?_RGM.normaliserMotifs(liste):(liste||[]);}
+var motifs=normaliserMotifs(MOTIFS_DEFAULT);
 var curMotifId=null;
-function saveMotifsLocal(){localStorage.setItem('rg_motifs',JSON.stringify(motifs));}
-function getMotifNom(id){var m=motifs.find(function(x){return x.id===id;});return m?m.nom:id;}
-function getMotifCouleur(id){var m=motifs.find(function(x){return x.id===id;});return m?m.couleur:'#6B7280';}
+function motifAbs(code){
+  var id=MOTIFS_ALIAS[code]||code;
+  return motifs.find(function(m){return m.id===id;})||{id:code||'',nom:code||'',court:code||'',couleur:'#6B7280'};
+}
+function getMotifNom(code){return motifAbs(code).nom;}
+function getMotifCourt(code){var m=motifAbs(code);return m.court||m.nom;}
+function getMotifCouleur(code){return motifAbs(code).couleur;}
+// Couleurs d'une pastille : texte = couleur du motif, fond = la même très éclaircie. [r,g,b] pour les PDF.
+function motifRvb(code,clair){
+  var m=/^#?([0-9a-f]{6})$/i.exec(getMotifCouleur(code)||'');
+  var n=m?parseInt(m[1],16):0x6B7280;
+  var c=[(n>>16)&255,(n>>8)&255,n&255];
+  return clair?c.map(function(v){return Math.round(v+(255-v)*0.85);}):c;
+}
+function motifStyle(code){
+  var f=motifRvb(code,true);
+  return 'background:rgb('+f.join(',')+');color:'+getMotifCouleur(code);
+}
+// Options d'un menu déroulant de motifs (premier = option vide facultative).
+function motifsOptionsHtml(selection,optionVide){
+  var sel=MOTIFS_ALIAS[selection]||selection;
+  var h=optionVide?'<option value="'+optionVide.valeur+'">'+esc(optionVide.libelle)+'</option>':'';
+  motifs.forEach(function(m){h+='<option value="'+esc(m.id)+'"'+(m.id===sel?' selected':'')+'>'+esc(m.nom)+(m.court&&m.court!==m.nom?' ('+esc(m.court)+')':'')+'</option>';});
+  return h;
+}
+
+// Table code → valeur pour tous les motifs (et les anciens codes), à la place des listes écrites en dur
+// qui existaient dans chaque écran : 'nom', 'court', 'couleur', 'fond', 'style', 'rvb' ou 'rvbClair' (PDF).
+function motifsCarte(champ){
+  var o={};
+  motifs.forEach(function(m){
+    var v;
+    switch(champ){
+      case 'court':v=m.court||m.nom;break;
+      case 'couleur':v=m.couleur;break;
+      case 'fond':v='rgb('+motifRvb(m.id,true).join(',')+')';break;
+      case 'style':v=motifStyle(m.id);break;
+      case 'rvb':v=motifRvb(m.id,false);break;
+      case 'rvbClair':v=motifRvb(m.id,true);break;
+      default:v=m.nom;
+    }
+    o[m.id]=v;
+  });
+  Object.keys(MOTIFS_ALIAS).forEach(function(a){if(o[MOTIFS_ALIAS[a]]!==undefined)o[a]=o[MOTIFS_ALIAS[a]];});
+  return o;
+}
 
 function loadMotifs(){
-  var div=document.getElementById('pm-motifs');if(!div)return;
-  var h='';
-  motifs.forEach(function(m){
-    h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)">';
-    h+='<span style="width:14px;height:14px;border-radius:50%;background:'+m.couleur+';flex-shrink:0"></span>';
-    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+m.nom+'</div></div>';
-    h+='<button class="btn bs sm" onclick="openEditMotif(\''+m.id+'\')">&#9998;</button>';
-    h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="delMotif(\''+m.id+'\')">&#10005;</button>';
-    h+='</div>';
-  });
-  div.innerHTML=h||'<div style="color:#aaa;text-align:center;padding:16px">Aucun motif</div>';
+  var div=document.getElementById('pm-motifs');
+  if(div){
+    var h='';
+    motifs.forEach(function(m){
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)">';
+      h+='<span style="'+motifStyle(m.id)+';padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;min-width:44px;text-align:center">'+esc(m.court||m.nom)+'</span>';
+      h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+esc(m.nom)+'</div>'+(m.tablette?'<div style="font-size:10px;color:var(--txm)">Proposé aux salariés sur la tablette</div>':'')+'</div>';
+      h+='<button class="btn bs sm" onclick="openEditMotif(\''+esc(m.id)+'\')">&#9998;</button>';
+      if(MOTIFS_TABLETTE.indexOf(m.id)<0)h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="delMotif(\''+esc(m.id)+'\')">&#10005;</button>';
+      h+='</div>';
+    });
+    div.innerHTML=h||'<div style="color:#aaa;text-align:center;padding:16px">Aucun motif</div>';
+  }
   updateMotifSelects();
 }
 
 function openAddMotif(){
   curMotifId=null;
   document.getElementById('motif-nom').value='';
+  document.getElementById('motif-court').value='';
   document.getElementById('motif-couleur').value='#6B7280';
+  document.getElementById('motif-tablette').checked=true;
   document.getElementById('modal-motif-title').textContent='Nouveau motif';
   openM('modal-motif');
 }
@@ -2684,46 +2711,45 @@ function openEditMotif(id){
   var m=motifs.find(function(x){return x.id===id;});if(!m)return;
   curMotifId=id;
   document.getElementById('motif-nom').value=m.nom;
+  document.getElementById('motif-court').value=m.court||'';
   document.getElementById('motif-couleur').value=m.couleur;
+  document.getElementById('motif-tablette').checked=!!m.tablette;
   document.getElementById('modal-motif-title').textContent='Modifier le motif';
   openM('modal-motif');
 }
 
-function saveMotif(){
+async function saveMotif(){
   var nom=document.getElementById('motif-nom').value.trim();
+  var court=document.getElementById('motif-court').value.trim();
   var couleur=document.getElementById('motif-couleur').value;
+  var tablette=document.getElementById('motif-tablette').checked;
   if(!nom){alert('Saisissez un nom de motif');return;}
   if(curMotifId){
     var m=motifs.find(function(x){return x.id===curMotifId;});
-    if(m){m.nom=nom;m.couleur=couleur;}
+    if(m){m.nom=nom;m.court=court||nom;m.couleur=couleur;m.tablette=tablette;}
   }else{
-    var newId='m'+Date.now();
-    motifs.push({id:newId,nom:nom,couleur:couleur});
+    motifs.push({id:'m'+Date.now(),nom:nom,court:court||nom,couleur:couleur,tablette:tablette});
   }
-  saveMotifsLocal();closeM('modal-motif');loadMotifs();
+  await sauverMotifs();closeM('modal-motif');loadMotifs();
 }
 
-function delMotif(id){
-  if(!confirm('Supprimer ce motif ?'))return;
+async function delMotif(id){
+  if(MOTIFS_TABLETTE.indexOf(id)>=0){alert('Ce motif de base est utilisé par le planning et les demandes des salariés : il ne peut pas être supprimé (vous pouvez le renommer, ou ne plus le proposer sur la tablette).');return;}
+  if(!confirm('Supprimer ce motif ? Les absences déjà enregistrées avec ce motif garderont leur code.'))return;
   motifs=motifs.filter(function(x){return x.id!==id;});
-  saveMotifsLocal();loadMotifs();
+  await sauverMotifs();loadMotifs();
 }
 
+// Remplit tous les menus déroulants de motifs (absence, demande, statut du jour ou du créneau).
 function updateMotifSelects(){
-  var sel=document.getElementById('abt');
-  if(sel){
+  [['abt',null],['dem-modal-type',null],['pabs-select',{valeur:'none',libelle:'Aucune absence (retirer)'}],
+   ['pedit-statut',{valeur:'',libelle:'Travaillé (normal)'}],['pcr-statut',{valeur:'',libelle:'Travaillé (normal)'}]].forEach(function(x){
+    var sel=document.getElementById(x[0]);if(!sel)return;
     var cur=sel.value;
-    sel.innerHTML='';
-    motifs.forEach(function(m){
-      var o=document.createElement('option');o.value=m.id;o.textContent=m.nom;sel.appendChild(o);
-    });
-    if(cur)sel.value=cur;
-  }
+    sel.innerHTML=motifsOptionsHtml(cur,x[1]);
+    if(cur)sel.value=MOTIFS_ALIAS[cur]||cur;
+  });
 }
-
-
-
-function savePostesLocal(){localStorage.setItem('rg_postes',JSON.stringify(postes));}
 
 function loadPostes(){
   var div=document.getElementById('pm-postes');if(!div)return;
@@ -2731,28 +2757,31 @@ function loadPostes(){
   var h='';
   postes.forEach(function(p){
     h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)">';
-    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+p.nom+'</div></div>';
-    h+='<span style="'+( SEC[p.secteur]||'')+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">'+(p.secteur||'')+'</span>';
+    h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+esc(p.nom)+'</div></div>';
+    h+='<span style="'+( SEC[p.secteur]||'')+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">'+esc(p.secteur||'')+'</span>';
     h+='<button class="btn bs sm" onclick="openEditPoste('+p.id+')">&#9998;</button>';
     h+='<button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="delPoste('+p.id+')">&#10005;</button>';
     h+='</div>';
   });
-  div.innerHTML=h||'<div style="color:#aaa;text-align:center;padding:16px">Aucun poste</div>';
+  div.innerHTML=h||'<div style="color:#aaa;text-align:center;padding:16px">Aucun poste. Ajoutez les postes de votre équipe (ex. Cuisine, Salle, Livraison).</div>';
   // Mettre à jour les selects poste dans les fiches salariés
   updatePosteSelects();
 }
 
 function updatePosteSelects(){
   var opts='<option value="">-- Aucun --</option>';
-  postes.forEach(function(p){opts+='<option value="'+p.id+'">'+p.nom+'</option>';});
+  postes.forEach(function(p){opts+='<option value="'+p.id+'">'+esc(p.nom)+'</option>';});
   document.querySelectorAll('.poste-select').forEach(function(s){
     var val=s.value;s.innerHTML=opts;s.value=val;
   });
 }
 
 
-
-
+// Fiche salarié : à chaque ouverture, seule la rubrique « Identité & contrat » est dépliée (18/10/2026).
+function salSectionsInit(){
+  var secs=document.querySelectorAll('#msa details.sal-sec');
+  for(var i=0;i<secs.length;i++)secs[i].open=(i===0);
+}
 function cleanBadgeUid(input){
   var v=input.value;
   // Retirer le préfixe BADGE: ajouté par le QR code (insensible à la casse)
@@ -3444,23 +3473,24 @@ function openEditPoste(id){
   openM('modal-poste');
 }
 
-function savePoste(){
+async function savePoste(){
   var nom=document.getElementById('poste-nom').value.trim();
   var sec=document.getElementById('poste-secteur').value;
   if(!nom){alert('Saisissez un nom de poste');return;}
   if(curPosteId){
     var p=postes.find(function(x){return x.id===curPosteId;});if(p){p.nom=nom;p.secteur=sec;}
   }else{
-    var newId=Math.max.apply(null,postes.map(function(p){return p.id;}))+1;
+    // Math.max(0, …) : une liste vide donnait -Infinity (avant le 18/10/2026).
+    var newId=Math.max.apply(null,[0].concat(postes.map(function(p){return Number(p.id)||0;})))+1;
     postes.push({id:newId,nom:nom,secteur:sec});
   }
-  savePostesLocal();closeM('modal-poste');loadPostes();
+  await sauverPostes();closeM('modal-poste');loadPostes();
 }
 
-function delPoste(id){
-  if(!confirm('Supprimer ce poste ?'))return;
+async function delPoste(id){
+  if(!confirm('Supprimer ce poste ? Il dispara\u00eetra des cr\u00e9neaux du planning o\u00f9 il \u00e9tait indiqu\u00e9.'))return;
   postes=postes.filter(function(p){return p.id!==id;});
-  savePostesLocal();loadPostes();
+  await sauverPostes();loadPostes();
 }
 
 // ── PDF GÉNÉRAL MENSUEL (couleurs tableau) ────────────────────────────────────
@@ -3515,7 +3545,7 @@ async function drhGenerateData(){
     var cur=new Date(from+'T12:00:00');var end=new Date(to+'T12:00:00');
     while(cur<=end){days.push(planDs(cur));cur=planAddD(cur,1);}
     var rows=[];
-    var ABSP_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+    var ABSP_L=motifsCarte('nom');
     days.forEach(function(dstr){
       // Exclure les jours avant la date d'entrée du salarié
       if(em.date_debut&&dstr<em.date_debut)return;
@@ -3574,7 +3604,7 @@ async function drhGenerateOne(empId,from,to){
   var byDay=RG.pointagesParJour(ep);
   var planByDay={};(crd.data||[]).forEach(function(c){if(!planByDay[c.date])planByDay[c.date]=[];planByDay[c.date].push(c);});
   var absPlanByDay={};(apd.data||[]).forEach(function(a){absPlanByDay[a.date]=a.code;});
-  var ABSP_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var ABSP_L=motifsCarte('nom');
   var days=[];var cur=new Date(from+'T12:00:00');var end=new Date(to+'T12:00:00');
   while(cur<=end){days.push(planDs(cur));cur=planAddD(cur,1);}
   var rows=[];
@@ -4014,9 +4044,7 @@ async function drawPlanningOnDoc(doc,empList,firstDay,lastDay,rl,monthLabel){
   });
   var mabs={};
   (allAbs.data||[]).forEach(function(a){if(!mabs[a.employee_id])mabs[a.employee_id]={};mabs[a.employee_id][a.date]=a.code;});
-  var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
-  var ABS_T={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
-  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
+  var ABS_C=motifsCarte('rvbClair'),ABS_T=motifsCarte('rvb'),ABS_L=motifsCarte('court'); // liste commune des motifs
   var SEC_TX={cuisine:[153,27,27],salle:[146,64,14],livraison:[6,95,70]};
   var SEC_BG={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
   var SECLABELS={cuisine:'CUISINE',salle:'SALLE',livraison:'LIVRAISON'};
@@ -4164,9 +4192,7 @@ async function exportMonthPDF(){
   });
   var mabs={};
   (allAbs.data||[]).forEach(function(a){if(!mabs[a.employee_id])mabs[a.employee_id]={};mabs[a.employee_id][a.date]=a.code;});
-  var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
-  var ABS_T={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
-  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
+  var ABS_C=motifsCarte('rvbClair'),ABS_T=motifsCarte('rvb'),ABS_L=motifsCarte('court'); // liste commune des motifs
   var SEC_TX={cuisine:[153,27,27],salle:[146,64,14],livraison:[6,95,70]};
   var SEC_BG={cuisine:[253,232,232],salle:[254,243,199],livraison:[209,250,229]};
   var SECLABELS={cuisine:'CUISINE',salle:'SALLE',livraison:'LIVRAISON'};
@@ -4321,9 +4347,7 @@ async function exportPlanIndivPDF(empId,fromVal,toVal){
   var monthLabel=isFullDate?(firstDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+lastDay.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})):(valFrom.slice(0,7)===valTo.slice(0,7)?PLAN_MONTHS[firstDay.getMonth()]+' '+firstDay.getFullYear():PLAN_MONTHS[firstDay.getMonth()]+' '+firstDay.getFullYear()+' - '+PLAN_MONTHS[lastDay.getMonth()]+' '+lastDay.getFullYear());
   var rl=rctRestoLabel(em.restaurant_id);
   var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
-  var ABS_C={am:[254,226,226],ai:[30,30,30],cp:[237,233,254],rec:[209,250,229]};
-  var ABS_T={am:[153,27,27],ai:[255,255,255],cp:[91,33,182],rec:[6,95,70]};
-  var ABS_L={am:'AM',ai:'AI',cp:'CP',rec:'R\u00e9cup'};
+  var ABS_C=motifsCarte('rvbClair'),ABS_T=motifsCarte('rvb'),ABS_L=motifsCarte('court'); // liste commune des motifs
 
   // Charger jusqu'à la fin de la dernière semaine (peut déborder sur le mois suivant)
   var lastWeekEnd=planAddD(planMonOf(lastDay),6);
@@ -4880,7 +4904,7 @@ async function renderPlanningComptageList(){
       return '<div class="card" style="margin-bottom:10px;padding:10px;">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
           +'<div style="font-weight:700;font-size:13px;">'+esc(row.emp.prenom+' '+row.emp.nom)+' <span style="font-weight:400;font-size:11px;color:var(--txm);">'+esc(row.horaire)+'</span></div>'
-          +'<button type="button" class="btn bs sm" onclick="closeM(\'modal-planning-comptage\');goTabByName(\'sa\');openEditSal('+row.emp.id+');setTimeout(function(){var el=document.getElementById(\'sal-comptage-cats-add-list\');if(el)el.scrollIntoView({behavior:\'smooth\',block:\'center\'});},150);">&#9998; Modifier</button>'
+          +'<button type="button" class="btn bs sm" onclick="closeM(\'modal-planning-comptage\');goTabByName(\'sa\');openEditSal('+row.emp.id+');setTimeout(function(){var el=document.getElementById(\'sal-comptage-cats-add-list\');if(el){var dt=el.closest(\'details\');if(dt)dt.open=true;el.scrollIntoView({behavior:\'smooth\',block:\'center\'});}},150);">&#9998; Modifier</button>'
         +'</div>'
         +'<div style="font-size:11px;color:var(--txm);margin-top:2px;">'+row.ings.length+' ingr&eacute;dient(s) &agrave; compter</div>'
         +detailHtml
@@ -4894,7 +4918,7 @@ async function renderPlanningComptageList(){
 
 async function openAddSal(){curSal=null;tmpSalPlanningType=[];ptEtat('');var hf=document.getElementById('saheures');if(hf)hf.value='';var df=document.getElementById('sadebut');if(df)df.value='';var mf=document.getElementById('samail');if(mf)mf.value='';document.getElementById('msat').textContent='Nouveau salarié';document.getElementById('sap').value='';document.getElementById('san').value='';await ensureRolesDataLoaded();renderSalPostesList(null);renderSalRolesList(null);renderSalComptageCatsOverrides(null);renderSalRestosSecList(null);renderSalDiagnosticSelectors(null);renderPlanningType(null);document.getElementById('sapin').value='';var bu2=document.getElementById('sal-badge-uid');if(bu2)bu2.value='';
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='none';
-  openM('msa');}
+  salSectionsInit();openM('msa');}
 
 // ── POSTES PAR SALARIÉ ──────────────────────────────────────────────────────
 function getSalPostes(salId){
@@ -5331,7 +5355,7 @@ function renderSalRolesList(salId){
 }
 function renderSalRolesCheckboxes(){
   var div=document.getElementById('sal-roles-list');if(!div)return;
-  if(!rolesData.length){div.innerHTML='<span style="color:#aaa;font-size:12px">Aucun r\u00f4le d\u00e9fini dans Param\u00e8tres</span>';return;}
+  if(!rolesData.length){div.innerHTML='<span style="color:#aaa;font-size:12px">Aucun r\u00f4le de comptage d\u00e9fini (R\u00e9glages \u203a RH)</span>';return;}
   var h='';
   rolesData.forEach(function(ro){
     var isOn=tmpSalRoles.indexOf(ro.id)>=0;
@@ -5368,7 +5392,7 @@ function renderSalPostesList(salId){
     h+='<input type="checkbox" data-pid="'+p.id+'" data-key="'+key+'" '+(isOn?'checked':'')+' style="accent-color:#B91E26;width:14px;height:14px" onchange="toggleSalPosteBtn(this)">'
     h+='<span style="font-size:11px;font-weight:600;color:'+tx+'">'+p.nom+'</span></label>';
   });
-  div.innerHTML=h||'<span style="color:#aaa;font-size:12px">Aucun poste défini dans Paramètres</span>';
+  div.innerHTML=h||'<span style="color:#aaa;font-size:12px">Aucun poste défini (Réglages › RH)</span>';
 }
 
 function toggleSalPosteBtn(cb){toggleSalPoste(cb,cb.dataset.key||null);}
@@ -5457,7 +5481,7 @@ async function openEditSal(id){
   var ptStart=document.getElementById('sal-pt-start');
   if(ptStart){var nm=planAddD(planMonOf(new Date()),7);var nmStr=planDs(nm);ptStart.value=(em&&em.date_debut&&em.date_debut>nmStr)?em.date_debut:nmStr;}
   var azone=document.getElementById('msa-archive-zone');if(azone)azone.style.display='block';
-  openM('msa');
+  salSectionsInit();openM('msa');
 }
 
 async function saveSal(){
@@ -5557,7 +5581,7 @@ async function loadRc(){
     h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Diff</div><div style="font-size:18px;font-weight:700;color:'+dc+'">'+(diff>=0?'+':'')+toHM(diff)+'</div></div>';
     h+='</div>';
     if(sa)h+='<div style="margin-top:7px"><span class="bg sup al2">⚠ +3h sup détectées</span></div>';
-    if(ats.length){h+='<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">';ats.forEach(function(t){h+='<span class="bg '+t+'">'+t.toUpperCase()+'</span>';});h+='</div>';}
+    if(ats.length){h+='<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">';ats.forEach(function(t){h+='<span class="bg" style="'+motifStyle(t)+'">'+esc(getMotifCourt(t))+'</span>';});h+='</div>';}
     h+='</div></div></div>';
   });
   document.getElementById('rcb').innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
@@ -5678,17 +5702,19 @@ async function delAbs(id){
 
 async function loadAb(){
   var resto=document.getElementById('abr').value;
-  var r=await db.from('absences').select('*').order('date_debut',{ascending:false}).limit(300);
-  var allAbs=r.data||[];
-  // Filtrer: mois en cours OU archives (mois précédents)
+  // Mois en cours (absences qui se terminent ce mois-ci ou après) OU archives (terminées avant).
+  // Correctif du 18/10/2026 : le filtre se fait dans la base et la lecture est paginée (RG.toutesLignes) ;
+  // avant, seules les 300 dernières absences étaient lues, et le bouton « Archives » n'avait aucun effet sur la
+  // liste affichée (le filtre était calculé puis ignoré).
   var now=new Date();
   var firstOfMonth=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
-  absAllData=allAbs.filter(function(a){
-    var isCurrent=a.date_fin>=firstOfMonth;
-    return absShowArchive?!isCurrent:isCurrent;
+  var r=await RG.toutesLignes(function(){
+    var q=db.from('absences').select('*').order('date_debut',{ascending:false}).order('id');
+    return absShowArchive?q.lt('date_fin',firstOfMonth):q.gte('date_fin',firstOfMonth);
   });
-  var data=(r.data||[]).filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
-  var labels={};motifs.forEach(function(m){labels[m.id]=m.nom;});
+  absAllData=r.data||[];
+  var data=absAllData.filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
+  var labels=motifsCarte('nom');
   var tb=document.getElementById('abb');
   if(!data.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:#aaa">Aucune absence</td></tr>';return;}
   var h='';
@@ -5785,7 +5811,7 @@ async function ptChargerDonnees(empIds,jourDebut,jourFin){
     ptChargerTraitements(empIds,jourDebut,jourFin)
   ]);
   var jours=ptJoursEntre(jourDebut,jourFin);
-  var ABSP_L={am:'Arrêt maladie',ai:'Absence injustifiée',cp:'Congés payés',rec:'Récupération'};
+  var ABSP_L=motifsCarte('nom');
   var absents={};
   (res[2].data||[]).forEach(function(a){absents[a.employee_id+'|'+a.date]=ABSP_L[a.code]||a.code;});
   (res[3].data||[]).forEach(function(a){
@@ -6236,7 +6262,7 @@ async function ficheLoadDem(){
   h+='<div style="font-size:12px;font-weight:700;color:#B91E26;margin:4px 0 8px">\u{1F4C5} Absences demand\u00e9es</div>';
   if(!dabs.length){h+='<div style="color:#aaa;font-size:12px;padding:4px 0 12px">Aucune demande d\u0027absence</div>';}
   else{
-    var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+    var TL=motifsCarte('nom');
     dabs.forEach(function(d){
       var st=d.statut||'att';
       var stInfo=st==='ok'?{t:'Accept\u00e9e',c:'#065F46',bg:'#D1FAE5'}:st==='ko'?{t:'Refus\u00e9e',c:'#991B1B',bg:'#FEE2E2'}:{t:'En attente',c:'#92400E',bg:'#FEF3C7'};
@@ -6413,7 +6439,7 @@ function ficheLoadPlan(){
     var byDate={};
     crs.forEach(function(c){if(!byDate[c.date])byDate[c.date]=[];byDate[c.date].push(c);});
     var absByDate={};abs.forEach(function(a){absByDate[a.date]=a.code;});
-    var ABS_L={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup'};
+    var ABS_L=motifsCarte('nom'),ABS_ST=motifsCarte('style');
     var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
     var h='<div style="margin-bottom:8px"><button class="btn bp sm" style="width:100%" onclick="closeM(\'modal-absfiche\');goTabByName(\'pl\')">\u270E Modifier dans le planning</button></div>';
     var hasAny=false;
@@ -6433,7 +6459,7 @@ function ficheLoadPlan(){
               return '<span style="color:var(--bx);font-weight:600">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</span>';
             }).join(', ');
           }
-          if(absCode)weekHtml+=(dayCrs.length?' ':'')+'<span style="background:#EDE9FE;color:#5B21B6;padding:1px 6px;border-radius:8px;font-size:10px">'+(ABS_L[absCode]||absCode)+'</span>';
+          if(absCode)weekHtml+=(dayCrs.length?' ':'')+'<span style="'+(ABS_ST[absCode]||'background:#EDE9FE;color:#5B21B6')+';padding:1px 6px;border-radius:8px;font-size:10px">'+(ABS_L[absCode]||absCode)+'</span>';
           weekHtml+='</span></div>';
         }
       }
@@ -6534,7 +6560,7 @@ function openEditAb(id){
   document.getElementById('mab-title').textContent='Modifier l\u0027absence';
   document.getElementById('ab-del-btn').style.display='inline-block';
   document.getElementById('abe').value=a.employee_id;
-  document.getElementById('abt').value=a.type;
+  document.getElementById('abt').value=MOTIFS_ALIAS[a.type]||a.type; // anciens codes (« maladie ») reconnus
   document.getElementById('abf').value=a.date_debut;
   document.getElementById('abt2').value=a.date_fin;
   document.getElementById('abn').value=a.note||'';
@@ -6586,8 +6612,8 @@ async function renderSal(){
   var indic=await computeSalIndicateurs();
   var h='';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
-  h+='<button class="btn bp sm" onclick="openAddSal()">+ Nouveau salarie</button>';
-  h+='<button class="btn bs sm" onclick="openArchives()">Archives</button>';
+  h+='<button class="btn bp sm" onclick="openAddSal()">+ Nouveau salari\u00e9</button>';
+  h+='<button class="btn bs sm" onclick="openArchives()">\u{1F4E6} Salari\u00e9s archiv\u00e9s</button>';
   h+='</div>';
   var SECLABELS={cuisine:'Cuisine',salle:'Salle',livraison:'Livraison'};
   var SECCOL={cuisine:'#991B1B',salle:'#92400E',livraison:'#065F46'};
@@ -6763,7 +6789,7 @@ async function openArchiveDetail(id){
   var demData=dems.data||[];
   if(!demData.length)h+='<div style="font-size:11px;color:#aaa;padding:4px">Aucune demande</div>';
   else{
-    var TL={am:'Arret maladie',ai:'Abs. injustifiee',cp:'Conges payes',rec:'Recuperation'};
+    var TL=motifsCarte('nom');
     var SL={att:'En attente',ok:'Acceptee',ko:'Refusee'};
     demData.forEach(function(d){
       h+='<div style="font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0">'+(TL[d.type]||d.type)+' du '+d.date_debut+' au '+d.date_fin+' - <strong>'+(SL[d.statut]||d.statut)+'</strong></div>';
@@ -6792,7 +6818,7 @@ async function loadDem(){
   var r=await db.from('demandes_absence').select('*').order('created_at',{ascending:false}).limit(50);
   var data=r.data||[];
   if(!data.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Aucune demande</div>';return;}
-  var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var TL=motifsCarte('nom');
   var h='';
   data.forEach(function(d){
     var em2=emp(d.employee_id);var st=d.statut||'att';
@@ -6892,7 +6918,7 @@ async function checkDepassements(silencieux){
     }
   });
   if(alerts.length){
-    var h='<div style="font-size:13px;font-weight:600;color:#991B1B;margin-bottom:10px">\u26A0 Salari\u00e9s en d\u00e9passement cette semaine</div>';
+    var h='<div style="font-size:13px;font-weight:600;color:#991B1B;margin-bottom:10px">\u26A0 Salari\u00e9s au-del\u00e0 de leur contrat cette semaine (seuil : '+String(seuilDepassement).replace('.',',')+' h)</div>';
     alerts.forEach(function(a){
       var dH=Math.floor(a.depass/60);var dM=a.depass%60;
       h+='<div style="padding:8px;background:#FEE2E2;border-radius:8px;margin-bottom:6px">';
@@ -6908,7 +6934,7 @@ async function checkDepassements(silencieux){
 async function checkDemandesEnAttente(){
   var r=await db.from('demandes_absence').select('*').eq('statut','att').order('created_at',{ascending:false});
   var data=r.data||[];if(!data.length)return;
-  var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+  var TL=motifsCarte('nom');
   var h='<div style="font-size:12px;color:var(--txm);margin-bottom:10px">'+data.length+' demande(s) en attente :</div>';
   data.slice(0,5).forEach(function(d){var em2=emp(d.employee_id);h+='<div style="background:#FAF4EC;border-radius:8px;padding:8px 10px;margin-bottom:6px"><div style="font-weight:600;font-size:13px">'+em2.prenom+' '+em2.nom+'</div><div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TL[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div></div>';});
   if(data.length>5)h+='<div style="font-size:11px;color:var(--txm);text-align:center">...et '+(data.length-5)+' autre(s)</div>';
@@ -6918,7 +6944,6 @@ async function checkDemandesEnAttente(){
 
 function goTabByName(name){var tabs=document.querySelectorAll('.tab');for(var i=0;i<tabs.length;i++){var oc=tabs[i].getAttribute('onclick')||'';if(oc.indexOf("'"+name+"'")>=0){goTab(name,tabs[i]);return;}}}
 
-console.log('Restoglobal version: v2026.06.18-PDF-FIX');
 
 // ── TABLEAU DE BORD DES NOUVEAUTÉS ──────────────────────────────────────────
 
@@ -7033,7 +7058,7 @@ async function showDashboard(refresh){
     h+=section('\u{1F4C5}','Demandes d\u0027absence',demAbsShow.length,'#B91E26');
     demAbsShow.slice(0,8).forEach(function(d){
       var em2=emp(d.employee_id);var nom=em2?em2.prenom+' '+em2.nom:'?';
-      var TL={am:'Arr\u00eat maladie',ai:'Abs. injustifi\u00e9e',cp:'Cong\u00e9s',rec:'R\u00e9cup'};
+      var TL=motifsCarte('nom');
       var att=(d.statut||'att')==='att';
       var stB=att?'<span style="color:#92400E;font-weight:700"> \u2022 \u00c0 traiter</span>':'';
       var clik=att?' onclick="dashOpenDem(\''+d.id+'\')" style="font-size:12px;padding:8px 10px 8px 26px;color:var(--tx);cursor:pointer;background:#FEF2F2;border-radius:8px;margin:4px 0;display:flex;justify-content:space-between;align-items:center"':' style="font-size:12px;padding:3px 0 3px 26px;color:var(--tx)"';
@@ -13661,6 +13686,7 @@ async function viewInventaireDetail(invId,label){
 
 async function init(){
   await loadRestaurants();
+  await chargerReglagesRH(); // postes, motifs d'absence, seuil d'heures sup. (en base depuis le 18/10/2026)
   await loadEmps();
   await loadPt();
   loadMotifs();
@@ -13675,7 +13701,7 @@ async function init(){
 <div class="mb" id="modal-poste">
   <div class="md">
     <div class="mdt" id="poste-ttl">Nouveau poste</div>
-    <div class="fr"><label class="fl2">Nom du poste</label><input type="text" class="fi" id="poste-nom" placeholder="Ex: Pizzaiolo"></div>
+    <div class="fr"><label class="fl2">Nom du poste</label><input type="text" class="fi" id="poste-nom" placeholder="Ex : Cuisine"></div>
     <div class="fr"><label class="fl2">Secteur associé</label>
       <select class="fi" id="poste-secteur">
         <option value="cuisine">Cuisine</option>
@@ -13754,6 +13780,8 @@ async function init(){
   <div class="md">
     <div class="mdt" id="modal-motif-title">Nouveau motif</div>
     <div class="fr"><label class="fl2">Nom du motif</label><input type="text" class="fi" id="motif-nom" placeholder="Ex: Cong&#233; paternit&#233;"></div>
+    <div class="fr"><label class="fl2">Abr&#233;viation (planning, PDF)</label><input type="text" class="fi" id="motif-court" maxlength="8" placeholder="Ex: CPat"></div>
+    <div class="fr"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="motif-tablette" style="width:18px;height:18px"> Propos&#233; aux salari&#233;s sur la tablette (demande d'absence)</label></div>
     <div class="fr"><label class="fl2">Couleur</label><input type="color" class="fi" id="motif-couleur" value="#6B7280" style="height:42px;padding:4px"></div>
     <div class="ma">
       <button class="btn bs" onclick="closeM('modal-motif')">Annuler</button>
@@ -13765,7 +13793,7 @@ async function init(){
 <!-- Modal alerte dépassement -->
 <div class="mb" id="modal-depass">
   <div class="md">
-    <div class="mdt">&#9888; Alerte heures</div>
+    <div class="mdt">&#9888; Heures sup. de la semaine</div>
     <div id="depass-body"></div>
     <div class="ma"><button class="btn bp" onclick="closeM('modal-depass')">Compris</button></div>
   </div>
@@ -13838,10 +13866,6 @@ async function init(){
     <div class="fr"><label class="fl2">Statut du jour</label>
       <select class="fi" id="pabs-select">
         <option value="none">Aucune absence (retirer)</option>
-        <option value="cp">Cong&#233;s pay&#233;s (CP)</option>
-        <option value="rec">R&#233;cup&#233;ration</option>
-        <option value="am">Arr&#234;t maladie (AM)</option>
-        <option value="ai">Absence injustifi&#233;e (AI)</option>
       </select>
     </div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pabs')">Annuler</button><button class="btn bp" onclick="planAbsSave()">Valider</button></div>
@@ -13876,12 +13900,7 @@ async function init(){
     <div class="mdt">G&#233;rer la demande d'absence</div>
     <div id="dem-modal-info" style="font-size:13px;color:var(--txm);margin-bottom:10px"></div>
     <div class="fr"><label class="fl2">Type</label>
-      <select class="fi" id="dem-modal-type">
-        <option value="cp">Cong&#233;s pay&#233;s</option>
-        <option value="am">Arr&#234;t maladie</option>
-        <option value="rec">R&#233;cup&#233;ration</option>
-        <option value="ai">Absence injustifi&#233;e</option>
-      </select></div>
+      <select class="fi" id="dem-modal-type"></select></div>
     <div class="fr" style="display:flex;gap:8px">
       <div style="flex:1"><label class="fl2">Du</label><input type="date" class="fi" id="dem-modal-from"></div>
       <div style="flex:1"><label class="fl2">Au</label><input type="date" class="fi" id="dem-modal-to"></div>
@@ -13930,7 +13949,7 @@ async function init(){
   <div class="md">
     <div class="mdt" id="role-modal-title">Nouveau r&#244;le</div>
     <div class="fr"><label class="fl2">Nom du r&#244;le</label>
-      <input type="text" class="fi" id="role-nom" placeholder="Ex: Pizzaiolo"></div>
+      <input type="text" class="fi" id="role-nom" placeholder="Ex : Cuisine"></div>
     <div class="fr"><label class="fl2">Couleur</label>
       <input type="color" class="fi" id="role-couleur" value="#B91E26" style="height:42px"></div>
     <div class="fr"><label class="fl2">Restaurants o&ugrave; ce r&ocirc;le s'applique</label>

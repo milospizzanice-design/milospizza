@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-17b';
+  RG.VERSION='2026-10-18';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -690,6 +690,70 @@
     });
     if(titreBase)document.title=titreBase+(e.nom?(' - '+e.nom):'');
   };
+
+  // ── Motifs d'absence : UNE seule liste pour l'admin et la tablette (18/10/2026) ─────────────────────
+  // Stockée dans app_config (clé motifs_absence), modifiable dans Admin › Réglages › RH & pointage.
+  // Avant, il existait trois listes écrites en dur avec des codes différents pour la même chose (« maladie »
+  // côté admin, « am » côté planning et tablette) : les anciens codes restent reconnus (RG.MOTIFS_ALIAS),
+  // rien n'est à modifier dans les données déjà enregistrées.
+  //   motif = {id, nom, court (abréviation : planning, PDF), couleur '#rrggbb', tablette (proposé aux salariés)}
+  // Les motifs de base (RG.MOTIFS_BASE) sont toujours présents : ce sont les codes déjà utilisés par le planning
+  // et les demandes des salariés.
+  RG.MOTIFS_CLE='motifs_absence';
+  RG.MOTIFS_ABSENCE_DEFAUT=[
+    {id:'cp',nom:'Congés payés',court:'CP',couleur:'#5B21B6',tablette:true},
+    {id:'rec',nom:'Récupération',court:'Récup',couleur:'#065F46',tablette:true},
+    {id:'am',nom:'Arrêt maladie',court:'AM',couleur:'#991B1B',tablette:true},
+    {id:'ai',nom:'Absence injustifiée',court:'AI',couleur:'#1F2937',tablette:true},
+    {id:'rtt',nom:'RTT',court:'RTT',couleur:'#1E40AF',tablette:false},
+    {id:'ferie',nom:'Férié',court:'Férié',couleur:'#92400E',tablette:false},
+    {id:'autre',nom:'Autre',court:'Autre',couleur:'#6B7280',tablette:false}
+  ];
+  RG.MOTIFS_ALIAS={maladie:'am',injustifie:'ai'};
+  RG.MOTIFS_BASE=['cp','am','rec','ai'];
+  RG.normaliserMotifs=function(liste){
+    var out=[],vus={};
+    (liste||[]).forEach(function(m){
+      if(!m||!m.id)return;
+      var id=RG.MOTIFS_ALIAS[m.id]||m.id;
+      if(vus[id])return;
+      var def=RG.MOTIFS_ABSENCE_DEFAUT.filter(function(d){return d.id===id;})[0]||{};
+      vus[id]=true;
+      out.push({id:id,nom:m.nom||def.nom||id,court:m.court||def.court||m.nom||id,
+        couleur:/^#[0-9a-f]{6}$/i.test(m.couleur||'')?m.couleur:(def.couleur||'#6B7280'),
+        tablette:typeof m.tablette==='boolean'?m.tablette:(def.tablette!==undefined?def.tablette:true)});
+    });
+    RG.MOTIFS_ABSENCE_DEFAUT.forEach(function(d){
+      if(!vus[d.id]&&RG.MOTIFS_BASE.indexOf(d.id)>=0){out.push(JSON.parse(JSON.stringify(d)));vus[d.id]=true;}
+    });
+    return out;
+  };
+  RG.MOTIFS=RG.normaliserMotifs(RG.MOTIFS_ABSENCE_DEFAUT);
+  // Lit la liste commune (sans base : liste par défaut). Renvoie {liste, enBase}.
+  RG.chargerMotifsAbsence=async function(db){
+    var enBase=false;
+    try{
+      var r=await db.from('app_config').select('value').eq('key',RG.MOTIFS_CLE).maybeSingle();
+      if(r.error)throw r.error;
+      var v=r.data&&r.data.value?JSON.parse(r.data.value):null;
+      var liste=v&&Array.isArray(v.liste)?v.liste:(Array.isArray(v)?v:null);
+      if(liste&&liste.length){RG.MOTIFS=RG.normaliserMotifs(liste);enBase=true;}
+    }catch(e){console.warn('RG.chargerMotifsAbsence : liste par défaut utilisée',e);}
+    return {liste:RG.MOTIFS,enBase:enBase};
+  };
+  RG.enregistrerMotifsAbsence=async function(db,liste,source){
+    var l=RG.normaliserMotifs(liste);
+    var r=await db.from('app_config').upsert({key:RG.MOTIFS_CLE,value:JSON.stringify({source:source||'admin',liste:l})},{onConflict:'key'});
+    if(r.error)throw r.error;
+    RG.MOTIFS=l;
+    return l;
+  };
+  RG.motifAbsence=function(code){
+    var id=RG.MOTIFS_ALIAS[code]||code;
+    for(var i=0;i<RG.MOTIFS.length;i++){if(RG.MOTIFS[i].id===id)return RG.MOTIFS[i];}
+    return {id:code||'',nom:code||'',court:code||'',couleur:'#6B7280',tablette:false};
+  };
+  RG.nomMotif=function(code){return RG.motifAbsence(code).nom;};
 
   global.RG=RG;
 })(window);

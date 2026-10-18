@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pointage</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-17b"></script>
+<script src="restoglobal-commun.js?v=2026-10-18"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bx:#B91E26;--cr:#EEF1EA;--panel:#587861}
@@ -556,6 +556,7 @@ function chargerEtablissements(forcer){
 }
 chargerEtablissements();
 RG.chargerEnseigne(db).then(function(){RG.appliquerEnseigne('Pointage');});
+RG.chargerMotifsAbsence(db); // motifs d'absence communs (Admin › Réglages)
 async function proceedLoginWithRestaurantChoice(){
   await chargerEtablissements(); // le menu (bouton Labo, regroupements) en a besoin
   var restos=[emp.restaurant_id].concat(Array.isArray(emp.restaurants_secondaires)?emp.restaurants_secondaires:[]).filter(Boolean);
@@ -671,7 +672,7 @@ function ss(name){
 
 
 // ── SUIVI DES DEMANDES (salarié) ─────────────────────────────────────────────
-var ABS_TYPE_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
+// Libellés des motifs d'absence : liste commune réglée dans Admin › Réglages (RG.nomMotif, depuis le 18/10/2026).
 var ST_L={att:{l:'En attente',bg:'#FEF3C7',c:'#92400E'},ok:{l:'Accept\u00e9e',bg:'#D1FAE5',c:'#065F46'},ko:{l:'Refus\u00e9e',bg:'#FEE2E2',c:'#991B1B'}};
 function demSeenKey(){return 'rg_dem_vues_'+emp.id;}
 function demSeenList(){try{return JSON.parse(localStorage.getItem(demSeenKey())||'[]');}catch(e){return [];}}
@@ -697,7 +698,7 @@ async function menuSuivi(){
     h+='<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
     if(it.kind==='abs'){
-      h+='<div><div style="font-weight:700;font-size:14px">'+(ABS_TYPE_L[d.type]||d.type)+'</div>';
+      h+='<div><div style="font-weight:700;font-size:14px">'+RG.nomMotif(d.type)+'</div>';
       h+='<div style="font-size:12px;color:#888;margin-top:2px">Du '+d.date_debut+' au '+d.date_fin+'</div></div>';
     }else{
       h+='<div><div style="font-weight:700;font-size:14px">Acompte '+d.montant+' \u20ac</div>';
@@ -732,7 +733,7 @@ async function checkDemandesNouveautes(){
   var h='';
   news.forEach(function(it){
     var d=it.d;var st=ST_L[d.statut]||ST_L.att;
-    var label=it.kind==='abs'?(ABS_TYPE_L[d.type]||d.type):('Acompte '+d.montant+' \u20ac');
+    var label=it.kind==='abs'?RG.nomMotif(d.type):('Acompte '+d.montant+' \u20ac');
     h+='<div style="padding:8px 0;border-bottom:1px solid #eee">';
     h+='<div style="font-size:13px"><b>'+label+'</b> \u2014 <span style="color:'+st.c+';font-weight:700">'+st.l+'</span></div>';
     if(d.note_admin)h+='<div style="font-size:12px;color:#666;margin-top:2px">'+d.note_admin+'</div>';
@@ -855,7 +856,6 @@ async function loadSalariePlanning(){
   // Trier les créneaux de chaque jour par heure de début
   Object.keys(byDate).forEach(function(d){byDate[d].sort(function(a,b){return a.heure_debut.localeCompare(b.heure_debut);});});
   var absByDate={};abs.forEach(function(a){absByDate[a.date]=a.code;});
-  var ABS_L={am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e',cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration'};
   var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
   var h='';
   for(var w=0;w<4;w++){
@@ -881,13 +881,12 @@ async function loadSalariePlanning(){
               rtag=' <span style="background:'+rbg+';color:'+rtx+';font-size:11px;font-weight:700;padding:1px 6px;border-radius:8px">'+rnm+'</span>';
             }
             if(c.absence_code){
-              var acL={cp:'Cong\u00e9s pay\u00e9s',rec:'R\u00e9cup\u00e9ration',am:'Arr\u00eat maladie',ai:'Absence injustifi\u00e9e'};
-              return '<span style="text-decoration:line-through;opacity:.6">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</span> <span style="background:#EDE9FE;color:#5B21B6;padding:1px 7px;border-radius:8px;font-size:12px">'+(acL[c.absence_code]||c.absence_code)+'</span>';
+              return '<span style="text-decoration:line-through;opacity:.6">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</span> <span style="background:#EDE9FE;color:#5B21B6;padding:1px 7px;border-radius:8px;font-size:12px">'+RG.nomMotif(c.absence_code)+'</span>';
             }
             return '<b style="color:#B91E26">'+c.heure_debut.slice(0,5)+'-'+c.heure_fin.slice(0,5)+'</b>'+rtag;
           }).join('<br>');
         }
-        if(absCode)weekHtml+=(dayCrs.length?' ':'')+'<span style="background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:10px;font-size:13px">'+(ABS_L[absCode]||absCode)+'</span>';
+        if(absCode)weekHtml+=(dayCrs.length?' ':'')+'<span style="background:#EDE9FE;color:#5B21B6;padding:2px 8px;border-radius:10px;font-size:13px">'+RG.nomMotif(absCode)+'</span>';
         weekHtml+='</span></div>';
       }
     }
@@ -1194,8 +1193,21 @@ function menuPlanning(){
 function menuAbsence(){
   absEmp=emp;
   document.getElementById('absempname').textContent=emp.prenom+' '+emp.nom;
+  remplirMotifsAbsence();
   initAbsDates();
   ss('abs-form');
+}
+// Motifs proposés aux salariés : liste commune réglée dans Admin › Réglages › Motifs d'absence (case « Proposé aux
+// salariés sur la tablette »). Sans réponse de la base, les quatre motifs de base restent proposés.
+function remplirMotifsAbsence(){
+  var sel=document.getElementById('abs-type');if(!sel)return;
+  var liste=(RG.MOTIFS||[]).filter(function(m){return m.tablette;});
+  if(!liste.length)return;
+  var cur=sel.value;
+  sel.innerHTML=liste.map(function(m){
+    return '<option value="'+escCpt(m.id)+'">'+escCpt(m.nom)+(m.court&&m.court!==m.nom?' ('+escCpt(m.court)+')':'')+'</option>';
+  }).join('');
+  if(cur&&liste.some(function(m){return m.id===cur;}))sel.value=cur;
 }
 function initAbsDates(){
   var today=pDs(new Date());
@@ -2615,7 +2627,7 @@ async function menuComptage(){
     var cce=await comptageCatsForEmployee();
     var finalCats=cce.cats,ingInclude=cce.ingInclude,ingExclude=cce.ingExclude;
     if(!finalCats.length&&!ingInclude.size){
-      box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Aucune cat&eacute;gorie de comptage configur&eacute;e pour toi&nbsp;(pour le ou les postes coch&eacute;s).<br>Demande &agrave; un manager de configurer ton r&ocirc;le dans Admin &gt; Param&egrave;tres &gt; R&ocirc;les.</div>';
+      box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:12px;">Aucune cat&eacute;gorie de comptage configur&eacute;e pour toi&nbsp;(pour le ou les postes coch&eacute;s).<br>Demande &agrave; un manager de configurer ton r&ocirc;le dans Admin &gt; R&eacute;glages &gt; R&ocirc;les de comptage.</div>';
       return;
     }
 
@@ -3698,8 +3710,7 @@ async function submitAbs(){
   }
   var ins=await db.from('demandes_absence').insert({employee_id:absEmp.id,type:type,date_debut:from,date_fin:to,message:msg||null,justif_b64:justif||null,statut:'att'});
   if(ins.error){alert('Erreur: '+ins.error.message);return;}
-  var TL={cp:'Conges payes',am:'Arret maladie',rec:'Recuperation',ai:'Absence injustifiee'};
-  document.getElementById('abs-ok-det').textContent=(TL[type]||type)+' du '+from+' au '+to;
+  document.getElementById('abs-ok-det').textContent=RG.nomMotif(type)+' du '+from+' au '+to;
   ss('abs-ok');setTimeout(backToMenu,3000);
 }
 
