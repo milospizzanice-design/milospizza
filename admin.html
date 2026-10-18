@@ -69,6 +69,12 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .bg2{background-color:#276749;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.2)}
 .ba{background-color:#92610A;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.2)}
 /* Gros bouton « Ajouter » et carte « Importer un bon de livraison » (liste des ingrédients) */
+.ing-plus{position:relative;display:inline-block}
+.ing-plus>summary{list-style:none;cursor:pointer}
+.ing-plus>summary::-webkit-details-marker{display:none}
+.ing-plus-menu{position:absolute;left:0;top:calc(100% + 4px);z-index:60;background:#fff;border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:6px;display:flex;flex-direction:column;min-width:230px;max-width:calc(100vw - 32px)}
+.ing-plus-menu button{background:none;border:none;text-align:left;padding:9px 10px;font-size:12px;font-weight:600;color:var(--tx);border-radius:7px;cursor:pointer;white-space:nowrap}
+.ing-plus-menu button:hover{background:#FAF4EC}
 .btn-xl{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;font-size:15px;font-weight:800;border-radius:12px;flex:1;min-width:180px}
 .bl-card{flex:1;min-width:220px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:none;cursor:pointer;text-align:left;color:#fff;
   background:linear-gradient(135deg,#1F4E79 0%,#2E75B6 100%);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2),0 3px 8px rgba(31,78,121,.3);transition:transform .08s ease,box-shadow .08s ease}
@@ -299,9 +305,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="home-bubble" onclick="goModule('labo')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
     <div style="font-size:32px;">🔬</div>LABO
   </div>
-  <div class="home-bubble" onclick="goModule('caisse')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
-    <div style="font-size:32px;">🔗</div>CAISSE
-  </div>
   <div class="home-bubble" onclick="goModule('reglages')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
     <div style="font-size:32px;">⚙️</div>RÉGLAGES
   </div>
@@ -448,7 +451,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="rct-subtab" id="rctbtn-ingredients" onclick="goRecettesSub('ingredients')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧂 Ingrédients</div>
       <div class="rct-subtab" id="rctbtn-couts" onclick="goRecettesSub('couts')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💰 Coûts</div>
       <div class="rct-subtab" id="rctbtn-inv" onclick="goRecettesSub('inv')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📋 Inventaires</div>
-      <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📥 Import ventes</div>
+      <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧾 Ventes</div>
       <div class="rct-subtab" id="rctbtn-interne" onclick="goRecettesSub('interne')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🚚 Interne</div>
     </div>
 
@@ -462,8 +465,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         <button type="button" id="pv-submode-boissons" class="btn bs sm" onclick="setPvSubMode('boissons')" style="flex:1;">🥤 Boissons</button>
       </div>
       <div id="pv-submode-boiss-tools" style="display:none;margin-bottom:10px;">
-        <div class="card" style="font-size:11px;color:var(--txm);">🍹 Le classement Plats/Boissons ici suit directement le réglage "Food / Drinks" de chaque catégorie sur le menu public — rien à faire ici. Si une catégorie manque côté Boissons, vérifie/change son réglage dans le back-office du menu (fiche catégorie → section visible).</div>
-        <button class="btn bs sm" onclick="openTransfertBoissonsModal()" style="width:100%;margin-top:6px;" title="Uniquement pour les catégories créées à la main dans l'admin, qui n'existent pas sur le menu public">🔀 Cas particulier : catégorie créée à la main (hors menu)</button>
+        <div class="card" style="font-size:11px;color:var(--txm);">🍹 Le classement Plats/Boissons ici suit directement le réglage "Food / Drinks" de chaque catégorie sur le menu public — rien à faire ici. Si une catégorie manque côté Boissons, vérifie/change son réglage dans le back-office du menu (fiche catégorie → section visible). Une catégorie créée à la main ici (hors menu) se range avec le champ « Onglet » de sa fiche catégorie.</div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <input type="text" class="fi" id="rct-search" placeholder="Rechercher un produit…" oninput="renderRecettesList()" style="flex:1;">
@@ -487,16 +489,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
         Liste des ingrédients tels qu'ils apparaissent sur la carte, groupés par catégorie (base, fromages, charcuterie, légumes, condiments…). C'est cette liste qui est utilisée pour composer les recettes. Tu peux relier chaque ingrédient à un produit du stock (facultatif, mais nécessaire plus tard pour le calcul théorique/réel).
       </div>
-      <div style="margin-bottom:10px;">
-        <button class="btn bs sm" onclick="openTransfertBoissonsModal()" style="width:100%;">🔀 Transférer des catégories existantes vers Boissons</button>
-      </div>
-      <div class="card">
-        <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:8px;">Importer depuis un fichier</div>
-        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Fichier CSV avec 2 colonnes : <strong>Catégorie;Ingrédient</strong> (une ligne d'en-tête optionnelle). Un nouvel import s'ajoute à la liste existante sans effacer ce qui est déjà rattaché.</div>
-        <div class="fr"><label class="fl2">Fichier CSV</label><input type="file" class="fi" id="rct-ing-file" accept=".csv,text/csv" style="padding:5px"></div>
-        <button class="btn bp" onclick="previewIngredientsImport()" style="width:100%;">Analyser le fichier</button>
-      </div>
-      <div id="rct-ing-preview"></div>
       <div style="display:flex;gap:8px;margin:14px 0 10px;">
         <input type="text" class="fi" id="rct-ing-search" placeholder="Rechercher un ingrédient…" oninput="renderIngredientsList()" style="flex:1;">
         <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txm);white-space:nowrap;">
@@ -516,17 +508,27 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
         </button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-        <button class="btn bs sm" onclick="openSuppliersModal()">🚚 Gérer les fournisseurs</button>
-        <button class="btn bs sm" onclick="openBesoinsLaboModal()">📦 Besoins Labo</button>
-        <button class="btn bs sm" onclick="openBesoinsComptageModal()">🛒 Besoins (comptage)</button>
+        <button class="btn bs sm" onclick="openBesoinsComptageModal()" title="D'après les derniers comptages">🛒 Besoins</button>
         <button class="btn bp sm" id="ing-tree-toggle-btn" onclick="toggleIngTreePanel()">🗂 Arborescence</button>
+        <!-- Outils moins fréquents regroupés (18/10/2026) : fournisseurs, outils de comptage, import CSV -->
+        <details class="ing-plus" id="ing-plus">
+          <summary class="btn bs sm">⋯ Plus</summary>
+          <div class="ing-plus-menu">
+            <button type="button" onclick="ingPlus(openSuppliersModal)">🚚 Gérer les fournisseurs</button>
+            <button type="button" onclick="ingPlus(openComptageApercu)">&#128065; Aper&#231;u comptage</button>
+            <button type="button" onclick="ingPlus(openPlanningComptageJour)">&#128197; Qui compte quoi aujourd'hui</button>
+            <button type="button" onclick="ingPlus(openAuditExceptionsIndiv)">&#128269; Audit exceptions comptage</button>
+            <button type="button" onclick="ingPlus(function(){ingCsvAfficher(true);})">📄 Importer une liste (CSV)</button>
+          </div>
+        </details>
       </div>
-      <!-- Outils de comptage (déplacés de RH › Salariés le 18/10/2026) -->
-      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-        <button class="btn bs sm" onclick="openComptageApercu()">&#128065; Aper&#231;u comptage</button>
-        <button class="btn bs sm" onclick="openPlanningComptageJour()">&#128197; Qui compte quoi aujourd'hui</button>
-        <button class="btn bs sm" onclick="openAuditExceptionsIndiv()">&#128269; Audit exceptions comptage</button>
+      <div class="card" id="rct-ing-csv" style="display:none;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:var(--tx);flex:1;">📄 Importer une liste d'ingrédients (CSV)</div><button type="button" class="btn bs sm" onclick="ingCsvAfficher(false)" style="padding:2px 9px;">✕</button></div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Fichier CSV avec 2 colonnes : <strong>Catégorie;Ingrédient</strong> (une ligne d'en-tête optionnelle). Un nouvel import s'ajoute à la liste existante sans effacer ce qui est déjà rattaché.</div>
+        <div class="fr"><label class="fl2">Fichier CSV</label><input type="file" class="fi" id="rct-ing-file" accept=".csv,text/csv" style="padding:5px"></div>
+        <button class="btn bp" onclick="previewIngredientsImport()" style="width:100%;">Analyser le fichier</button>
       </div>
+      <div id="rct-ing-preview"></div>
       <div id="rct-ing-nav" style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 8px;margin:0 -14px 10px;position:sticky;top:0;background:var(--cr);border-bottom:2px solid var(--bx);z-index:20;-webkit-overflow-scrolling:touch;"></div>
       <div id="rct-ing-list-container"></div>
     </div>
@@ -560,16 +562,22 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="rct-inv-container"></div>
     </div>
 
-    <!-- Sous-onglet: import CSV caisse -->
+    <!-- Sous-onglet: Ventes (Hiboutik + produits caisse à rattacher + imports de fichiers) — 18/10/2026 : regroupe l'ancien module Caisse -->
     <div id="rct-pane-import" style="display:none;">
       <div class="card" style="background:#ECFDF5;margin-bottom:10px;">
         <div class="mdt" style="font-size:14px;margin-bottom:6px;">🔄 Synchroniser Hiboutik</div>
-        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Récupère automatiquement les ventes depuis la caisse Hiboutik pour la période choisie (sur place/à emporter distingués). Les nouveaux produits jamais vus sont à rattacher une fois dans l'onglet Caisse avant d'apparaître dans les calculs.</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Récupère automatiquement les ventes depuis la caisse Hiboutik pour la période choisie (sur place/à emporter distingués). Les nouveaux produits jamais vus sont à rattacher une fois juste en dessous avant d'apparaître dans les calculs.</div>
         <div class="fr"><label class="fl2">N° de magasin Hiboutik (store_id)</label><input type="number" class="fi" id="rct-hib-store" placeholder="Ex: 1"></div>
         <div class="fr"><label class="fl2">Début de période</label><input type="date" class="fi" id="rct-hib-debut"></div>
         <div class="fr"><label class="fl2">Fin de période</label><input type="date" class="fi" id="rct-hib-fin"></div>
         <button class="btn bp" onclick="syncHiboutikVentes()" id="rct-hib-btn" style="width:100%;">Synchroniser cette période</button>
         <div id="rct-hib-status" style="font-size:11px;color:var(--txm);margin-top:8px;"></div>
+      </div>
+      <div class="card" id="caisse-card" style="margin-bottom:10px;">
+        <div class="mdt" style="font-size:14px;margin-bottom:6px;">🔗 Produits de la caisse à rattacher</div>
+        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Chaque produit vendu sur la caisse Hiboutik doit être relié une fois à une fiche de Produits &amp; recettes (ou ignoré). Une fois traité, il n'apparaît plus ici.</div>
+        <div id="caisse-summary" style="font-size:13px;font-weight:700;margin-bottom:8px;"></div>
+        <div id="caisse-list"></div>
       </div>
       <div class="card">
         <div class="mdt" style="font-size:14px;margin-bottom:6px;">📥 Importer un fichier de ventes</div>
@@ -661,15 +669,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
-<div class="mb" id="mtboiss">
-  <div class="md">
-    <div class="mdt">🔀 Transférer vers 🥤 Boissons</div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Coche les catégories qui sont en réalité des boissons (bières, vins, softs, spiritueux…). Elles basculeront dans l'onglet Boissons — les ingrédients, prix et recettes qui les utilisent restent inchangés, seule leur classification change.</div>
-    <div id="mtboiss-list" style="max-height:340px;overflow-y:auto;"></div>
-    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mtboiss')">Annuler</button><button class="btn bp" onclick="confirmTransfertBoissons()">Transférer</button></div>
-  </div>
-</div>
-
 <div class="mb" id="mdosedft">
   <div class="md" style="max-width:640px;">
     <div class="mdt">⚖️ Doses par défaut manquantes</div>
@@ -740,7 +739,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <div class="md" style="max-width:460px;">
     <div class="mdt">Fournisseurs — <span id="msup-resto"></span></div>
     <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Liste commune à tous les établissements. Coche "🏭 Interne" pour l'option "commande passée en interne au Labo" plutôt qu'à un vrai fournisseur externe. Délai de commande et heure limite servent au calcul automatique des besoins (mode "veille de livraison" dans les règles de commande d'un ingrédient).</div>
-    <button class="btn bs sm" onclick="importFournisseursDepuisExistant()" style="margin-bottom:10px;width:100%;">📥 Récupérer les fournisseurs déjà utilisés (ancien système par restaurant)</button>
     <div id="msup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
     <div class="fr" style="border-top:1px solid var(--bx);padding-top:10px;"><label class="fl2">Nouveau fournisseur</label><input type="text" class="fi" id="msup-new-name" placeholder="Ex: Metro, Pomona…"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('msup')">Fermer</button><button class="btn bp" onclick="createSupplier()">+ Ajouter</button></div>
@@ -754,16 +752,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">La règle qui correspond au jour du jour l'emporte sur le seuil/cible par défaut ci-dessus. "Veille de livraison" recalcule automatiquement le jour concerné selon les jours de livraison du fournisseur (à régler dans Gérer les fournisseurs). L'heure limite est optionnelle : elle surcharge celle du fournisseur pour cette référence précise.</div>
     <div id="mregles-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
     <div class="ma"><button class="btn bs" onclick="closeReglesModal()">Fermer</button><button class="btn bp" id="mregles-add-btn" onclick="addRegleCommande()">+ Ajouter une règle</button></div>
-  </div>
-</div>
-
-<!-- Modal Besoins Labo : produits sourcés depuis le Labo par les restaurants, groupés par vrai fournisseur -->
-<div class="mb" id="mbesoinslabo">
-  <div class="md" style="max-width:520px;">
-    <div class="mdt">📦 Besoins Labo</div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Tous les produits que les restaurants sourcent en interne (fournisseur = 🏭 Interne), groupés par vrai fournisseur externe — déterminé par la fiche seuils de l'établissement qui prépare, sur ce même ingrédient. Liste informative pour l'instant — pas encore de suivi de rupture automatique.</div>
-    <div id="mbesoinslabo-list"></div>
-    <div class="ma"><button class="btn bs" onclick="closeM('mbesoinslabo')">Fermer</button></div>
   </div>
 </div>
 
@@ -986,18 +974,6 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div style="font-weight:700;margin-bottom:10px;">🕓 Historique récent</div>
       <div id="labo-lots-history" style="font-size:12px;"></div>
     </div>
-  </div>
-</div>
-
-<div id="page-caisse" style="display:none;">
-  <div class="page" style="padding-top:14px;">
-    <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-      Rapproche chaque produit vendu sur la caisse Hiboutik avec ton catalogue. Une fois traité, un produit n'apparaît plus jamais ici.
-    </div>
-    <div class="card" style="margin-bottom:10px;">
-      <div id="caisse-summary" style="font-size:13px;font-weight:700;"></div>
-    </div>
-    <div id="caisse-list"></div>
   </div>
 </div>
 
@@ -1502,7 +1478,7 @@ function openM(id){
 }
 
 function goModule(name){
-  var pages={rh:'page-rh',recettes:'page-recettes',menu:'page-menu',labo:'page-labo',caisse:'page-caisse',reglages:'page-reglages'};
+  var pages={rh:'page-rh',recettes:'page-recettes',menu:'page-menu',labo:'page-labo',reglages:'page-reglages'};
   var tabsBar=document.getElementById('tabs-rh');
   var home=document.getElementById('home-bubbles');
   var backBar=document.getElementById('back-to-home-bar');
@@ -1522,7 +1498,6 @@ function goModule(name){
   if(name!=='recettes')document.body.classList.remove('ing-tree-active');
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
-  if(name==='caisse')loadCaisseModule();
   if(name==='reglages'){renderModeleMessageEditor();renderEnseigneEditor();loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
 }
 // ── Message type de commande (Réglages) — stocké dans app_config, lu par la tablette et l'admin via
@@ -1613,7 +1588,7 @@ function reinitModeleMessage(){
   apercuModeleMessage();
 }
 function goHome(){
-  var pages=['page-rh','page-recettes','page-menu','page-labo','page-caisse','page-reglages'];
+  var pages=['page-rh','page-recettes','page-menu','page-labo','page-reglages'];
   pages.forEach(function(id){
     var e=document.getElementById(id);
     if(e)e.style.display='none';
@@ -7241,7 +7216,8 @@ function sbCheck(result){
   return result;
 }
 
-// -- Module Caisse : rapprochement produits Hiboutik <-> produits_vendus --
+// -- Rattachement produits Hiboutik <-> produits_vendus (Recettes › Ventes, carte « Produits de la caisse à rattacher » ;
+//    ancien module Caisse, regroupé le 18/10/2026) --
 let caisseMapping=[];
 let caisseProduitsVendus=[];
 let caisseCurrentRow=null;
@@ -7300,7 +7276,7 @@ function renderCaisseList(){
   var list=document.getElementById('caisse-list');
   var summary=document.getElementById('caisse-summary');
   var pending=caisseMapping.filter(function(m){return !m.confirmed&&!m.ignore;});
-  var confirmed=caisseMapping.filter(function(m){return m.confirmed;});
+  var confirmed=caisseMapping.filter(function(m){return m.confirmed&&!m.ignore;}); // un produit ignoré est aussi marqué confirmed : ne pas le compter deux fois
   var ignored=caisseMapping.filter(function(m){return m.ignore;});
   summary.textContent=pending.length+' à traiter · '+confirmed.length+' associés · '+ignored.length+' ignorés';
   if(!pending.length){
@@ -8245,7 +8221,7 @@ function goRecettesSub(name){
   document.body.classList.toggle('ing-tree-active',name==='ingredients'); // pilote le décalage de la colonne fixe (desktop) — voir #ing-tree-panel
   if(name==='inv')loadInventairesList();
   if(name==='interne')loadInterneList();
-  if(name==='import')ventesInitProvenance();
+  if(name==='import'){ventesInitProvenance();loadCaisseModule();}
   ['list','ingredients','couts','inv','import','interne'].forEach(function(k){
     var b=document.getElementById('rctbtn-'+k);
     if(!b)return;
@@ -8688,13 +8664,6 @@ function menuCatIsDrinks(catName){
   var c=cats.find(function(x){return (x.name.fr||x.name)===catName;});
   if(c)return c.homeGroup==='drinks';
   return ongletDeCategorie(catName)==='Boissons';
-}
-// Crée l'onglet interne "Boissons" côté Supabase s'il n'existe pas encore (première utilisation).
-async function ensureBoissonsOnglet(){
-  if(rctOngletsOrdre['Boissons']!=null)return;
-  var nextOrdre=(Object.keys(rctOngletsOrdre).length+1)*10;
-  sbCheck(await db.from('onglets_ordre').upsert([{restaurant_id:RCT_GLOBAL,nom:'Boissons',ordre:nextOrdre}],{onConflict:'restaurant_id,nom'}));
-  rctOngletsOrdre['Boissons']=nextOrdre;
 }
 // ── Classement de Produits & recettes selon le VRAI menu public (menudata.json) ─────────────
 // Contrairement à groupByOnglet (basé sur les tables internes categories_ordre, encore utilisées
@@ -10556,8 +10525,9 @@ async function syncHiboutikVentes(){
     var data=await res.json();
     if(!res.ok||data.error)throw new Error(data.error||('HTTP '+res.status));
     statusEl.innerHTML='✅ '+data.ventes_traitees+' ventes traitées sur '+data.jours_analyses+' jour(s) — '+data.lignes_ventes_ecrites+' ligne(s) de vente enregistrée(s).'
-      +(data.nouveaux_produits_a_rattacher?'<br>⚠️ '+data.nouveaux_produits_a_rattacher+' nouveau(x) produit(s) Hiboutik jamais vus — va dans l\'onglet <strong>Caisse</strong> pour les rattacher à une fiche recette, puis relance cette synchro pour qu\'ils soient pris en compte.':'')
-      +(data.produits_non_rattaches_ignores?'<br>ℹ️ '+data.produits_non_rattaches_ignores+' produit(s) vendu(s) ignoré(s) car pas encore rattachés dans Caisse.':'');
+      +(data.nouveaux_produits_a_rattacher?'<br>⚠️ '+data.nouveaux_produits_a_rattacher+' nouveau(x) produit(s) Hiboutik jamais vus — rattache-les dans <strong>Produits de la caisse à rattacher</strong> juste en dessous, puis relance cette synchro pour qu\'ils soient pris en compte.':'')
+      +(data.produits_non_rattaches_ignores?'<br>ℹ️ '+data.produits_non_rattaches_ignores+' produit(s) vendu(s) ignoré(s) car pas encore rattachés (Produits de la caisse à rattacher).':'');
+    try{await loadCaisseModule();}catch(eC){console.error('syncHiboutikVentes:loadCaisseModule',eC);} // affiche tout de suite les nouveaux produits à rattacher
   }catch(e){
     console.error('syncHiboutikVentes',e);
     statusEl.innerHTML='<span style="color:#C0392B;">❌ Erreur : '+esc(e.message)+'</span>';
@@ -11224,6 +11194,28 @@ async function deleteRegleCommande(id,restoId){
     renderIngredientsList();
   }catch(e){console.error('deleteRegleCommande',e);alert('Erreur : '+e.message);}
 }
+// Menu « ⋯ Plus » de la barre d'outils des Ingrédients : ferme le menu puis lance l'action choisie.
+function ingPlus(action){
+  var d=document.getElementById('ing-plus');if(d)d.open=false;
+  if(typeof action==='function')action();
+}
+function ingCsvAfficher(oui){
+  var c=document.getElementById('rct-ing-csv');if(!c)return;
+  c.style.display=oui?'block':'none';
+  if(oui)c.scrollIntoView({behavior:'smooth',block:'center'});
+}
+// À l'ouverture, garde le menu dans l'écran : il s'ouvre vers la droite, ou vers la gauche s'il déborderait.
+document.addEventListener('toggle',function(e){
+  if(!e.target||e.target.id!=='ing-plus'||!e.target.open)return;
+  var m=e.target.querySelector('.ing-plus-menu');if(!m)return;
+  m.style.left='0';m.style.right='auto';
+  if(m.getBoundingClientRect().right>window.innerWidth-8){m.style.left='auto';m.style.right='0';}
+},true);
+// Ferme le menu « ⋯ Plus » quand on clique ailleurs.
+document.addEventListener('click',function(e){
+  var d=document.getElementById('ing-plus');
+  if(d&&d.open&&!d.contains(e.target))d.open=false;
+});
 function toggleIngTreePanel(){
   var panel=document.getElementById('ing-tree-panel'),overlay=document.getElementById('ing-tree-overlay');
   if(!panel)return;
@@ -11310,53 +11302,6 @@ async function openSuppliersModal(){
   document.getElementById('msup-new-name').value='';
   renderSuppliersList();
   openM('msup');
-}
-// Récupère les fournisseurs déjà saisis dans l'ancien système par-restaurant (stock_catalogue.suppliers de
-// Port/Dabray/Labo) et les regroupe dans la liste commune. Fusion par nom (insensible à la casse/espaces) —
-// deux fournisseurs de restaurants différents avec le même nom deviennent une seule entrée commune. Les noms
-// déjà présents dans la liste commune ne sont pas dupliqués (relançable sans risque).
-let msupImportInProgress=false;
-async function importFournisseursDepuisExistant(){
-  if(msupImportInProgress)return; // anti double-clic/double-tap : empêche deux imports concurrents qui se dupliqueraient
-  if(!confirm('Récupérer les fournisseurs déjà utilisés dans chaque établissement (ancien système par restaurant) et les regrouper dans la liste commune ?\n\nFusion par nom identique. Les fournisseurs déjà présents dans la liste commune ne sont pas dupliqués.'))return;
-  msupImportInProgress=true;
-  try{
-    var r=sbCheck(await db.from('stock_catalogue').select('restaurant_id,suppliers').in('restaurant_id',(restosData||[]).map(function(x){return x.id;})));
-    var rows=r.data||[];
-    if(!rows.length){alert('Aucune donnée trouvée dans stock_catalogue pour ces établissements.');return;}
-    var byKey={}; // nom normalisé -> {nom, jours_livraison, is_labo_interne}
-    rows.forEach(function(row){
-      var sups=row.suppliers||{};
-      Object.keys(sups).forEach(function(sid){
-        var s=sups[sid];
-        if(!s||!s.name)return;
-        var key=s.name.trim().toLowerCase();
-        if(!key)return;
-        if(!byKey[key])byKey[key]={nom:s.name.trim(),jours_livraison:s.deliveryDays||[],is_labo_interne:false};
-        if(!byKey[key].jours_livraison.length&&(s.deliveryDays||[]).length)byKey[key].jours_livraison=s.deliveryDays;
-        if(s.isLabo)byKey[key].is_labo_interne=true;
-      });
-    });
-    // Re-vérifie contre la base (pas seulement rctSuppliers en mémoire, qui peut être légèrement en retard)
-    // juste avant d'écrire, pour réduire encore la fenêtre de course en cas de double appel malgré le verrou.
-    var fresh=sbCheck(await db.from('fournisseurs_stock').select('nom'));
-    var existingNames={};
-    (fresh.data||[]).forEach(function(s){existingNames[(s.nom||'').trim().toLowerCase()]=true;});
-    var toCreate=Object.keys(byKey).filter(function(k){return !existingNames[k];}).map(function(k){return byKey[k];});
-    if(!toCreate.length){alert('Rien à importer — tous les noms trouvés existent déjà dans la liste commune.');return;}
-    var payloads=toCreate.map(function(f){
-      return {id:'sup_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+Math.random().toString(36).slice(2,4),nom:f.nom,jours_livraison:f.jours_livraison,is_labo_interne:f.is_labo_interne,actif:true};
-    });
-    var rIns=sbCheck(await db.from('fournisseurs_stock').upsert(payloads,{onConflict:'nom',ignoreDuplicates:true}).select());
-    (rIns.data||[]).forEach(function(row){
-      if(rctSuppliers.some(function(s){return s.id===row.id;}))return;
-      rctSuppliers.push({id:row.id,nom:row.nom,jours_livraison:row.jours_livraison||[],delai_commande_jours:row.delai_commande_jours,heure_limite:row.heure_limite,is_labo_interne:!!row.is_labo_interne,actif:row.actif!==false});
-    });
-    rctSuppliers.sort(function(a,b){return a.nom.localeCompare(b.nom);});
-    alert('✅ '+toCreate.length+' fournisseur(s) importé(s) dans la liste commune.\n\nPense à vérifier/compléter le délai de commande et l\'heure limite pour chacun (pas repris automatiquement — ça n\'existait pas dans l\'ancien système), et à revérifier les cases "🏭 Interne" importées.');
-    renderSuppliersList();
-  }catch(e){console.error('importFournisseursDepuisExistant',e);alert('Erreur : '+e.message+'\n\n(La table fournisseurs_stock a-t-elle été créée en SQL, avec la contrainte unique sur nom ?)');}
-  finally{msupImportInProgress=false;}
 }
 var SUP_DAY_LABELS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 function supplierDeliveryDaysHtml(id,s){
@@ -11501,68 +11446,6 @@ async function deleteSupplier(id){
     renderSuppliersList();
     renderIngredientsList();
   }catch(e){console.error('deleteSupplier',e);alert('Erreur : '+e.message);}
-}
-// ── Besoins Labo : ingrédients sourcés depuis le Labo par les restaurants, groupés par vrai fournisseur ──
-async function openBesoinsLaboModal(){
-  var box=document.getElementById('mbesoinslabo-list');
-  box.innerHTML='<div style="font-size:11px;color:var(--txm);">Chargement…</div>';
-  openM('mbesoinslabo');
-  try{
-    // Tout est déjà en mémoire (rctIngredientSeuilsAll charge les 3 restaurants, rctSuppliers est global) —
-    // plus besoin de requêtes séparées ni de l'ancien isLabo/realSupplierId par restaurant : le fournisseur
-    // "réel" pour un ingrédient sourcé en interne se trouve simplement dans la fiche seuils du Labo lui-même.
-    // Restaurants demandeurs = tous sauf l'établissement qui prépare (Réglages > Établissements).
-    var idPrep=RG.idPreparateur();
-    var restos=(restosData||[]).map(function(x){return x.id;}).filter(function(id){return id!==idPrep;});
-    var laboSeuils=(idPrep&&rctIngredientSeuilsAll&&rctIngredientSeuilsAll[idPrep])||{};
-    var byIngredient={}; // ingredient_code -> {nom, restos:[], realSupName}
-    restos.forEach(function(resto){
-      var seuils=(rctIngredientSeuilsAll&&rctIngredientSeuilsAll[resto])||{};
-      Object.keys(seuils).forEach(function(code){
-        var s=seuils[code];
-        if(!s.fournisseur_id)return;
-        var sup=rctSuppliers.find(function(x){return x.id===s.fournisseur_id;});
-        if(!sup||!sup.is_labo_interne)return;
-        var ing=rctIngredients.find(function(p){return p.code===code;});
-        var nom=ing?ing.nom:code;
-        var laboSeuil=laboSeuils[code];
-        var realSupId=laboSeuil&&laboSeuil.fournisseur_id;
-        var realSup=null;
-        var laboFabriqueMaison=false;
-        if(realSupId){
-          var rs=rctSuppliers.find(function(x){return x.id===realSupId;});
-          if(rs&&rs.is_cuisine_interne)laboFabriqueMaison=true; // le Labo prépare lui-même cet ingrédient, pas de fournisseur externe à afficher
-          else if(rs&&!rs.is_labo_interne)realSup=rs.nom;
-        }
-        if(!byIngredient[code])byIngredient[code]={nom:nom,restos:[],realSupName:realSup,laboFabriqueMaison:laboFabriqueMaison};
-        if(byIngredient[code].restos.indexOf(resto)<0)byIngredient[code].restos.push(resto);
-        if(!byIngredient[code].realSupName&&realSup)byIngredient[code].realSupName=realSup;
-        if(laboFabriqueMaison)byIngredient[code].laboFabriqueMaison=true;
-      });
-    });
-    var byRealSup={};
-    Object.keys(byIngredient).forEach(function(code){
-      var item=byIngredient[code];
-      var groupKey=item.laboFabriqueMaison?'🍳 Fabriqué en interne (Labo)':(item.realSupName||'⚠️ Fournisseur réel non précisé');
-      byRealSup[groupKey]=byRealSup[groupKey]||[];
-      byRealSup[groupKey].push(item);
-    });
-    var groupNames=Object.keys(byRealSup).sort();
-    if(!groupNames.length){
-      box.innerHTML='<div style="font-size:12px;color:var(--txm);text-align:center;">Aucun ingrédient marqué "fournisseur = 🏭 Interne" pour l\'instant sur les restaurants. Va dans "🚚 Gérer les fournisseurs" pour cocher un fournisseur comme interne, puis assigne-le aux ingrédients concernés depuis l\'écran Ingrédients.</div>';
-      return;
-    }
-    box.innerHTML=groupNames.map(function(g){
-      var items=byRealSup[g].slice().sort(function(a,b){return a.nom.localeCompare(b.nom);});
-      return '<div style="margin-bottom:12px;">'
-        +'<div style="font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;margin-bottom:4px;">'+esc(g)+'</div>'
-        +items.map(function(it){
-          var restoLabel=it.restos.map(function(r){return rctRestoLabel(r);}).join(' + ');
-          return '<div class="card" style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;"><span>'+esc(it.nom)+'</span><span style="color:var(--txm);font-size:11px;">'+esc(restoLabel)+'</span></div>';
-        }).join('')
-        +'</div>';
-    }).join('');
-  }catch(e){console.error('openBesoinsLaboModal',e);box.innerHTML='<div style="color:#C0392B;font-size:12px;">Erreur de chargement : '+e.message+'</div>';}
 }
 // ── Besoins (comptage) : dernier comptage rapide de chaque ingrédient comparé à son seuil ──
 // Hypothèses par défaut (dis-le si ça ne correspond pas à ton usage, c'est ajustable en un point unique) :
@@ -12098,57 +11981,6 @@ async function saveNewIngredient(){
   }catch(e){console.error('saveNewIngredient',e);alert('Erreur lors de la création : '+e.message);}
 }
 
-// ── Transfert en masse de catégories existantes vers l'onglet interne "Boissons" ────────────────
-function openTransfertBoissonsModal(){
-  // Union des catégories déjà enregistrées (categories_ordre) ET de celles simplement utilisées dans
-  // les produits vendus (ex: catégories venues du menu public via la synchro) ou les ingrédients, même
-  // si elles n'ont jamais été créées formellement — sinon elles étaient invisibles ici et impossibles à
-  // taguer Boissons, alors même que des produits/boissons les utilisaient déjà.
-  var allCats={};
-  Object.keys(rctCategoriesOrdre).forEach(function(c){allCats[c]=true;});
-  rctProduitsVendus.forEach(function(p){if(p.categorie)allCats[p.categorie]=true;});
-  rctIngredients.forEach(function(i){if(i.categorie)allCats[i.categorie]=true;});
-  var list=Object.keys(allCats).filter(function(c){
-    return !(rctCategoriesOrdre[c]&&rctCategoriesOrdre[c].onglet==='Boissons');
-  }).sort(function(a,b){return a.localeCompare(b);});
-  var el=document.getElementById('mtboiss-list');
-  if(!list.length){
-    el.innerHTML='<div style="font-size:12px;color:var(--txm);">Toutes les catégories sont déjà dans Boissons.</div>';
-  }else{
-    el.innerHTML=list.map(function(c){
-      var enregistree=!!rctCategoriesOrdre[c];
-      var ongActuel=enregistree?(rctCategoriesOrdre[c].onglet||'non classé'):'non enregistrée — venue du menu/ingrédients';
-      var nProd=rctProduitsVendus.filter(function(p){return p.categorie===c;}).length;
-      var nIng=rctIngredients.filter(function(i){return i.categorie===c;}).length;
-      var detail=[];
-      if(nProd)detail.push(nProd+' produit'+(nProd>1?'s':''));
-      if(nIng)detail.push(nIng+' ingrédient'+(nIng>1?'s':''));
-      return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--bd);font-size:12px;">'
-        +'<input type="checkbox" class="mtboiss-check" value="'+esc(c)+'">'
-        +'<span style="flex:1;">'+esc(c)+' <span style="color:var(--txm);font-size:10px;">('+(detail.length?detail.join(', '):'vide')+' — '+esc(ongActuel)+')</span></span>'
-        +'</label>';
-    }).join('');
-  }
-  document.getElementById('mtboiss').classList.add('op');
-}
-async function confirmTransfertBoissons(){
-  var checked=Array.prototype.slice.call(document.querySelectorAll('.mtboiss-check:checked')).map(function(c){return c.value;});
-  if(!checked.length){alert('Sélectionne au moins une catégorie.');return;}
-  try{
-    await ensureBoissonsOnglet();
-    for(var i=0;i<checked.length;i++){
-      var cat=checked[i];
-      var info=rctCategoriesOrdre[cat]||{ordre:(Object.keys(rctCategoriesOrdre).length+1)*10,unite_defaut_mesure:null};
-      sbCheck(await db.from('categories_ordre').upsert([{restaurant_id:RCT_GLOBAL,nom:cat,ordre:info.ordre,onglet:'Boissons',unite_defaut_mesure:info.unite_defaut_mesure}],{onConflict:'restaurant_id,nom'}));
-      rctCategoriesOrdre[cat]={ordre:info.ordre,onglet:'Boissons',unite_defaut_mesure:info.unite_defaut_mesure};
-    }
-    closeM('mtboiss');
-    renderRecettesList();
-    renderCoutsList();
-    setIngSubMode('boissons');
-    alert('✅ '+checked.length+' catégorie'+(checked.length>1?'s':'')+' transférée'+(checked.length>1?'s':'')+' vers Boissons.');
-  }catch(e){console.error('confirmTransfertBoissons',e);alert('Erreur lors du transfert : '+e.message);}
-}
 
 // ── Popup de saisie groupée des doses par défaut manquantes (détectées via l'extraction menu) ──────
 function openDoseDefautModal(){
