@@ -958,7 +958,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
             <canvas id="qrDesignCanvas" style="max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.18);"></canvas>
           </div>
           <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-            <button class="admin-save-btn" style="flex:1;" onclick="downloadCanvas('qrDesignCanvas','qr-design-milospizza.png')">⬇️ Télécharger PNG</button>
+            <button class="admin-save-btn" style="flex:1;" onclick="downloadCanvas('qrDesignCanvas','qr-design.png')">⬇️ Télécharger PNG</button>
             <button class="admin-save-btn" style="flex:1;background:var(--vert);" onclick="printDesignQR()">🖨️ Imprimer</button>
           </div>
           <button class="admin-save-btn" style="width:100%;margin-top:0.5rem;background:var(--brun);" onclick="saveQRDesignAsMain()">💾 Enregistrer pour la planche</button>
@@ -2770,13 +2770,21 @@ function adminLogout(){
   window.location.href = 'login.html';
 }
 
-const QR_URL_SURPLACE = 'https://milospizza.restoglobal.fr';
-const QR_URL_EMPORTER = 'https://milospizza.restoglobal.fr/emporter.html';
-let QR_URL = QR_URL_SURPLACE;
+// Liens des QR codes : ceux réglés dans Impression › 7. QR codes (design.json, print_qr_surplace / print_qr_emporter),
+// sinon l'adresse du site lui-même (corrigé le 18/10/2026 : avant, milospizza.restoglobal.fr était écrit en dur).
+function qrLienCanal(ch){
+  let d = {};
+  try { d = (currentDesign && typeof currentDesign === 'object') ? currentDesign : {}; } catch(e) {} // pas encore chargé
+  const v = String(d['print_qr_' + ch] || '').trim();
+  if (v) return v;
+  const o = (location.origin && location.origin !== 'null') ? location.origin : '';
+  return o + (ch === 'emporter' ? '/emporter.html' : '/');
+}
+let QR_URL = ''; // calculé à l'ouverture de l'onglet (initQRCode), une fois design.json chargé
 let currentQRChannel = 'surplace';
 function switchQRChannel(channel){
   currentQRChannel = channel;
-  QR_URL = channel==='emporter' ? QR_URL_EMPORTER : QR_URL_SURPLACE;
+  QR_URL = qrLienCanal(channel);
   const bS=document.getElementById('qrchan_surplace'), bE=document.getElementById('qrchan_emporter');
   if(bS && bE){
     bS.style.background = channel==='surplace' ? QR_ROUGE : '#eee';
@@ -2844,6 +2852,7 @@ function updateQRDesignSavedNote(){
 }
 
 function initQRCode(){
+  QR_URL = qrLienCanal(currentQRChannel); // design.json est chargé à ce moment-là
   loadQRious(()=>{ switchQRTab('simple'); updateQRDesignSavedNote(); });
 }
 
@@ -2863,6 +2872,7 @@ function switchQRTab(tab){
 
 // ─── Option 1 : Simple 10×15 ─────────────────────────────────────────────
 function renderQRSimple(){
+  if(!QR_URL) QR_URL=qrLienCanal(currentQRChannel);
   const W=591, H=886;
   const off = document.createElement('canvas'); off.width=W; off.height=H;
   const ctx = off.getContext('2d');
@@ -2934,6 +2944,7 @@ function renderQRGridWithDesign(dataUrl){
 
 // Planche classique : petits QR nus + URL (utilisée si aucun design n'est enregistré)
 function renderQRGridBare(){
+  if(!QR_URL) QR_URL=qrLienCanal(currentQRChannel);
   const isA3=_qrGridFormat==='A3';
   const DPI=150;
   const W=Math.round((isA3?297:210)*DPI/25.4);
@@ -2982,6 +2993,7 @@ function tintCanvas(imgEl, color){
 }
 
 function renderQRDesign(){
+  if(!QR_URL) QR_URL=qrLienCanal(currentQRChannel);
   const text=(document.getElementById('qrDesignText')||{}).value||"Scannez notre menu 🍕";
   const sub=(document.getElementById('qrDesignSub')||{}).value||"C'est rapide et sans contact !";
   const dest=document.getElementById('qrDesignCanvas'); if(!dest) return;
@@ -3140,7 +3152,7 @@ function printDesignQR(){
   const c=document.getElementById('qrDesignCanvas'); if(!c) return;
   const url=c.toDataURL('image/png');
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>QR Milo's Pizza</title><style>@page{size:A4;margin:10mm}*{margin:0;padding:0}body{display:flex;align-items:center;justify-content:center;height:100%}img{width:10cm;height:15cm;object-fit:contain}</style></head><body><img src="${url}"></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><title>QR code</title><style>@page{size:A4;margin:10mm}*{margin:0;padding:0}body{display:flex;align-items:center;justify-content:center;height:100%}img{width:10cm;height:15cm;object-fit:contain}</style></head><body><img src="${url}"></body></html>`);
   win.document.close(); setTimeout(()=>{win.focus();win.print();},600);
 }
 
@@ -4745,11 +4757,31 @@ function printCfg(fmt) {
 function printQrCfg() {
   const c = printCfg('qr');
   const def = {papier:'a6', lien:'surplace', titre:'', texte:'', allerg:true, allergTexte:'',
-               logo:true, nom:true, slogan:false, fond:true};
+               logo:true, nom:true, slogan:false, fond:true,
+               verso:true, versoTitre:'', versoTexte:'', versoPlus:'', versoMerci:''};
   Object.keys(def).forEach(k => { if (c[k] === undefined) c[k] = def[k]; });
   if (!PRINT_QR_PAPIERS[c.papier]) c.papier = 'a6';
   if (!PRINT_QR_TITRES[c.lien]) c.lien = 'surplace';
+  // Liens d'avis du verso (3 au plus) : au premier usage, repris de l'onglet « ❤️ Réseaux » (Google, TripAdvisor)
+  if (!Array.isArray(c.avis)) c.avis = printQrAvisDepuisReseaux();
+  c.avis = c.avis.filter(a => a && typeof a === 'object').slice(0, PRINT_QR_AVIS_MAX)
+    .map(a => ({label:String(a.label || ''), url:String(a.url || '')}));
+  if (!c.avis.length) c.avis.push({label:'Google', url:''});
   return c;
+}
+const PRINT_QR_AVIS_MAX = 3;
+// Textes proposés pour le verso (vides = ces textes)
+const PRINT_QR_VERSO_DEF = {
+  titre: 'Vous avez passé un bon moment ?',
+  texte: 'Votre avis compte énormément pour nous : il aide d’autres gourmands à nous découvrir. Ça ne prend qu’une minute !',
+  merci: 'Merci et à très bientôt !'
+};
+function printQrAvisDepuisReseaux() {
+  const sc = (typeof socialConfig === 'object' && socialConfig) || {};
+  const out = [];
+  if (sc.google && sc.google.url) out.push({label:'Google', url:String(sc.google.url)});
+  if (sc.tripadvisor && sc.tripadvisor.url) out.push({label:'TripAdvisor', url:String(sc.tripadvisor.url)});
+  return out.length ? out : [{label:'Google', url:''}];
 }
 // Lien du QR code : celui de la section 7 pour le canal choisi (champ en cours de saisie s'il existe)
 function printQrLien(lien) {
@@ -4761,21 +4793,30 @@ function renderPrintQr() {
   const box = document.getElementById('printQrBox');
   if (!box) return;
   const c = printQrCfg();
-  const cb = (id, on, lbl) => `<label class="pr-opt"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}> ${lbl}</label>`;
+  const cb = (id, on, lbl, extra) => `<label class="pr-opt"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}${extra || ''}> ${lbl}</label>`;
   const liens = PRINT_QR_TYPES.map(q => {
     const url = printQrLien(q.key);
-    return `<label class="pr-opt"><input type="radio" name="printQrLien" value="${q.key}" ${c.lien === q.key ? 'checked' : ''} onchange="renderPrintQr()"> <b>${printEsc(q.label)}</b>`
+    return `<label class="pr-opt"><input type="radio" name="printQrLien" value="${q.key}" ${c.lien === q.key ? 'checked' : ''} onchange="printCollectQr();renderPrintQr()"> <b>${printEsc(q.label)}</b>`
       + `<span style="display:block;margin-left:1.4rem;font-size:0.66rem;color:${url ? '#999' : '#B91C1C'};word-break:break-all;">${url ? printEsc(url) : 'Aucun lien : à renseigner en section 7'}</span></label>`;
   }).join('');
+  const avis = c.avis.map((a, i) => `<div class="pr-card" style="padding:0.5rem 0.6rem;">
+      <div class="pr-card-hd"><b>Lien d'avis ${i + 1}</b>
+        ${c.avis.length > 1 ? `<button type="button" class="aic-btn delete" onclick="printQrAvisSuppr(${i})">✕ Retirer</button>` : ''}</div>
+      <label class="admin-label">Nom affiché sous le QR code</label>
+      <input class="admin-input print-qr-av-label" value="${printEsc(a.label)}" maxlength="30" placeholder="ex. Google, TripAdvisor">
+      <label class="admin-label">Lien (page où l'on écrit l'avis)</label>
+      <input class="admin-input print-qr-av-url" value="${printEsc(a.url)}" placeholder="https://…">
+      ${String(a.url || '').trim() ? '' : '<div class="pr-erreur">Lien vide : ce QR code ne sera pas imprimé.</div>'}
+    </div>`).join('');
   box.innerHTML = `
     <div class="admin-label pr-titre">2. Affichette QR code</div>
     <label class="admin-label">Format du papier</label>
     <select class="cat-select" id="printQrPapier" style="margin-bottom:0.6rem;">
       ${Object.keys(PRINT_QR_PAPIERS).map(k => `<option value="${k}" ${c.papier === k ? 'selected' : ''}>${printEsc(PRINT_QR_PAPIERS[k].label)}</option>`).join('')}
     </select>
-    <label class="admin-label">Le QR code ouvre</label>
+    <label class="admin-label">Le QR code du recto ouvre</label>
     ${liens}
-    <div class="admin-label pr-titre">3. Textes de l'affichette</div>
+    <div class="admin-label pr-titre">3. Recto : textes</div>
     <label class="admin-label">Invitation à scanner <span style="font-size:0.65rem;color:#aaa;">(vide = texte proposé)</span></label>
     <input class="admin-input" id="printQrTitre" maxlength="70" value="${printEsc(c.titre)}" placeholder="${printEsc(PRINT_QR_TITRES[c.lien])}">
     <label class="admin-label">Aide sous le QR code <span style="font-size:0.65rem;color:#aaa;">(vide = texte proposé)</span></label>
@@ -4783,12 +4824,31 @@ function renderPrintQr() {
     ${cb('printQrAllerg', c.allerg, 'Indiquer que la liste des allergènes est disponible')}
     <textarea class="admin-input" id="printQrAllergTexte" rows="2" maxlength="200" style="resize:vertical;" placeholder="${printEsc(PRINT_QR_ALLERG_DEF)}">${printEsc(c.allergTexte)}</textarea>
     <p class="pr-aide" style="margin-top:0.3rem;">Vide = « ${printEsc(PRINT_QR_ALLERG_DEF)} »</p>
-    <div class="admin-label pr-titre">4. Présentation</div>
+    <div class="admin-label pr-titre">4. Verso : laisser un avis</div>
+    ${cb('printQrVerso', c.verso, '<b>Imprimer aussi un verso</b> (le fichier contient alors 2 pages : recto puis verso)', ' onchange="printCollectQr();renderPrintQr()"')}
+    ${c.verso ? `
+    <p class="pr-aide">À l'impression, choisissez « Recto verso », retournement <b>sur le bord long</b>.</p>
+    <label class="admin-label">Titre <span style="font-size:0.65rem;color:#aaa;">(vide = texte proposé)</span></label>
+    <input class="admin-input" id="printQrVersoTitre" maxlength="70" value="${printEsc(c.versoTitre)}" placeholder="${printEsc(PRINT_QR_VERSO_DEF.titre)}">
+    <label class="admin-label">Texte <span style="font-size:0.65rem;color:#aaa;">(vide = texte proposé)</span></label>
+    <textarea class="admin-input" id="printQrVersoTexte" rows="2" maxlength="220" style="resize:vertical;" placeholder="${printEsc(PRINT_QR_VERSO_DEF.texte)}">${printEsc(c.versoTexte)}</textarea>
+    ${avis}
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.2rem 0 0.6rem;">
+      ${c.avis.length < PRINT_QR_AVIS_MAX ? '<button type="button" class="aic-btn" onclick="printQrAvisAjout()">+ Ajouter un lien d\'avis</button>' : ''}
+      <button type="button" class="aic-btn" onclick="printQrAvisReseaux()">↺ Reprendre les liens Google / TripAdvisor de l'onglet Réseaux</button>
+    </div>
+    <p class="pr-aide">Vous pouvez imprimer une série avec Google, puis une autre avec TripAdvisor : changez les liens, imprimez, et recommencez.</p>
+    <label class="admin-label">Ligne en plus <span style="font-size:0.65rem;color:#aaa;">(facultatif, ex. « Suivez-nous sur Instagram @… »)</span></label>
+    <input class="admin-input" id="printQrVersoPlus" maxlength="90" value="${printEsc(c.versoPlus)}">
+    <label class="admin-label">Mot de la fin <span style="font-size:0.65rem;color:#aaa;">(vide = texte proposé)</span></label>
+    <input class="admin-input" id="printQrVersoMerci" maxlength="60" value="${printEsc(c.versoMerci)}" placeholder="${printEsc(PRINT_QR_VERSO_DEF.merci)}">
+    <p class="pr-aide" style="color:#8a5a00;background:#FFF7E6;border-radius:8px;padding:0.45rem 0.6rem;">⚠️ Ne promettez ni cadeau, ni réduction, ni tirage au sort en échange d'un avis : c'est interdit par Google et TripAdvisor (avis supprimés, fiche pénalisée) et par la loi française sur les avis en ligne.</p>` : ''}
+    <div class="admin-label pr-titre">Présentation (recto et verso)</div>
     ${cb('printQrLogo', c.logo, 'Logo')}
     ${cb('printQrNom', c.nom, 'Nom de l\'enseigne (section 5)')}
     ${cb('printQrSlogan', c.slogan, 'Accroche sous le nom (section 5)')}
     ${cb('printQrFond', c.fond, 'Fond couleur crème (sinon blanc, plus économique en encre)')}
-    <p class="pr-aide">Tout se met à l'échelle du papier choisi. Le QR code garde toujours un fond blanc pour rester lisible par les téléphones.</p>`;
+    <p class="pr-aide">Tout se met à l'échelle du papier choisi. Les QR codes gardent toujours un fond blanc pour rester lisibles par les téléphones.</p>`;
 }
 // Relit le panneau de l'affichette (seulement s'il est affiché)
 function printCollectQr() {
@@ -4806,7 +4866,39 @@ function printCollectQr() {
   c.nom = g('printQrNom').checked;
   c.slogan = g('printQrSlogan').checked;
   c.fond = g('printQrFond').checked;
+  c.verso = g('printQrVerso').checked;
+  // Champs du verso : relus seulement s'ils sont affichés (verso coché au dernier affichage)
+  if (g('printQrVersoTitre')) {
+    c.versoTitre = g('printQrVersoTitre').value.trim();
+    c.versoTexte = g('printQrVersoTexte').value.trim();
+    c.versoPlus = g('printQrVersoPlus').value.trim();
+    c.versoMerci = g('printQrVersoMerci').value.trim();
+    const labels = [...document.querySelectorAll('.print-qr-av-label')];
+    const urls = [...document.querySelectorAll('.print-qr-av-url')];
+    c.avis = labels.map((el, i) => ({label:el.value.trim(), url:((urls[i] || {}).value || '').trim()}));
+    if (!c.avis.length) c.avis.push({label:'Google', url:''});
+  }
   return c;
+}
+function printQrAvisAjout() {
+  const c = printCollectQr();
+  if (c.avis.length >= PRINT_QR_AVIS_MAX) return;
+  c.avis.push({label:'', url:''});
+  renderPrintQr(); printApercuPlanifie();
+}
+function printQrAvisSuppr(i) {
+  const c = printCollectQr();
+  c.avis.splice(i, 1);
+  if (!c.avis.length) c.avis.push({label:'Google', url:''});
+  renderPrintQr(); printApercuPlanifie();
+}
+function printQrAvisReseaux() {
+  const c = printCollectQr();
+  const lst = printQrAvisDepuisReseaux();
+  if (!lst.some(a => a.url)) { showToast('Aucun lien Google ou TripAdvisor dans l\'onglet ❤️ Réseaux'); return; }
+  if (c.avis.some(a => a.url) && !confirm('Remplacer les liens d\'avis actuels par ceux de l\'onglet Réseaux ?')) return;
+  c.avis = lst;
+  renderPrintQr(); printApercuPlanifie();
 }
 function printConstruireDonneesQr() {
   const c = printQrCfg();
@@ -4814,6 +4906,8 @@ function printConstruireDonneesQr() {
   const type = PRINT_QR_TYPES.find(q => q.key === c.lien) || PRINT_QR_TYPES[0];
   const url = String((currentDesign || {})['print_qr_' + c.lien] || '').trim();
   if (!url) return {erreur: 'Aucun lien pour « ' + type.label + ' » : renseignez-le en section 7 (QR codes), ou choisissez un autre lien.'};
+  const qrsVerso = c.verso ? c.avis.filter(a => a.url).map(a => ({label:a.label, sub:'', url:a.url, img:''})) : [];
+  if (c.verso && !qrsVerso.length) return {erreur: 'Verso : aucun lien d\'avis renseigné (section 4). Ajoutez un lien, ou décochez « Imprimer aussi un verso ».'};
   const d = currentDesign || DESIGN_DEFAULTS;
   const logoEl = document.getElementById('logoTap');
   const qrs = [{label:type.label, sub:type.sub, url, img:''}];
@@ -4825,18 +4919,26 @@ function printConstruireDonneesQr() {
       papier: c.papier, W: papier.W, H: papier.H, tuiles: !!papier.tuiles, nomPapier: papier.court,
       titre: c.titre || PRINT_QR_TITRES[c.lien], texte: c.texte || PRINT_QR_TEXTE_DEF,
       allerg: !!c.allerg, allergTexte: c.allergTexte || PRINT_QR_ALLERG_DEF,
-      logo: !!c.logo, nom: !!c.nom, slogan: !!c.slogan
+      logo: !!c.logo, nom: !!c.nom, slogan: !!c.slogan,
+      verso: c.verso ? {
+        titre: c.versoTitre || PRINT_QR_VERSO_DEF.titre,
+        texte: c.versoTexte || PRINT_QR_VERSO_DEF.texte,
+        plus: c.versoPlus || '',
+        merci: c.versoMerci || PRINT_QR_VERSO_DEF.merci
+      } : null
     },
     colors: {rouge:d.rouge, creme:d.creme, texte:d.texte, brun:d.brun, vert:d.vert},
     fontTitle: d.font_title || DESIGN_DEFAULTS.font_title,
     fontItems: d.font_items || DESIGN_DEFAULTS.font_items,
     nom: d.print_nom || '', slogan: d.print_slogan || '',
     logo: (logoEl && logoEl.src) || '',
-    qrs,
+    qrs, qrsVerso,
     fontHrefs: [...document.querySelectorAll('link[href*="fonts.googleapis"]')].map(l => l.href)
   };
   return {data, needQr: true};
 }
+// Tous les QR codes à générer pour une impression (recto, et verso de l'affichette)
+function printTousLesQrs(data) { return (data.qrs || []).concat(data.qrsVerso || []); }
 // Raccourci depuis l'onglet « 📲 QR Code » : ouvre Impression sur l'affichette, avec le canal affiché là-bas
 function printOuvrirAffichetteQr() {
   const radio = document.querySelector('input[name="printFmt"][value="qr"]');
@@ -5656,7 +5758,7 @@ function openPrintMenu() {
     win.document.close();
   };
   if (!r.needQr) { ecrire(); return; }
-  printGenererQrs(r.data.qrs, ecrire);
+  printGenererQrs(printTousLesQrs(r.data), ecrire);
 }
 
 // ── Aperçu en direct dans le panneau ──
@@ -5714,7 +5816,7 @@ function printApercuMaj() {
     if (etat) etat.textContent = '— ' + PRINT_FORMATS[fmt].label;
     fr.srcdoc = printPageHtml(r.data);
   };
-  if (r.needQr) printGenererQrs(r.data.qrs, afficher); else afficher();
+  if (r.needQr) printGenererQrs(printTousLesQrs(r.data), afficher); else afficher();
 }
 
 // Moteur de mise en page — exécuté DANS la fenêtre d'aperçu (il n'utilise que window.PRINT_DATA).
@@ -5849,6 +5951,13 @@ function printEngine() {
   .qa-allerg{margin-top:calc(3.5mm * var(--z));border-top:calc(.25mm * var(--z)) solid var(--rouge);padding-top:calc(2.2mm * var(--z));max-width:92%;font-family:var(--fi);font-size:calc(7.5pt * var(--z));color:var(--brun);line-height:1.45}
   .qa-allerg b{display:block;font-weight:600;font-size:calc(7pt * var(--z));letter-spacing:.2em;text-transform:uppercase;color:var(--vert);margin-bottom:calc(.6mm * var(--z))}
   .coupe{position:absolute;border:0 dashed rgba(0,0,0,.3);z-index:4}
+  .qa-etoiles{font-family:var(--ft);font-size:calc(15pt * var(--z));letter-spacing:.18em;color:var(--rouge);margin-top:calc(1.5mm * var(--z));line-height:1}
+  .qa-texte-v{font-family:var(--ft);font-style:italic;font-size:calc(10pt * var(--z));letter-spacing:0;color:var(--brun);line-height:1.35}
+  .qa-avis{display:flex;justify-content:center;align-items:flex-start;gap:calc(4mm * var(--z));margin-top:calc(4mm * var(--z));max-width:100%}
+  .qa-av{display:flex;flex-direction:column;align-items:center;flex:none}
+  .qa-av .qa-qr{width:100%;margin-top:0}
+  .qa-av b{display:block;font-family:var(--fi);font-weight:600;font-size:calc(7.5pt * var(--z));letter-spacing:.14em;text-transform:uppercase;color:var(--rouge);margin-top:calc(1.6mm * var(--z))}
+  .qa-merci{font-family:var(--ft);font-style:italic;font-weight:600;font-size:calc(12pt * var(--z));color:var(--rouge);margin-top:calc(3.5mm * var(--z))}
   `;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
@@ -6269,59 +6378,85 @@ function printEngine() {
 
   // ── Affichette QR code : une page, ou 4 affichettes A6 sur une feuille A4 avec traits de coupe ──
   // Tout est dessiné à l'échelle du papier (l'A6 sert de base) ; si le contenu ne tient pas (carré 10 × 10 cm,
-  // longs textes), tout se réduit ensemble jusqu'à tenir.
+  // longs textes), tout se réduit ensemble jusqu'à tenir. Verso facultatif (18/10/2026) : une 2ᵉ page de même
+  // format, avec 1 à 3 QR codes vers les pages d'avis — à imprimer en recto verso, retournement sur le bord long.
   function formatQr() {
     const Q = D.qr || {};
     const q = qrs[0];
     if (!q) avert.push('⚠️ Le QR code n\'a pas pu être créé (connexion ?) : fermez cette fenêtre et réessayez avant d\'imprimer.');
+    const V = Q.verso || null;
+    const qv = (D.qrsVerso || []).filter(x => x.img);
+    if (V && qv.length < (D.qrsVerso || []).length) avert.push('⚠️ Un QR code du verso n\'a pas pu être créé (connexion ?) : réessayez avant d\'imprimer.');
     const tuiles = !!Q.tuiles;
     const tw = tuiles ? Q.W / 2 : Q.W, th = tuiles ? Q.H / 2 : Q.H;
     const k = Math.min(tw / 105, th / 148);
     const m = Math.max(6, 9 * k);
     const avecEntete = (Q.logo && D.logo) || (Q.nom && D.nom) || (Q.slogan && D.slogan);
-    const contenu = '<div class="qa">'
-      + (Q.logo && D.logo ? `<img class="qa-logo" src="${esc(D.logo)}" alt="">` : '')
+    const entete = (Q.logo && D.logo ? `<img class="qa-logo" src="${esc(D.logo)}" alt="">` : '')
       + (Q.nom && D.nom ? `<div class="qa-nom">${esc(D.nom)}</div>` : '')
       + (Q.slogan && D.slogan ? `<div class="qa-slogan">${esc(D.slogan)}</div>` : '')
-      + (avecEntete ? orn() : '')
+      + (avecEntete ? orn() : '');
+    const recto = '<div class="qa">' + entete
       + (Q.titre ? `<div class="qa-titre">${esc(Q.titre)}</div>` : '')
       + (q ? `<div class="qa-qr"><img src="${esc(q.img)}" alt=""></div>` : '')
       + (Q.texte ? `<div class="qa-texte">${esc(Q.texte)}</div>` : '')
       + (Q.allerg && Q.allergTexte ? `<div class="qa-allerg"><b>Allergènes</b>${esc(Q.allergTexte)}</div>` : '')
       + '</div>';
-    const page = nouvellePage(Q.W, Q.H, k);
-    const positions = tuiles ? [[0, 0], [tw, 0], [0, th], [tw, th]] : [[0, 0]];
-    let z = k, qrMm = 0;
-    positions.forEach(([x, y], i) => {
-      cadre(page, x + m * 0.45, y + m * 0.45, tw - m * 0.9, th - m * 0.9);
-      const zone = frameEl(page, x + m, y + m, tw - 2 * m, th - 2 * m);
-      zone.classList.add('qa-zone');
-      zone.innerHTML = contenu;
-      const qa = zone.firstElementChild;
-      if (i === 0) {
-        const tient = zz => { qa.style.setProperty('--z', String(zz)); return qa.getBoundingClientRect().height <= zone.clientHeight + 0.5; };
-        if (!tient(k)) {
-          let lo = k * 0.3, hi = k, trouve = null;
-          for (let it = 0; it < 14; it++) { const mid = (lo + hi) / 2; if (tient(mid)) { trouve = mid; lo = mid; } else hi = mid; }
-          z = trouve != null ? trouve : k * 0.3;
-          if (trouve == null) avert.push('⚠️ Le contenu ne tient pas sur ce format, même en petit : raccourcissez les textes ou retirez le logo, le nom ou l\'accroche.');
+    // Largeur de base (échelle A6) d'un QR d'avis selon leur nombre : ils restent sur une seule ligne
+    const largAvis = ({1:50, 2:37, 3:25})[qv.length] || 25;
+    const verso = !V ? '' : '<div class="qa">' + entete
+      + `<div class="qa-titre">${esc(V.titre)}</div>`
+      + '<div class="qa-etoiles">★★★★★</div>'
+      + (V.texte ? `<div class="qa-texte qa-texte-v">${esc(V.texte)}</div>` : '')
+      + (qv.length ? `<div class="qa-avis">${qv.map(x => `<div class="qa-av" style="width:calc(${largAvis}mm * var(--z))"><div class="qa-qr"><img src="${esc(x.img)}" alt=""></div>${x.label ? `<b>${esc(x.label)}</b>` : ''}</div>`).join('')}</div>` : '')
+      + (V.plus ? `<div class="qa-texte">${esc(V.plus)}</div>` : '')
+      + (V.merci ? `<div class="qa-merci">${esc(V.merci)}</div>` : '')
+      + '</div>';
+    // Dessine une face (recto ou verso) et renvoie l'échelle retenue et la taille des QR codes (mm)
+    function face(contenu, nomFace) {
+      const page = nouvellePage(Q.W, Q.H, k);
+      const positions = tuiles ? [[0, 0], [tw, 0], [0, th], [tw, th]] : [[0, 0]];
+      let z = k, qrMm = 0;
+      positions.forEach(([x, y], i) => {
+        cadre(page, x + m * 0.45, y + m * 0.45, tw - m * 0.9, th - m * 0.9);
+        const zone = frameEl(page, x + m, y + m, tw - 2 * m, th - 2 * m);
+        zone.classList.add('qa-zone');
+        zone.innerHTML = contenu;
+        const qa = zone.firstElementChild;
+        if (i === 0) {
+          const tient = zz => { qa.style.setProperty('--z', String(zz)); return qa.getBoundingClientRect().height <= zone.clientHeight + 0.5; };
+          if (!tient(k)) {
+            let lo = k * 0.3, hi = k, trouve = null;
+            for (let it = 0; it < 14; it++) { const mid = (lo + hi) / 2; if (tient(mid)) { trouve = mid; lo = mid; } else hi = mid; }
+            z = trouve != null ? trouve : k * 0.3;
+            if (trouve == null) avert.push('⚠️ ' + nomFace + ' : le contenu ne tient pas sur ce format, même en petit. Raccourcissez les textes ou retirez le logo, le nom ou l\'accroche.');
+          }
+          qa.style.setProperty('--z', String(z));
+          const qrEl = qa.querySelector('.qa-qr');
+          qrMm = qrEl ? qrEl.getBoundingClientRect().width / PX : 0;
         }
-        const qrEl = qa.querySelector('.qa-qr');
         qa.style.setProperty('--z', String(z));
-        qrMm = qrEl ? qrEl.getBoundingClientRect().width / PX : 0;
+      });
+      if (tuiles) {
+        // Traits de coupe (imprimés) au milieu de la feuille
+        const v = document.createElement('div'); v.className = 'coupe';
+        v.style.cssText += `left:${tw}mm;top:0;height:${Q.H}mm;border-left-width:.25mm`;
+        const h = document.createElement('div'); h.className = 'coupe';
+        h.style.cssText += `top:${th}mm;left:0;width:${Q.W}mm;border-top-width:.25mm`;
+        page.append(v, h);
       }
-      qa.style.setProperty('--z', String(z));
-    });
-    if (tuiles) {
-      // Traits de coupe (imprimés) au milieu de la feuille
-      const v = document.createElement('div'); v.className = 'coupe';
-      v.style.cssText += `left:${tw}mm;top:0;height:${Q.H}mm;border-left-width:.25mm`;
-      const h = document.createElement('div'); h.className = 'coupe';
-      h.style.cssText += `top:${th}mm;left:0;width:${Q.W}mm;border-top-width:.25mm`;
-      page.append(v, h);
+      return {z, qrMm};
     }
-    if (q && qrMm && qrMm < 25) avert.push('⚠️ QR code assez petit (' + Math.round(qrMm) + ' mm) : il se scanne de près seulement. Pour plus de confort, choisissez un papier plus grand ou raccourcissez les textes.');
-    return `${Q.nomPapier || ''}${q ? ' · QR code de ' + Math.round(qrMm) + ' × ' + Math.round(qrMm) + ' mm' : ''}${z < k * 0.97 ? ' · contenu réduit à ' + Math.round(z / k * 100) + ' %' : ''}`;
+    const r = face(recto, 'Recto');
+    if (q && r.qrMm && r.qrMm < 25) avert.push('⚠️ QR code du recto assez petit (' + Math.round(r.qrMm) + ' mm) : il se scanne de près seulement. Choisissez un papier plus grand ou raccourcissez les textes.');
+    let info = `${Q.nomPapier || ''}${q ? ' · QR code de ' + Math.round(r.qrMm) + ' mm' : ''}${r.z < k * 0.97 ? ' · recto réduit à ' + Math.round(r.z / k * 100) + ' %' : ''}`;
+    if (V) {
+      const v = face(verso, 'Verso');
+      if (v.qrMm && v.qrMm < 20) avert.push('⚠️ QR codes d\'avis petits (' + Math.round(v.qrMm) + ' mm) : mettez moins de liens d\'avis ou choisissez un papier plus grand.');
+      info += qv.length ? ` · verso : ${qv.length} QR code${qv.length > 1 ? 's' : ''} d'avis de ${Math.round(v.qrMm)} mm${v.z < k * 0.97 ? ', réduit à ' + Math.round(v.z / k * 100) + ' %' : ''}` : ' · verso sans QR code';
+      avert.push('ℹ️ 2 pages (recto puis verso) : imprimez en « Recto verso », retournement sur le bord long.');
+    }
+    return info;
   }
 
   function lancer() {
@@ -6358,7 +6493,7 @@ function printEngine() {
     const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href;
     l.onload = l.onerror = r; document.head.appendChild(l);
   }));
-  const imgs = [D.logo, D.photo].concat(qrs.map(q => q.img)).filter(Boolean)
+  const imgs = [D.logo, D.photo].concat(qrs.map(q => q.img), (D.qrsVerso || []).map(q => q.img)).filter(Boolean)
     .map(src => new Promise(r => { const i = new Image(); i.onload = i.onerror = r; i.src = src; }));
   const polices = Promise.all(feuilles).then(() => {
     if (!document.fonts || !document.fonts.load) return;
