@@ -18,9 +18,15 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .bar-d{color:rgba(255,255,255,.7);font-size:11px}
 .tabs{background:var(--bxdk);display:flex;overflow-x:auto}
 .tabs::-webkit-scrollbar{display:none}
-.rct-subtabs{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
-.rct-subtabs::-webkit-scrollbar{display:none}
-.rct-subtab{flex:0 0 auto;white-space:nowrap;user-select:none}
+/* Sous-onglets : un seul style partout (Recettes, RH › Récap, Demandes, fiche salarié) — 18/10/2026 (G2) */
+.rct-subtabs,.subtabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.rct-subtabs::-webkit-scrollbar,.subtabs::-webkit-scrollbar{display:none}
+.rct-subtab,.subtab{flex:0 0 auto;display:flex;align-items:center;gap:4px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);background:#fff;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer;white-space:nowrap;user-select:none}
+.rct-subtab.on,.subtab.on{background:var(--tx);border-color:var(--tx);color:#fff}
+/* Choix à deux positions (Plats / Boissons, Résumé / Détail) */
+.seg{display:flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+.seg button{flex:1;background:#FAF4EC;border:none;padding:7px 12px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer}
+.seg button.on{background:var(--bx);color:#fff}
 .tab{padding:10px 14px;font-size:12px;font-weight:600;color:rgba(255,255,255,.6);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent}
 .tab.on{color:#fff;border-bottom-color:var(--cr)}
 .page{padding:14px;max-width:760px;margin:0 auto}
@@ -75,9 +81,24 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .ing-plus-menu{position:absolute;left:0;top:calc(100% + 4px);z-index:60;background:#fff;border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:6px;display:flex;flex-direction:column;min-width:230px;max-width:calc(100vw - 32px)}
 .ing-plus-menu button{background:none;border:none;text-align:left;padding:9px 10px;font-size:12px;font-weight:600;color:var(--tx);border-radius:7px;cursor:pointer;white-space:nowrap}
 .ing-plus-menu button:hover{background:#FAF4EC}
-.labo-vue{display:inline-flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
-.labo-vue button{background:#FAF4EC;border:none;padding:6px 12px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer}
-.labo-vue button.on{background:var(--bx);color:#fff}
+.fcui-cat{display:flex;align-items:center;gap:8px;padding:8px 2px 4px;font-size:12px;font-weight:800;color:var(--bx);text-transform:uppercase;cursor:pointer}
+.fcui-item{display:flex;align-items:center;gap:8px;padding:6px 2px 6px 22px;font-size:12px;border-bottom:1px solid var(--bd);cursor:pointer}
+/* Explications repliées derrière « ⓘ » (18/10/2026, G3) */
+.aide{margin-bottom:8px;font-size:11px;color:var(--txm)}
+.aide-intro{margin-bottom:10px}
+.aide>summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:11px;color:var(--txm);padding:2px 0;user-select:none}
+.aide>summary::-webkit-details-marker{display:none}
+.aide>div{background:#fff;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;margin-top:4px;line-height:1.45}
+/* Accueil */
+.home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;padding:18px 14px;max-width:980px;margin:0 auto}
+.home-card{display:flex;align-items:center;gap:14px;text-align:left;background:#fff;border:1px solid var(--bd);border-left:5px solid var(--bx);border-radius:14px;padding:16px 14px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.05);font-family:inherit}
+.home-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.09)}
+.home-ic{font-size:30px;line-height:1;flex-shrink:0}
+.home-txt{display:flex;flex-direction:column;gap:4px;min-width:0}
+.home-t{font-size:15px;font-weight:800;color:var(--tx)}
+.home-etat{font-size:12px;color:var(--txm)}
+.home-etat.alerte{display:inline-block;align-self:flex-start;background:#FEE2E2;color:#991B1B;font-weight:700;border-radius:999px;padding:2px 9px}
+@media (max-width:520px){.home-grid{grid-template-columns:1fr 1fr;gap:10px;padding:14px 12px}.home-card{flex-direction:column;align-items:flex-start;gap:8px;padding:14px 12px}.home-ic{font-size:26px}}
 .btn-xl{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;font-size:15px;font-weight:800;border-radius:12px;flex:1;min-width:180px}
 .bl-card{flex:1;min-width:220px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:none;cursor:pointer;text-align:left;color:#fff;
   background:linear-gradient(135deg,#1F4E79 0%,#2E75B6 100%);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2),0 3px 8px rgba(31,78,121,.3);transition:transform .08s ease,box-shadow .08s ease}
@@ -295,38 +316,29 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <select id="global-resto-select" onchange="onGlobalRestoChange()" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:600;"></select>
   <button onclick="doLogout()" title="Se déconnecter" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;white-space:nowrap">↪ Déconnexion</button>
 </div>
-<div id="home-bubbles" style="display:flex;flex-wrap:wrap;gap:14px;padding:20px 14px;justify-content:center;">
-  <div class="home-bubble" onclick="goModule('rh')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
-    <div style="font-size:32px;">👥</div>RH
-  </div>
-  <div class="home-bubble" onclick="goModule('recettes')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
-    <div style="font-size:32px;">🍕</div>RECETTES
-  </div>
-  <div class="home-bubble" onclick="goModule('menu')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
-    <div style="font-size:32px;">📱</div>MENU
-  </div>
-  <div class="home-bubble" onclick="goModule('labo')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
-    <div style="font-size:32px;">🔬</div>LABO
-  </div>
-  <div class="home-bubble" onclick="goModule('reglages')" style="width:130px;height:110px;background:#7A0F14;color:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
-    <div style="font-size:32px;">⚙️</div>RÉGLAGES
-  </div>
+<!-- Accueil (18/10/2026, H1) : une carte par module avec une ligne d'état utile (majAccueil) -->
+<div id="home-bubbles" class="home-grid">
+  <button type="button" class="home-card" onclick="goModule('rh')"><span class="home-ic">👥</span><span class="home-txt"><span class="home-t">RH</span><span class="home-etat" id="home-etat-rh" data-defaut="Salariés, planning, pointages">Salariés, planning, pointages</span></span></button>
+  <button type="button" class="home-card" onclick="goModule('recettes')"><span class="home-ic">🍕</span><span class="home-txt"><span class="home-t">Recettes</span><span class="home-etat" id="home-etat-recettes" data-defaut="Fiches, ingrédients, ventes">Fiches, ingrédients, ventes</span></span></button>
+  <button type="button" class="home-card" onclick="goModule('menu')"><span class="home-ic">📱</span><span class="home-txt"><span class="home-t">Menu</span><span class="home-etat" id="home-etat-menu" data-defaut="Carte en ligne et site">Carte en ligne et site</span></span></button>
+  <button type="button" class="home-card" onclick="goModule('labo')"><span class="home-ic">🔬</span><span class="home-txt"><span class="home-t">Labo</span><span class="home-etat" id="home-etat-labo" data-defaut="Lots et commandes">Lots et commandes</span></span></button>
+  <button type="button" class="home-card" onclick="goModule('reglages')"><span class="home-ic">⚙️</span><span class="home-txt"><span class="home-t">Réglages</span><span class="home-etat" id="home-etat-reglages" data-defaut="Établissements, enseigne, RH">Établissements, enseigne, RH</span></span></button>
 </div>
 <div id="back-to-home-bar" style="display:none;background:#7A0F14;padding:10px 14px;">
   <button onclick="goHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">← Revenir au menu</button>
 </div>
-<div class="tabs" id="tabs-rh">
+<div class="tabs" id="tabs-rh" style="display:none">
   <div class="tab" onclick="goTab('sa',this)">Salari&#233;s</div>
   <div class="tab on" onclick="goTab('pl',this)">Planning</div>
   <div class="tab" onclick="goTab('rc',this)">R&#233;cap</div>
 </div>
 <div class="page" id="page-rh" style="display:none;">
   <div id="rc" style="display:none">
-    <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd);overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <div class="subtab on" id="rcsubtab-auj" onclick="rcSubTab('auj')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx);white-space:nowrap">Aujourd'hui</div>
-      <div class="subtab" id="rcsubtab-pt" onclick="rcSubTab('pt')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Pointages</div>
-      <div class="subtab" id="rcsubtab-recap" onclick="rcSubTab('recap')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Heures &amp; paie</div>
-      <div class="subtab" id="rcsubtab-ab" onclick="rcSubTab('ab')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm);white-space:nowrap">Demandes</div>
+    <div class="subtabs">
+      <div class="subtab on" id="rcsubtab-auj" onclick="rcSubTab('auj')">Aujourd'hui</div>
+      <div class="subtab" id="rcsubtab-pt" onclick="rcSubTab('pt')">Pointages</div>
+      <div class="subtab" id="rcsubtab-recap" onclick="rcSubTab('recap')">Heures &amp; paie</div>
+      <div class="subtab" id="rcsubtab-ab" onclick="rcSubTab('ab')">Demandes</div>
     </div>
 
     <!-- Sous-onglet Aujourd'hui (17/10/2026) : alertes à traiter, équipe du jour, journal des badges -->
@@ -381,10 +393,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
     <!-- Sous-onglet Demandes -->
     <div id="rc-pane-ab" style="display:none">
-      <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:2px solid var(--bd)">
-        <div class="subtab on" id="subtab-dem" onclick="abSubTab('dem')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid var(--bx);margin-bottom:-2px;color:var(--bx)">Abs. demand&#233;es <span id="dem-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
-        <div class="subtab" id="subtab-abs" onclick="abSubTab('abs')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Absences</div>
-        <div class="subtab" id="subtab-aco" onclick="abSubTab('aco')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txm)">Acomptes <span id="aco-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
+      <div class="subtabs">
+        <div class="subtab on" id="subtab-dem" onclick="abSubTab('dem')">Abs. demand&#233;es <span id="dem-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
+        <div class="subtab" id="subtab-abs" onclick="abSubTab('abs')">Absences</div>
+        <div class="subtab" id="subtab-aco" onclick="abSubTab('aco')">Acomptes <span id="aco-badge" style="display:none;background:#991B1B;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></div>
       </div>
       <!-- Sous-onglet Demandes -->
       <div id="ab-pane-dem">
@@ -450,22 +462,20 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div id="page-recettes" style="display:none;">
   <div class="page" style="padding-top:14px;">
     <div class="rct-subtabs">
-      <div class="rct-subtab on" id="rctbtn-list" onclick="goRecettesSub('list')" style="text-align:center;padding:9px 14px;border-radius:8px;background:var(--bx);color:#fff;font-weight:700;font-size:12px;cursor:pointer;">🍕 Produits &amp; recettes</div>
-      <div class="rct-subtab" id="rctbtn-ingredients" onclick="goRecettesSub('ingredients')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧂 Ingrédients</div>
-      <div class="rct-subtab" id="rctbtn-couts" onclick="goRecettesSub('couts')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">💰 Coûts</div>
-      <div class="rct-subtab" id="rctbtn-inv" onclick="goRecettesSub('inv')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">📋 Inventaires</div>
-      <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🧾 Ventes</div>
-      <div class="rct-subtab" id="rctbtn-interne" onclick="goRecettesSub('interne')" style="text-align:center;padding:9px 14px;border-radius:8px;background:#FAF4EC;color:var(--tx);font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--bd);">🚚 Interne</div>
+      <div class="rct-subtab on" id="rctbtn-list" onclick="goRecettesSub('list')">🍕 Produits &amp; recettes</div>
+      <div class="rct-subtab" id="rctbtn-ingredients" onclick="goRecettesSub('ingredients')">🧂 Ingrédients</div>
+      <div class="rct-subtab" id="rctbtn-couts" onclick="goRecettesSub('couts')">💰 Coûts</div>
+      <div class="rct-subtab" id="rctbtn-inv" onclick="goRecettesSub('inv')">📋 Inventaires</div>
+      <div class="rct-subtab" id="rctbtn-import" onclick="goRecettesSub('import')">🧾 Ventes</div>
+      <div class="rct-subtab" id="rctbtn-interne" onclick="goRecettesSub('interne')">🚚 Interne</div>
     </div>
 
     <!-- Sous-onglet: liste produits vendus / recettes -->
     <div id="rct-pane-list">
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Le restaurant suit le sélecteur en haut de page. Chaque produit a sa recette (ingrédients + quantités), son coût matière calculé automatiquement, et son prix de vente — tout au même endroit. ⚠️ = ingrédient non relié ou sans prix, coût incomplet. 🍽️ = prix sur place · 🥡 = à emporter · coef = prix de vente HT ÷ coût matière (lu depuis la carte publique).
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <button type="button" id="pv-submode-plats" class="btn bp sm" onclick="setPvSubMode('plats')" style="flex:1;">🍕 Plats</button>
-        <button type="button" id="pv-submode-boissons" class="btn bs sm" onclick="setPvSubMode('boissons')" style="flex:1;">🥤 Boissons</button>
+      <details class="aide aide-intro"><summary>ⓘ À quoi sert cet écran ?</summary><div>Le restaurant suit le sélecteur en haut de page. Chaque produit a sa recette (ingrédients + quantités), son coût matière calculé automatiquement, et son prix de vente — tout au même endroit. ⚠️ = ingrédient non relié ou sans prix, coût incomplet. 🍽️ = prix sur place · 🥡 = à emporter · coef = prix de vente HT ÷ coût matière (lu depuis la carte publique).</div></details>
+      <div class="seg" style="margin-bottom:10px;">
+        <button type="button" id="pv-submode-plats" class="on" onclick="setPvSubMode('plats')">🍕 Plats</button>
+        <button type="button" id="pv-submode-boissons" onclick="setPvSubMode('boissons')">🥤 Boissons</button>
       </div>
       <div id="pv-submode-boiss-tools" style="display:none;margin-bottom:10px;">
         <div class="card" style="font-size:11px;color:var(--txm);">🍹 Le classement Plats/Boissons ici suit directement le réglage "Food / Drinks" de chaque catégorie sur le menu public — rien à faire ici. Si une catégorie manque côté Boissons, vérifie/change son réglage dans le back-office du menu (fiche catégorie → section visible). Une catégorie créée à la main ici (hors menu) se range avec le champ « Onglet » de sa fiche catégorie.</div>
@@ -478,6 +488,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <button class="btn bp sm" onclick="syncProduitsFromMenu()">🔄 Synchroniser avec le menu</button>
+        <button class="btn bs sm" onclick="openFichesCuisineModal()">🖨️ Fiches cuisine (PDF)</button>
         <button class="btn ba sm" onclick="openFlyerImportModal()">📸 Importer un flyer (prix emporter)</button>
         <button class="btn bs sm" onclick="openNewProduitVenduModal()">+ Produit vendu manuellement</button>
         <button class="btn bs sm" onclick="openOngletEditModal(null)">+ Nouvel onglet</button>
@@ -489,9 +500,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
     <!-- Sous-onglet: ingrédients de la carte -->
     <div id="rct-pane-ingredients" style="display:none;">
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Liste des ingrédients tels qu'ils apparaissent sur la carte, groupés par catégorie (base, fromages, charcuterie, légumes, condiments…). C'est cette liste qui est utilisée pour composer les recettes. Tu peux relier chaque ingrédient à un produit du stock (facultatif, mais nécessaire plus tard pour le calcul théorique/réel).
-      </div>
+      <details class="aide aide-intro"><summary>ⓘ À quoi sert cet écran ?</summary><div>Liste des ingrédients tels qu'ils apparaissent sur la carte, groupés par catégorie (base, fromages, charcuterie, légumes, condiments…). C'est cette liste qui est utilisée pour composer les recettes. Tu peux relier chaque ingrédient à un produit du stock (facultatif, mais nécessaire plus tard pour le calcul théorique/réel).</div></details>
       <div style="display:flex;gap:8px;margin:14px 0 10px;">
         <input type="text" class="fi" id="rct-ing-search" placeholder="Rechercher un ingrédient…" oninput="renderIngredientsList()" style="flex:1;">
         <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txm);white-space:nowrap;">
@@ -549,18 +558,14 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
     <!-- Sous-onglet: coûts des produits stock -->
     <div id="rct-pane-couts" style="display:none;">
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Renseigne pour chaque produit du stock son poids net (pour convertir grammes ↔ unités de stock) et son prix (au kilo ou à l'unité). Ça sert au calcul du coût matière et au théorique/réel. Enregistrement automatique à chaque modification.
-      </div>
+      <details class="aide aide-intro"><summary>ⓘ À quoi sert cet écran ?</summary><div>Renseigne pour chaque produit du stock son poids net (pour convertir grammes ↔ unités de stock) et son prix (au kilo ou à l'unité). Ça sert au calcul du coût matière et au théorique/réel. Enregistrement automatique à chaque modification.</div></details>
       <input type="text" class="fi" id="rct-couts-search" placeholder="Rechercher un produit…" oninput="renderCoutsList()" style="width:100%;margin-bottom:10px;">
       <div id="rct-couts-container" style="overflow-x:auto;"></div>
     </div>
 
     <!-- Sous-onglet: inventaires de référence -->
     <div id="rct-pane-inv" style="display:none;">
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Photographie l'état du stock à un instant T (celui affiché dans l'app stock). Sert de point de départ ou d'arrivée pour comparer le théorique au réel sur une période. Le restaurant suit le sélecteur en haut de page.
-      </div>
+      <details class="aide aide-intro"><summary>ⓘ À quoi sert cet écran ?</summary><div>Photographie l'état du stock à un instant T (celui affiché dans l'app stock). Sert de point de départ ou d'arrivée pour comparer le théorique au réel sur une période. Le restaurant suit le sélecteur en haut de page.</div></details>
       <button class="btn bp" onclick="clotureInventaire()" style="width:100%;margin-bottom:14px;">📋 Clôturer un inventaire maintenant</button>
       <div id="rct-inv-container"></div>
     </div>
@@ -569,7 +574,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="rct-pane-import" style="display:none;">
       <div class="card" style="background:#ECFDF5;margin-bottom:10px;">
         <div class="mdt" style="font-size:14px;margin-bottom:6px;">🔄 Synchroniser Hiboutik</div>
-        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Récupère automatiquement les ventes depuis la caisse Hiboutik pour la période choisie (sur place/à emporter distingués). Les nouveaux produits jamais vus sont à rattacher une fois juste en dessous avant d'apparaître dans les calculs.</div>
+        <details class="aide" style="margin-bottom:8px;"><summary>ⓘ Explications</summary><div>Récupère automatiquement les ventes depuis la caisse Hiboutik pour la période choisie (sur place/à emporter distingués). Les nouveaux produits jamais vus sont à rattacher une fois juste en dessous avant d'apparaître dans les calculs.</div></details>
         <div class="fr"><label class="fl2">N° de magasin Hiboutik (store_id)</label><input type="number" class="fi" id="rct-hib-store" placeholder="Ex: 1"></div>
         <div class="fr"><label class="fl2">Début de période</label><input type="date" class="fi" id="rct-hib-debut"></div>
         <div class="fr"><label class="fl2">Fin de période</label><input type="date" class="fi" id="rct-hib-fin"></div>
@@ -584,7 +589,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       </div>
       <div class="card">
         <div class="mdt" style="font-size:14px;margin-bottom:6px;">📥 Importer un fichier de ventes</div>
-        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Accepte l'export caisse des articles vendus, le rapport « articles vendus » d'une plateforme (plusieurs établissements dans le même fichier possibles), le détail des commandes et paiements Uber Eats (articles + commission, promotions, publicité, net versé) et l'historique des commandes (temps de préparation, coursiers). Les correspondances de produits validées une fois sont retenues pour les imports suivants. Le type de fichier est reconnu tout seul ; la période est lue dans le nom du fichier quand elle y figure.</div>
+        <details class="aide" style="margin-bottom:8px;"><summary>ⓘ Explications</summary><div>Accepte l'export caisse des articles vendus, le rapport « articles vendus » d'une plateforme (plusieurs établissements dans le même fichier possibles), le détail des commandes et paiements Uber Eats (articles + commission, promotions, publicité, net versé) et l'historique des commandes (temps de préparation, coursiers). Les correspondances de produits validées une fois sont retenues pour les imports suivants. Le type de fichier est reconnu tout seul ; la période est lue dans le nom du fichier quand elle y figure.</div></details>
         <div class="fr"><label class="fl2">Provenance</label><select class="fi" id="rct-imp-source"></select></div>
         <div class="fr"><label class="fl2">Fichier CSV</label><input type="file" class="fi" id="rct-imp-file" accept=".csv,text/csv" style="padding:5px" onchange="ventesFichierChoisi()"></div>
         <div id="rct-imp-fichier-info" style="font-size:11px;color:#065F46;margin:-4px 0 6px;"></div>
@@ -595,13 +600,13 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <div id="rct-imp-preview"></div>
       <div class="card" style="margin-top:14px;">
         <div class="mdt" style="font-size:14px;margin-bottom:6px;">📊 Consommation théorique d'ingrédients</div>
-        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Calculée à partir des ventes déjà importées pour la période ci-dessus (mêmes dates) × les recettes renseignées. C'est ce qui devrait avoir été consommé si tout a été préparé selon la recette exacte.</div>
+        <details class="aide" style="margin-bottom:8px;"><summary>ⓘ Explications</summary><div>Calculée à partir des ventes déjà importées pour la période ci-dessus (mêmes dates) × les recettes renseignées. C'est ce qui devrait avoir été consommé si tout a été préparé selon la recette exacte.</div></details>
         <button class="btn bs" onclick="calculerConsommationTheorique()" style="width:100%;">Calculer pour cette période</button>
       </div>
       <div id="rct-conso-result"></div>
       <div class="card" style="margin-top:14px;">
         <div class="mdt" style="font-size:14px;margin-bottom:6px;">🛵 Commandes des plateformes</div>
-        <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Synthèse des historiques de commandes importés pour la période ci-dessus : nombre de commandes, chiffre d'affaires, panier moyen, annulations, temps de préparation et d'attente des coursiers, heures de pointe.</div>
+        <details class="aide" style="margin-bottom:8px;"><summary>ⓘ Explications</summary><div>Synthèse des historiques de commandes importés pour la période ci-dessus : nombre de commandes, chiffre d'affaires, panier moyen, annulations, temps de préparation et d'attente des coursiers, heures de pointe.</div></details>
         <button class="btn bs" onclick="afficherSyntheseCommandesPlateformes()" style="width:100%;">Voir la synthèse des commandes</button>
       </div>
       <div id="rct-cmdplat-result"></div>
@@ -609,9 +614,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
     <!-- Sous-onglet: commandes internes vers le Labo -->
     <div id="rct-pane-interne" style="display:none;">
-      <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-        Les restaurants demandent des ingrédients au Labo, le Labo valide et prépare l'envoi. Ceci crée un bon de livraison interne consultable des deux côtés — ça ne modifie pas les comptages d'inventaire, qui restent faits manuellement comme d'habitude.
-      </div>
+      <details class="aide aide-intro"><summary>ⓘ À quoi sert cet écran ?</summary><div>Les restaurants demandent des ingrédients au Labo, le Labo valide et prépare l'envoi. Ceci crée un bon de livraison interne consultable des deux côtés — ça ne modifie pas les comptages d'inventaire, qui restent faits manuellement comme d'habitude.</div></details>
       <div id="rct-interne-container"></div>
     </div>
   </div>
@@ -741,7 +744,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="msup">
   <div class="md" style="max-width:460px;">
     <div class="mdt">Fournisseurs — <span id="msup-resto"></span></div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Liste commune à tous les établissements. Coche "🏭 Interne" pour l'option "commande passée en interne au Labo" plutôt qu'à un vrai fournisseur externe. Délai de commande et heure limite servent au calcul automatique des besoins (mode "veille de livraison" dans les règles de commande d'un ingrédient).</div>
+    <details class="aide" style="margin-bottom:10px;"><summary>ⓘ Explications</summary><div>Liste commune à tous les établissements. Coche "🏭 Interne" pour l'option "commande passée en interne au Labo" plutôt qu'à un vrai fournisseur externe. Délai de commande et heure limite servent au calcul automatique des besoins (mode "veille de livraison" dans les règles de commande d'un ingrédient).</div></details>
     <div id="msup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
     <div class="fr" style="border-top:1px solid var(--bx);padding-top:10px;"><label class="fl2">Nouveau fournisseur</label><input type="text" class="fi" id="msup-new-name" placeholder="Ex: Metro, Pomona…"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('msup')">Fermer</button><button class="btn bp" onclick="createSupplier()">+ Ajouter</button></div>
@@ -752,7 +755,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="mregles">
   <div class="md" style="max-width:480px;">
     <div class="mdt">📅 Règles de commande — <span id="mregles-ing-nom"></span></div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">La règle qui correspond au jour du jour l'emporte sur le seuil/cible par défaut ci-dessus. "Veille de livraison" recalcule automatiquement le jour concerné selon les jours de livraison du fournisseur (à régler dans Gérer les fournisseurs). L'heure limite est optionnelle : elle surcharge celle du fournisseur pour cette référence précise.</div>
+    <details class="aide" style="margin-bottom:10px;"><summary>ⓘ Explications</summary><div>La règle qui correspond au jour du jour l'emporte sur le seuil/cible par défaut ci-dessus. "Veille de livraison" recalcule automatiquement le jour concerné selon les jours de livraison du fournisseur (à régler dans Gérer les fournisseurs). L'heure limite est optionnelle : elle surcharge celle du fournisseur pour cette référence précise.</div></details>
     <div id="mregles-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
     <div class="ma"><button class="btn bs" onclick="closeReglesModal()">Fermer</button><button class="btn bp" id="mregles-add-btn" onclick="addRegleCommande()">+ Ajouter une règle</button></div>
   </div>
@@ -762,7 +765,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="mbesoinscpt">
   <div class="md" style="max-width:520px;">
     <div class="mdt">🛒 Besoins (d'après les derniers comptages)</div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Compare le dernier comptage rapide de chaque ingrédient (tous les établissements) à son seuil configuré. Un ingrédient jamais compté n'apparaît pas ici — ce n'est pas encore une commande automatique, juste une liste à vérifier.</div>
+    <details class="aide" style="margin-bottom:10px;"><summary>ⓘ Explications</summary><div>Compare le dernier comptage rapide de chaque ingrédient (tous les établissements) à son seuil configuré. Un ingrédient jamais compté n'apparaît pas ici — ce n'est pas encore une commande automatique, juste une liste à vérifier.</div></details>
     <div id="mbesoinscpt-list"></div>
     <div class="ma"><button class="btn bs" onclick="closeM('mbesoinscpt')">Fermer</button></div>
   </div>
@@ -868,13 +871,31 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<!-- Modal Fiches cuisine (PDF à imprimer pour l'équipe : photo, composition de la carte, ingrédients et grammages,
+     allergènes ; sans prix ni coûts). 18/10/2026. -->
+<div class="mb" id="mfichecui">
+  <div class="md" style="max-width:480px;">
+    <div class="mdt">🖨️ Fiches cuisine</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Une page A4 par produit, pour l'équipe en cuisine : photo, composition de la carte, ingrédients avec leurs grammages (recette), allergènes et un cadre pour noter le montage. Aucun prix ni coût n'y figure. Coche les produits à imprimer.</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+      <input type="text" class="fi" id="mfichecui-search" placeholder="🔍 Rechercher…" oninput="renderFichesCuisineList()" style="flex:1;min-width:140px;">
+      <button type="button" class="btn bs sm" onclick="fichesCuisineToutCocher(true)">Tout cocher</button>
+      <button type="button" class="btn bs sm" onclick="fichesCuisineToutCocher(false)">Tout décocher</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;"><input type="checkbox" id="mfichecui-photo" checked> Mettre la photo du plat (si elle existe sur la carte)</label>
+    <div id="mfichecui-list" style="max-height:48vh;overflow-y:auto;border-top:1px solid var(--bd);"></div>
+    <div id="mfichecui-status" style="font-size:12px;color:var(--txm);margin-top:8px;"></div>
+    <div class="ma" style="margin-top:12px;"><button class="btn bs" onclick="closeM('mfichecui')">Fermer</button><button class="btn bp" id="mfichecui-btn" onclick="fichesCuisineDepuisChoix()">📄 Créer le PDF (<span id="mfichecui-nb">0</span>)</button></div>
+  </div>
+</div>
+
 <!-- Modal détail du prix de revient d'un produit vendu (contrôle ligne par ligne) -->
 <div class="mb" id="mprixdetail">
   <div class="md" style="max-width:480px;">
     <div class="mdt" id="mprixdetail-title">Détail</div>
     <div id="mprixdetail-lines"></div>
     <div id="mprixdetail-total" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--bd);font-weight:800;font-size:15px;"></div>
-    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mprixdetail')">Fermer</button></div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="fichesCuisinePdf([mprixdetailCode])">🖨️ Fiche cuisine</button><button class="btn bs" onclick="closeM('mprixdetail')">Fermer</button></div>
   </div>
 </div>
 
@@ -894,18 +915,15 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 
 <!-- ══ MODULE MENU (digital) — CMS complet intégré (index.html?admin=1) ══ -->
 <div id="page-menu" style="display:none;">
-  <div class="page" style="padding-top:14px;">
-    <div class="card" style="padding:10px 14px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-        <div style="font-size:12px;color:var(--txm);">Gestion complète du menu en ligne (catégories, plats, design, pop-up, QR code…) — l'écran d'origine du site, affiché ici.</div>
-        <a href="index.html?admin=1" target="_blank" rel="noopener" class="btn bs sm" style="white-space:nowrap;">🔗 Ouvrir en plein écran</a>
-      </div>
+  <!-- 18/10/2026 (M1) : fine barre + carte intégrée. La note « Pas connecté ? login.html » a été retirée :
+       index.html?admin=1 affiche déjà lui-même un écran « Connexion à l'édition du menu requise » avec le bouton
+       de connexion quand ce navigateur n'a pas la connexion au menu (afficherConnexionMenuRequise). -->
+  <div class="page" style="padding-top:10px;">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <a href="index.html?admin=1" target="_blank" rel="noopener" class="btn bs sm" style="white-space:nowrap;">🔗 Ouvrir en plein écran</a>
     </div>
     <div class="card" style="padding:0;overflow:hidden;">
-      <iframe id="menuAdminFrame" src="index.html?admin=1" style="width:100%;height:78vh;min-height:520px;border:0;display:block;" title="Administration du menu en ligne"></iframe>
-    </div>
-    <div style="font-size:11px;color:var(--txm);text-align:center;margin-top:8px;">
-      Pas connecté ? Ouvre <a href="login.html" target="_blank" rel="noopener">login.html</a> dans un onglet une première fois, puis reviens ici.
+      <iframe id="menuAdminFrame" src="index.html?admin=1" style="width:100%;height:calc(100vh - 190px);min-height:520px;border:0;display:block;" title="Administration du menu en ligne"></iframe>
     </div>
   </div>
 </div>
@@ -922,9 +940,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 
   <div class="page" style="padding-top:14px;">
-    <div class="card" style="font-size:11px;color:var(--txm);margin-bottom:10px;">
-      Le Labo transforme des blocs de matière première en lots pesés (bacs, bûches…) destinés aux restaurants.
-    </div>
+    <details class="aide aide-intro"><summary>ⓘ À quoi sert cet écran ?</summary><div>Le Labo transforme des blocs de matière première en lots pesés (bacs, bûches…) destinés aux restaurants.</div></details>
 
     <div class="card">
       <div style="font-weight:700;margin-bottom:10px;">📋 Commandes à préparer</div>
@@ -964,7 +980,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="card" id="labo-lots-card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <div style="font-weight:700;">📦 Lots en stock <span id="labo-lots-total" style="font-weight:600;color:var(--txm);font-size:12px;"></span></div>
-        <div class="labo-vue" role="group" aria-label="Affichage des lots">
+        <div class="seg" role="group" aria-label="Affichage des lots">
           <button type="button" id="labo-vue-resume" class="on" onclick="laboLotsVue('resume')">Résumé</button>
           <button type="button" id="labo-vue-detail" onclick="laboLotsVue('detail')">Détail</button>
         </div>
@@ -1601,7 +1617,8 @@ function goHome(){
   var backBar=document.getElementById('back-to-home-bar');
   if(backBar)backBar.style.display='none';
   var home=document.getElementById('home-bubbles');
-  if(home)home.style.display='flex';
+  if(home)home.style.display='';
+  majAccueil();
 }
 
 function goTab(name,el){
@@ -1626,10 +1643,7 @@ function rcSubTab(which){
     var pane=document.getElementById(panes[k]);
     var tab=document.getElementById(tabs[k]);
     if(pane)pane.style.display=(k===which)?'block':'none';
-    if(tab){
-      tab.style.borderBottom=(k===which)?'2px solid var(--bx)':'none';
-      tab.style.color=(k===which)?'var(--bx)':'var(--txm)';
-    }
+    if(tab)tab.classList.toggle('on',k===which);
   });
   if(which==='auj')loadAuj();
   if(which==='pt')loadPt();
@@ -5626,10 +5640,7 @@ function abSubTab(which){
     var pane=document.getElementById(panes[k]);
     var tab=document.getElementById(tabs[k]);
     if(pane)pane.style.display=(k===which)?'block':'none';
-    if(tab){
-      tab.style.borderBottom=(k===which)?'2px solid var(--bx)':'none';
-      tab.style.color=(k===which)?'var(--bx)':'var(--txm)';
-    }
+    if(tab)tab.classList.toggle('on',k===which);
   });
   if(which==='dem'&&typeof loadDem==='function')loadDem();
   else if(which==='abs'&&typeof loadAb==='function')loadAb();
@@ -8256,8 +8267,7 @@ function goRecettesSub(name){
   ['list','ingredients','couts','inv','import','interne'].forEach(function(k){
     var b=document.getElementById('rctbtn-'+k);
     if(!b)return;
-    if(k===name){b.style.background='var(--bx)';b.style.color='#fff';b.style.border='none';}
-    else{b.style.background='#FAF4EC';b.style.color='var(--tx)';b.style.border='1px solid var(--bd)';}
+    b.classList.toggle('on',k===name);
   });
 }
 
@@ -9110,8 +9120,8 @@ var rctPvSubMode='plats'; // 'plats' | 'boissons' — sous-onglet interne à Pro
 function setPvSubMode(mode){
   rctPvSubMode=(mode==='boissons')?'boissons':'plats';
   var bP=document.getElementById('pv-submode-plats'),bB=document.getElementById('pv-submode-boissons'),tools=document.getElementById('pv-submode-boiss-tools');
-  if(bP)bP.className='btn '+(rctPvSubMode==='plats'?'bp':'bs')+' sm';
-  if(bB)bB.className='btn '+(rctPvSubMode==='boissons'?'bp':'bs')+' sm';
+  if(bP)bP.classList.toggle('on',rctPvSubMode==='plats');
+  if(bB)bB.classList.toggle('on',rctPvSubMode==='boissons');
   if(tools)tools.style.display=rctPvSubMode==='boissons'?'block':'none';
   renderRecettesList();
 }
@@ -13316,6 +13326,186 @@ function detailRecette(produitVenduCode){
   rows.forEach(function(r){if(r.cout!=null){total+=r.cout;hasCout=true;}});
   return {rows:rows,total:hasCout?total:null};
 }
+// ══ Fiches cuisine (PDF) — 18/10/2026 ══════════════════════════════════════════════════════════
+// Une page A4 par produit vendu, construite à partir des données existantes : nom, catégorie, photo et
+// composition de la carte publique (menudata.json, plat retrouvé par findMenuPriceFor), ingrédients et
+// grammages de la recette (detailRecette), allergènes renseignés sur la carte (liste réglementaire des 14).
+// Destinée à l'équipe en cuisine : aucun prix ni coût. Rien n'est enregistré, rien n'est modifié.
+var FCUI_ALLERGENES={gluten:'Gluten',crustaces:'Crustacés',oeufs:'Œufs',poisson:'Poisson',arachides:'Arachides',soja:'Soja',lait:'Lait',noix:'Fruits à coque',celeri:'Céleri',moutarde:'Moutarde',sesame:'Sésame',sulfites:'Sulfites',mollusques:'Mollusques',lupin:'Lupin'};
+var fcuiCoches={};
+// Les polices standard du PDF ne savent pas dessiner les émojis : on les retire des textes imprimés.
+function fcuiTxt(s){
+  return String(s==null?'':s).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}️‍⃣]/gu,'').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/\s+/g,' ').trim();
+}
+function fcuiProduitsTries(){
+  var list=rctProduitsVendus.filter(function(p){return p.actif!==false;});
+  var byCat=groupByMenu(list,function(p){return p.nom;});
+  var out=[];
+  sortedMenuCatNames(byCat).forEach(function(cat){
+    var subs=sortedMenuSubNames(cat,byCat[cat]);
+    var items=[];
+    subs.forEach(function(sub){(byCat[cat][sub]||[]).forEach(function(p){items.push({p:p,sub:sub});});});
+    if(items.length)out.push({cat:cat,items:items});
+  });
+  return out;
+}
+async function openFichesCuisineModal(){
+  fcuiCoches={};
+  document.getElementById('mfichecui-search').value='';
+  document.getElementById('mfichecui-status').textContent='';
+  try{await loadMenuPricesFromSite();}catch(e){console.warn('openFichesCuisineModal: carte non chargée',e);}
+  renderFichesCuisineList();
+  openM('mfichecui');
+}
+function renderFichesCuisineList(){
+  var q=normText(document.getElementById('mfichecui-search').value||'');
+  var html='';
+  fcuiProduitsTries().forEach(function(g,gi){
+    var items=g.items.filter(function(x){return !q||normText(x.p.nom).indexOf(q)>=0;});
+    if(!items.length)return;
+    var tous=items.every(function(x){return fcuiCoches[x.p.code];});
+    html+='<label class="fcui-cat"><input type="checkbox" '+(tous?'checked ':'')+'onchange="fichesCuisineCocherCat('+gi+',this.checked)"> '+esc(g.cat)+' <span style="font-weight:600;color:var(--txm);text-transform:none;">('+items.length+')</span></label>';
+    items.forEach(function(x){
+      var n=(rctRecettes[x.p.code]||[]).length;
+      html+='<label class="fcui-item"><input type="checkbox" '+(fcuiCoches[x.p.code]?'checked ':'')+'onchange="fichesCuisineCocher(\''+x.p.code+'\',this.checked)"> <span style="flex:1;">'+esc(x.p.nom)+'</span>'
+        +'<span style="font-size:10px;color:'+(n?'var(--txm)':'#C0392B')+';">'+(n?n+' ingr.':'sans recette')+'</span></label>';
+    });
+  });
+  document.getElementById('mfichecui-list').innerHTML=html||'<div style="font-size:12px;color:var(--txm);padding:10px;text-align:center;">Aucun produit.</div>';
+  fichesCuisineMajCompte();
+}
+function fichesCuisineMajCompte(){
+  var nb=Object.keys(fcuiCoches).filter(function(k){return fcuiCoches[k];}).length;
+  document.getElementById('mfichecui-nb').textContent=nb;
+}
+function fichesCuisineCocher(code,oui){fcuiCoches[code]=!!oui;fichesCuisineMajCompte();}
+function fichesCuisineCocherCat(gi,oui){
+  var q=normText(document.getElementById('mfichecui-search').value||'');
+  var g=fcuiProduitsTries()[gi];if(!g)return;
+  g.items.forEach(function(x){if(!q||normText(x.p.nom).indexOf(q)>=0)fcuiCoches[x.p.code]=!!oui;});
+  renderFichesCuisineList();
+}
+function fichesCuisineToutCocher(oui){
+  var q=normText(document.getElementById('mfichecui-search').value||'');
+  fcuiProduitsTries().forEach(function(g){g.items.forEach(function(x){if(!q||normText(x.p.nom).indexOf(q)>=0)fcuiCoches[x.p.code]=!!oui;});});
+  renderFichesCuisineList();
+}
+async function fichesCuisineDepuisChoix(){
+  var ordre=[];
+  fcuiProduitsTries().forEach(function(g){g.items.forEach(function(x){if(fcuiCoches[x.p.code])ordre.push(x.p.code);});});
+  if(!ordre.length){alert('Coche au moins un produit.');return;}
+  var btn=document.getElementById('mfichecui-btn');btn.disabled=true;
+  try{await fichesCuisinePdf(ordre,document.getElementById('mfichecui-photo').checked,document.getElementById('mfichecui-status'));}
+  finally{btn.disabled=false;}
+}
+// Photo de la carte → image JPEG pour le PDF (null si elle ne peut pas être récupérée : la fiche sort sans photo).
+async function fcuiImage(url){
+  if(!url)return null;
+  // Image hébergée sur Cloudinary : on demande directement une version réduite (plus rapide, PDF plus léger).
+  var u=/res\.cloudinary\.com\/.+\/upload\//.test(url)?url.replace('/upload/','/upload/w_900,q_75,f_jpg/'):url;
+  try{
+    var ctrl=('AbortController' in window)?new AbortController():null;
+    var t=ctrl?setTimeout(function(){ctrl.abort();},10000):null;
+    var res=await fetch(u,ctrl?{signal:ctrl.signal}:{});
+    if(t)clearTimeout(t);
+    if(!res.ok)return null;
+    var blob=await res.blob();
+    var src=URL.createObjectURL(blob);
+    var img=await new Promise(function(ok,ko){var im=new Image();im.onload=function(){ok(im);};im.onerror=ko;im.src=src;});
+    var max=900,sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+    var c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*sc);c.height=Math.round(img.naturalHeight*sc);
+    var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);cx.drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(src);
+    return {data:c.toDataURL('image/jpeg',0.8),w:c.width,h:c.height};
+  }catch(e){console.warn('fcuiImage',url,e);return null;}
+}
+async function fichesCuisinePdf(codes,avecPhoto,statusEl){
+  if(!window.jspdf){alert('PDF en cours de chargement, réessaie dans un instant.');return;}
+  codes=(codes||[]).filter(Boolean);
+  if(!codes.length)return;
+  if(avecPhoto===undefined)avecPhoto=true;
+  try{await loadMenuPricesFromSite();}catch(e){console.warn('fichesCuisinePdf: carte non chargée',e);}
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var W=210,H=297,M=14,enseigne=fcuiTxt(enseigneNom());
+  var dateTxt=new Date().toLocaleDateString('fr-FR');
+  var sansPhoto=0;
+  for(var i=0;i<codes.length;i++){
+    var p=rctProduitsVendus.find(function(x){return x.code===codes[i];});
+    if(!p)continue;
+    if(statusEl)statusEl.textContent='Préparation de la fiche '+(i+1)+' / '+codes.length+'…';
+    if(i>0)doc.addPage();
+    var item=findMenuPriceFor(p.nom);
+    var cl=menuClassifyProduit(p.nom);
+    var y=M;
+    // En-tête
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120);
+    doc.text(enseigne||'',M,y);doc.text('Fiche cuisine',W-M,y,{align:'right'});
+    y+=3;doc.setDrawColor(200);doc.line(M,y,W-M,y);y+=10;
+    doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(22);
+    var titre=doc.splitTextToSize(fcuiTxt(p.nom),W-2*M);
+    doc.text(titre,M,y);y+=titre.length*9;
+    var catTxt=fcuiTxt([cl.cat,cl.sub].filter(Boolean).join(' › ')||p.categorie||'');
+    if(catTxt){doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(110);doc.text(catTxt,M,y);y+=7;}
+    // Photo (gauche) + allergènes (droite)
+    var img=avecPhoto&&item&&item.photo?await fcuiImage(item.photo):null;
+    if(avecPhoto&&item&&item.photo&&!img)sansPhoto++;
+    var blocH=0,xTxt=M,largTxt=W-2*M;
+    if(img){
+      var iw=80,ih=iw*img.h/img.w;if(ih>62){ih=62;iw=ih*img.w/img.h;}
+      doc.addImage(img.data,'JPEG',M,y,iw,ih);
+      blocH=ih;xTxt=M+iw+8;largTxt=W-M-xTxt;
+    }
+    var ya=y+5;
+    doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Allergènes',xTxt,ya);ya+=6;
+    doc.setFont('helvetica','normal');doc.setFontSize(12);
+    var al=(item&&item.allergens||[]).map(function(a){return FCUI_ALLERGENES[a]||a;});
+    var alTxt=doc.splitTextToSize(al.length?al.join(', '):'Non renseignés sur la carte',largTxt);
+    if(!al.length)doc.setTextColor(150);
+    doc.text(alTxt,xTxt,ya);ya+=alTxt.length*5.5;doc.setTextColor(20);
+    y=Math.max(y+blocH,ya)+6;
+    // Composition affichée sur la carte
+    var desc=item&&item.desc?fcuiTxt(item.desc.fr||item.desc):'';
+    if(desc){
+      doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Sur la carte',M,y);y+=6;
+      doc.setFont('helvetica','italic');doc.setFontSize(11);doc.setTextColor(60);
+      var dl=doc.splitTextToSize(desc,W-2*M);doc.text(dl,M,y);y+=dl.length*5+5;doc.setTextColor(20);
+    }
+    // Ingrédients et grammages (recette)
+    var d=detailRecette(p.code);
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('Ingrédients et grammages',M,y);y+=3;
+    doc.setDrawColor(180);doc.line(M,y,W-M,y);y+=7;
+    if(!d.rows.length){
+      doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(150);doc.text('Recette non renseignée dans Produits & recettes.',M,y);doc.setTextColor(20);y+=9;
+    }else{
+      d.rows.forEach(function(r,ri){
+        if(y>H-60){doc.addPage();y=M+6;doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(fcuiTxt(p.nom)+' (suite)',M,y);y+=9;}
+        if(ri%2===0){doc.setFillColor(245,241,234);doc.rect(M,y-5.5,W-2*M,8.5,'F');}
+        doc.setFont('helvetica','normal');doc.setFontSize(13);
+        var nl=doc.splitTextToSize(fcuiTxt(r.nom),W-2*M-62);
+        doc.text(nl,M+2,y);
+        var qa=fcuiTxt(r.qteAffichee).replace(/^(\d+(?:[.,]\d+)?) pièce$/,function(m,n){return n+(parseFloat(n.replace(',','.'))>1?' pièces':' pièce');});
+        doc.setFont('helvetica','bold');doc.text(qa,W-M-2,y,{align:'right'});
+        y+=Math.max(1,nl.length)*8.5;
+      });
+    }
+    // Cadre pour noter le montage
+    y+=4;
+    var hNotes=Math.max(30,H-M-12-y);
+    if(hNotes>=30){
+      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('Montage / notes',M,y);y+=3;
+      doc.setDrawColor(190);doc.rect(M,y,W-2*M,hNotes-4);
+      for(var ly=y+9;ly<y+hNotes-6;ly+=9)doc.line(M+3,ly,W-M-3,ly);
+    }
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(140);
+    doc.text('Fiche établie le '+dateTxt+' à partir de la carte et de la recette enregistrées. À refaire si la recette change.',M,H-8);
+    doc.setTextColor(20);
+  }
+  var nom=codes.length===1?('Fiche_cuisine_'+fcuiTxt((rctProduitsVendus.find(function(x){return x.code===codes[0];})||{}).nom||'produit').replace(/[^A-Za-z0-9]+/g,'_')):('Fiches_cuisine_'+codes.length);
+  doc.save(nom+'.pdf');
+  if(statusEl)statusEl.textContent='✅ PDF créé ('+codes.length+' fiche'+(codes.length>1?'s':'')+')'+(sansPhoto?' — '+sansPhoto+' photo(s) n\'ont pas pu être récupérée(s), fiche(s) sans photo.':'.');
+  else if(sansPhoto)alert('PDF créé, mais la photo n\'a pas pu être récupérée : la fiche est sans photo.');
+}
 // Depuis le détail d'un prix de revient : sauter directement sur l'ingrédient en erreur, dans l'onglet
 // Ingrédients, déjà filtré et déplié, plutôt que d'avoir à le rechercher manuellement.
 function jumpToIngredientFix(ingCode){
@@ -13332,7 +13522,9 @@ function jumpToIngredientFix(ingCode){
     if(det&&det.parentElement)det.parentElement.scrollIntoView({behavior:'smooth',block:'center'});
   },80);
 }
+var mprixdetailCode=null; // produit affiché dans « Détail » (pour le bouton 🖨️ Fiche cuisine)
 function openPrixRevientDetailModal(code){
+  mprixdetailCode=code;
   var p=rctProduitsVendus.find(function(x){return x.code===code;});
   document.getElementById('mprixdetail-title').textContent='Détail — '+(p?p.nom:code);
   var d=detailRecette(code);
@@ -13578,6 +13770,34 @@ async function init(){
   RG.toutesLignes(function(){return db.from('demandes_acompte').select('*').order('id');}).then(function(r){acoAllData=r.data||[];updateAcoBadge();});
   planUpdateLabel();await loadPl();
   showDashboard();
+  majAccueil();
+}
+// Accueil : une ligne d'état par carte (demandes en attente, produits de caisse à rattacher, commandes Labo à
+// préparer). Chaque compteur est lu à part : si une table manque, la carte garde simplement son texte habituel.
+async function majAccueil(){
+  function etat(k,n,txt){
+    var el=document.getElementById('home-etat-'+k);if(!el)return;
+    if(n>0){el.textContent=txt;el.classList.add('alerte');}
+    else{el.textContent=el.getAttribute('data-defaut')||'';el.classList.remove('alerte');}
+  }
+  try{
+    var rd=await db.from('demandes_absence').select('id').eq('statut','att');
+    var ra=await db.from('demandes_acompte').select('id').eq('statut','att');
+    var nd=(rd.data||[]).length,na=(ra.data||[]).length,n=nd+na;
+    var parts=[];if(nd)parts.push(nd+' absence'+(nd>1?'s':''));if(na)parts.push(na+' acompte'+(na>1?'s':''));
+    etat('rh',n,n+' demande'+(n>1?'s':'')+' en attente');
+    var elRh=document.getElementById('home-etat-rh');if(elRh)elRh.title=parts.join(', ');
+  }catch(e){console.warn('majAccueil rh',e);}
+  try{
+    var rm=await RG.toutesLignes(function(){return db.from('hiboutik_mapping').select('hiboutik_product_id,confirmed,ignore').order('hiboutik_product_id');});
+    var nm=(rm.data||[]).filter(function(m){return !m.confirmed&&!m.ignore;}).length;
+    etat('recettes',nm,nm+' produit'+(nm>1?'s':'')+' de caisse à rattacher');
+  }catch(e){console.warn('majAccueil recettes',e);}
+  try{
+    var rl=await db.from('labo_commandes').select('id').in('statut',['en_attente','partiellement_envoyee']);
+    var nl=(rl.data||[]).length;
+    etat('labo',nl,nl+' commande'+(nl>1?'s':'')+' à préparer');
+  }catch(e){console.warn('majAccueil labo',e);}
 }
 </script>
 
