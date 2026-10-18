@@ -4860,6 +4860,35 @@ function printInstantane() {
   Object.keys(d).forEach(k => { if (k.indexOf('print_') === 0) o[k] = d[k]; });
   return JSON.stringify(o);
 }
+// 18/10/2026 (iPhone) : un élément « position:fixed » placé dans une zone qui défile (.admin-content,
+// -webkit-overflow-scrolling:touch) reste prisonnier de cette zone sur Safari : l'éditeur passait sous l'en-tête et
+// le menu de gauche. On le déplace donc directement dans <body> à la première ouverture. Les saisies continuent de
+// mettre l'aperçu à jour grâce à l'écouteur posé sur l'éditeur lui-même.
+function printEditeurSurLaPage(ed) {
+  if (ed.parentNode !== document.body) document.body.appendChild(ed);
+  if (!ed._ecoute) {
+    ['input', 'change'].forEach(ev => ed.addEventListener(ev, e => {
+      if (e.target && e.target.closest && e.target.closest('#printPrevDetails')) return;
+      printApercuPlanifie();
+    }));
+    ed._ecoute = true;
+  }
+}
+// Page affichée dans le cadre de l'admin (module Menu) : le cadre lui-même passe en plein écran le temps de
+// l'édition, puis reprend sa place. Même site : accès autorisé ; en cas de refus, on ne fait rien.
+function printCadreParentPleinEcran(oui) {
+  try {
+    const f = window.frameElement;
+    if (!f || window.top === window) return;
+    if (oui) {
+      if (f._styleAvant === undefined) f._styleAvant = f.getAttribute('style') || '';
+      f.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;height:100dvh;max-height:none;min-height:0;border:0;z-index:2147483000;background:#F5F0E8;display:block;';
+    } else if (f._styleAvant !== undefined) {
+      f.setAttribute('style', f._styleAvant);
+      f._styleAvant = undefined;
+    }
+  } catch (e) {}
+}
 function printEditeurOuvert() {
   const ed = document.getElementById('printEditeur');
   return !!(ed && ed.classList.contains('open'));
@@ -4871,6 +4900,8 @@ function printOuvrirEditeur(fmt) {
   if (radio) radio.checked = true;
   const ed = document.getElementById('printEditeur');
   if (!ed) return;
+  printEditeurSurLaPage(ed);
+  printCadreParentPleinEcran(true);
   const det = document.getElementById('printPrevDetails');
   if (det) det.open = true;
   ed.classList.add('open');
@@ -4887,6 +4918,7 @@ async function printFermerEditeur() {
   if (printPanelPret) { printCollectEtab(); if (printFmtAffiche) printCollectFmt(printFmtAffiche); }
   printApercuPlein(false);
   ed.classList.remove('open');
+  printCadreParentPleinEcran(false);
   if (printInstantane() !== printEdInstantane) await printEnregistrerReglages();
 }
 async function printEnregistrerReglages() {
