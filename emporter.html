@@ -5845,6 +5845,22 @@ function printEngine() {
   .pli{position:absolute;top:0;bottom:0;width:0;border-left:.2mm dashed rgba(0,0,0,.12)}
   .vlab{position:absolute;top:2mm;font:600 9px/1 -apple-system,Segoe UI,Roboto,sans-serif;color:rgba(0,0,0,.35);letter-spacing:.08em;text-transform:uppercase}
   @media print{html,body{background:none}.bar{display:none}#apercu{width:auto!important;height:auto!important;overflow:visible}#pages{padding:0;gap:0;transform:none!important}.page{box-shadow:none}.pli,.vlab{display:none}}
+  /* Options d'impression (fenêtre « carte à imprimer ») */
+  .bar .actions{display:flex;flex-wrap:wrap;gap:8px;flex-basis:100%}
+  .bar .actions button{flex:1 1 150px}
+  .bar button.sec{background:#5a4d45}
+  .bar button[disabled]{opacity:.5;cursor:default}
+  .bar .etat{flex-basis:100%;font-weight:400;opacity:.9}
+  .bar .conseil{flex-basis:100%;font-weight:400;opacity:.75;font-size:12px}
+  #voileCapture{position:fixed;inset:0;z-index:50;background:#d9d4cc;display:flex;align-items:center;justify-content:center;font:600 15px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2420;text-align:center;padding:20px}
+  body.capture .page{box-shadow:none}
+  body.capture .pli,body.capture .vlab{display:none}
+  /* Une fois les images prêtes, « Imprimer » imprime une image par face, ajustée à la largeur du papier :
+     même si le téléphone ou l'imprimante ajoute des marges, rien n'est coupé. */
+  #impr{display:none}
+  @media print{body.impr-img #apercu{display:none!important}body.impr-img #impr{display:block}
+    #impr img{display:block;width:99.5%;height:auto;margin:0 auto;break-after:page;page-break-after:always;break-inside:avoid}
+    #impr img:last-child{break-after:auto;page-break-after:auto}}
   #measure{position:absolute;left:-10000px;top:0;visibility:hidden}
   .orn{display:flex;align-items:center;justify-content:center;gap:calc(2mm * var(--o,1));margin:calc(2.2mm * var(--o,1)) auto 0;width:60%}
   .orn span{flex:1;height:0;border-top:calc(.25mm * var(--o,1)) solid var(--rouge);opacity:.6}
@@ -6445,6 +6461,105 @@ function printEngine() {
     return info;
   }
 
+  // ── Fichiers à imprimer : PDF et images, une face (page) par page, au format exact ──
+  // Les applis d'imprimante et l'impression depuis un téléphone ajoutent leurs propres marges : une page HTML
+  // au format exact y est coupée. Un PDF ou une image, eux, sont ajustés au papier par l'appli.
+  const fichiers = {pret:false, images:[], pdf:null, nom:'carte'};
+  const LIBS_FICHIERS = ['https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+                         'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
+  const chargerScript = src => new Promise((ok, ko) => {
+    const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = () => ko(new Error(src));
+    document.head.appendChild(sc);
+  });
+  function nomFichier() {
+    const type = ({a4:'carte-A4', a5:'carte-A5', a1:'affiche-A1', trifold:'depliant', qr:'affichette-QR'})[D.fmt] || 'carte';
+    const base = ((D.nom || '') + ' ' + type).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return base.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'carte';
+  }
+  async function preparerFichiers(etat) {
+    if (typeof html2canvas === 'undefined' || !window.jspdf) await Promise.all(LIBS_FICHIERS.map(chargerScript));
+    // Capture des pages en taille réelle (sans la réduction d'aperçu), cachée derrière un voileEl
+    const voileEl = document.createElement('div'); voileEl.id = 'voileCapture';
+    voileEl.textContent = '⏳ Préparation du fichier à imprimer…';
+    document.body.appendChild(voileEl);
+    const tr = pagesEl.style.transform, aw = apercu.style.width, ah = apercu.style.height, sy = window.scrollY;
+    pagesEl.style.transform = 'none'; apercu.style.width = 'auto'; apercu.style.height = 'auto';
+    document.body.classList.add('capture');
+    window.scrollTo(0, 0);
+    let pdf = null;
+    try {
+      for (let i = 0; i < pages.length; i++) {
+        etat('⏳ Préparation du fichier… page ' + (i + 1) + ' / ' + pages.length);
+        voileEl.textContent = '⏳ Préparation du fichier à imprimer… page ' + (i + 1) + ' / ' + pages.length;
+        const pg = pages[i];
+        const wmm = parseFloat(pg.style.width), hmm = parseFloat(pg.style.height);
+        // ~250 points par pouce, limité pour ne pas dépasser la mémoire d'un téléphone
+        const echelle = Math.max(1, Math.min(250 / 96, Math.sqrt(14e6 / (pg.offsetWidth * pg.offsetHeight))));
+        const cv = await html2canvas(pg, {scale:echelle, useCORS:true, backgroundColor:'#ffffff', logging:false, scrollX:0, scrollY:0});
+        const img = cv.toDataURL('image/jpeg', 0.93);
+        fichiers.images.push(img);
+        const orient = wmm > hmm ? 'l' : 'p';
+        if (!pdf) pdf = new window.jspdf.jsPDF({unit:'mm', format:[wmm, hmm], orientation:orient, compress:true});
+        else pdf.addPage([wmm, hmm], orient);
+        pdf.addImage(img, 'JPEG', 0, 0, wmm, hmm);
+      }
+    } finally {
+      document.body.classList.remove('capture');
+      pagesEl.style.transform = tr; apercu.style.width = aw; apercu.style.height = ah;
+      window.scrollTo(0, sy);
+      voileEl.remove();
+    }
+    fichiers.nom = nomFichier();
+    fichiers.pdf = pdf.output('blob');
+    const impr = document.createElement('div'); impr.id = 'impr';
+    fichiers.images.forEach(u => { const im = document.createElement('img'); im.src = u; im.alt = ''; impr.appendChild(im); });
+    document.body.appendChild(impr);
+    document.body.classList.add('impr-img');
+    fichiers.pret = true;
+  }
+  const fichierPdf = () => new File([fichiers.pdf], fichiers.nom + '.pdf', {type:'application/pdf'});
+  const fichiersImages = () => fichiers.images.map((u, i) => {
+    const bin = atob(u.split(',')[1]); const t = new Uint8Array(bin.length);
+    for (let j = 0; j < bin.length; j++) t[j] = bin.charCodeAt(j);
+    const suffixe = fichiers.images.length > 1 ? '-' + (D.fmt === 'qr' && fichiers.images.length === 2 ? ['recto', 'verso'][i] : 'page-' + (i + 1)) : '';
+    return new File([t], fichiers.nom + suffixe + '.jpg', {type:'image/jpeg'});
+  });
+  const peutPartager = fs => { try { return !!(navigator.canShare && navigator.share && navigator.canShare({files:fs})); } catch(e) { return false; } };
+  function telecharger(fichier) {
+    const url = URL.createObjectURL(fichier);
+    const a = document.createElement('a'); a.href = url; a.download = fichier.name; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  function partager(fs) {
+    return navigator.share({files:fs, title:fichiers.nom}).catch(e => {
+      if (e && e.name === 'AbortError') return; // l'utilisateur a fermé le menu de partage
+      fs.forEach((f, i) => setTimeout(() => telecharger(f), i * 700));
+    });
+  }
+  function brancherOptions() {
+    const $ = id => document.getElementById(id);
+    const etatEl = $('impEtat');
+    const etat = t => { if (etatEl) etatEl.textContent = t; };
+    const boutons = ['impPartager', 'impPdf', 'impImages'].map($).filter(Boolean);
+    $('impImprimer').addEventListener('click', () => window.print());
+    preparerFichiers(etat).then(() => {
+      const n = fichiers.images.length;
+      etat('✅ Fichier prêt : ' + n + ' page' + (n > 1 ? 's' : '') + ' au format exact, une face par page.');
+      boutons.forEach(b => { b.disabled = false; });
+      if (peutPartager([fichierPdf()])) $('impPartager').style.display = '';
+    }).catch(e => {
+      etat('❌ Le fichier PDF n\'a pas pu être préparé (connexion ?). Rechargez la page pour réessayer, ou utilisez « Imprimer d\'ici ».');
+    });
+    $('impPartager').addEventListener('click', () => { if (fichiers.pret) partager([fichierPdf()]); });
+    $('impPdf').addEventListener('click', () => { if (fichiers.pret) telecharger(fichierPdf()); });
+    $('impImages').addEventListener('click', () => {
+      if (!fichiers.pret) return;
+      const fs = fichiersImages();
+      if (peutPartager(fs)) partager(fs); else fs.forEach((f, i) => setTimeout(() => telecharger(f), i * 700));
+    });
+  }
+
   function lancer() {
     let info;
     if (D.fmt === 'qr') info = formatQr();
@@ -6454,7 +6569,13 @@ function printEngine() {
     else info = formatPages({W:210, H:297, m:15, multi:true, cols:D.cols, autoCols:2, s:1, hs:1, fsFoot:1, photoH:58});
     meas.innerHTML = '';
     const noms = {a4:'A4', a5:'A5', a1:'A1 (594 × 841 mm)', trifold:'Flyer dépliant 3 volets', qr:'Affichette QR code'};
-    bar.innerHTML = (D.apercu ? '' : `<button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>`)
+    bar.innerHTML = (D.apercu ? '' : '<div class="actions">'
+        + '<button id="impPartager" style="display:none" disabled>📤 Envoyer à l\'appli de l\'imprimante</button>'
+        + '<button id="impPdf" disabled>📄 Télécharger le PDF</button>'
+        + '<button id="impImages" class="sec" disabled>🖼️ Images (une par face)</button>'
+        + '<button id="impImprimer" class="sec">🖨️ Imprimer d\'ici</button>'
+        + '</div><span class="etat" id="impEtat">⏳ Préparation du fichier…</span>'
+        + '<span class="conseil">Depuis un téléphone : envoyez le PDF à l\'appli de votre imprimante, choisissez le bon papier et « Ajuster à la page ». Une face = une page.</span>')
       + `<span class="info"><b>${noms[D.fmt] || ''}</b> — ${esc(info)}</span>${avert.map(a => `<span class="warn">${esc(a)}</span>`).join('')}`;
     document.title = (noms[D.fmt] || 'Carte') + ' — carte à imprimer';
     // Aperçu à l'écran : les pages sont réduites (transform, qui ne change pas la mise en page du texte) pour tenir
@@ -6471,6 +6592,7 @@ function printEngine() {
     };
     zoomer(); window.addEventListener('resize', zoomer);
     if (D.scrollY) window.scrollTo(0, D.scrollY);
+    if (!D.apercu) brancherOptions();
   }
 
   // Attente des polices (feuilles Google Fonts + chargement effectif des graisses utilisées) et des images,
