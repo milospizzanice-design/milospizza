@@ -4756,7 +4756,8 @@ const PRINT_QR_PAPIERS = {
   a4:    {label:'A4 — 21 × 29,7 cm (vitrine, comptoir)',               court:'A4',  W:210, H:297, page:'A4'},
   a3:    {label:'A3 — 29,7 × 42 cm (affiche)',                          court:'A3',  W:297, H:420, page:'A3'},
   carre: {label:'Carré 10 × 10 cm (autocollant de table)',             court:'Carré 10 × 10 cm', W:100, H:100, page:'100mm 100mm'},
-  a6x4:  {label:'4 affichettes A6 sur une feuille A4 (à découper)',    court:'4 × A6 sur A4', W:210, H:297, page:'A4', tuiles:true}
+  a6x4:  {label:'4 affichettes A6 sur une feuille A4 (à découper)',    court:'4 × A6 sur A4', W:210, H:297, page:'A4', tuiles:true, cols:2, rangs:2},
+  a5x2:  {label:'2 affichettes A5 sur une feuille A4 à l\'horizontale (à découper)', court:'2 × A5 sur A4', W:297, H:210, page:'A4 landscape', tuiles:true, cols:2, rangs:1}
 };
 // Textes proposés par défaut (vides = ces textes) — génériques, valables pour n'importe quel restaurant
 const PRINT_QR_TITRES = {
@@ -4988,7 +4989,7 @@ function printConstruireDonneesQr() {
     fond: c.fond, infos:false, taille:1, cols:'auto', newPage:false,
     page: papier.page,
     qr: {
-      papier: c.papier, W: papier.W, H: papier.H, tuiles: !!papier.tuiles, nomPapier: papier.court,
+      papier: c.papier, W: papier.W, H: papier.H, tuiles: !!papier.tuiles, cols: papier.cols || 2, rangs: papier.rangs || 2, nomPapier: papier.court,
       titre: c.titre || PRINT_QR_TITRES[c.lien], texte: c.texte || PRINT_QR_TEXTE_DEF,
       allerg: !!c.allerg, allergTexte: c.allergTexte || PRINT_QR_ALLERG_DEF,
       logo: !!c.logo, nom: !!c.nom, slogan: !!c.slogan,
@@ -6567,7 +6568,8 @@ function printEngine() {
     const qv = (D.qrsVerso || []).filter(x => x.img);
     if (V && qv.length < (D.qrsVerso || []).length) avert.push('⚠️ Un QR code du verso n\'a pas pu être créé (connexion ?) : réessayez avant d\'imprimer.');
     const tuiles = !!Q.tuiles;
-    const tw = tuiles ? Q.W / 2 : Q.W, th = tuiles ? Q.H / 2 : Q.H;
+    const nc = tuiles ? (Q.cols || 2) : 1, nr = tuiles ? (Q.rangs || 2) : 1; // affichettes par feuille : colonnes × rangées
+    const tw = Q.W / nc, th = Q.H / nr;
     const k = Math.min(tw / 105, th / 148);
     const m = Math.max(6, 9 * k);
     const avecEntete = (Q.logo && D.logo) || (Q.nom && D.nom) || (Q.slogan && D.slogan);
@@ -6594,7 +6596,8 @@ function printEngine() {
     // Dessine une face (recto ou verso) et renvoie l'échelle retenue et la taille des QR codes (mm)
     function face(contenu, nomFace) {
       const page = nouvellePage(Q.W, Q.H, k);
-      const positions = tuiles ? [[0, 0], [tw, 0], [0, th], [tw, th]] : [[0, 0]];
+      const positions = [];
+      for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) positions.push([c * tw, r * th]);
       let z = k, qrMm = 0;
       positions.forEach(([x, y], i) => {
         cadre(page, x + m * 0.45, y + m * 0.45, tw - m * 0.9, th - m * 0.9);
@@ -6617,12 +6620,17 @@ function printEngine() {
         qa.style.setProperty('--z', String(z));
       });
       if (tuiles) {
-        // Traits de coupe (imprimés) au milieu de la feuille
-        const v = document.createElement('div'); v.className = 'coupe';
-        v.style.cssText += `left:${tw}mm;top:0;height:${Q.H}mm;border-left-width:.25mm`;
-        const h = document.createElement('div'); h.className = 'coupe';
-        h.style.cssText += `top:${th}mm;left:0;width:${Q.W}mm;border-top-width:.25mm`;
-        page.append(v, h);
+        // Traits de coupe (imprimés) entre les affichettes
+        for (let c = 1; c < nc; c++) {
+          const v = document.createElement('div'); v.className = 'coupe';
+          v.style.cssText += `left:${c * tw}mm;top:0;height:${Q.H}mm;border-left-width:.25mm`;
+          page.appendChild(v);
+        }
+        for (let r = 1; r < nr; r++) {
+          const h = document.createElement('div'); h.className = 'coupe';
+          h.style.cssText += `top:${r * th}mm;left:0;width:${Q.W}mm;border-top-width:.25mm`;
+          page.appendChild(h);
+        }
       }
       return {z, qrMm};
     }
@@ -6633,7 +6641,9 @@ function printEngine() {
       const v = face(verso, 'Verso');
       if (v.qrMm && v.qrMm < 20) avert.push('⚠️ QR codes d\'avis petits (' + Math.round(v.qrMm) + ' mm) : mettez moins de liens d\'avis ou choisissez un papier plus grand.');
       info += qv.length ? ` · verso : ${qv.length} QR code${qv.length > 1 ? 's' : ''} d'avis de ${Math.round(v.qrMm)} mm${v.z < k * 0.97 ? ', réduit à ' + Math.round(v.z / k * 100) + ' %' : ''}` : ' · verso sans QR code';
-      avert.push('ℹ️ 2 pages (recto puis verso) : imprimez en « Recto verso », retournement sur le bord long.');
+      // Feuille à l'horizontale : retournement sur le bord court, sinon le verso sort à l'envers
+      avert.push('ℹ️ 2 pages (recto puis verso) : imprimez en « Recto verso », retournement sur le bord ' + (Q.W > Q.H ? 'court' : 'long') + '.'
+        + (tuiles ? ' Puis coupez le long des traits.' : ''));
     }
     return info;
   }
@@ -6768,8 +6778,9 @@ function printEngine() {
       etat('✅ Fichier prêt : ' + n + ' page' + (n > 1 ? 's' : '') + ' au format ' + nomFormat(t[0], t[1]) + ', une face par page.');
       const cons = document.getElementById('impConseil');
       const fmtNom = nomFormat(t[0], t[1]).split(' — ')[0];
-      if (cons) cons.textContent = 'Dans l\'appli de l\'imprimante : choisissez le papier ' + fmtNom
-        + '. Si vous imprimez sur une feuille plus grande (ex. A4) pour découper ensuite, choisissez « Taille réelle » ou « 100 % », pas « Ajuster à la page » (qui agrandirait).';
+      const petit = fmtNom === 'A6' || fmtNom === 'A5';
+      if (cons) cons.textContent = 'Dans l\'appli de l\'imprimante : choisissez le papier ' + fmtNom + ' et « Taille réelle » ou « 100 % ».'
+        + (petit ? ' Sur une feuille plus grande (ex. A4) à découper ensuite, gardez « Taille réelle » : « Ajuster à la page » l\'agrandirait.' : '');
       boutons.forEach(b => { b.disabled = false; });
       if (peutPartager([fichierPdf()])) $('impPartager').style.display = '';
     }).catch(e => {
