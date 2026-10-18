@@ -6648,6 +6648,28 @@ function printEngine() {
     const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = () => ko(new Error(src));
     document.head.appendChild(sc);
   });
+  // Inscrit la résolution (points par pouce) dans l'en-tête JFIF d'une image JPEG (sinon : taille physique inconnue)
+  function jpegAvecResolution(dataUrl, ppp) {
+    try {
+      const bin = atob(dataUrl.split(',')[1]);
+      const t = new Uint8Array(bin.length);
+      for (let j = 0; j < bin.length; j++) t[j] = bin.charCodeAt(j);
+      let o;
+      if (t[2] === 0xFF && t[3] === 0xE0 && t[6] === 0x4A && t[7] === 0x46 && t[8] === 0x49 && t[9] === 0x46 && t[10] === 0) {
+        o = t; // en-tête JFIF présent : on le modifie
+      } else {
+        // pas d'en-tête JFIF : on en ajoute un juste après le début du fichier
+        const app0 = [0xFF, 0xE0, 0, 16, 0x4A, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+        o = new Uint8Array(t.length + app0.length);
+        o.set(t.subarray(0, 2), 0); o.set(app0, 2); o.set(t.subarray(2), 2 + app0.length);
+      }
+      o[13] = 1; // unité : points par pouce
+      o[14] = ppp >> 8; o[15] = ppp & 255; o[16] = ppp >> 8; o[17] = ppp & 255;
+      let b = '';
+      for (let j = 0; j < o.length; j += 0x8000) b += String.fromCharCode.apply(null, o.subarray(j, j + 0x8000));
+      return 'data:image/jpeg;base64,' + btoa(b);
+    } catch (e) { return dataUrl; }
+  }
   function nomFormat(wmm, hmm) {
     const a = Math.round(Math.min(wmm, hmm)), b = Math.round(Math.max(wmm, hmm));
     const iso = {'105x148':'A6', '148x210':'A5', '210x297':'A4', '297x420':'A3', '420x594':'A2', '594x841':'A1'}[a + 'x' + b];
@@ -6676,10 +6698,19 @@ function printEngine() {
         voileEl.textContent = '⏳ Préparation du fichier à imprimer… page ' + (i + 1) + ' / ' + pages.length;
         const pg = pages[i];
         const wmm = parseFloat(pg.style.width), hmm = parseFloat(pg.style.height);
-        // ~250 points par pouce, limité pour ne pas dépasser la mémoire d'un téléphone
-        const echelle = Math.max(1, Math.min(250 / 96, Math.sqrt(14e6 / (pg.offsetWidth * pg.offsetHeight))));
-        const cv = await html2canvas(pg, {scale:echelle, useCORS:true, backgroundColor:'#ffffff', logging:false, scrollX:0, scrollY:0});
-        const img = cv.toDataURL('image/jpeg', 0.93);
+        // Image calibrée à la taille réelle : 300 points par pouce (une A5 = 1748 × 2480 pixels), moins pour les très
+        // grands formats (mémoire d'un téléphone). La résolution est inscrite dans l'image : une appli d'impression
+        // qui la lit sort la face à sa vraie taille (ex. 14,8 × 21 cm).
+        const ppp = Math.min(300, Math.floor(Math.sqrt(14e6 / ((wmm / 25.4) * (hmm / 25.4)))));
+        const cibleW = Math.round(wmm / 25.4 * ppp), cibleH = Math.round(hmm / 25.4 * ppp);
+        const cv0 = await html2canvas(pg, {scale:cibleW / pg.offsetWidth, useCORS:true, backgroundColor:'#ffffff', logging:false, scrollX:0, scrollY:0});
+        let cv = cv0;
+        if (cv0.width !== cibleW || cv0.height !== cibleH) { // arrondis : on remet aux dimensions exactes
+          cv = document.createElement('canvas'); cv.width = cibleW; cv.height = cibleH;
+          const cx = cv.getContext('2d'); cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, cibleW, cibleH);
+          cx.drawImage(cv0, 0, 0, cibleW, cibleH);
+        }
+        const img = jpegAvecResolution(cv.toDataURL('image/jpeg', 0.93), ppp);
         fichiers.images.push(img);
         fichiers.tailles.push([wmm, hmm]);
         const orient = wmm > hmm ? 'l' : 'p';
