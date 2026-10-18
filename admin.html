@@ -75,6 +75,9 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .ing-plus-menu{position:absolute;left:0;top:calc(100% + 4px);z-index:60;background:#fff;border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:6px;display:flex;flex-direction:column;min-width:230px;max-width:calc(100vw - 32px)}
 .ing-plus-menu button{background:none;border:none;text-align:left;padding:9px 10px;font-size:12px;font-weight:600;color:var(--tx);border-radius:7px;cursor:pointer;white-space:nowrap}
 .ing-plus-menu button:hover{background:#FAF4EC}
+.labo-vue{display:inline-flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+.labo-vue button{background:#FAF4EC;border:none;padding:6px 12px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer}
+.labo-vue button.on{background:var(--bx);color:#fff}
 .btn-xl{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;font-size:15px;font-weight:800;border-radius:12px;flex:1;min-width:180px}
 .bl-card{flex:1;min-width:220px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:none;cursor:pointer;text-align:left;color:#fff;
   background:linear-gradient(135deg,#1F4E79 0%,#2E75B6 100%);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2),0 3px 8px rgba(31,78,121,.3);transition:transform .08s ease,box-shadow .08s ease}
@@ -924,10 +927,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
 
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-weight:700;">📋 Commandes à préparer</div>
-        <button class="btn bs" onclick="openLaboPopup()">Voir le résumé</button>
-      </div>
+      <div style="font-weight:700;margin-bottom:10px;">📋 Commandes à préparer</div>
       <div id="labo-prep-list" style="font-size:13px;"></div>
     </div>
 
@@ -960,19 +960,21 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <button class="btn bp" onclick="createLaboLot()">Créer le lot</button>
     </div>
 
-    <div class="card">
-      <div style="font-weight:700;margin-bottom:10px;">📦 Lots en stock (par produit)</div>
+    <!-- Lots en stock : une seule carte, bascule Résumé (par produit) / Détail (lot par lot), historique replié (18/10/2026) -->
+    <div class="card" id="labo-lots-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="font-weight:700;">📦 Lots en stock <span id="labo-lots-total" style="font-weight:600;color:var(--txm);font-size:12px;"></span></div>
+        <div class="labo-vue" role="group" aria-label="Affichage des lots">
+          <button type="button" id="labo-vue-resume" class="on" onclick="laboLotsVue('resume')">Résumé</button>
+          <button type="button" id="labo-vue-detail" onclick="laboLotsVue('detail')">Détail</button>
+        </div>
+      </div>
       <div id="labo-lots-summary" style="font-size:12px;"></div>
-    </div>
-
-    <div class="card">
-      <div style="font-weight:700;margin-bottom:10px;">🧾 Détail des lots en stock</div>
-      <div id="labo-lots-list"></div>
-    </div>
-
-    <div class="card">
-      <div style="font-weight:700;margin-bottom:10px;">🕓 Historique récent</div>
-      <div id="labo-lots-history" style="font-size:12px;"></div>
+      <div id="labo-lots-list" style="display:none;"></div>
+      <details class="labo-hist" style="margin-top:12px;border-top:1px solid var(--bd);padding-top:8px;">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--tx);">🕓 Historique récent (20 derniers mouvements)</summary>
+        <div id="labo-lots-history" style="font-size:12px;margin-top:6px;"></div>
+      </details>
     </div>
   </div>
 </div>
@@ -6323,18 +6325,32 @@ async function ficheLoadDoc(){
   body.innerHTML=h;
 }
 
+// Correctif 18/10/2026 (« Erreur: No content provided » sur iPhone) : le fichier choisi était envoyé tel quel
+// (objet File, envoyé en formulaire) APRÈS la fenêtre « Titre du document ». Sur iPhone, le fichier peut alors
+// partir vide. On lit maintenant son contenu tout de suite après le choix, AVANT la question du titre, et on
+// envoie ce contenu brut avec son type (deviné depuis l'extension si le téléphone ne le donne pas).
+var DOC_TYPES_EXT={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',heic:'image/heic',heif:'image/heif',webp:'image/webp',gif:'image/gif',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};
 async function ficheUploadDoc(input){
   var f=input.files&&input.files[0];if(!f)return;
-  var titre=prompt('Titre du document (ex: Consentement badgeage, Contrat CDI, RIB...) :');
-  if(titre===null){input.value='';return;}
-  titre=titre.trim();
   var status=document.getElementById('doc-upload-status');
+  var empId=ficheCurEmp;
+  var contenu;
+  try{contenu=await f.arrayBuffer();}catch(e){contenu=null;}
+  input.value='';
+  if(!contenu||!contenu.byteLength){
+    status.textContent='Le fichier n\u0027a pas pu être lu sur cet appareil (fichier vide ou pas encore téléchargé, par exemple depuis iCloud). Ouvre-le une fois sur le téléphone, puis réessaie.';
+    return;
+  }
+  var titre=prompt('Titre du document (ex: Consentement badgeage, Contrat CDI, RIB...) :');
+  if(titre===null)return;
+  titre=titre.trim();
   status.textContent='Envoi en cours...';
-  var ext=f.name.split('.').pop();
-  var chemin=ficheCurEmp+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
-  var up=await db.storage.from('documents').upload(chemin,f,{contentType:f.type,upsert:false});
+  var ext=(f.name.indexOf('.')>=0?f.name.split('.').pop():'').toLowerCase();
+  var type=f.type||DOC_TYPES_EXT[ext]||'application/octet-stream';
+  var chemin=empId+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+(ext?'.'+ext:'');
+  var up=await db.storage.from('documents').upload(chemin,contenu,{contentType:type,upsert:false});
   if(up.error){status.textContent='Erreur: '+up.error.message;return;}
-  var ins=await db.from('documents_rh').insert({employee_id:ficheCurEmp,nom_fichier:f.name,chemin:chemin,type_doc:f.type,taille:f.size,titre:titre||null});
+  var ins=await db.from('documents_rh').insert({employee_id:empId,nom_fichier:f.name,chemin:chemin,type_doc:type,taille:contenu.byteLength,titre:titre||null});
   if(ins.error){status.textContent='Erreur base: '+ins.error.message;return;}
   status.textContent='';
   ficheLoadDoc();
@@ -8144,8 +8160,23 @@ async function createLaboLot(){
 
 // (Ancien catalogue Labo « labo_categories / labo_produits » importé depuis l'ancien module Stocks : retiré le
 // 30/09/2026. Les lots et les commandes Labo utilisent directement le catalogue d'ingrédients.)
+// Bascule de la carte « Lots en stock » : résumé par produit ou détail lot par lot.
+function laboLotsVue(v){
+  var detail=v==='detail';
+  var s=document.getElementById('labo-lots-summary'),l=document.getElementById('labo-lots-list');
+  if(s)s.style.display=detail?'none':'block';
+  if(l)l.style.display=detail?'block':'none';
+  var bR=document.getElementById('labo-vue-resume'),bD=document.getElementById('labo-vue-detail');
+  if(bR)bR.classList.toggle('on',!detail);
+  if(bD)bD.classList.toggle('on',detail);
+}
 function renderLaboLots(){
   var enStock=laboLotsCache.filter(function(l){return l.statut==='en_stock';});
+  var totEl=document.getElementById('labo-lots-total');
+  if(totEl){
+    var totG=enStock.reduce(function(s,l){return s+(Number(l.poids_reel_g)||0);},0);
+    totEl.textContent=enStock.length?('· '+enStock.length+' lot'+(enStock.length>1?'s':'')+' · '+(totG/1000).toFixed(2)+' kg'):'';
+  }
   var groups={};
   enStock.forEach(function(l){
     var k=l.produit_nom;
@@ -8171,7 +8202,7 @@ function renderLaboLots(){
   var listEl=document.getElementById('labo-lots-list');
   if(listEl){
     if(enStock.length===0){
-      listEl.innerHTML='<div style="font-size:12px;color:var(--txm);">—</div>';
+      listEl.innerHTML='<div style="font-size:12px;color:var(--txm);">Aucun lot en stock actuellement.</div>';
     }else{
       listEl.innerHTML=enStock.map(function(l){
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);">'
@@ -8189,7 +8220,7 @@ function renderLaboLots(){
       histEl.innerHTML='<div style="color:var(--txm);">Aucun mouvement pour l\'instant (tout le reste arrivera avec la commande/envoi/réception).</div>';
     }else{
       histEl.innerHTML=others.map(function(l){
-        return '<div style="padding:4px 0;border-bottom:1px solid var(--bd);">'+esc(l.produit_nom)+' — '+(Number(l.poids_reel_g)/1000).toFixed(3)+' kg — <b>'+esc(l.statut)+'</b> — '+fmtD(l.created_at)+'</div>';
+        return '<div style="padding:4px 0;border-bottom:1px solid var(--bd);">'+esc(l.produit_nom)+' — '+(Number(l.poids_reel_g)/1000).toFixed(3)+' kg — <b>'+esc(({envoye:'envoyé',recu:'reçu',rejete:'rejeté'})[l.statut]||l.statut)+'</b> — '+fmtD(l.created_at)+'</div>';
       }).join('');
     }
   }
