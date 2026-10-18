@@ -6032,11 +6032,11 @@ function printEngine() {
   #voileCapture{position:fixed;inset:0;z-index:50;background:#d9d4cc;display:flex;align-items:center;justify-content:center;font:600 15px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2420;text-align:center;padding:20px}
   body.capture .page{box-shadow:none}
   body.capture .pli,body.capture .vlab{display:none}
-  /* Une fois les images prêtes, « Imprimer » imprime une image par face, ajustée à la largeur du papier :
-     même si le téléphone ou l'imprimante ajoute des marges, rien n'est coupé. */
+  /* Une fois les images prêtes, « Imprimer » imprime une image par face, en taille réelle (une A5 reste une A5,
+     même sur une feuille A4) ; elle n'est réduite que si le papier, marges comprises, est trop petit : rien n'est coupé. */
   #impr{display:none}
   @media print{body.impr-img #apercu{display:none!important}body.impr-img #impr{display:block}
-    #impr img{display:block;width:99.5%;height:auto;margin:0 auto;break-after:page;page-break-after:always;break-inside:avoid}
+    #impr img{display:block;max-width:100%;height:auto;margin:0 auto;break-after:page;page-break-after:always;break-inside:avoid}
     #impr img:last-child{break-after:auto;page-break-after:auto}}
   #measure{position:absolute;left:-10000px;top:0;visibility:hidden}
   .orn{display:flex;align-items:center;justify-content:center;gap:calc(2mm * var(--o,1));margin:calc(2.2mm * var(--o,1)) auto 0;width:60%}
@@ -6641,13 +6641,19 @@ function printEngine() {
   // ── Fichiers à imprimer : PDF et images, une face (page) par page, au format exact ──
   // Les applis d'imprimante et l'impression depuis un téléphone ajoutent leurs propres marges : une page HTML
   // au format exact y est coupée. Un PDF ou une image, eux, sont ajustés au papier par l'appli.
-  const fichiers = {pret:false, images:[], pdf:null, nom:'carte'};
+  const fichiers = {pret:false, images:[], tailles:[], pdf:null, nom:'carte'};
   const LIBS_FICHIERS = ['https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
                          'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
   const chargerScript = src => new Promise((ok, ko) => {
     const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = () => ko(new Error(src));
     document.head.appendChild(sc);
   });
+  function nomFormat(wmm, hmm) {
+    const a = Math.round(Math.min(wmm, hmm)), b = Math.round(Math.max(wmm, hmm));
+    const iso = {'105x148':'A6', '148x210':'A5', '210x297':'A4', '297x420':'A3', '420x594':'A2', '594x841':'A1'}[a + 'x' + b];
+    const cm = v => String(Math.round(v) / 10).replace('.', ',');
+    return (iso ? iso + ' — ' : '') + cm(wmm) + ' × ' + cm(hmm) + ' cm';
+  }
   function nomFichier() {
     const type = ({a4:'carte-A4', a5:'carte-A5', a1:'affiche-A1', trifold:'depliant', qr:'affichette-QR'})[D.fmt] || 'carte';
     const base = ((D.nom || '') + ' ' + type).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -6675,6 +6681,7 @@ function printEngine() {
         const cv = await html2canvas(pg, {scale:echelle, useCORS:true, backgroundColor:'#ffffff', logging:false, scrollX:0, scrollY:0});
         const img = cv.toDataURL('image/jpeg', 0.93);
         fichiers.images.push(img);
+        fichiers.tailles.push([wmm, hmm]);
         const orient = wmm > hmm ? 'l' : 'p';
         if (!pdf) pdf = new window.jspdf.jsPDF({unit:'mm', format:[wmm, hmm], orientation:orient, compress:true});
         else pdf.addPage([wmm, hmm], orient);
@@ -6689,7 +6696,11 @@ function printEngine() {
     fichiers.nom = nomFichier();
     fichiers.pdf = pdf.output('blob');
     const impr = document.createElement('div'); impr.id = 'impr';
-    fichiers.images.forEach(u => { const im = document.createElement('img'); im.src = u; im.alt = ''; impr.appendChild(im); });
+    fichiers.images.forEach((u, i) => {
+      const im = document.createElement('img'); im.src = u; im.alt = '';
+      im.style.width = fichiers.tailles[i][0] + 'mm'; // taille réelle
+      impr.appendChild(im);
+    });
     document.body.appendChild(impr);
     document.body.classList.add('impr-img');
     fichiers.pret = true;
@@ -6722,7 +6733,12 @@ function printEngine() {
     $('impImprimer').addEventListener('click', () => window.print());
     preparerFichiers(etat).then(() => {
       const n = fichiers.images.length;
-      etat('✅ Fichier prêt : ' + n + ' page' + (n > 1 ? 's' : '') + ' au format exact, une face par page.');
+      const t = fichiers.tailles[0] || [0, 0];
+      etat('✅ Fichier prêt : ' + n + ' page' + (n > 1 ? 's' : '') + ' au format ' + nomFormat(t[0], t[1]) + ', une face par page.');
+      const cons = document.getElementById('impConseil');
+      const fmtNom = nomFormat(t[0], t[1]).split(' — ')[0];
+      if (cons) cons.textContent = 'Dans l\'appli de l\'imprimante : choisissez le papier ' + fmtNom
+        + '. Si vous imprimez sur une feuille plus grande (ex. A4) pour découper ensuite, choisissez « Taille réelle » ou « 100 % », pas « Ajuster à la page » (qui agrandirait).';
       boutons.forEach(b => { b.disabled = false; });
       if (peutPartager([fichierPdf()])) $('impPartager').style.display = '';
     }).catch(e => {
@@ -6752,7 +6768,7 @@ function printEngine() {
         + '<button id="impImages" class="sec" disabled>🖼️ Images (une par face)</button>'
         + '<button id="impImprimer" class="sec">🖨️ Imprimer d\'ici</button>'
         + '</div><span class="etat" id="impEtat">⏳ Préparation du fichier…</span>'
-        + '<span class="conseil">Depuis un téléphone : envoyez le PDF à l\'appli de votre imprimante, choisissez le bon papier et « Ajuster à la page ». Une face = une page.</span>')
+        + '<span class="conseil" id="impConseil">Depuis un téléphone : envoyez le PDF à l\'appli de votre imprimante. Une face = une page.</span>')
       + `<span class="info"><b>${noms[D.fmt] || ''}</b> — ${esc(info)}</span>${avert.map(a => `<span class="warn">${esc(a)}</span>`).join('')}`;
     document.title = (noms[D.fmt] || 'Carte') + ' — carte à imprimer';
     // Aperçu à l'écran : les pages sont réduites (transform, qui ne change pas la mise en page du texte) pour tenir
