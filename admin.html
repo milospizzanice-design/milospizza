@@ -8593,19 +8593,39 @@ async function extraireRecetteDepuisDescription(prodCode,descText){
   }
   return diag;
 }
+// Plats du menu public qui n'ont pas encore de fiche dans Produits & recettes.
+// Chaque fiche est rattachée à UN SEUL plat du menu : celui dont le nom lui ressemble le plus (même règle
+// que findMenuPriceFor, utilisée pour le classement et les prix). Un plat auquel aucune fiche n'est
+// rattachée est à créer. Avant, un plat était jugé « déjà présent » dès qu'UNE fiche lui ressemblait un
+// peu : la fiche « Burrata » bloquait ainsi « Salade Bowl Burrata » et « La savoureuse Burrata d'été »,
+// « Calzone » bloquait « Calzone gratinée au parmesan », etc. Les fiches archivées comptent aussi (un plat
+// archivé volontairement n'est pas recréé). Deux plats du même nom (même plat dans deux catégories)
+// ne donnent qu'une fiche, puisque les fiches sont reconnues par leur nom.
+function platsMenuSansFiche(menuItems){
+  var parNom={},noms=[];
+  menuItems.forEach(function(it){
+    var cle=normText((it.name&&(it.name.fr||it.name))||'');
+    if(!cle||parNom[cle])return;
+    parNom[cle]=it;noms.push(cle);
+  });
+  var rattache={};
+  rctProduitsVendus.forEach(function(p){
+    var best=null,bestScore=-1;
+    noms.forEach(function(cle){
+      var sc=matchScore(p.nom,cle);
+      if(sc>bestScore){bestScore=sc;best=cle;}
+    });
+    if(best&&bestScore>=60)rattache[best]=true;
+  });
+  return noms.filter(function(cle){return !rattache[cle];}).map(function(cle){return parNom[cle];});
+}
 async function syncProduitsFromMenu(){
   var reportEl=document.getElementById('rct-sync-report');
   if(reportEl)reportEl.innerHTML='<div class="card" style="font-size:12px;color:var(--txm);">Synchronisation en cours…</div>';
   await loadMenuPricesFromSite();
   var menuItems=((rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[]).filter(function(it){return !it.archived;});
   var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
-  var toCreate=[];
-  menuItems.forEach(function(it){
-    var nom=(it.name&&(it.name.fr||it.name))||'';
-    if(!nom.trim())return;
-    var match=rctProduitsVendus.some(function(p){return matchScore(nom,p.nom)>=60;});
-    if(!match)toCreate.push(it);
-  });
+  var toCreate=platsMenuSansFiche(menuItems);
   var created=[];
   for(var i=0;i<toCreate.length;i++){
     var it=toCreate[i];
