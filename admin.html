@@ -99,6 +99,7 @@ body{background:var(--cr);font-family:-apple-system,sans-serif;color:var(--tx);m
 .home-etat{font-size:12px;color:var(--txm)}
 .home-etat.alerte{display:inline-block;align-self:flex-start;background:#FEE2E2;color:#991B1B;font-weight:700;border-radius:999px;padding:2px 9px}
 @media (max-width:520px){.home-grid{grid-template-columns:1fr 1fr;gap:10px;padding:14px 12px}.home-card{flex-direction:column;align-items:flex-start;gap:8px;padding:14px 12px}.home-ic{font-size:26px}}
+#mficheed textarea{font-family:inherit;font-size:13px;line-height:1.45;resize:vertical}
 .btn-xl{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;font-size:15px;font-weight:800;border-radius:12px;flex:1;min-width:180px}
 .bl-card{flex:1;min-width:220px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:none;cursor:pointer;text-align:left;color:#fff;
   background:linear-gradient(135deg,#1F4E79 0%,#2E75B6 100%);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2),0 3px 8px rgba(31,78,121,.3);transition:transform .08s ease,box-shadow .08s ease}
@@ -801,7 +802,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="mingcomp-lines"></div>
     <button class="btn bs sm" onclick="addCompoLine()" style="width:100%;margin-top:6px;">+ Ajouter un produit stock</button>
     <div id="mingcomp-total" style="margin-top:10px;padding-top:8px;border-top:1px solid var(--bd);font-size:12px;"></div>
-    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mingcomp')">Annuler</button><button class="btn bp" onclick="saveIngredientComposition()">Enregistrer</button></div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="fichesPreparationPdf([mingcompCurrentCode])" title="Fiche de la préparation telle qu'enregistrée (enregistre d'abord tes changements)">🖨️ Fiche</button><button class="btn bs" onclick="closeM('mingcomp')">Annuler</button><button class="btn bp" onclick="saveIngredientComposition()">Enregistrer</button></div>
   </div>
 </div>
 
@@ -876,16 +877,54 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="mfichecui">
   <div class="md" style="max-width:480px;">
     <div class="mdt">🖨️ Fiches cuisine</div>
-    <div style="font-size:11px;color:var(--txm);margin-bottom:10px;">Une page A4 par produit, pour l'équipe en cuisine : photo, composition de la carte, ingrédients avec leurs grammages (recette), allergènes et un cadre pour noter le montage. Aucun prix ni coût n'y figure. Coche les produits à imprimer.</div>
+    <div class="seg" style="margin-bottom:8px;">
+      <button type="button" id="mfichecui-type-produits" class="on" onclick="fichesCuisineType('produits')">🍕 Produits vendus</button>
+      <button type="button" id="mfichecui-type-preps" onclick="fichesCuisineType('preps')">🥣 Préparations</button>
+    </div>
+    <div id="mfichecui-aide" style="font-size:11px;color:var(--txm);margin-bottom:10px;"></div>
     <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
       <input type="text" class="fi" id="mfichecui-search" placeholder="🔍 Rechercher…" oninput="renderFichesCuisineList()" style="flex:1;min-width:140px;">
       <button type="button" class="btn bs sm" onclick="fichesCuisineToutCocher(true)">Tout cocher</button>
       <button type="button" class="btn bs sm" onclick="fichesCuisineToutCocher(false)">Tout décocher</button>
     </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;"><input type="checkbox" id="mfichecui-photo" checked> Mettre la photo du plat (si elle existe sur la carte)</label>
+    <label id="mfichecui-photo-lbl" style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;"><input type="checkbox" id="mfichecui-photo" checked> Mettre la photo du plat (celle de la carte du QR code)</label>
     <div id="mfichecui-list" style="max-height:48vh;overflow-y:auto;border-top:1px solid var(--bd);"></div>
     <div id="mfichecui-status" style="font-size:12px;color:var(--txm);margin-top:8px;"></div>
     <div class="ma" style="margin-top:12px;"><button class="btn bs" onclick="closeM('mfichecui')">Fermer</button><button class="btn bp" id="mfichecui-btn" onclick="fichesCuisineDepuisChoix()">📄 Créer le PDF (<span id="mfichecui-nb">0</span>)</button></div>
+  </div>
+</div>
+
+<!-- Modal « Éditer la fiche » (fiche cuisine d'un produit ou d'une préparation) — 19/10/2026.
+     Textes enregistrés dans app_config : fiche_cuisine:<code produit>, fiche_cuisine_prep:<code ingrédient>,
+     fiche_cuisine_cat:<catégorie du menu> (étapes communes à toute une catégorie). -->
+<div class="mb" id="mficheed">
+  <div class="md" style="max-width:560px;">
+    <div class="mdt" id="mficheed-titre">Éditer la fiche</div>
+    <div id="mficheed-source" style="font-size:11px;color:var(--txm);margin-bottom:10px;"></div>
+    <div style="font-size:11px;font-weight:800;color:var(--tx);text-transform:uppercase;margin-bottom:4px;">Ingrédients et grammages</div>
+    <div id="mficheed-ings" style="font-size:12px;margin-bottom:6px;"></div>
+    <button type="button" class="btn bs sm" id="mficheed-ings-btn" onclick="ficheEdModifierGrammages()" style="margin-bottom:12px;">✏️ Modifier les grammages</button>
+    <div id="mficheed-cat-zone" class="fr">
+      <label class="fl2" for="mficheed-cat">Étapes communes à toute la catégorie « <span id="mficheed-cat-nom"></span> »</label>
+      <div style="font-size:10px;color:var(--txm);margin:-2px 0 4px;">Une étape par ligne. Écrites une seule fois, elles s'impriment en premier sur toutes les fiches de cette catégorie (ex. : étaler la pâte, cuire 90 s).</div>
+      <textarea class="fi" id="mficheed-cat" rows="3" oninput="ficheEdModifie()" placeholder="Étaler la pâte à 30 cm&#10;Cuire 90 secondes"></textarea>
+    </div>
+    <div class="fr">
+      <label class="fl2" for="mficheed-etapes" id="mficheed-etapes-lbl">Étapes propres à ce produit</label>
+      <div style="font-size:10px;color:var(--txm);margin:-2px 0 4px;">Une étape par ligne : la numérotation est faite à l'impression.</div>
+      <textarea class="fi" id="mficheed-etapes" rows="6" oninput="ficheEdModifie()"></textarea>
+    </div>
+    <div class="fr">
+      <label class="fl2" for="mficheed-vig">Points de vigilance (facultatif)</label>
+      <textarea class="fi" id="mficheed-vig" rows="2" oninput="ficheEdModifie()" placeholder="Ex. : burrata ajoutée à la sortie du four"></textarea>
+    </div>
+    <div id="mficheed-status" style="font-size:12px;color:var(--txm);min-height:16px;"></div>
+    <div class="ma" style="margin-top:10px;flex-wrap:wrap;">
+      <button class="btn bs" onclick="ficheEdApercu()">🖨️ Aperçu</button>
+      <button class="btn bs" onclick="ficheEdFermer()">Fermer</button>
+      <button class="btn bs" onclick="ficheEdEnregistrer(false)">Enregistrer</button>
+      <button class="btn bp" id="mficheed-suivant" onclick="ficheEdEnregistrer(true)">Enregistrer et suivante →</button>
+    </div>
   </div>
 </div>
 
@@ -895,7 +934,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="mdt" id="mprixdetail-title">Détail</div>
     <div id="mprixdetail-lines"></div>
     <div id="mprixdetail-total" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--bd);font-weight:800;font-size:15px;"></div>
-    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="fichesCuisinePdf([mprixdetailCode])">🖨️ Fiche cuisine</button><button class="btn bs" onclick="closeM('mprixdetail')">Fermer</button></div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="ficheEdOuvrir('produits',mprixdetailCode)">✏️ Éditer la fiche</button><button class="btn bs" onclick="fichesCuisinePdf([mprixdetailCode])">🖨️ Fiche cuisine</button><button class="btn bs" onclick="closeM('mprixdetail')">Fermer</button></div>
   </div>
 </div>
 
@@ -1478,6 +1517,7 @@ function emp(id){return emps.find(function(e){return e.id===id;})||{prenom:'?',n
 var mScrollLockY=0;
 function closeM(id){
   document.getElementById(id).classList.remove('op');
+  document.getElementById(id).style.zIndex='';
   // Si plus aucune modale ouverte, débloquer le scroll du body ET restaurer la position d'avant l'ouverture
   // (position:fixed pendant le verrouillage remettait sinon la page en haut à la fermeture)
   if(!document.querySelector('.mb.op')){
@@ -1486,12 +1526,18 @@ function closeM(id){
     window.scrollTo(0,mScrollLockY);
   }
 }
+// Toutes les fenêtres passent par openM / closeM (18-19/10/2026) : avant, 15 fenêtres (Détail d'un produit, Recette,
+// Éditer, etc.) s'ouvraient sans mémoriser la position de défilement ; à la fermeture, closeM ramenait la page à une
+// ancienne position : « l'écran se décale ».
 function openM(id){
   if(!document.querySelector('.mb.op')){
     mScrollLockY=window.scrollY||document.documentElement.scrollTop||0;
     document.body.style.top=(-mScrollLockY)+'px';
   }
-  document.getElementById(id).classList.add('op');
+  var el=document.getElementById(id);
+  // Une fenêtre ouverte depuis une autre passe toujours au-dessus (ex. « Modifier les grammages » depuis « Éditer la fiche »).
+  if(!el.classList.contains('op'))el.style.zIndex=200+document.querySelectorAll('.mb.op').length;
+  el.classList.add('op');
   document.body.classList.add('modal-open');
 }
 
@@ -6941,7 +6987,7 @@ async function checkDemandesEnAttente(){
   data.slice(0,5).forEach(function(d){var em2=emp(d.employee_id);h+='<div style="background:#FAF4EC;border-radius:8px;padding:8px 10px;margin-bottom:6px"><div style="font-weight:600;font-size:13px">'+em2.prenom+' '+em2.nom+'</div><div style="font-size:11px;color:var(--txm);margin-top:2px">'+(TL[d.type]||d.type)+' \u2014 du '+d.date_debut+' au '+d.date_fin+'</div></div>';});
   if(data.length>5)h+='<div style="font-size:11px;color:var(--txm);text-align:center">...et '+(data.length-5)+' autre(s)</div>';
   var ab=document.getElementById('alertes-dem-body');if(ab)ab.innerHTML=h;
-  var mo=document.getElementById('modal-alertes-dem');if(mo){mo.classList.add('op');document.body.classList.add('modal-open');}
+  if(document.getElementById('modal-alertes-dem'))openM('modal-alertes-dem');
 }
 
 function goTabByName(name){var tabs=document.querySelectorAll('.tab');for(var i=0;i<tabs.length;i++){var oc=tabs[i].getAttribute('onclick')||'';if(oc.indexOf("'"+name+"'")>=0){goTab(name,tabs[i]);return;}}}
@@ -7349,7 +7395,7 @@ function caisseOpenAssocier(hiboutikProductId){
     .slice(0,6)
     .map(function(x){return x.p;});
   caisseRenderCandidates(caisseProduitsVendus,suggestions);
-  document.getElementById('caissemodal').classList.add('op');
+  openM('caissemodal');
 }
 function caisseFilterCandidates(){
   var q=caisseNormalize(document.getElementById('caissemodal-search').value||'');
@@ -7395,7 +7441,7 @@ async function caisseOpenCreer(hiboutikProductId){
   document.getElementById('caissecreatemodal-nom').value=nomHib;
   document.getElementById('caissecreatemodal-search').value='';
   document.getElementById('caissecreatemodal-search-results').innerHTML='';
-  document.getElementById('caissecreatemodal').classList.add('op');
+  openM('caissecreatemodal');
 
   // Va chercher le vrai menu public (menudata.json, celui du QR code) pour proposer les mêmes
   // catégories/sous-catégories que la carte, et détecter si ce produit y existe déjà par ressemblance de nom.
@@ -8914,7 +8960,7 @@ function openQuickAddMenu(onglet,cat){
   }
   opts.push({label:'🗂 Nouvelle section',fn:'qamAddOnglet()'});
   box.innerHTML=opts.map(function(o){return '<button class="btn bs" style="width:100%;text-align:left;margin-bottom:6px;" onclick="'+o.fn+'">'+o.label+'</button>';}).join('');
-  document.getElementById('qam').classList.add('op');
+  openM('qam');
 }
 function qamAddOnglet(){closeM('qam');openOngletEditModal(null);}
 function qamAddCategorie(){
@@ -9257,7 +9303,7 @@ function openEditProduitVenduModal(code){
   catList.innerHTML=distinctValues(rctProduitsVendus,'categorie').map(function(v){return '<option value="'+esc(v)+'">';}).join('');
   var subList=document.getElementById('mpved-sub-list');
   subList.innerHTML=distinctValues(rctProduitsVendus,'sous_categorie').map(function(v){return '<option value="'+esc(v)+'">';}).join('');
-  document.getElementById('mpved').classList.add('op');
+  openM('mpved');
 }
 async function saveEditProduitVendu(){
   var code=mpvedCurrentCode;
@@ -9293,7 +9339,7 @@ function openRecetteModal(code){
   document.getElementById('mrct-dupli-panel').style.display='none';
   document.getElementById('mrct-dupli-search').value='';
   document.getElementById('mrct-dupli-results').innerHTML='';
-  document.getElementById('mrct').classList.add('op');
+  openM('mrct');
 }
 function toggleDupliquerRecette(){
   var panel=document.getElementById('mrct-dupli-panel');
@@ -9544,7 +9590,8 @@ async function saveRecette(){
     rctRecettes[code]=lines;
     closeM('mrct');
     renderRecettesList();
-    scrollToProductCard(code);
+    if(document.getElementById('mficheed').classList.contains('op'))ficheEdAfficherIngredients(); // retour dans « Éditer la fiche »
+    else scrollToProductCard(code);
   }catch(e){console.error('saveRecette',e);alert('Erreur lors de l\'enregistrement de la recette : '+e.message);}
 }
 
@@ -9552,7 +9599,7 @@ async function saveRecette(){
 function openNewProduitVenduModal(){
   document.getElementById('npv-nom').value='';
   document.getElementById('npv-cat').value='';
-  document.getElementById('mnpv').classList.add('op');
+  openM('mnpv');
 }
 async function saveNewProduitVendu(){
   var nom=(document.getElementById('npv-nom').value||'').trim();
@@ -11283,7 +11330,7 @@ function openNewIngredientModal(presetCat,presetSub){
   document.getElementById('nig-nom').value='';
   document.getElementById('nig-cat').value=presetCat||'';
   document.getElementById('nig-sub').value=presetSub||'';
-  document.getElementById('mnig').classList.add('op');
+  openM('mnig');
 }
 async function updateIngredientNom(code,nom){
   nom=(nom||'').trim();
@@ -12042,7 +12089,7 @@ function openDoseDefautModal(){
       +'</select>'
       +'</div>';
   }).join('');
-  document.getElementById('mdosedft').classList.add('op');
+  openM('mdosedft');
 }
 async function confirmDoseDefautModal(){
   var rows=document.querySelectorAll('#mdosedft-list [data-dose-code]');
@@ -12091,7 +12138,7 @@ function openBlImportModal(){
   document.getElementById('mbl-step-upload').style.display='block';
   document.getElementById('mbl-step-preview').style.display='none';
   mblLines=[];
-  document.getElementById('mbl').classList.add('op');
+  openM('mbl');
 }
 function fileToBase64(file){
   return new Promise(function(resolve,reject){
@@ -12253,7 +12300,7 @@ function openFlyerImportModal(){
   document.getElementById('mflyer-upload-status').textContent='';
   var f=document.getElementById('mflyer-file');
   if(f)f.value='';
-  document.getElementById('mflyer').classList.add('op');
+  openM('mflyer');
 }
 async function analyzeFlyerFile(){
   var fileEl=document.getElementById('mflyer-file');
@@ -12659,6 +12706,7 @@ async function saveIngredientComposition(){
     rctIngredientComposition[code]=linesByResto[rctResto()];
     closeM('mingcomp');
     renderIngredientsList();
+    if(document.getElementById('mficheed').classList.contains('op'))ficheEdAfficherIngredients(); // retour dans « Éditer la fiche »
   }catch(e){console.error('saveIngredientComposition',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }
 
@@ -12692,7 +12740,7 @@ function openCategoryEditModal(catName){
   document.getElementById('mcat-assign-results-stock').innerHTML='';
   document.getElementById('mcat-assign-search-ingredients').value='';
   document.getElementById('mcat-assign-results-ingredients').innerHTML='';
-  document.getElementById('mcat').classList.add('op');
+  openM('mcat');
 }
 function renderMcatConvertZone(){
   var cat=mcatCurrentCat;
@@ -13057,7 +13105,7 @@ function openOngletEditModal(name){
   document.getElementById('mong-nom').value=name||'';
   var nextOrdre=(Object.keys(rctOngletsOrdre).length+1)*10;
   document.getElementById('mong-ordre').value=name&&rctOngletsOrdre[name]!=null?rctOngletsOrdre[name]:nextOrdre;
-  document.getElementById('mong').classList.add('op');
+  openM('mong');
 }
 async function saveOngletMeta(){
   var oldName=mongCurrentOnglet;
@@ -13327,15 +13375,83 @@ function detailRecette(produitVenduCode){
   return {rows:rows,total:hasCout?total:null};
 }
 // ══ Fiches cuisine (PDF) — 18/10/2026 ══════════════════════════════════════════════════════════
-// Une page A4 par produit vendu, construite à partir des données existantes : nom, catégorie, photo et
-// composition de la carte publique (menudata.json, plat retrouvé par findMenuPriceFor), ingrédients et
-// grammages de la recette (detailRecette), allergènes renseignés sur la carte (liste réglementaire des 14).
-// Destinée à l'équipe en cuisine : aucun prix ni coût. Rien n'est enregistré, rien n'est modifié.
+// Deux sortes de fiches, une page A4 chacune, construites à partir des données existantes (rien n'est
+// enregistré ni modifié) et destinées à l'équipe en cuisine (aucun prix ni coût) :
+//  • Produit vendu : nom, catégorie, photo de la carte du QR code (menudata.json), allergènes de la carte,
+//    description, ingrédients et grammages de la recette — et, sous chaque ingrédient qui est une
+//    préparation, les quantités de ses composants pour la quantité utilisée (composition × proportion),
+//    ou la matière brute nécessaire quand l'ingrédient est « fabriqué à partir de » un brut avec une perte.
+//  • Préparation (ingrédient composé, Recettes › Ingrédients › Recette de l'ingrédient) : recette du lot
+//    telle qu'enregistrée, poids total, rendement après perte, et les produits qui l'utilisent.
 var FCUI_ALLERGENES={gluten:'Gluten',crustaces:'Crustacés',oeufs:'Œufs',poisson:'Poisson',arachides:'Arachides',soja:'Soja',lait:'Lait',noix:'Fruits à coque',celeri:'Céleri',moutarde:'Moutarde',sesame:'Sésame',sulfites:'Sulfites',mollusques:'Mollusques',lupin:'Lupin'};
-var fcuiCoches={};
+var fcuiCoches={produits:{},preps:{}};
+var fcuiType='produits';
 // Les polices standard du PDF ne savent pas dessiner les émojis : on les retire des textes imprimés.
 function fcuiTxt(s){
   return String(s==null?'':s).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}️‍⃣]/gu,'').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/\s+/g,' ').trim();
+}
+function fcuiNombre(n){
+  if(n==null||!isFinite(n))return '';
+  var a=Math.abs(n),r=a>=100?Math.round(n):(a>=10?Math.round(n*10)/10:Math.round(n*100)/100);
+  return String(r).replace('.',',');
+}
+function fcuiQte(q,u){
+  var unite=(u==='piece'||u==='pièce')?(q>1?'pièces':'pièce'):(u==='l'?'L':(u||''));
+  return fcuiNombre(q)+(unite?' '+unite:'');
+}
+function fcuiIng(code){return rctIngredients.find(function(x){return x.code===code;});}
+function fcuiCompo(code){var c=rctIngredientComposition[code];return (c&&c.length)?c:null;}
+// Quantité d'un ingrédient convertie en grammes (même règles que coutIngredient : g/kg, ml/L via la densité,
+// pièce via le poids net, dose via la quantité par défaut). null si non convertible.
+function fcuiEnGrammes(code,q,u){
+  if(q==null||!isFinite(q))return null;
+  if(u==='dose'){var ing=fcuiIng(code);if(!ing||ing.quantite_defaut==null||!ing.unite_defaut)return null;return fcuiEnGrammes(code,q*ing.quantite_defaut,ing.unite_defaut);}
+  var c=rctIngredientCouts[code];
+  if(u==='g')return q;
+  if(u==='kg')return q*1000;
+  if(u==='ml'||u==='l')return convertQtyToFamily(q,u,'masse',(c&&c.densite)||1000);
+  if((u==='piece'||u==='pièce')&&c&&c.poids_net_g)return q*c.poids_net_g;
+  return null;
+}
+// Composants d'un ingrédient pour une quantité donnée, en lignes {niveau, nom, qte} (récursif, 3 niveaux).
+function fcuiComposants(code,q,u,niveau,vus){
+  niveau=niveau||1;vus=vus||{};
+  if(niveau>3||vus[code])return [];
+  vus[code]=true;
+  var out=[],ing=fcuiIng(code),perte=(ing&&ing.taux_perte>0&&ing.taux_perte<100)?ing.taux_perte:0;
+  var compo=fcuiCompo(code);
+  if(compo){
+    var qG=fcuiEnGrammes(code,q,u);
+    var lignes=compo.map(function(l){return {l:l,g:fcuiEnGrammes(l.sub_ingredient_code,l.quantite,l.unite)};});
+    var total=lignes.reduce(function(s,x){return s+(x.g||0);},0);
+    var proportionnel=qG!=null&&total>0&&lignes.every(function(x){return x.g!=null;});
+    if(!proportionnel)out.push({niveau:niveau,nom:'recette du lot (quantités telles qu\'enregistrées) :',qte:''});
+    lignes.forEach(function(x){
+      var sub=fcuiIng(x.l.sub_ingredient_code),nom=sub?sub.nom:x.l.sub_ingredient_code;
+      if(proportionnel){
+        var g=x.g/total*qG/(1-perte/100);
+        out.push({niveau:niveau,nom:nom,qte:fcuiQte(g,'g')});
+        out=out.concat(fcuiComposants(x.l.sub_ingredient_code,g,'g',niveau+1,Object.assign({},vus)));
+      }else{
+        out.push({niveau:niveau,nom:nom,qte:fcuiQte(x.l.quantite,x.l.unite)});
+      }
+    });
+    if(proportionnel&&perte)out.push({niveau:niveau,nom:'(perte de '+fcuiNombre(perte)+' % à la préparation comprise)',qte:''});
+    return out;
+  }
+  if(ing&&ing.source_brut_code&&perte){
+    var brut=fcuiIng(ing.source_brut_code),qB=fcuiEnGrammes(code,q,u);
+    out.push({niveau:niveau,nom:'à partir de '+(brut?brut.nom:ing.source_brut_code)+' (perte '+fcuiNombre(perte)+' %)',qte:qB!=null?fcuiQte(qB/(1-perte/100),'g'):''});
+  }
+  return out;
+}
+// Photo du plat sur la carte du QR code. Si le plat retenu n'en a pas mais qu'un plat du même nom en a une
+// (même plat présent dans deux catégories), on prend celle-là.
+function fcuiPhotoUrl(nom,item){
+  if(item&&item.photo)return item.photo;
+  var cle=normText(nom),items=(rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[];
+  var autre=items.find(function(it){return it.photo&&!it.archived&&normText((it.name&&(it.name.fr||it.name))||'')===cle;});
+  return autre?autre.photo:null;
 }
 function fcuiProduitsTries(){
   var list=rctProduitsVendus.filter(function(p){return p.actif!==false;});
@@ -13344,65 +13460,91 @@ function fcuiProduitsTries(){
   sortedMenuCatNames(byCat).forEach(function(cat){
     var subs=sortedMenuSubNames(cat,byCat[cat]);
     var items=[];
-    subs.forEach(function(sub){(byCat[cat][sub]||[]).forEach(function(p){items.push({p:p,sub:sub});});});
+    subs.forEach(function(sub){(byCat[cat][sub]||[]).forEach(function(p){items.push({code:p.code,nom:p.nom,info:(rctRecettes[p.code]||[]).length});});});
     if(items.length)out.push({cat:cat,items:items});
   });
   return out;
 }
+function fcuiPreparationsTriees(){
+  var byCat={};
+  rctIngredients.filter(function(i){return i.actif!==false&&fcuiCompo(i.code);}).forEach(function(i){
+    var k=i.categorie||'Sans catégorie';(byCat[k]=byCat[k]||[]).push({code:i.code,nom:i.nom,info:fcuiCompo(i.code).length});
+  });
+  return Object.keys(byCat).sort(function(a,b){return a.localeCompare(b,'fr');}).map(function(k){
+    return {cat:k,items:byCat[k].sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');})};
+  });
+}
+function fcuiGroupes(){return fcuiType==='preps'?fcuiPreparationsTriees():fcuiProduitsTries();}
 async function openFichesCuisineModal(){
-  fcuiCoches={};
+  fcuiCoches={produits:{},preps:{}};
   document.getElementById('mfichecui-search').value='';
   document.getElementById('mfichecui-status').textContent='';
   try{await loadMenuPricesFromSite();}catch(e){console.warn('openFichesCuisineModal: carte non chargée',e);}
-  renderFichesCuisineList();
+  await fcuiChargerTextes();
+  fichesCuisineType('produits');
   openM('mfichecui');
+}
+function fichesCuisineType(t){
+  fcuiType=t==='preps'?'preps':'produits';
+  document.getElementById('mfichecui-type-produits').classList.toggle('on',fcuiType==='produits');
+  document.getElementById('mfichecui-type-preps').classList.toggle('on',fcuiType==='preps');
+  document.getElementById('mfichecui-photo-lbl').style.display=fcuiType==='produits'?'flex':'none';
+  document.getElementById('mfichecui-aide').textContent=fcuiType==='produits'
+    ?'Une page A4 par produit : photo de la carte du QR code, allergènes, description, ingrédients et grammages — avec, sous chaque préparation, les quantités de ses composants pour la quantité utilisée. Aucun prix ni coût.'
+    :'Une page A4 par préparation (ingrédient composé dans Recettes › Ingrédients) : recette du lot avec les quantités de chaque composant, poids total, rendement, et les produits qui l\'utilisent. Aucun prix ni coût.';
+  renderFichesCuisineList();
 }
 function renderFichesCuisineList(){
   var q=normText(document.getElementById('mfichecui-search').value||'');
-  var html='';
-  fcuiProduitsTries().forEach(function(g,gi){
-    var items=g.items.filter(function(x){return !q||normText(x.p.nom).indexOf(q)>=0;});
+  var coches=fcuiCoches[fcuiType],html='';
+  fcuiGroupes().forEach(function(g,gi){
+    var items=g.items.filter(function(x){return !q||normText(x.nom).indexOf(q)>=0;});
     if(!items.length)return;
-    var tous=items.every(function(x){return fcuiCoches[x.p.code];});
+    var tous=items.every(function(x){return coches[x.code];});
     html+='<label class="fcui-cat"><input type="checkbox" '+(tous?'checked ':'')+'onchange="fichesCuisineCocherCat('+gi+',this.checked)"> '+esc(g.cat)+' <span style="font-weight:600;color:var(--txm);text-transform:none;">('+items.length+')</span></label>';
     items.forEach(function(x){
-      var n=(rctRecettes[x.p.code]||[]).length;
-      html+='<label class="fcui-item"><input type="checkbox" '+(fcuiCoches[x.p.code]?'checked ':'')+'onchange="fichesCuisineCocher(\''+x.p.code+'\',this.checked)"> <span style="flex:1;">'+esc(x.p.nom)+'</span>'
-        +'<span style="font-size:10px;color:'+(n?'var(--txm)':'#C0392B')+';">'+(n?n+' ingr.':'sans recette')+'</span></label>';
+      var info=fcuiType==='preps'?(x.info+' composant'+(x.info>1?'s':'')):(x.info?x.info+' ingr.':'sans recette');
+      var aTextes=fcuiTextesDe(fcuiType,x.code);
+      html+='<label class="fcui-item"><input type="checkbox" '+(coches[x.code]?'checked ':'')+'onchange="fichesCuisineCocher(\''+x.code+'\',this.checked)"> <span style="flex:1;">'+esc(x.nom)+'</span>'
+        +'<span style="font-size:10px;color:'+(x.info?'var(--txm)':'#C0392B')+';">'+info+(aTextes.etapes.length?' · ✓ étapes':'')+'</span>'
+        +'<button type="button" class="btn bs sm" style="padding:2px 8px;" title="Éditer la fiche" onclick="event.preventDefault();event.stopPropagation();ficheEdOuvrir(fcuiType,\''+x.code+'\')">✏️</button></label>';
     });
   });
-  document.getElementById('mfichecui-list').innerHTML=html||'<div style="font-size:12px;color:var(--txm);padding:10px;text-align:center;">Aucun produit.</div>';
+  document.getElementById('mfichecui-list').innerHTML=html||'<div style="font-size:12px;color:var(--txm);padding:10px;text-align:center;">'+(fcuiType==='preps'?'Aucune préparation : compose un ingrédient dans Recettes › Ingrédients (bouton Recette de l\'ingrédient).':'Aucun produit.')+'</div>';
   fichesCuisineMajCompte();
 }
 function fichesCuisineMajCompte(){
-  var nb=Object.keys(fcuiCoches).filter(function(k){return fcuiCoches[k];}).length;
-  document.getElementById('mfichecui-nb').textContent=nb;
+  var c=fcuiCoches[fcuiType];
+  document.getElementById('mfichecui-nb').textContent=Object.keys(c).filter(function(k){return c[k];}).length;
 }
-function fichesCuisineCocher(code,oui){fcuiCoches[code]=!!oui;fichesCuisineMajCompte();}
+function fichesCuisineCocher(code,oui){fcuiCoches[fcuiType][code]=!!oui;fichesCuisineMajCompte();}
 function fichesCuisineCocherCat(gi,oui){
   var q=normText(document.getElementById('mfichecui-search').value||'');
-  var g=fcuiProduitsTries()[gi];if(!g)return;
-  g.items.forEach(function(x){if(!q||normText(x.p.nom).indexOf(q)>=0)fcuiCoches[x.p.code]=!!oui;});
+  var g=fcuiGroupes()[gi];if(!g)return;
+  g.items.forEach(function(x){if(!q||normText(x.nom).indexOf(q)>=0)fcuiCoches[fcuiType][x.code]=!!oui;});
   renderFichesCuisineList();
 }
 function fichesCuisineToutCocher(oui){
   var q=normText(document.getElementById('mfichecui-search').value||'');
-  fcuiProduitsTries().forEach(function(g){g.items.forEach(function(x){if(!q||normText(x.p.nom).indexOf(q)>=0)fcuiCoches[x.p.code]=!!oui;});});
+  fcuiGroupes().forEach(function(g){g.items.forEach(function(x){if(!q||normText(x.nom).indexOf(q)>=0)fcuiCoches[fcuiType][x.code]=!!oui;});});
   renderFichesCuisineList();
 }
 async function fichesCuisineDepuisChoix(){
-  var ordre=[];
-  fcuiProduitsTries().forEach(function(g){g.items.forEach(function(x){if(fcuiCoches[x.p.code])ordre.push(x.p.code);});});
-  if(!ordre.length){alert('Coche au moins un produit.');return;}
+  var ordre=[],c=fcuiCoches[fcuiType];
+  fcuiGroupes().forEach(function(g){g.items.forEach(function(x){if(c[x.code])ordre.push(x.code);});});
+  if(!ordre.length){alert('Coche au moins une fiche.');return;}
   var btn=document.getElementById('mfichecui-btn');btn.disabled=true;
-  try{await fichesCuisinePdf(ordre,document.getElementById('mfichecui-photo').checked,document.getElementById('mfichecui-status'));}
-  finally{btn.disabled=false;}
+  var st=document.getElementById('mfichecui-status');
+  try{
+    if(fcuiType==='preps')await fichesPreparationPdf(ordre,st);
+    else await fichesCuisinePdf(ordre,document.getElementById('mfichecui-photo').checked,st);
+  }finally{btn.disabled=false;}
 }
 // Photo de la carte → image JPEG pour le PDF (null si elle ne peut pas être récupérée : la fiche sort sans photo).
 async function fcuiImage(url){
   if(!url)return null;
-  // Image hébergée sur Cloudinary : on demande directement une version réduite (plus rapide, PDF plus léger).
-  var u=/res\.cloudinary\.com\/.+\/upload\//.test(url)?url.replace('/upload/','/upload/w_900,q_75,f_jpg/'):url;
+  // Photo hébergée sur Cloudinary (comme sur la carte du QR code) : on demande une version réduite en JPEG.
+  var u=url.indexOf('/image/upload/')>=0?url.replace('/image/upload/','/image/upload/w_900,q_75,f_jpg/'):url;
   try{
     var ctrl=('AbortController' in window)?new AbortController():null;
     var t=ctrl?setTimeout(function(){ctrl.abort();},10000):null;
@@ -13419,37 +13561,88 @@ async function fcuiImage(url){
     return {data:c.toDataURL('image/jpeg',0.8),w:c.width,h:c.height};
   }catch(e){console.warn('fcuiImage',url,e);return null;}
 }
+// ── Morceaux communs de mise en page ──
+var FCUI={W:210,H:297,M:14};
+function fcuiEntete(doc,type){
+  var W=FCUI.W,M=FCUI.M,y=M;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120);
+  doc.text(fcuiTxt(enseigneNom())||'',M,y);doc.text(type,W-M,y,{align:'right'});
+  y+=3;doc.setDrawColor(200);doc.line(M,y,W-M,y);
+  doc.setTextColor(20);
+  return y+10;
+}
+function fcuiTitre(doc,y,titre,sousTitre){
+  var W=FCUI.W,M=FCUI.M;
+  doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(22);
+  var t=doc.splitTextToSize(fcuiTxt(titre),W-2*M);doc.text(t,M,y);y+=t.length*9;
+  if(sousTitre){doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(110);doc.text(fcuiTxt(sousTitre),M,y);y+=7;doc.setTextColor(20);}
+  return y;
+}
+function fcuiSection(doc,y,txt){
+  var W=FCUI.W,M=FCUI.M;
+  doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(txt,M,y);y+=3;
+  doc.setDrawColor(180);doc.line(M,y,W-M,y);return y+7;
+}
+// Tableau d'ingrédients : lignes principales {nom,qte} + lignes de composants {niveau,nom,qte} en retrait.
+function fcuiTableau(doc,y,lignes,titreSuite){
+  var W=FCUI.W,H=FCUI.H,M=FCUI.M,alt=0,avantSous=false;
+  lignes.forEach(function(r){
+    var sous=!!r.niveau;
+    if(!sous&&avantSous)y+=2; // petit espace après les composants d'une préparation
+    avantSous=sous;
+    var hLigne=sous?6:8.5;
+    if(y>H-50){doc.addPage();y=fcuiEntete(doc,'');doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(fcuiTxt(titreSuite)+' (suite)',M,y);y+=9;}
+    var retrait=sous?6+(r.niveau-1)*5:0;
+    if(!sous){if(alt%2===0){doc.setFillColor(245,241,234);doc.rect(M,y-5.5,W-2*M,8.5,'F');}alt++;}
+    doc.setFont('helvetica',sous?'normal':'normal');doc.setFontSize(sous?10.5:13);doc.setTextColor(sous?90:20);
+    var nl=doc.splitTextToSize((sous?'› ':'')+fcuiTxt(r.nom),W-2*M-60-retrait);
+    doc.text(nl,M+2+retrait,y);
+    if(r.qte){doc.setFont('helvetica','bold');doc.text(fcuiTxt(r.qte),W-M-2,y,{align:'right'});}
+    y+=Math.max(1,nl.length)*hLigne;
+    if(sous)doc.setTextColor(20);
+  });
+  doc.setTextColor(20);
+  return y;
+}
+function fcuiNotesEtPied(doc,y,texteSource,titreNotes){
+  var W=FCUI.W,H=FCUI.H,M=FCUI.M;
+  y+=4;
+  var hNotes=H-M-12-y;
+  if(hNotes>=30){
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(20);doc.text(titreNotes||'Montage / notes',M,y);y+=3;
+    doc.setDrawColor(190);doc.rect(M,y,W-2*M,hNotes-4);
+    for(var ly=y+9;ly<y+hNotes-6;ly+=9)doc.line(M+3,ly,W-M-3,ly);
+  }
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(140);
+  doc.text('Fiche établie le '+new Date().toLocaleDateString('fr-FR')+' '+texteSource+' À refaire si la recette change.',M,H-8);
+  doc.setTextColor(20);
+}
+function fcuiNomFichier(prefixe,noms){
+  return (noms.length===1?prefixe+'_'+fcuiTxt(noms[0]).replace(/[^A-Za-z0-9]+/g,'_'):prefixe+'s_'+noms.length)+'.pdf';
+}
+// ── Fiches des produits vendus ──
 async function fichesCuisinePdf(codes,avecPhoto,statusEl){
   if(!window.jspdf){alert('PDF en cours de chargement, réessaie dans un instant.');return;}
   codes=(codes||[]).filter(Boolean);
   if(!codes.length)return;
   if(avecPhoto===undefined)avecPhoto=true;
   try{await loadMenuPricesFromSite();}catch(e){console.warn('fichesCuisinePdf: carte non chargée',e);}
-  var jsPDF=window.jspdf.jsPDF;
-  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  var W=210,H=297,M=14,enseigne=fcuiTxt(enseigneNom());
-  var dateTxt=new Date().toLocaleDateString('fr-FR');
-  var sansPhoto=0;
+  await fcuiChargerTextes();
+  var doc=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var W=FCUI.W,M=FCUI.M,sansPhoto=0,noms=[];
   for(var i=0;i<codes.length;i++){
     var p=rctProduitsVendus.find(function(x){return x.code===codes[i];});
     if(!p)continue;
+    noms.push(p.nom);
     if(statusEl)statusEl.textContent='Préparation de la fiche '+(i+1)+' / '+codes.length+'…';
-    if(i>0)doc.addPage();
-    var item=findMenuPriceFor(p.nom);
-    var cl=menuClassifyProduit(p.nom);
-    var y=M;
-    // En-tête
-    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120);
-    doc.text(enseigne||'',M,y);doc.text('Fiche cuisine',W-M,y,{align:'right'});
-    y+=3;doc.setDrawColor(200);doc.line(M,y,W-M,y);y+=10;
-    doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(22);
-    var titre=doc.splitTextToSize(fcuiTxt(p.nom),W-2*M);
-    doc.text(titre,M,y);y+=titre.length*9;
-    var catTxt=fcuiTxt([cl.cat,cl.sub].filter(Boolean).join(' › ')||p.categorie||'');
-    if(catTxt){doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(110);doc.text(catTxt,M,y);y+=7;}
+    if(noms.length>1)doc.addPage();
+    var item=findMenuPriceFor(p.nom),cl=menuClassifyProduit(p.nom);
+    var y=fcuiEntete(doc,'Fiche cuisine');
+    y=fcuiTitre(doc,y,p.nom,[cl.cat,cl.sub].filter(Boolean).join(' › ')||p.categorie||'');
     // Photo (gauche) + allergènes (droite)
-    var img=avecPhoto&&item&&item.photo?await fcuiImage(item.photo):null;
-    if(avecPhoto&&item&&item.photo&&!img)sansPhoto++;
+    var url=avecPhoto?fcuiPhotoUrl(p.nom,item):null;
+    var img=url?await fcuiImage(url):null;
+    if(url&&!img)sansPhoto++;
     var blocH=0,xTxt=M,largTxt=W-2*M;
     if(img){
       var iw=80,ih=iw*img.h/img.w;if(ih>62){ih=62;iw=ih*img.w/img.h;}
@@ -13457,54 +13650,255 @@ async function fichesCuisinePdf(codes,avecPhoto,statusEl){
       blocH=ih;xTxt=M+iw+8;largTxt=W-M-xTxt;
     }
     var ya=y+5;
-    doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Allergènes',xTxt,ya);ya+=6;
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Allergènes',xTxt,ya);ya+=6;
     doc.setFont('helvetica','normal');doc.setFontSize(12);
     var al=(item&&item.allergens||[]).map(function(a){return FCUI_ALLERGENES[a]||a;});
     var alTxt=doc.splitTextToSize(al.length?al.join(', '):'Non renseignés sur la carte',largTxt);
     if(!al.length)doc.setTextColor(150);
     doc.text(alTxt,xTxt,ya);ya+=alTxt.length*5.5;doc.setTextColor(20);
     y=Math.max(y+blocH,ya)+6;
-    // Composition affichée sur la carte
     var desc=item&&item.desc?fcuiTxt(item.desc.fr||item.desc):'';
     if(desc){
       doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Sur la carte',M,y);y+=6;
       doc.setFont('helvetica','italic');doc.setFontSize(11);doc.setTextColor(60);
       var dl=doc.splitTextToSize(desc,W-2*M);doc.text(dl,M,y);y+=dl.length*5+5;doc.setTextColor(20);
     }
-    // Ingrédients et grammages (recette)
-    var d=detailRecette(p.code);
-    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('Ingrédients et grammages',M,y);y+=3;
-    doc.setDrawColor(180);doc.line(M,y,W-M,y);y+=7;
-    if(!d.rows.length){
+    y=fcuiSection(doc,y,'Ingrédients et grammages');
+    var lignesRec=rctRecettes[p.code]||[];
+    if(!lignesRec.length){
       doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(150);doc.text('Recette non renseignée dans Produits & recettes.',M,y);doc.setTextColor(20);y+=9;
     }else{
-      d.rows.forEach(function(r,ri){
-        if(y>H-60){doc.addPage();y=M+6;doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(fcuiTxt(p.nom)+' (suite)',M,y);y+=9;}
-        if(ri%2===0){doc.setFillColor(245,241,234);doc.rect(M,y-5.5,W-2*M,8.5,'F');}
-        doc.setFont('helvetica','normal');doc.setFontSize(13);
-        var nl=doc.splitTextToSize(fcuiTxt(r.nom),W-2*M-62);
-        doc.text(nl,M+2,y);
-        var qa=fcuiTxt(r.qteAffichee).replace(/^(\d+(?:[.,]\d+)?) pièce$/,function(m,n){return n+(parseFloat(n.replace(',','.'))>1?' pièces':' pièce');});
-        doc.setFont('helvetica','bold');doc.text(qa,W-M-2,y,{align:'right'});
-        y+=Math.max(1,nl.length)*8.5;
+      var lignes=[];
+      lignesRec.forEach(function(l){
+        var ing=fcuiIng(l.ingredient_code);
+        var qte=fcuiQte(l.quantite,l.unite);
+        if(l.unite==='dose'&&ing&&ing.quantite_defaut!=null&&ing.unite_defaut)qte=(l.quantite!==1?fcuiNombre(l.quantite)+' dose = ':'1 dose = ')+fcuiQte(l.quantite*ing.quantite_defaut,ing.unite_defaut);
+        lignes.push({nom:ing?ing.nom:l.ingredient_code,qte:qte});
+        lignes=lignes.concat(fcuiComposants(l.ingredient_code,l.quantite,l.unite));
       });
+      y=fcuiTableau(doc,y,lignes,p.nom);
     }
-    // Cadre pour noter le montage
-    y+=4;
-    var hNotes=Math.max(30,H-M-12-y);
-    if(hNotes>=30){
-      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('Montage / notes',M,y);y+=3;
-      doc.setDrawColor(190);doc.rect(M,y,W-2*M,hNotes-4);
-      for(var ly=y+9;ly<y+hNotes-6;ly+=9)doc.line(M+3,ly,W-M-3,ly);
-    }
-    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(140);
-    doc.text('Fiche établie le '+dateTxt+' à partir de la carte et de la recette enregistrées. À refaire si la recette change.',M,H-8);
-    doc.setTextColor(20);
+    var tx=fcuiTextesDe('produits',p.code),txCat=cl.cat?fcuiTextesCat(cl.cat):{etapes:[]};
+    y=fcuiMontage(doc,y,txCat.etapes.concat(tx.etapes),tx.vigilance,p.nom);
+    fcuiNotesEtPied(doc,y,'à partir de la carte et de la recette enregistrées.',(txCat.etapes.length||tx.etapes.length)?'Notes':'Montage / notes');
   }
-  var nom=codes.length===1?('Fiche_cuisine_'+fcuiTxt((rctProduitsVendus.find(function(x){return x.code===codes[0];})||{}).nom||'produit').replace(/[^A-Za-z0-9]+/g,'_')):('Fiches_cuisine_'+codes.length);
-  doc.save(nom+'.pdf');
-  if(statusEl)statusEl.textContent='✅ PDF créé ('+codes.length+' fiche'+(codes.length>1?'s':'')+')'+(sansPhoto?' — '+sansPhoto+' photo(s) n\'ont pas pu être récupérée(s), fiche(s) sans photo.':'.');
+  if(!noms.length)return;
+  doc.save(fcuiNomFichier('Fiche_cuisine',noms));
+  if(statusEl)statusEl.textContent='✅ PDF créé ('+noms.length+' fiche'+(noms.length>1?'s':'')+')'+(sansPhoto?' — '+sansPhoto+' photo(s) n\'ont pas pu être récupérée(s), fiche(s) sans photo.':'.');
   else if(sansPhoto)alert('PDF créé, mais la photo n\'a pas pu être récupérée : la fiche est sans photo.');
+}
+// ── Fiches des préparations (ingrédients composés) ──
+async function fichesPreparationPdf(codes,statusEl){
+  if(!window.jspdf){alert('PDF en cours de chargement, réessaie dans un instant.');return;}
+  codes=(codes||[]).filter(function(c){return c&&fcuiCompo(c);});
+  if(!codes.length){alert('Cette préparation n\'a pas encore de composants enregistrés.');return;}
+  await fcuiChargerTextes();
+  var doc=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var W=FCUI.W,M=FCUI.M,noms=[];
+  codes.forEach(function(code,i){
+    var ing=fcuiIng(code);if(!ing)return;
+    noms.push(ing.nom);
+    if(statusEl)statusEl.textContent='Préparation de la fiche '+(i+1)+' / '+codes.length+'…';
+    if(noms.length>1)doc.addPage();
+    var y=fcuiEntete(doc,'Fiche préparation');
+    y=fcuiTitre(doc,y,ing.nom,[ing.categorie,ing.sous_categorie].filter(Boolean).join(' › '));
+    y=fcuiSection(doc,y,'Recette du lot');
+    var compo=fcuiCompo(code),lignes=[],total=0,totalOk=true;
+    compo.forEach(function(l){
+      var sub=fcuiIng(l.sub_ingredient_code);
+      lignes.push({nom:sub?sub.nom:l.sub_ingredient_code,qte:fcuiQte(l.quantite,l.unite)});
+      lignes=lignes.concat(fcuiComposants(l.sub_ingredient_code,l.quantite,l.unite));
+      var g=fcuiEnGrammes(l.sub_ingredient_code,l.quantite,l.unite);
+      if(g==null)totalOk=false;else total+=g;
+    });
+    y=fcuiTableau(doc,y,lignes,ing.nom);
+    y+=2;
+    doc.setFont('helvetica','normal');doc.setFontSize(11.5);
+    if(totalOk&&total>0){
+      doc.text('Poids total des ingrédients : '+fcuiQte(total,'g'),M,y);y+=6;
+      if(ing.taux_perte>0&&ing.taux_perte<100){doc.text('Rendement après préparation : environ '+fcuiQte(total*(1-ing.taux_perte/100),'g')+' (perte '+fcuiNombre(ing.taux_perte)+' %)',M,y);y+=6;}
+    }
+    // Où elle est utilisée
+    var produits=rctProduitsVendus.filter(function(p){return p.actif!==false&&(rctRecettes[p.code]||[]).some(function(l){return l.ingredient_code===code;});}).map(function(p){
+      var l=(rctRecettes[p.code]||[]).find(function(x){return x.ingredient_code===code;});
+      return fcuiTxt(p.nom)+' ('+fcuiQte(l.quantite,l.unite)+')';
+    });
+    var preps=rctIngredients.filter(function(x){return (fcuiCompo(x.code)||[]).some(function(l){return l.sub_ingredient_code===code;});}).map(function(x){return fcuiTxt(x.nom);});
+    var utilise=produits.concat(preps.map(function(n){return n+' (préparation)';}));
+    if(utilise.length){
+      y+=3;doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Utilisée dans',M,y);y+=6;
+      doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(60);
+      var ut=doc.splitTextToSize(utilise.join(' · '),W-2*M);
+      if(ut.length>8){ut=ut.slice(0,8);ut[7]+=' …';}
+      doc.text(ut,M,y);y+=ut.length*5+2;doc.setTextColor(20);
+    }
+    var txp=fcuiTextesDe('preps',code);
+    y=fcuiMontage(doc,y,txp.etapes,txp.vigilance,ing.nom);
+    fcuiNotesEtPied(doc,y,'à partir de la composition enregistrée (Recettes › Ingrédients).',txp.etapes.length?'Notes':'Montage / notes');
+  });
+  if(!noms.length)return;
+  doc.save(fcuiNomFichier('Fiche_preparation',noms));
+  if(statusEl)statusEl.textContent='✅ PDF créé ('+noms.length+' fiche'+(noms.length>1?'s':'')+').';
+}
+// ══ Textes des fiches cuisine (étapes de montage, vigilance) — 19/10/2026 ══════════════════════
+// Enregistrés dans app_config (aucune table à créer) : fiche_cuisine:<code> (produit vendu),
+// fiche_cuisine_prep:<code> (préparation), fiche_cuisine_cat:<catégorie du menu> (étapes communes à toute
+// une catégorie, imprimées en premier sur chacune de ses fiches). Valeur : {"etapes":[…],"vigilance":"…"}.
+var FCUI_CLES={produits:'fiche_cuisine:',preps:'fiche_cuisine_prep:',cat:'fiche_cuisine_cat:'};
+var fcuiTextes=null; // {produits:{code:{etapes,vigilance}}, preps:{…}, cat:{nom:{etapes}}}
+async function fcuiChargerTextes(){
+  var t={produits:{},preps:{},cat:{}};
+  try{
+    var r=await db.from('app_config').select('key,value').like('key','fiche_cuisine%');
+    if(r.error)throw r.error;
+    (r.data||[]).forEach(function(row){
+      var v=cfgJson(row.value);if(!v)return;
+      var o={etapes:Array.isArray(v.etapes)?v.etapes.filter(Boolean):[],vigilance:v.vigilance||''};
+      if(row.key.indexOf(FCUI_CLES.cat)===0)t.cat[row.key.slice(FCUI_CLES.cat.length)]=o;
+      else if(row.key.indexOf(FCUI_CLES.preps)===0)t.preps[row.key.slice(FCUI_CLES.preps.length)]=o;
+      else if(row.key.indexOf(FCUI_CLES.produits)===0)t.produits[row.key.slice(FCUI_CLES.produits.length)]=o;
+    });
+    fcuiTextes=t;
+  }catch(e){console.warn('fcuiChargerTextes',e);if(!fcuiTextes)fcuiTextes=t;}
+  return fcuiTextes;
+}
+function fcuiTextesDe(type,code){return (fcuiTextes&&fcuiTextes[type]&&fcuiTextes[type][code])||{etapes:[],vigilance:''};}
+function fcuiTextesCat(cat){return (fcuiTextes&&fcuiTextes.cat[cat])||{etapes:[],vigilance:''};}
+function fcuiLignes(txt){return String(txt||'').split('\n').map(function(s){return s.replace(/^\s*(\d+[.)]|[-•*])\s*/,'').trim();}).filter(Boolean);}
+// Section « Montage » numérotée + encadré « Points de vigilance » sur la fiche PDF.
+function fcuiMontage(doc,y,etapes,vigilance,titreSuite){
+  var W=FCUI.W,H=FCUI.H,M=FCUI.M;
+  if(etapes.length){
+    y+=2;y=fcuiSection(doc,y,'Montage');
+    etapes.forEach(function(e,i){
+      doc.setFont('helvetica','normal');doc.setFontSize(12.5);
+      var l=doc.splitTextToSize(fcuiTxt(e),W-2*M-10);
+      if(y+l.length*6>H-24){doc.addPage();y=fcuiEntete(doc,'');doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(fcuiTxt(titreSuite)+' (suite)',M,y);y+=9;doc.setFont('helvetica','normal');doc.setFontSize(12.5);}
+      doc.setFont('helvetica','bold');doc.text((i+1)+'.',M+1,y);
+      doc.setFont('helvetica','normal');doc.text(l,M+9,y);
+      y+=l.length*6+1.5;
+    });
+  }
+  if(vigilance&&vigilance.trim()){
+    var vl=doc.splitTextToSize(fcuiTxt(vigilance),W-2*M-8);
+    var hb=vl.length*5.5+10;
+    if(y+hb>H-24){doc.addPage();y=fcuiEntete(doc,'');}
+    y+=3;
+    doc.setFillColor(254,243,199);doc.setDrawColor(217,119,6);doc.rect(M,y,W-2*M,hb,'FD');
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(146,64,14);doc.text('Points de vigilance',M+4,y+6);
+    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(60);doc.text(vl,M+4,y+12);
+    doc.setTextColor(20);y+=hb+3;
+  }
+  return y;
+}
+// ── Fenêtre « Éditer la fiche » ──
+var ficheEd={type:'produits',code:null,cat:null,modifie:false};
+async function ficheEdOuvrir(type,code){
+  if(!code)return;
+  if(!fcuiTextes)await fcuiChargerTextes();
+  ficheEd={type:type==='preps'?'preps':'produits',code:code,cat:null,modifie:false};
+  var estProd=ficheEd.type==='produits';
+  var nom,source;
+  if(estProd){
+    var p=rctProduitsVendus.find(function(x){return x.code===code;});
+    nom=p?p.nom:code;
+    var cl=menuClassifyProduit(nom);ficheEd.cat=cl.cat||null;
+    source='Photo, allergènes et description viennent de la carte du QR code (à modifier dans Menu). Ici : grammages et étapes de montage.';
+  }else{
+    var ing=fcuiIng(code);nom=ing?ing.nom:code;
+    source='Préparation : composants et quantités de la recette du lot (Recettes › Ingrédients). Ici : étapes de fabrication.';
+  }
+  document.getElementById('mficheed-titre').textContent='✏️ '+(estProd?'Fiche cuisine':'Fiche préparation')+' — '+nom;
+  document.getElementById('mficheed-source').textContent=source;
+  document.getElementById('mficheed-cat-zone').style.display=(estProd&&ficheEd.cat)?'':'none';
+  document.getElementById('mficheed-cat-nom').textContent=ficheEd.cat||'';
+  document.getElementById('mficheed-cat').value=ficheEd.cat?fcuiTextesCat(ficheEd.cat).etapes.join('\n'):'';
+  document.getElementById('mficheed-etapes-lbl').textContent=estProd?'Étapes propres à ce produit':'Étapes de fabrication';
+  var tx=fcuiTextesDe(ficheEd.type,code);
+  document.getElementById('mficheed-etapes').value=tx.etapes.join('\n');
+  document.getElementById('mficheed-vig').value=tx.vigilance||'';
+  document.getElementById('mficheed-status').textContent='';
+  document.getElementById('mficheed-ings-btn').textContent=estProd?'✏️ Modifier les grammages':'✏️ Modifier la recette du lot';
+  var suiv=ficheEdSuivante();
+  var bS=document.getElementById('mficheed-suivant');
+  bS.style.display=suiv?'':'none';
+  bS.title=suiv?('Suivante : '+suiv.nom):'';
+  ficheEdAfficherIngredients();
+  openM('mficheed');
+}
+function ficheEdModifie(){ficheEd.modifie=true;document.getElementById('mficheed-status').textContent='Modifications non enregistrées';}
+function ficheEdAfficherIngredients(){
+  var el=document.getElementById('mficheed-ings');if(!el||!ficheEd.code)return;
+  var lignes=[];
+  if(ficheEd.type==='produits'){
+    (rctRecettes[ficheEd.code]||[]).forEach(function(l){
+      var ing=fcuiIng(l.ingredient_code);
+      lignes.push({nom:ing?ing.nom:l.ingredient_code,qte:fcuiQte(l.quantite,l.unite)});
+      lignes=lignes.concat(fcuiComposants(l.ingredient_code,l.quantite,l.unite));
+    });
+  }else{
+    (fcuiCompo(ficheEd.code)||[]).forEach(function(l){
+      var sub=fcuiIng(l.sub_ingredient_code);
+      lignes.push({nom:sub?sub.nom:l.sub_ingredient_code,qte:fcuiQte(l.quantite,l.unite)});
+      lignes=lignes.concat(fcuiComposants(l.sub_ingredient_code,l.quantite,l.unite));
+    });
+  }
+  el.innerHTML=lignes.length?lignes.map(function(r){
+    var sous=!!r.niveau;
+    return '<div style="display:flex;justify-content:space-between;gap:8px;padding:'+(sous?'1px 0 1px '+(8*r.niveau)+'px':'4px 0')+';'+(sous?'color:var(--txm);font-size:11px;':'border-top:1px solid var(--bd);')+'"><span>'+(sous?'› ':'')+esc(r.nom)+'</span><b>'+esc(r.qte)+'</b></div>';
+  }).join(''):'<div style="color:#C0392B;">Aucun ingrédient enregistré pour l\'instant.</div>';
+}
+function ficheEdModifierGrammages(){
+  if(ficheEd.type==='produits')openRecetteModal(ficheEd.code);
+  else openIngredientCompoModal(ficheEd.code);
+}
+// Fiche suivante dans le même ordre que la liste (catégorie du menu, puis nom) : pour enchaîner sans fermer.
+function ficheEdSuivante(){
+  var plat=[];
+  (ficheEd.type==='preps'?fcuiPreparationsTriees():fcuiProduitsTries()).forEach(function(g){g.items.forEach(function(x){plat.push(x);});});
+  var i=plat.findIndex(function(x){return x.code===ficheEd.code;});
+  return (i>=0&&i<plat.length-1)?plat[i+1]:null;
+}
+async function ficheEdEnregistrer(suivante){
+  var st=document.getElementById('mficheed-status');
+  var etapes=fcuiLignes(document.getElementById('mficheed-etapes').value);
+  var vig=(document.getElementById('mficheed-vig').value||'').trim();
+  var rows=[{key:FCUI_CLES[ficheEd.type]+ficheEd.code,value:JSON.stringify({etapes:etapes,vigilance:vig})}];
+  var etapesCat=null;
+  if(ficheEd.type==='produits'&&ficheEd.cat){
+    etapesCat=fcuiLignes(document.getElementById('mficheed-cat').value);
+    var avant=fcuiTextesCat(ficheEd.cat).etapes;
+    if(etapesCat.join('\n')!==avant.join('\n'))rows.push({key:FCUI_CLES.cat+ficheEd.cat,value:JSON.stringify({etapes:etapesCat})});
+  }
+  st.textContent='Enregistrement…';
+  try{
+    var r=await db.from('app_config').upsert(rows,{onConflict:'key'});
+    if(r.error)throw r.error;
+    fcuiTextes[ficheEd.type][ficheEd.code]={etapes:etapes,vigilance:vig};
+    if(etapesCat&&rows.length>1)fcuiTextes.cat[ficheEd.cat]={etapes:etapesCat,vigilance:''};
+    ficheEd.modifie=false;
+    st.textContent='✅ Enregistré';
+    if(document.getElementById('mfichecui').classList.contains('op'))renderFichesCuisineList();
+    if(suivante){var s=ficheEdSuivante();if(s){closeM('mficheed');ficheEdOuvrir(ficheEd.type,s.code);}}
+  }catch(e){console.error('ficheEdEnregistrer',e);st.textContent='❌ Erreur : '+e.message;}
+}
+function ficheEdFermer(){
+  if(ficheEd.modifie&&!confirm('Fermer sans enregistrer les modifications ?'))return;
+  ficheEd.modifie=false;
+  closeM('mficheed');
+}
+// Aperçu : la fiche telle qu'elle sera imprimée, avec ce qui est saisi (même non enregistré).
+async function ficheEdApercu(){
+  var sauvegarde=JSON.parse(JSON.stringify(fcuiTextes||{produits:{},preps:{},cat:{}}));
+  var tmp=JSON.parse(JSON.stringify(sauvegarde));
+  tmp[ficheEd.type][ficheEd.code]={etapes:fcuiLignes(document.getElementById('mficheed-etapes').value),vigilance:(document.getElementById('mficheed-vig').value||'').trim()};
+  if(ficheEd.type==='produits'&&ficheEd.cat)tmp.cat[ficheEd.cat]={etapes:fcuiLignes(document.getElementById('mficheed-cat').value),vigilance:''};
+  var chargerOrig=fcuiChargerTextes;
+  fcuiChargerTextes=async function(){fcuiTextes=tmp;return tmp;};
+  try{
+    if(ficheEd.type==='preps')await fichesPreparationPdf([ficheEd.code]);
+    else await fichesCuisinePdf([ficheEd.code],true);
+  }finally{fcuiChargerTextes=chargerOrig;fcuiTextes=sauvegarde;}
 }
 // Depuis le détail d'un prix de revient : sauter directement sur l'ingrédient en erreur, dans l'onglet
 // Ingrédients, déjà filtré et déplié, plutôt que d'avoir à le rechercher manuellement.
@@ -13542,7 +13936,7 @@ function openPrixRevientDetailModal(code){
   }).join(''):'<div style="font-size:12px;color:var(--txm);text-align:center;padding:10px;">Aucune recette définie.</div>';
   document.getElementById('mprixdetail-lines').innerHTML=linesHtml;
   document.getElementById('mprixdetail-total').innerHTML='<span>Total</span><span style="color:var(--bx);">'+(d.total!=null?d.total.toFixed(2)+' €':'— (incomplet)')+'</span>';
-  document.getElementById('mprixdetail').classList.add('op');
+  openM('mprixdetail');
 }
 
 // ── Prix de vente (carte publique) : lecture ET édition depuis "Prix de revient" ──
@@ -13744,7 +14138,7 @@ async function loadInventairesList(){
 async function viewInventaireDetail(invId,label){
   document.getElementById('minv-detail-title').textContent=label||('Inventaire #'+invId);
   document.getElementById('minv-detail-lines').innerHTML='<div style="font-size:12px;color:var(--txm);">Chargement…</div>';
-  document.getElementById('minv-detail').classList.add('op');
+  openM('minv-detail');
   try{
     var r=await db.from('stock_inventaires_lignes').select('*').eq('inventaire_id',invId);
     sbCheck(r);
