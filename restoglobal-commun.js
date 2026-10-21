@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-18';
+  RG.VERSION='2026-10-21';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -754,6 +754,198 @@
     return {id:code||'',nom:code||'',court:code||'',couleur:'#6B7280',tablette:false};
   };
   RG.nomMotif=function(code){return RG.motifAbsence(code).nom;};
+
+  // ── Ménage : tâches planifiées (21/10/2026) ──────────────────────────────────────────────────────────
+  // Une seule règle pour l'admin (Admin › 🧽 Ménage) et la tablette (« Ménage du jour »).
+  // Tables menage_taches / menage_realisations (script menage.sql). Les moments de la journée sont rangés dans
+  // app_config (clé menage_moments) : {liste:[{id,nom}], parResto:{idResto:[ids des moments utilisés]}}.
+  // Un établissement sans réglage utilise tous les moments. Rien de propre à un client n'est écrit ici.
+  // Fréquences :
+  //   quotidien   : tous les jours ; une tâche du jour non faite n'est pas reportée (elle reste « non faite »
+  //                 au registre de ce jour-là) ;
+  //   hebdo       : les jours cochés ;
+  //   mensuel     : un jour du mois (jour_mois 1 à 28, ou 99 = dernier jour du mois) ;
+  //   trimestriel / annuel : même chose, seulement les mois cochés (mois).
+  // Hebdo, mensuel, trimestriel, annuel : une tâche non faite le jour prévu RESTE à faire (« en retard ») jusqu'à
+  // ce qu'elle soit cochée, ou jusqu'à sa prochaine échéance (elle est alors notée « non faite » au registre et
+  // c'est la nouvelle échéance qui est à faire). Une tâche n'a pas d'échéance avant le jour de sa création.
+  RG.MENAGE_MOMENTS_CLE='menage_moments';
+  RG.MENAGE_MOMENTS_DEFAUT=[
+    {id:'ouverture',nom:'Ouverture'},
+    {id:'apres_midi',nom:'Après le service du midi'},
+    {id:'apres_soir',nom:'Après le service du soir'},
+    {id:'fermeture',nom:'Fermeture'}
+  ];
+  RG.MENAGE_FREQUENCES=[
+    {id:'quotidien',nom:'Tous les jours'},
+    {id:'hebdo',nom:'Chaque semaine'},
+    {id:'mensuel',nom:'Chaque mois'},
+    {id:'trimestriel',nom:'Chaque trimestre'},
+    {id:'annuel',nom:'Chaque année'}
+  ];
+  RG.MOIS_COURTS=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  RG.MENAGE_DERNIER_JOUR=99;
+  RG.MENAGE={moments:RG.MENAGE_MOMENTS_DEFAUT.slice(),parResto:{}};
+  RG.normaliserMenageMoments=function(v){
+    v=v||{};
+    var vus={},liste=[];
+    (Array.isArray(v.liste)?v.liste:RG.MENAGE_MOMENTS_DEFAUT).forEach(function(m){
+      if(!m||!m.id||vus[m.id])return;
+      vus[m.id]=true;
+      liste.push({id:String(m.id),nom:String(m.nom||m.id)});
+    });
+    var parResto={};
+    var pr=(v.parResto&&typeof v.parResto==='object')?v.parResto:{};
+    Object.keys(pr).forEach(function(rid){
+      if(Array.isArray(pr[rid]))parResto[rid]=pr[rid].filter(function(id){return vus[id];});
+    });
+    return {moments:liste,parResto:parResto};
+  };
+  RG.chargerMenageMoments=async function(db){
+    var v=null;
+    try{
+      var r=await db.from('app_config').select('value').eq('key',RG.MENAGE_MOMENTS_CLE).maybeSingle();
+      if(r.error)throw r.error;
+      if(r.data&&r.data.value)v=JSON.parse(r.data.value);
+    }catch(e){console.warn('RG.chargerMenageMoments : moments par défaut utilisés',e);}
+    var n=RG.normaliserMenageMoments(v);
+    RG.MENAGE.moments=n.moments;RG.MENAGE.parResto=n.parResto;
+    return RG.MENAGE;
+  };
+  RG.enregistrerMenageMoments=async function(db,moments,parResto){
+    var n=RG.normaliserMenageMoments({liste:moments,parResto:parResto});
+    var r=await db.from('app_config').upsert({key:RG.MENAGE_MOMENTS_CLE,value:JSON.stringify({liste:n.moments,parResto:n.parResto})},{onConflict:'key'});
+    if(r.error)throw r.error;
+    RG.MENAGE.moments=n.moments;RG.MENAGE.parResto=n.parResto;
+    return RG.MENAGE;
+  };
+  // Moments utilisés par un établissement, dans l'ordre de la liste.
+  RG.menageMomentsPour=function(restoId){
+    var choix=RG.MENAGE.parResto[restoId];
+    if(!Array.isArray(choix))return RG.MENAGE.moments.slice();
+    return RG.MENAGE.moments.filter(function(m){return choix.indexOf(m.id)>=0;});
+  };
+  RG.nomMomentMenage=function(id){
+    if(!id)return 'Dans la journée';
+    for(var i=0;i<RG.MENAGE.moments.length;i++){if(RG.MENAGE.moments[i].id===id)return RG.MENAGE.moments[i].nom;}
+    return id;
+  };
+
+  // Dates 'AAAA-MM-JJ' (journées métier) — calculs faits à midi pour ne jamais être gêné par le changement d'heure.
+  function menageDate(cle){var p=String(cle).split('-');return new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),12,0,0,0);}
+  function menageCle(d){return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
+  RG.menageCle=menageCle;
+  RG.menageDateDepuisCle=menageDate;
+  function dernierJourDuMois(annee,mois0){return new Date(annee,mois0+1,0,12).getDate();}
+  // Jour prévu dans un mois donné (null si la tâche ne tombe pas ce mois-là).
+  function jourDuMois(t,annee,mois0){
+    if(t.frequence!=='mensuel'){
+      var mois=Array.isArray(t.mois)?t.mois.map(Number):[];
+      if(mois.indexOf(mois0+1)<0)return null;
+    }
+    var j=parseInt(t.jour_mois,10);
+    var der=dernierJourDuMois(annee,mois0);
+    if(!(j>=1))j=1;
+    if(j===RG.MENAGE_DERNIER_JOUR||j>der)j=der;
+    return new Date(annee,mois0,j,12,0,0,0);
+  }
+  // La tâche tombe-t-elle ce jour-là ?
+  RG.menageTombeLe=function(t,cle){
+    if(!t)return false;
+    var d=menageDate(cle);
+    if(t.frequence==='quotidien')return true;
+    if(t.frequence==='hebdo')return (Array.isArray(t.jours)?t.jours.map(Number):[]).indexOf(d.getDay())>=0;
+    if(t.frequence==='mensuel'||t.frequence==='trimestriel'||t.frequence==='annuel'){
+      var j=jourDuMois(t,d.getFullYear(),d.getMonth());
+      return !!j&&j.getDate()===d.getDate();
+    }
+    return false;
+  };
+  function cleCreation(t){return t&&t.cree_le?RG.bizDateKey(t.cree_le):null;}
+  // Dernière échéance au plus tard le jour « cle » (et pas avant la création de la tâche), ou null.
+  RG.menageDerniereEcheance=function(t,cle){
+    var crea=cleCreation(t);
+    var d=menageDate(cle);
+    var limite=(t&&(t.frequence==='annuel'||t.frequence==='trimestriel'))?400:(t&&t.frequence==='mensuel'?70:8);
+    for(var i=0;i<limite;i++){
+      var c=menageCle(d);
+      if(crea&&c<crea)return null;
+      if(RG.menageTombeLe(t,c))return c;
+      d.setDate(d.getDate()-1);
+    }
+    return null;
+  };
+  // Prochaine échéance strictement après le jour « cle » (null si aucune dans l'année qui vient).
+  RG.menageProchaineEcheance=function(t,cle){
+    var d=menageDate(cle);
+    var crea=cleCreation(t);
+    for(var i=0;i<400;i++){
+      d.setDate(d.getDate()+1);
+      var c=menageCle(d);
+      if(crea&&c<crea)continue;
+      if(RG.menageTombeLe(t,c))return c;
+    }
+    return null;
+  };
+  // La tâche concerne-t-elle cet établissement et (facultatif) ces postes ? roleIds absent = on ne filtre pas.
+  RG.menageTacheValablePour=function(t,restoId,roleIds){
+    if(!t||t.actif===false)return false;
+    var restos=Array.isArray(t.restaurants)?t.restaurants:[];
+    if(restos.length&&restos.indexOf(restoId)<0)return false;
+    if(roleIds){
+      var roles=(Array.isArray(t.roles)?t.roles:[]).map(String);
+      if(roles.length&&!roleIds.map(String).some(function(r){return roles.indexOf(r)>=0;}))return false;
+    }
+    return true;
+  };
+  // Tâches à faire pour un établissement le jour « cle » (journée métier, aujourd'hui par défaut).
+  //   taches : lignes menage_taches ; realisations : lignes menage_realisations de CET établissement (au moins
+  //   celles des échéances concernées) ; roleIds : postes du jour (facultatif).
+  // Renvoie [{tache, echeance, retard (bool), moment, faite (ligne du registre ou null)}], dans l'ordre des moments
+  // de l'établissement, « dans la journée » en dernier, puis par zone et par nom.
+  RG.menageAFaire=function(taches,realisations,restoId,cle,roleIds){
+    cle=cle||RG.bizDateKey();
+    var faites={};
+    (realisations||[]).forEach(function(r){if(r.restaurant_id===restoId)faites[r.tache_id+'|'+r.echeance]=r;});
+    var ordreMoments={};
+    RG.menageMomentsPour(restoId).forEach(function(m,i){ordreMoments[m.id]=i;});
+    var out=[];
+    (taches||[]).forEach(function(t){
+      if(!RG.menageTacheValablePour(t,restoId,roleIds))return;
+      var ech=RG.menageDerniereEcheance(t,cle);
+      if(!ech)return;
+      if(t.frequence==='quotidien'&&ech!==cle)return;
+      out.push({tache:t,echeance:ech,retard:ech<cle,moment:t.moment||null,faite:faites[t.id+'|'+ech]||null});
+    });
+    function rang(x){return (x.moment&&ordreMoments[x.moment]!=null)?ordreMoments[x.moment]:999;}
+    out.sort(function(a,b){
+      return (rang(a)-rang(b))||String(a.tache.zone||'').localeCompare(String(b.tache.zone||''),'fr')
+        ||(a.tache.ordre||0)-(b.tache.ordre||0)||String(a.tache.nom).localeCompare(String(b.tache.nom),'fr');
+    });
+    return out;
+  };
+  // Texte lisible de la fréquence : « Tous les jours — Fermeture », « Chaque semaine : Lun, Jeu », « Chaque mois, le 1er »…
+  RG.libelleFrequenceMenage=function(t){
+    if(!t)return '';
+    function jourTxt(){
+      var j=parseInt(t.jour_mois,10);
+      if(j===RG.MENAGE_DERNIER_JOUR)return 'le dernier jour';
+      if(!(j>=1))j=1;
+      return 'le '+(j===1?'1er':j);
+    }
+    var mois=(Array.isArray(t.mois)?t.mois.map(Number):[]).slice().sort(function(a,b){return a-b;});
+    var txt;
+    switch(t.frequence){
+      case 'quotidien':txt='Tous les jours';break;
+      case 'hebdo':txt='Chaque semaine : '+((t.jours&&t.jours.length)?RG.libelleJours(t.jours.map(Number)):'aucun jour coché');break;
+      case 'mensuel':txt='Chaque mois, '+jourTxt();break;
+      case 'trimestriel':txt='Chaque trimestre, '+jourTxt()+' ('+(mois.length?mois.map(function(m){return RG.MOIS_COURTS[m-1];}).join(', '):'aucun mois')+')';break;
+      case 'annuel':txt='Chaque année, '+jourTxt()+' '+(mois.length?mois.map(function(m){return RG.MOIS_COURTS[m-1];}).join(', '):'(aucun mois)');break;
+      default:txt=t.frequence||'';
+    }
+    if(t.moment)txt+=' — '+RG.nomMomentMenage(t.moment);
+    return txt;
+  };
 
   global.RG=RG;
 })(window);
