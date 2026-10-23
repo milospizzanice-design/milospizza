@@ -5811,8 +5811,8 @@ var ptTraitementsCache={}; // cle → ligne pointage_alertes
 var ptQuiCache=null;
 var PT_STATUT_LIB={justifie:'justifié',non_justifie:'non justifié',vu:'vu',valide:'validé',refuse:'refusé'};
 var PT_ACTIONS={
-  sortie_oubliee:[['sortie','Saisir l’heure de sortie',1]],
-  entree_oubliee:[['entree','Saisir l’heure d’entrée',1]],
+  sortie_oubliee:[['sortie','Saisir l’heure de sortie',1],['etait_sortie','Ce badge était une sortie',0]],
+  entree_oubliee:[['entree','Saisir l’heure d’entrée',1],['etait_entree','Ce badge était une entrée',0]],
   pas_arrive:[['entree','Saisir l’entrée',1],['absent','Marquer absent',0]],
   absent:[['absent','Marquer absent',1],['entree','Saisir le pointage',0],['vu','Ignorer',0]],
   retard:[['justifie','Justifié',1],['non_justifie','Non justifié',0]],
@@ -5918,15 +5918,37 @@ function ptCarteHtml(a,trait,o){
 
 async function ptAction(cle,action){
   var a=ptAnomaliesIndex[cle];if(!a)return;
+  // 23/10/2026 : sans heure conseillée (aucun créneau prévu ce jour-là), l'heure proposée était MAINTENANT : la
+  // correction tombait sur aujourd'hui au lieu du jour de l'alerte, qui restait affichée. On propose désormais
+  // l'heure du badge concerné, le bon jour.
   if(action==='sortie'){
-    var conseil=a.heureConseillee||null;
-    ptOuvrirCorrection(a.employee_id,'sortie',conseil||new Date(),'Sortie oubliée — heure réelle de départ');return;
+    ptOuvrirCorrection(a.employee_id,'sortie',a.heureConseillee||(a.entree&&a.entree.timestamp)||ptMidiDuJour(a.jour),'Sortie oubliée ('+ptJourLib(a.jour)+') — heure réelle de départ');return;
   }
   if(action==='entree'){
-    ptOuvrirCorrection(a.employee_id,'entree',a.heureConseillee||new Date(),'Entrée oubliée — heure réelle d’arrivée');return;
+    ptOuvrirCorrection(a.employee_id,'entree',a.heureConseillee||(a.sortie&&a.sortie.timestamp)||ptMidiDuJour(a.jour),'Entrée oubliée ('+ptJourLib(a.jour)+') — heure réelle d’arrivée');return;
   }
+  if(action==='etait_sortie'){await ptConvertirBadge(a.entree,'sortie');return;}
+  if(action==='etait_entree'){await ptConvertirBadge(a.sortie,'entree');return;}
   if(action==='absent'){ptMarquerAbsent(a.employee_id,a.jour);return;}
   await ptTraiter(a,action);
+}
+function ptMidiDuJour(jour){var p=String(jour).split('-');return new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),12,0,0,0);}
+// 23/10/2026 : « Ce badge était une sortie / une entrée » — même principe que « Corriger ce pointage » : rien n'est
+// effacé, une ligne manuelle du bon type est ajoutée à la même heure et l'originale est marquée « remplacée ».
+async function ptConvertirBadge(entry,nouveauType){
+  if(!entry||!entry.id){alert('Pointage introuvable.');return;}
+  if(!('remplace' in entry)){alert('La réparation de la base n’a pas encore été faite : exécutez d’abord le script « reparer_pointage.sql » dans Supabase (SQL Editor), puis rouvrez cet écran.');return;}
+  var heure=RG.heureCourte(entry.timestamp);
+  if(!confirm('Le badge de '+heure+' ('+ptJourLib(RG.bizDateKey(entry.timestamp))+') était en réalité une '+(nouveauType==='sortie'?'SORTIE':'ENTRÉE')+' ?\n\nIl sera corrigé à la même heure (rien n’est effacé : l’original reste visible, barré).'))return;
+  var qui=await ptQui();
+  var payload={employee_id:entry.employee_id,restaurant_id:entry.restaurant_id,type:nouveauType,timestamp:entry.timestamp,ip_address:'correction-manuelle',ip_ok:true,photo_b64:null,manuel:true,
+    motif:'correction - badge enregistré en '+(nouveauType==='sortie'?'entrée':'sortie')+' au lieu de '+(nouveauType==='sortie'?'sortie':'entrée')+(qui?' (par '+qui+')':''),corrige_de_id:entry.id};
+  var r=await db.from('time_entries').insert(payload);
+  if(r.error){alert('Erreur : '+r.error.message);return;}
+  var ru=await db.from('time_entries').update({remplace:true}).eq('id',entry.id);
+  if(ru.error){alert('La correction est enregistrée, mais l’ancien badge n’a pas pu être marqué « remplacé » : '+ru.error.message);}
+  pointageRafraichir();
+  try{await loadPt();}catch(e){}
 }
 async function ptTraiter(a,statut,note){
   var row={cle:a.cle,employee_id:a.employee_id,jour:a.jour,type:a.type,statut:statut,note:note||null,traite_par:await ptQui(),traite_le:new Date().toISOString()};
@@ -6007,6 +6029,9 @@ async function loadAuj(){
   var presents=equipe.filter(function(J){return J.sessions.some(function(s){return s.etat==='en_cours';});}).length;
   var attendus=equipe.filter(function(J){return J.creneaux.length&&!J.absent;}).length;
   var h='';
+  // 23/10/2026 : colonne « remplace » absente = script reparer_pointage.sql pas encore exécuté (les corrections de
+  // badges existants échouent et la tablette n'enregistre que des entrées).
+  if(d.entries.length&&!('remplace' in d.entries[0]))h+='<div class="pj-note" style="background:#FEE2E2;color:#991B1B;font-weight:700">⚠ La base n’est pas encore réparée : exécutez le script <b>reparer_pointage.sql</b> dans Supabase (SQL Editor). Sans lui, les corrections de badges ne fonctionnent pas.</div>';
   if(!ptTableAlertesOk)h+='<div class="pj-note">Le suivi des alertes est gardé sur cet appareil seulement : exécutez le script <b>pointage_alertes.sql</b> dans Supabase pour le partager avec toute l’équipe.</div>';
   h+='<div class="pj-stats">';
   h+='<div class="pj-stat"><b style="color:#4F5E42">'+presents+'</b><span>Présents maintenant</span></div>';
