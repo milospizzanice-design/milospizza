@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pointage</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-18"></script>
+<script src="restoglobal-commun.js?v=2026-10-21"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bx:#B91E26;--cr:#EEF1EA;--panel:#587861}
@@ -625,7 +625,7 @@ async function afficherAlertesBadgeSalarie(){
     var debut=pDs(d0);
     var pb=RG.bizPeriodeBornes(debut,auj);
     var res=await Promise.all([
-      db.from('time_entries').select('id,employee_id,type,timestamp,remplace,ip_ok').eq('employee_id',empId).gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).order('timestamp').limit(500),
+      db.from('time_entries').select('*').eq('employee_id',empId).gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).order('timestamp').limit(500),
       db.from('planning_creneaux').select('employee_id,date,heure_debut,heure_fin,absence_code').eq('employee_id',empId).gte('date',debut).lte('date',auj).limit(500),
       db.from('absences_planning').select('employee_id,date,code').eq('employee_id',empId).gte('date',debut).lte('date',auj).limit(500),
       db.from('absences').select('employee_id,date_debut,date_fin,type').eq('employee_id',empId).gte('date_fin',debut).lte('date_debut',auj).limit(500)
@@ -1158,7 +1158,11 @@ async function menuPointer(){
   document.getElementById('camname').textContent=emp.prenom+' '+emp.nom;
   // Correctif du 17/10/2026 : dernier pointage VALIDE (un pointage corrigé par un manager est ignoré) et
   // journée métier 7h → 7h (RG.prochainTypeBadge) : une sortie badgée après minuit reste une SORTIE.
-  var lr=await db.from('time_entries').select('id,type,timestamp,remplace').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(10);
+  // 23/10/2026 : select('*') (et non une liste de colonnes) et erreur AFFICHÉE. Du 17 au 23/10, la colonne « remplace »
+  // demandée ici n'existait pas en base : la lecture échouait en silence, la tablette croyait chaque fois que le
+  // salarié n'était pas en service et n'enregistrait que des ENTRÉES. Plus jamais de supposition en cas d'échec.
+  var lr=await db.from('time_entries').select('*').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(10);
+  if(lr.error){badgeErreurLecture(lr.error);return;}
   var lastB=RG.pointagesValides(lr.data||[])[0];
   var enService=RG.prochainTypeBadge(lastB)==='sortie';
   var isEntree=!enService;
@@ -1176,6 +1180,12 @@ async function menuPointer(){
   var bb=document.getElementById('badge-btn');if(bb){bb.disabled=false;bb.textContent='Valider mon badgeage';}
   ss('camera');
   if(isEntree)showReminderBadge();
+}
+// Dernier pointage illisible : on n'enregistre rien et on le dit (avant le 23/10, la tablette supposait « entrée »).
+function badgeErreurLecture(err){
+  console.error('lecture du dernier pointage',err);
+  document.getElementById('em').innerHTML='Impossible de v\u00e9rifier votre dernier pointage.<br>Rien n\u0027a \u00e9t\u00e9 enregistr\u00e9 : r\u00e9essayez, et pr\u00e9venez un responsable si \u00e7a continue.<br><span style="font-size:10px;opacity:.6">('+escCpt((err&&err.message)||'erreur')+')</span>';
+  ss('error');setTimeout(backToMenu,6000);
 }
 function showReminderBadge(){var o=document.getElementById('reminder-badge-overlay');if(o)o.style.display='flex';}
 function closeReminderBadge(){var o=document.getElementById('reminder-badge-overlay');if(o)o.style.display='none';}
@@ -3631,7 +3641,8 @@ async function badge(){
   await loadDelaiBadge();
   // Correctif du 17/10/2026 : on ignore les pointages corrigés (remplace) et on raisonne en journée métier
   // (7h → 7h, RG.bizDateKey) — avant, une sortie badgée après minuit était enregistrée comme une ENTRÉE.
-  var r=await db.from('time_entries').select('id,type,timestamp,remplace').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(10);
+  var r=await db.from('time_entries').select('*').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(10);
+  if(r.error){badgeErreurLecture(r.error);return;} // rien n'est enregistré si le dernier pointage est illisible
   var last=RG.pointagesValides(r.data||[])[0];
   var lastIsToday=last&&RG.bizDateKey(last.timestamp)===RG.bizDateKey();
   // Contrôle du délai minimum entre 2 badgeages (uniquement si le dernier badgeage date d'aujourd'hui)
