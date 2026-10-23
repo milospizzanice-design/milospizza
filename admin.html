@@ -5995,6 +5995,9 @@ function pointageRafraichir(){
   if(pane&&pane.style.display!=='none'&&document.getElementById('rc').style.display!=='none')loadAuj();
   var fiche=document.getElementById('modal-absfiche');
   if(fiche&&fiche.classList.contains('op')){ficheAnoCache=null;ficheTab(ficheOnglet);ficheEntete();}
+  // 23/10/2026 : la liste des salariés (pastilles d'anomalies) n'était jamais recalculée après une correction.
+  var sa=document.getElementById('sa'),pageRh=document.getElementById('page-rh');
+  if(sa&&sa.style.display!=='none'&&pageRh&&pageRh.style.display!=='none')renderSal();
 }
 
 // ── Écran « Aujourd'hui » ─────────────────────────────────────────────────────────────────────────────
@@ -6747,7 +6750,8 @@ async function renderSal(){
       // Indicateurs (badges)
       h+='<div style="display:flex;align-items:center;gap:5px;flex-shrink:0">';
       if(info.urgent)h+='<span title="D\u00e9passement seuil" style="font-size:16px">\u2757</span>';
-      if(info.probleme)h+='<span title="Absence de badgeage" style="font-size:15px">\u26A0\uFE0F</span>';
+      // Pastille = anomalies de badge à traiter sur 31 jours, même calcul que la fiche (RG.analyserPointages).
+      if(info.anoNb)h+='<span title="'+info.anoNb+' anomalie'+(info.anoNb>1?'s':'')+' de badge à traiter (31 derniers jours)" style="background:'+(info.anoRouge?'#B91E26':'#D97706')+';color:#fff;border-radius:11px;min-width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:700;padding:0 6px">\u26A0 '+info.anoNb+'</span>';
       if(info.taches>0)h+='<span style="background:#B91E26;color:#fff;border-radius:11px;min-width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;padding:0 5px">'+info.taches+'</span>';
       h+='<span style="color:var(--txf);font-size:18px">\u203A</span>';
       h+='</div>';
@@ -6817,6 +6821,21 @@ async function computeSalIndicateurs(){
     if(typeof salDepasseSeuil==='function'&&salDepasseSeuil(em.id))info.urgent=true;
     indic[em.id]=info;
   });
+  // 23/10/2026 : anomalies de badge comptées avec la MÊME règle que la fiche salarié (31 derniers jours,
+  // RG.analyserPointages, alertes réglées exclues). Avant, la pastille ⚠️ suivait une règle à part, limitée au
+  // jour même, et ne disparaissait pas quand l'anomalie était corrigée depuis la fiche.
+  try{
+    var debAno=planDs(planAddD(new Date(todayStr+'T12:00:00'),-30));
+    var dAno=await ptChargerDonnees(ids,debAno,todayStr);
+    if(!dAno.erreur){
+      dAno.analyse.anomalies.forEach(function(a){
+        if(!ptEstOuverte(a,dAno.traitements))return;
+        var inf=indic[a.employee_id];if(!inf)return;
+        inf.anoNb=(inf.anoNb||0)+1;
+        if(a.niveau==='rouge')inf.anoRouge=true;
+      });
+    }
+  }catch(e){console.warn('pastilles anomalies',e);}
   return indic;
 }
 
