@@ -5883,6 +5883,7 @@ async function ptChargerDonnees(empIds,jourDebut,jourFin){
   });
   var entries=res[0].data||[],creneaux=res[1].data||[];
   var analyse=RG.analyserPointages({entries:entries,creneaux:creneaux,jours:jours,absents:absents});
+  ptProposerConversions(entries,analyse.anomalies);
   analyse.anomalies.forEach(function(a){ptAnomaliesIndex[a.cle]=a;});
   return {entries:entries,creneaux:creneaux,absents:absents,analyse:analyse,traitements:res[4],jours:jours,
     erreur:res[0].error||res[1].error||null};
@@ -5909,6 +5910,10 @@ function ptCarteHtml(a,trait,o){
     h+='<button class="pj-lien" onclick="ptAnnuler(\''+esc(a.cle)+'\')">Annuler</button></div>';
   }else{
     var acts=PT_ACTIONS[a.type]||[['vu','Vu',1]];
+    if(a.convertir){
+      // Badge enregistré dans le mauvais sens : le transformer est proposé en premier.
+      acts=[['convertir',a.convertir.lib,1]].concat(acts.filter(function(x){return x[0]!=='etait_sortie'&&x[0]!=='etait_entree';}).map(function(x){return [x[0],x[1],0];}));
+    }
     h+='<div class="pj-acts">';
     acts.forEach(function(x){h+='<button class="pj-btn'+(x[2]?' p':'')+'" onclick="ptAction(\''+esc(a.cle)+'\',\''+x[0]+'\')">'+esc(x[1])+'</button>';});
     h+='</div>';
@@ -5927,10 +5932,39 @@ async function ptAction(cle,action){
   if(action==='entree'){
     ptOuvrirCorrection(a.employee_id,'entree',a.heureConseillee||(a.sortie&&a.sortie.timestamp)||ptMidiDuJour(a.jour),'Entrée oubliée ('+ptJourLib(a.jour)+') — heure réelle d’arrivée');return;
   }
+  if(action==='convertir'&&a.convertir){await ptConvertirBadge(a.convertir.entry,a.convertir.type);return;}
   if(action==='etait_sortie'){await ptConvertirBadge(a.entree,'sortie');return;}
   if(action==='etait_entree'){await ptConvertirBadge(a.sortie,'entree');return;}
   if(action==='absent'){ptMarquerAbsent(a.employee_id,a.jour);return;}
   await ptTraiter(a,action);
+}
+// 24/10/2026 : quand une alerte vient d'un badge enregistré dans le mauvais sens (ex. entrée 11:00 puis « entrée »
+// 15:05 qui était en réalité la sortie), ajouter un badge créait une nouvelle alerte : le badge erroné restait. On
+// repère ces cas et on propose en premier de TRANSFORMER le bon badge (a.convertir), ce qui règle toutes les alertes
+// liées d'un coup. Même journée métier, badges valides seulement.
+function ptProposerConversions(entries,anomalies){
+  var parJour={};
+  RG.pointagesValides(entries).forEach(function(e){var k=e.employee_id+'|'+RG.bizDateKey(e.timestamp);(parJour[k]=parJour[k]||[]).push(e);});
+  Object.keys(parJour).forEach(function(k){parJour[k].sort(function(x,y){return (new Date(x.timestamp)-new Date(y.timestamp))||(x.id-y.id);});});
+  function voisins(e){
+    var l=parJour[e.employee_id+'|'+RG.bizDateKey(e.timestamp)]||[];
+    var i=l.findIndex(function(x){return x.id===e.id;});
+    return {prec:i>0?l[i-1]:null,suiv:(i>=0&&i<l.length-1)?l[i+1]:null};
+  }
+  function lib(e,type){return 'Le badge de '+RG.heureCourte(e.timestamp)+' était '+(type==='sortie'?'la sortie':'l’entrée');}
+  anomalies.forEach(function(a){
+    var e=a.entree||a.sortie;if(!e||!e.id)return;
+    var v=voisins(e);
+    if(a.type==='sortie_oubliee'||a.type==='hors_planning'){
+      if(e.type!=='entree')return;
+      if(v.prec&&v.prec.type==='entree')a.convertir={entry:e,type:'sortie',lib:lib(e,'sortie')}; // ce badge suit une entrée restée ouverte
+      else if(a.type==='sortie_oubliee'&&v.suiv&&v.suiv.type==='entree')a.convertir={entry:v.suiv,type:'sortie',lib:lib(v.suiv,'sortie')};
+    }else if(a.type==='entree_oubliee'){
+      if(e.type!=='sortie')return;
+      if(v.suiv&&v.suiv.type==='sortie')a.convertir={entry:e,type:'entree',lib:lib(e,'entree')}; // cette sortie précède une autre sortie
+      else if(v.prec&&v.prec.type==='sortie')a.convertir={entry:v.prec,type:'entree',lib:lib(v.prec,'entree')};
+    }
+  });
 }
 function ptMidiDuJour(jour){var p=String(jour).split('-');return new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),12,0,0,0);}
 // 23/10/2026 : « Ce badge était une sortie / une entrée » — même principe que « Corriger ce pointage » : rien n'est
