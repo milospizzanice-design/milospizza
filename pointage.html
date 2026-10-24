@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pointage</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-24"></script>
+<script src="restoglobal-commun.js?v=2026-10-24b"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bx:#B91E26;--cr:#EEF1EA;--panel:#587861}
@@ -624,6 +624,7 @@ async function afficherAlertesBadgeSalarie(){
     var d0=new Date(auj+'T12:00:00');d0.setDate(d0.getDate()-7);
     var debut=pDs(d0);
     var pb=RG.bizPeriodeBornes(debut,auj);
+    await RG.chargerAnnulations(db);
     var res=await Promise.all([
       db.from('time_entries').select('*').eq('employee_id',empId).gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).order('timestamp').limit(500),
       db.from('planning_creneaux').select('employee_id,date,heure_debut,heure_fin,absence_code').eq('employee_id',empId).gte('date',debut).lte('date',auj).limit(500),
@@ -1161,6 +1162,7 @@ async function menuPointer(){
   // 23/10/2026 : select('*') (et non une liste de colonnes) et erreur AFFICHÉE. Du 17 au 23/10, la colonne « remplace »
   // demandée ici n'existait pas en base : la lecture échouait en silence, la tablette croyait chaque fois que le
   // salarié n'était pas en service et n'enregistrait que des ENTRÉES. Plus jamais de supposition en cas d'échec.
+  await RG.chargerAnnulations(db); // badges annulés par un responsable (double appui…) : ignorés
   var lr=await db.from('time_entries').select('*').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(10);
   if(lr.error){badgeErreurLecture(lr.error);return;}
   var lastB=RG.pointagesValides(lr.data||[])[0];
@@ -3641,6 +3643,7 @@ async function badge(){
   await loadDelaiBadge();
   // Correctif du 17/10/2026 : on ignore les pointages corrigés (remplace) et on raisonne en journée métier
   // (7h → 7h, RG.bizDateKey) — avant, une sortie badgée après minuit était enregistrée comme une ENTRÉE.
+  await RG.chargerAnnulations(db);
   var r=await db.from('time_entries').select('*').eq('employee_id',emp.id).order('timestamp',{ascending:false}).limit(10);
   if(r.error){badgeErreurLecture(r.error);return;} // rien n'est enregistré si le dernier pointage est illisible
   var last=RG.pointagesValides(r.data||[])[0];

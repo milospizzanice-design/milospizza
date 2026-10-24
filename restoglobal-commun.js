@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-24';
+  RG.VERSION='2026-10-24b';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -53,19 +53,50 @@
   // Seuils d'alerte par défaut (le restaurant pourra les régler plus tard).
   RG.POINTAGE_RETARD_TOLERANCE_MIN=5;
   RG.POINTAGE_SORTIE_OUBLIEE_APRES_MIN=60;
-  // 24/10/2026 : la table time_entries est protégée (aucune modification possible, protection prud'hommes) : on ne
-  // peut donc pas cocher « remplace » sur un badge corrigé. Un badge est désormais considéré comme remplacé dès
-  // qu'une correction le désigne (corrige_de_id). « remplace » reste reconnu s'il est un jour renseigné.
-  // RG.marquerRemplaces pose e.remplace=true (en mémoire seulement) pour que les écrans l'affichent barré.
+  // 24/10/2026 : la table time_entries est protégée (aucune modification ni suppression, protection prud'hommes).
+  // Un badge est donc écarté sans être modifié :
+  //  - « remplacé » dès qu'une correction le désigne (corrige_de_id) ;
+  //  - « annulé » s'il figure dans la table pointage_annulations (double appui, badge en trop) — script
+  //    pointage_annulations.sql. Une correction annulée ne remplace plus rien (le badge d'origine revient).
+  // RG.marquerRemplaces pose e.annule / e.remplace (en mémoire seulement) pour que les écrans les affichent barrés.
+  // « remplace » reste reconnu s'il est un jour renseigné en base.
+  RG.ANNULES={};          // id de badge → ligne d'annulation
+  RG.ANNULATIONS_OK=null; // false si la table pointage_annulations n'existe pas encore
+  RG.chargerAnnulations=async function(db){
+    try{
+      var r=await RG.toutesLignes(function(){return db.from('pointage_annulations').select('*').order('id');});
+      if(r.error)throw r.error;
+      var m={};(r.data||[]).forEach(function(a){m[String(a.entry_id)]=a;});
+      RG.ANNULES=m;RG.ANNULATIONS_OK=true;
+    }catch(e){RG.ANNULATIONS_OK=false;console.warn('RG.chargerAnnulations',e);}
+    return RG.ANNULES;
+  };
+  RG.annulerBadge=async function(db,entry,motif,parNom){
+    var r=await db.from('pointage_annulations').insert({entry_id:entry.id,motif:motif||null,par_nom:parNom||null});
+    if(!r.error)RG.ANNULES[String(entry.id)]={entry_id:entry.id,motif:motif,par_nom:parNom,cree_le:new Date().toISOString()};
+    return r;
+  };
+  // Règle (24/10/2026) : un badge annulé ne compte plus et, s'il s'agit d'une correction, ne remplace plus rien
+  // (le badge d'origine revient). Les corrections sont traitées de la plus récente à la plus ancienne (une correction
+  // a toujours un id plus grand que le badge qu'elle vise) : seules celles encore valables écartent leur cible.
   RG.marquerRemplaces=function(entries){
-    var cibles={};
-    (entries||[]).forEach(function(e){if(e&&e.corrige_de_id!=null)cibles[String(e.corrige_de_id)]=true;});
-    (entries||[]).forEach(function(e){if(e&&cibles[String(e.id)])e.remplace=true;});
+    var liste=(entries||[]).filter(Boolean);
+    var annules=RG.ANNULES||{};
+    var ecarte={};
+    liste.slice().sort(function(x,y){return (Number(y.id)||0)-(Number(x.id)||0);}).forEach(function(e){
+      if(annules[String(e.id)]||ecarte[String(e.id)]||e.corrige_de_id==null)return;
+      ecarte[String(e.corrige_de_id)]=true;
+    });
+    liste.forEach(function(e){
+      e.annule=!!annules[String(e.id)];
+      if(ecarte[String(e.id)]){e.remplace=true;e._parCorrection=true;}
+      else if(e._parCorrection){e.remplace=false;e._parCorrection=false;} // la correction a été annulée depuis
+    });
     return entries;
   };
   RG.pointagesValides=function(entries){
     RG.marquerRemplaces(entries);
-    return (entries||[]).filter(function(e){return e&&e.timestamp&&!e.remplace;});
+    return (entries||[]).filter(function(e){return e&&e.timestamp&&!e.remplace&&!e.annule;});
   };
   RG.pointagesParJour=function(entries){
     var parJour={};

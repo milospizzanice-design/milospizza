@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Administration</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-24"></script>
+<script src="restoglobal-commun.js?v=2026-10-24b"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -1791,7 +1791,8 @@ async function loadPt(){
     if(empId!=='all')q=q.eq('employee_id',parseInt(empId));
     return q;
   });
-  pts=RG.marquerRemplaces(r.data||[]); // badges corrigés affichés barrés (lien corrige_de_id)
+  await RG.chargerAnnulations(db);
+  pts=RG.marquerRemplaces(r.data||[]); // badges corrigés / annulés affichés barrés
   renderPt();
 }
 
@@ -1806,15 +1807,17 @@ function renderPt(){
     var iph=e.ip_ok?'<span class="iok">✓ '+e.ip_address+'</span>':'<span class="iba">⚠ '+e.ip_address+'</span>';
     var md=e.manuel?'<span class="bg sup">Manuel</span>'+(e.motif?'<div style="font-size:9px;color:var(--txm);margin-top:2px">'+e.motif+'</div>':''):'<span style="color:#aaa;font-size:11px">Auto</span>';
     if(e.corrige_de_id)md+='<div style="font-size:9px;color:var(--bx);margin-top:2px">&#8618; Corrige #'+e.corrige_de_id+'</div>';
-    var rowStyle=e.manuel?' style="background:rgba(254,243,199,.35)'+(e.remplace?';opacity:.55':'')+'"':(e.remplace?' style="opacity:.55"':'');
+    var hors=e.remplace||e.annule;
+    if(e.annule&&RG.ANNULES[String(e.id)])md+='<div style="font-size:9px;color:#991B1B;margin-top:2px">Annulé'+(RG.ANNULES[String(e.id)].motif?' : '+esc(RG.ANNULES[String(e.id)].motif):'')+'</div>';
+    var rowStyle=e.manuel?' style="background:rgba(254,243,199,.35)'+(hors?';opacity:.55':'')+'"':(hors?' style="opacity:.55"':'');
     h+='<tr'+rowStyle+'>';
     h+='<td><strong style="color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+e.employee_id+')">'+em.prenom+' '+em.nom+'</strong></td>';
     h+='<td><span class="bg '+e.restaurant_id+'">'+rl+'</span></td>';
     h+='<td><span class="bg '+e.type+'">'+tl+'</span></td>';
-    h+='<td style="font-variant-numeric:tabular-nums'+(e.remplace?';text-decoration:line-through':'')+'">'+fmtF(e.timestamp)+'</td>';
+    h+='<td style="font-variant-numeric:tabular-nums'+(hors?';text-decoration:line-through':'')+'">'+fmtF(e.timestamp)+'</td>';
     h+='<td>'+iph+'</td>';
     h+='<td>'+md+'</td>';
-    h+='<td>'+(e.remplace?'<span style="font-size:10px;color:var(--txm)">Remplac&#233;</span>':'<button class="btn bs sm" onclick="openCorEntry('+e.id+')" style="padding:4px 8px;font-size:11px">&#9998;</button>')+'</td>';
+    h+='<td>'+(hors?'<span style="font-size:10px;color:var(--txm)">'+(e.annule?'Annul&#233;':'Remplac&#233;')+'</span>':'<button class="btn bs sm" onclick="openCorEntry('+e.id+')" style="padding:4px 8px;font-size:11px" title="Corriger">&#9998;</button> <button class="btn sm" onclick="ptAnnulerBadgeId('+e.id+')" style="padding:4px 8px;font-size:11px;background:#FEE2E2;color:#991B1B" title="Annuler ce badge">&#10005;</button>')+'</td>';
     h+='</tr>';
   });
   tb.innerHTML=h;
@@ -1823,7 +1826,7 @@ function renderPt(){
 function openCor(){document.getElementById('ccd').value=ptDateLocale(new Date());document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
 function openCorFor(id,type){document.getElementById('cce').value=id;document.getElementById('cct').value=type;document.getElementById('ccd').value=ptDateLocale(new Date());document.getElementById('cc-orig-id').value='';document.getElementById('mc-title').textContent='Correction manuelle';openM('mc');}
 function openCorEntry(entryId){
-  var entry=pts.find(function(p){return p.id===entryId;});
+  var entry=pts.find(function(p){return p.id===entryId;})||(ptBadgesCache[String(entryId)]||null);
   if(!entry){alert('Pointage introuvable.');return;}
   document.getElementById('cce').value=entry.employee_id;
   document.getElementById('cct').value=entry.type;
@@ -5808,14 +5811,14 @@ var ptTraitementsCache={}; // cle → ligne pointage_alertes
 var ptQuiCache=null;
 var PT_STATUT_LIB={justifie:'justifié',non_justifie:'non justifié',vu:'vu',valide:'validé',refuse:'refusé'};
 var PT_ACTIONS={
-  sortie_oubliee:[['sortie','Saisir l’heure de sortie',1],['etait_sortie','Ce badge était une sortie',0]],
-  entree_oubliee:[['entree','Saisir l’heure d’entrée',1],['etait_entree','Ce badge était une entrée',0]],
+  sortie_oubliee:[['sortie','Saisir l’heure de sortie',1],['etait_sortie','Ce badge était une sortie',0],['annuler_ce','Annuler ce badge',0]],
+  entree_oubliee:[['entree','Saisir l’heure d’entrée',1],['etait_entree','Ce badge était une entrée',0],['annuler_ce','Annuler ce badge',0]],
   pas_arrive:[['entree','Saisir l’entrée',1],['absent','Marquer absent',0]],
   absent:[['absent','Marquer absent',1],['entree','Saisir le pointage',0],['vu','Ignorer',0]],
   retard:[['justifie','Justifié',1],['non_justifie','Non justifié',0]],
   depart:[['justifie','Justifié',1],['non_justifie','Non justifié',0]],
   depassement:[['valide','Heures validées',1],['refuse','Non validées',0]],
-  hors_planning:[['valide','Valider',1],['vu','Vu',0]],
+  hors_planning:[['valide','Valider',1],['vu','Vu',0],['annuler_ce','Annuler ce badge',0]],
   ip:[['vu','Vu',1]]
 };
 
@@ -5863,6 +5866,7 @@ async function ptChargerTraitements(empIds,jourDebut,jourFin){
 // Charge pointages, planning, absences et traitements d'une liste de salariés sur des journées métier.
 async function ptChargerDonnees(empIds,jourDebut,jourFin){
   var pb=RG.bizPeriodeBornes(jourDebut,jourFin);
+  await RG.chargerAnnulations(db); // badges annulés (pointage_annulations) écartés de l'analyse
   if(!empIds.length)empIds=[-1];
   var res=await Promise.all([
     RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).in('employee_id',empIds).order('id');}),
@@ -5907,9 +5911,10 @@ function ptCarteHtml(a,trait,o){
     h+='<button class="pj-lien" onclick="ptAnnuler(\''+esc(a.cle)+'\')">Annuler</button></div>';
   }else{
     var acts=PT_ACTIONS[a.type]||[['vu','Vu',1]];
-    if(a.convertir){
-      // Badge enregistré dans le mauvais sens : le transformer est proposé en premier.
-      acts=[['convertir',a.convertir.lib,1]].concat(acts.filter(function(x){return x[0]!=='etait_sortie'&&x[0]!=='etait_entree';}).map(function(x){return [x[0],x[1],0];}));
+    if(a.convertir||a.annuler){
+      // Badge enregistré dans le mauvais sens (à transformer) ou double appui (à annuler) : proposé en premier.
+      var prem=a.convertir?['convertir',a.convertir.lib,1]:['annuler',a.annuler.lib,1];
+      acts=[prem].concat(acts.filter(function(x){return x[0]!=='etait_sortie'&&x[0]!=='etait_entree';}).map(function(x){return [x[0],x[1],0];}));
     }
     h+='<div class="pj-acts">';
     acts.forEach(function(x){h+='<button class="pj-btn'+(x[2]?' p':'')+'" onclick="ptAction(\''+esc(a.cle)+'\',\''+x[0]+'\')">'+esc(x[1])+'</button>';});
@@ -5930,6 +5935,8 @@ async function ptAction(cle,action){
     ptOuvrirCorrection(a.employee_id,'entree',a.heureConseillee||(a.sortie&&a.sortie.timestamp)||ptMidiDuJour(a.jour),'Entrée oubliée ('+ptJourLib(a.jour)+') — heure réelle d’arrivée');return;
   }
   if(action==='convertir'&&a.convertir){await ptConvertirBadge(a.convertir.entry,a.convertir.type);return;}
+  if(action==='annuler'&&a.annuler){await ptAnnulerBadge(a.annuler.entry,'double appui');return;}
+  if(action==='annuler_ce'){await ptAnnulerBadge(a.entree||a.sortie,a.entree&&a.entree.manuel||a.sortie&&a.sortie.manuel?'correction saisie par erreur':'badge en trop');return;}
   if(action==='etait_sortie'){await ptConvertirBadge(a.entree,'sortie');return;}
   if(action==='etait_entree'){await ptConvertirBadge(a.sortie,'entree');return;}
   if(action==='absent'){ptMarquerAbsent(a.employee_id,a.jour);return;}
@@ -5959,15 +5966,52 @@ function ptProposerConversions(entries,anomalies){
     var v=voisins(e);
     if(a.type==='sortie_oubliee'||a.type==='hors_planning'){
       if(e.type!=='entree')return;
-      if(v.prec&&v.prec.type==='entree'){if(loin(v.prec,e))a.convertir={entry:e,type:'sortie',lib:lib(e,'sortie')};} // ce badge suit une entrée restée ouverte
-      else if(a.type==='sortie_oubliee'&&v.suiv&&v.suiv.type==='entree'&&loin(e,v.suiv))a.convertir={entry:v.suiv,type:'sortie',lib:lib(v.suiv,'sortie')};
+      if(v.prec&&v.prec.type==='entree'){
+        if(loin(v.prec,e))a.convertir={entry:e,type:'sortie',lib:lib(e,'sortie')}; // ce badge suit une entrée restée ouverte
+        else a.annuler={entry:e,lib:'Annuler le badge de '+RG.heureCourte(e.timestamp)+' (double appui)'};
+      }
+      else if(a.type==='sortie_oubliee'&&v.suiv&&v.suiv.type==='entree'){
+        if(loin(e,v.suiv))a.convertir={entry:v.suiv,type:'sortie',lib:lib(v.suiv,'sortie')};
+        else a.annuler={entry:v.suiv,lib:'Annuler le badge de '+RG.heureCourte(v.suiv.timestamp)+' (double appui)'};
+      }
     }else if(a.type==='entree_oubliee'){
       if(e.type!=='sortie')return;
-      if(v.suiv&&v.suiv.type==='sortie'){if(loin(e,v.suiv))a.convertir={entry:e,type:'entree',lib:lib(e,'entree')};} // cette sortie précède une autre sortie
-      else if(v.prec&&v.prec.type==='sortie'&&loin(v.prec,e))a.convertir={entry:v.prec,type:'entree',lib:lib(v.prec,'entree')};
+      if(v.suiv&&v.suiv.type==='sortie'){
+        if(loin(e,v.suiv))a.convertir={entry:e,type:'entree',lib:lib(e,'entree')}; // cette sortie précède une autre sortie
+        else a.annuler={entry:v.suiv,lib:'Annuler le badge de '+RG.heureCourte(v.suiv.timestamp)+' (double appui)'};
+      }
+      else if(v.prec&&v.prec.type==='sortie'){
+        if(loin(v.prec,e))a.convertir={entry:v.prec,type:'entree',lib:lib(v.prec,'entree')};
+        else a.annuler={entry:e,lib:'Annuler le badge de '+RG.heureCourte(e.timestamp)+' (double appui)'};
+      }
     }
   });
 }
+var ptBadgesCache={}; // id → badge (fiche › Pointages, alertes) pour les boutons
+// 24/10/2026 : annuler un badge (double appui, badge en trop) sans le modifier : une ligne est ajoutée dans
+// pointage_annulations (script pointage_annulations.sql). Le badge reste visible, barré « Annulé ».
+async function ptAnnulerBadge(entry,motifParDefaut){
+  if(!entry||!entry.id){alert('Pointage introuvable.');return;}
+  if(RG.ANNULATIONS_OK===false){alert('L’annulation de badges n’est pas encore activée : exécutez le script « pointage_annulations.sql » dans Supabase (SQL Editor), puis rouvrez cet écran.');return;}
+  var lib=(entry.type==='entree'?'l’entrée':'la sortie')+' de '+RG.heureCourte(entry.timestamp)+' ('+ptJourLib(RG.bizDateKey(entry.timestamp))+')';
+  var motif=prompt('Annuler '+lib+' ?\nElle ne comptera plus (elle reste visible, barrée).\n\nMotif :',motifParDefaut||'double appui');
+  if(motif===null)return;
+  var qui=await ptQui();
+  var r=await RG.annulerBadge(db,entry,(motif||'').trim()||'annulé',qui||null);
+  if(r.error){
+    if(/does not exist|relation|schema cache/i.test(r.error.message||''))alert('L’annulation de badges n’est pas encore activée : exécutez le script « pointage_annulations.sql » dans Supabase (SQL Editor).');
+    else if(/duplicate|unique/i.test(r.error.message||''))alert('Ce badge est déjà annulé.');
+    else alert('Erreur : '+r.error.message);
+    return;
+  }
+  pointageRafraichir();
+  try{await loadPt();}catch(e){}
+}
+function ptAnnulerBadgeId(id){
+  var e=(typeof pts!=='undefined'&&pts.find(function(p){return p.id===id;}))||ptBadgesCache[String(id)];
+  ptAnnulerBadge(e);
+}
+function ptConvertirBadgeId(id,type){ptConvertirBadge(ptBadgesCache[String(id)],type);}
 function ptMidiDuJour(jour){var p=String(jour).split('-');return new Date(parseInt(p[0],10),parseInt(p[1],10)-1,parseInt(p[2],10),12,0,0,0);}
 // 23/10/2026 : « Ce badge était une sortie / une entrée » — même principe que « Corriger ce pointage » : rien n'est
 // effacé, une ligne manuelle du bon type est ajoutée à la même heure et l'originale est marquée « remplacée ».
@@ -6094,7 +6138,7 @@ async function loadAuj(){
   if(!journal.length)h+='<div class="pj-row" style="cursor:default;color:#aaa">Aucun badge aujourd’hui</div>';
   journal.forEach(function(e){
     var em=emp(e.employee_id);
-    h+='<div class="pj-row" style="cursor:default;display:flex;gap:10px;align-items:center'+(e.remplace?';opacity:.5;text-decoration:line-through':'')+'">';
+    h+='<div class="pj-row" style="cursor:default;display:flex;gap:10px;align-items:center'+((e.remplace||e.annule)?';opacity:.5;text-decoration:line-through':'')+'">';
     h+='<b style="width:44px">'+RG.heureCourte(e.timestamp)+'</b><span style="flex:1">'+esc(em.prenom+' '+em.nom)+'</span>';
     h+='<span class="pj-sub">'+(e.type==='entree'?'Entrée':'Sortie')+(e.manuel?' · manuel':'')+'</span></div>';
   });
@@ -6640,39 +6684,59 @@ async function ficheAfficherLuPlanning(){
   body.innerHTML=banner+body.innerHTML;
 }
 
-function ficheLoadPt(){
+// 24/10/2026 : liste des badges par jour (31 derniers jours), avec sur chaque badge valide :
+// ⇄ changer le sens (entrée ↔ sortie), ✎ corriger l'heure ou le sens, ✕ annuler. Rien n'est modifié ni effacé
+// (table protégée) : chaque action ajoute une ligne, l'ancien badge reste visible, barré.
+async function ficheLoadPt(){
   var body=document.getElementById('fiche-pane-pt');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
-  db.from('time_entries').select('*').eq('employee_id',ficheCurEmp).order('timestamp',{ascending:false}).limit(80).then(function(r){
-    var pts=r.data||[];
-    if(!pts.length){body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Aucun pointage</div>';return;}
-    var nbManuel=pts.filter(function(p){return p.manuel;}).length;
-    var byMonth={};
-    pts.forEach(function(p){var mo=p.timestamp.slice(0,7);if(!byMonth[mo])byMonth[mo]=[];byMonth[mo].push(p);});
-    var h='';
-    if(nbManuel>0){
-      h+='<div style="font-size:10px;background:#FEF3C7;color:#92400E;padding:6px 8px;border-radius:6px;margin-bottom:8px">\u2139 '+nbManuel+' pointage(s) ajout\u00e9(s) manuellement (surlign\u00e9s). Les pointages badg\u00e9s automatiquement ne sont jamais modifi\u00e9s.</div>';
-    }
-    Object.keys(byMonth).sort().reverse().forEach(function(mo){
-      var mp=mo.split('-');var mLabel=PLAN_MONTHS[parseInt(mp[1])-1]+' '+mp[0];
-      h+='<div style="font-size:11px;font-weight:700;color:var(--bx);margin:8px 0 4px">'+mLabel+'</div>';
-      byMonth[mo].forEach(function(p){
-        var icon=p.type==='entree'?'\u2197':'\u2199';
-        var col=p.type==='entree'?'#065F46':'#991B1B';
-        var bg=p.manuel?'background:rgba(254,243,199,.5);':'';
-        h+='<div style="font-size:11px;padding:4px 6px;border-bottom:1px solid #f0f0f0;'+bg+'border-radius:4px">';
-        h+='<span style="color:'+col+';font-weight:600">'+icon+'</span> '+fmtF(p.timestamp);
-        if(p.manuel){
-          h+=' <span style="background:#92400E;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;margin-left:4px">MANUEL</span>';
-          if(p.motif)h+='<div style="font-size:10px;color:var(--txm);margin-top:1px">Motif: '+p.motif+'</div>';
-        }else{
-          h+=' <span style="color:#aaa;font-size:9px">badg\u00e9</span>';
-        }
-        h+='</div>';
-      });
+  var empId=ficheCurEmp;
+  var auj=RG.bizDateKey();
+  var debut=planDs(planAddD(new Date(auj+'T12:00:00'),-30));
+  var pb=RG.bizPeriodeBornes(debut,auj);
+  await RG.chargerAnnulations(db);
+  var r=await RG.toutesLignes(function(){return db.from('time_entries').select('*').eq('employee_id',empId).gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).order('timestamp').order('id');});
+  if(empId!==ficheCurEmp||ficheOnglet!=='pt')return;
+  if(r.error){body.innerHTML='<div class="pj-ok" style="color:#8E1A20">Erreur de lecture : '+esc(r.error.message||'')+'</div>';return;}
+  var liste=RG.marquerRemplaces(r.data||[]);
+  liste.forEach(function(e){ptBadgesCache[String(e.id)]=e;});
+  var h='<div class="pj-sub" style="margin-bottom:8px">31 derniers jours, du plus récent au plus ancien. Sur chaque badge : <b>⇄</b> changer le sens, <b>✎</b> corriger l’heure, <b>✕</b> annuler (double appui, badge en trop). Rien n’est effacé : l’ancien badge reste visible, barré.</div>';
+  if(RG.ANNULATIONS_OK===false)h+='<div class="pj-note">Pour pouvoir annuler un badge, exécutez d’abord le script <b>pointage_annulations.sql</b> dans Supabase.</div>';
+  if(!liste.length){body.innerHTML=h+'<div style="text-align:center;color:#aaa;padding:16px">Aucun pointage sur cette période</div>';return;}
+  var parJour={};
+  liste.forEach(function(e){var k=RG.bizDateKey(e.timestamp);(parJour[k]=parJour[k]||[]).push(e);});
+  Object.keys(parJour).sort().reverse().forEach(function(j){
+    var jour=parJour[j];
+    var valides=RG.pointagesValides(jour.slice());
+    var minutes=RG.minutesTravaillees(jour.slice());
+    // Deux badges valides du même sens à la suite : signalé pour aider à corriger.
+    var suspect=valides.some(function(e,i){return i>0&&valides[i-1].type===e.type;})||(valides.length&&valides[0].type==='sortie');
+    var dt=new Date(j+'T12:00:00');
+    h+='<div style="display:flex;justify-content:space-between;align-items:baseline;margin:12px 0 4px">'
+      +'<b style="font-size:13px;color:var(--bx);text-transform:capitalize">'+esc(dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}))+'</b>'
+      +'<span class="pj-sub">'+(minutes?ptHM(minutes):'')+(suspect?' <span style="color:#B91E26;font-weight:700">· à vérifier</span>':'')+'</span></div>';
+    jour.forEach(function(e){
+      var hors=e.remplace||e.annule;
+      var ent=e.type==='entree';
+      var an=RG.ANNULES[String(e.id)];
+      h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid #f0f0f0;border-radius:6px;'+(e.manuel?'background:rgba(254,243,199,.45);':'')+(hors?'opacity:.5;':'')+'">';
+      h+='<b style="width:44px;font-variant-numeric:tabular-nums;'+(hors?'text-decoration:line-through;':'')+'">'+RG.heureCourte(e.timestamp)+'</b>';
+      h+='<div style="flex:1;min-width:0;font-size:12px"><span style="font-weight:700;color:'+(ent?'#065F46':'#991B1B')+'">'+(ent?'↗ Entrée':'↙ Sortie')+'</span>'
+        +(e.manuel?' <span style="background:#92400E;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px">MANUEL</span>':' <span style="color:#aaa;font-size:10px">badgé</span>')
+        +(e.annule?' <span style="color:#991B1B;font-size:10px;font-weight:700">annulé</span>':(e.remplace?' <span style="color:var(--txm);font-size:10px;font-weight:700">remplacé</span>':''))
+        +((e.manuel&&e.motif)?'<div style="font-size:10px;color:var(--txm)">'+esc(e.motif)+'</div>':'')
+        +(an&&an.motif?'<div style="font-size:10px;color:#991B1B">Annulé : '+esc(an.motif)+(an.par_nom?' ('+esc(an.par_nom)+')':'')+'</div>':'')
+        +'</div>';
+      if(!hors){
+        h+='<button class="pj-btn" style="min-height:34px;padding:4px 9px;font-size:12px" title="'+(ent?'Mettre en sortie':'Mettre en entrée')+'" onclick="ptConvertirBadgeId('+e.id+',\''+(ent?'sortie':'entree')+'\')">⇄ '+(ent?'Sortie':'Entrée')+'</button>';
+        h+='<button class="pj-btn" style="min-height:34px;padding:4px 9px;font-size:12px" title="Corriger l’heure" onclick="openCorEntry('+e.id+')">✎</button>';
+        h+='<button class="pj-btn" style="min-height:34px;padding:4px 9px;font-size:12px;background:#FEE2E2;color:#991B1B;border-color:#FCA5A5" title="Annuler ce badge" onclick="ptAnnulerBadgeId('+e.id+')">✕</button>';
+      }
+      h+='</div>';
     });
-    body.innerHTML=h;
   });
+  h+='<div style="margin-top:12px"><button class="pj-btn" onclick="ptOuvrirCorrection('+empId+',\'entree\',new Date(),\'Ajouter un pointage\')">+ Ajouter un pointage</button></div>';
+  body.innerHTML=h;
 }
 
 function absFicheEdit(){
@@ -6798,6 +6862,7 @@ async function renderSal(){
 
 async function computeSalIndicateurs(){
   var indic={};
+  await RG.chargerAnnulations(db);
   // S'assurer que les dépassements sont à jour
   try{await checkDepassements(true);}catch(e){}
   var actifs=emps.filter(function(e){return !e.archive;});
@@ -14264,6 +14329,7 @@ async function viewInventaireDetail(invId,label){
 
 async function init(){
   await loadRestaurants();
+  await RG.chargerAnnulations(db); // badges annulés : pris en compte par tous les calculs d'heures
   await chargerReglagesRH(); // postes, motifs d'absence, seuil d'heures sup. (en base depuis le 18/10/2026)
   await loadEmps();
   await loadPt();
