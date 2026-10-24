@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Administration</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-21"></script>
+<script src="restoglobal-commun.js?v=2026-10-24"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -1791,7 +1791,7 @@ async function loadPt(){
     if(empId!=='all')q=q.eq('employee_id',parseInt(empId));
     return q;
   });
-  pts=r.data||[];
+  pts=RG.marquerRemplaces(r.data||[]); // badges corrigés affichés barrés (lien corrige_de_id)
   renderPt();
 }
 
@@ -1848,10 +1848,7 @@ async function saveCor(){
   if(origId)payload.corrige_de_id=parseInt(origId);
   var r=await db.from('time_entries').insert(payload);
   if(r.error){alert('Erreur: '+r.error.message);return;}
-  if(origId){
-    var ru=await db.from('time_entries').update({remplace:true}).eq('id',parseInt(origId));
-    if(ru.error){alert('Le nouveau pointage a bien &#233;t&#233; enregistr&#233;, mais l\u0027ancien n\u0027a pas pu &#234;tre marqu&#233; comme remplac&#233; : '+ru.error.message);}
-  }
+  // 24/10/2026 : plus de modification de l'ancien pointage (table protégée) : corrige_de_id suffit à l'écarter.
   closeM('mc');
   document.getElementById('ccn').value='';
   pointageRafraichir();
@@ -5952,17 +5949,22 @@ function ptProposerConversions(entries,anomalies){
     return {prec:i>0?l[i-1]:null,suiv:(i>=0&&i<l.length-1)?l[i+1]:null};
   }
   function lib(e,type){return 'Le badge de '+RG.heureCourte(e.timestamp)+' était '+(type==='sortie'?'la sortie':'l’entrée');}
+  // Deux badges du même sens à moins du délai minimum (Réglages, 60 min par défaut) = double appui, pas une sortie :
+  // on ne propose rien dans ce cas, pour ne pas transformer un double appui en sortie de 3 minutes.
+  var delaiEl=document.getElementById('pm-delai-badge');
+  var delaiMin=(delaiEl&&parseInt(delaiEl.value,10))||60;
+  function loin(x,y){return x&&y&&Math.abs(new Date(y.timestamp)-new Date(x.timestamp))>=delaiMin*60000;}
   anomalies.forEach(function(a){
     var e=a.entree||a.sortie;if(!e||!e.id)return;
     var v=voisins(e);
     if(a.type==='sortie_oubliee'||a.type==='hors_planning'){
       if(e.type!=='entree')return;
-      if(v.prec&&v.prec.type==='entree')a.convertir={entry:e,type:'sortie',lib:lib(e,'sortie')}; // ce badge suit une entrée restée ouverte
-      else if(a.type==='sortie_oubliee'&&v.suiv&&v.suiv.type==='entree')a.convertir={entry:v.suiv,type:'sortie',lib:lib(v.suiv,'sortie')};
+      if(v.prec&&v.prec.type==='entree'){if(loin(v.prec,e))a.convertir={entry:e,type:'sortie',lib:lib(e,'sortie')};} // ce badge suit une entrée restée ouverte
+      else if(a.type==='sortie_oubliee'&&v.suiv&&v.suiv.type==='entree'&&loin(e,v.suiv))a.convertir={entry:v.suiv,type:'sortie',lib:lib(v.suiv,'sortie')};
     }else if(a.type==='entree_oubliee'){
       if(e.type!=='sortie')return;
-      if(v.suiv&&v.suiv.type==='sortie')a.convertir={entry:e,type:'entree',lib:lib(e,'entree')}; // cette sortie précède une autre sortie
-      else if(v.prec&&v.prec.type==='sortie')a.convertir={entry:v.prec,type:'entree',lib:lib(v.prec,'entree')};
+      if(v.suiv&&v.suiv.type==='sortie'){if(loin(e,v.suiv))a.convertir={entry:e,type:'entree',lib:lib(e,'entree')};} // cette sortie précède une autre sortie
+      else if(v.prec&&v.prec.type==='sortie'&&loin(v.prec,e))a.convertir={entry:v.prec,type:'entree',lib:lib(v.prec,'entree')};
     }
   });
 }
@@ -5971,16 +5973,15 @@ function ptMidiDuJour(jour){var p=String(jour).split('-');return new Date(parseI
 // effacé, une ligne manuelle du bon type est ajoutée à la même heure et l'originale est marquée « remplacée ».
 async function ptConvertirBadge(entry,nouveauType){
   if(!entry||!entry.id){alert('Pointage introuvable.');return;}
-  if(!('remplace' in entry)){alert('La réparation de la base n’a pas encore été faite : exécutez d’abord le script « reparer_pointage.sql » dans Supabase (SQL Editor), puis rouvrez cet écran.');return;}
+  if(!('corrige_de_id' in entry)){alert('La réparation de la base n’a pas encore été faite : exécutez d’abord le script « reparer_pointage.sql » dans Supabase (SQL Editor), puis rouvrez cet écran.');return;}
   var heure=RG.heureCourte(entry.timestamp);
   if(!confirm('Le badge de '+heure+' ('+ptJourLib(RG.bizDateKey(entry.timestamp))+') était en réalité une '+(nouveauType==='sortie'?'SORTIE':'ENTRÉE')+' ?\n\nIl sera corrigé à la même heure (rien n’est effacé : l’original reste visible, barré).'))return;
   var qui=await ptQui();
   var payload={employee_id:entry.employee_id,restaurant_id:entry.restaurant_id,type:nouveauType,timestamp:entry.timestamp,ip_address:'correction-manuelle',ip_ok:true,photo_b64:null,manuel:true,
     motif:'correction - badge enregistré en '+(nouveauType==='sortie'?'entrée':'sortie')+' au lieu de '+(nouveauType==='sortie'?'sortie':'entrée')+(qui?' (par '+qui+')':''),corrige_de_id:entry.id};
+  // Aucune modification de l'ancien badge (table protégée) : le lien corrige_de_id suffit à l'écarter.
   var r=await db.from('time_entries').insert(payload);
   if(r.error){alert('Erreur : '+r.error.message);return;}
-  var ru=await db.from('time_entries').update({remplace:true}).eq('id',entry.id);
-  if(ru.error){alert('La correction est enregistrée, mais l’ancien badge n’a pas pu être marqué « remplacé » : '+ru.error.message);}
   pointageRafraichir();
   try{await loadPt();}catch(e){}
 }
@@ -6068,7 +6069,7 @@ async function loadAuj(){
   var h='';
   // 23/10/2026 : colonne « remplace » absente = script reparer_pointage.sql pas encore exécuté (les corrections de
   // badges existants échouent et la tablette n'enregistre que des entrées).
-  if(d.entries.length&&!('remplace' in d.entries[0]))h+='<div class="pj-note" style="background:#FEE2E2;color:#991B1B;font-weight:700">⚠ La base n’est pas encore réparée : exécutez le script <b>reparer_pointage.sql</b> dans Supabase (SQL Editor). Sans lui, les corrections de badges ne fonctionnent pas.</div>';
+  if(d.entries.length&&!('corrige_de_id' in d.entries[0]))h+='<div class="pj-note" style="background:#FEE2E2;color:#991B1B;font-weight:700">⚠ La base n’est pas encore réparée : exécutez le script <b>reparer_pointage.sql</b> dans Supabase (SQL Editor). Sans lui, les corrections de badges ne fonctionnent pas.</div>';
   if(!ptTableAlertesOk)h+='<div class="pj-note">Le suivi des alertes est gardé sur cet appareil seulement : exécutez le script <b>pointage_alertes.sql</b> dans Supabase pour le partager avec toute l’équipe.</div>';
   h+='<div class="pj-stats">';
   h+='<div class="pj-stat"><b style="color:#4F5E42">'+presents+'</b><span>Présents maintenant</span></div>';
@@ -6809,7 +6810,7 @@ async function computeSalIndicateurs(){
   var jbInd=RG.bizJourneeBornes(now);
   // Charger en parallèle: pointages du jour, créneaux du jour, demandes en attente, acomptes en attente
   var res=await Promise.all([
-    RG.toutesLignes(function(){return db.from('time_entries').select('id,employee_id,type,timestamp,remplace').gte('timestamp',jbInd.debut.toISOString()).lt('timestamp',jbInd.fin.toISOString()).in('employee_id',ids).order('id');}),
+    RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',jbInd.debut.toISOString()).lt('timestamp',jbInd.fin.toISOString()).in('employee_id',ids).order('id');}),
     db.from('planning_creneaux').select('employee_id,heure_debut,heure_fin').eq('date',todayStr).in('employee_id',ids),
     db.from('demandes_absence').select('employee_id,statut').eq('statut','att').in('employee_id',ids),
     db.from('demandes_acompte').select('employee_id,statut').eq('statut','att').in('employee_id',ids)

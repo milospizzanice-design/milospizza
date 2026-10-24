@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-21';
+  RG.VERSION='2026-10-24';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -53,7 +53,18 @@
   // Seuils d'alerte par défaut (le restaurant pourra les régler plus tard).
   RG.POINTAGE_RETARD_TOLERANCE_MIN=5;
   RG.POINTAGE_SORTIE_OUBLIEE_APRES_MIN=60;
+  // 24/10/2026 : la table time_entries est protégée (aucune modification possible, protection prud'hommes) : on ne
+  // peut donc pas cocher « remplace » sur un badge corrigé. Un badge est désormais considéré comme remplacé dès
+  // qu'une correction le désigne (corrige_de_id). « remplace » reste reconnu s'il est un jour renseigné.
+  // RG.marquerRemplaces pose e.remplace=true (en mémoire seulement) pour que les écrans l'affichent barré.
+  RG.marquerRemplaces=function(entries){
+    var cibles={};
+    (entries||[]).forEach(function(e){if(e&&e.corrige_de_id!=null)cibles[String(e.corrige_de_id)]=true;});
+    (entries||[]).forEach(function(e){if(e&&cibles[String(e.id)])e.remplace=true;});
+    return entries;
+  };
   RG.pointagesValides=function(entries){
+    RG.marquerRemplaces(entries);
     return (entries||[]).filter(function(e){return e&&e.timestamp&&!e.remplace;});
   };
   RG.pointagesParJour=function(entries){
