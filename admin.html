@@ -5151,6 +5151,16 @@ function ptDepuisCreneaux(rows){
   pt.forEach(function(sl){sl.sort(function(a,b){return a.start.localeCompare(b.start);});});
   return pt;
 }
+// 26/10/2026 : chez certains clients la colonne employees.planning_type est de type TEXTE (créée avant le script
+// planning_type_salaries.sql, qui ne change pas une colonne existante) : le planning revient alors sous forme de
+// texte JSON. Avant ce correctif, ce texte n'était pas reconnu → la fiche croyait le planning vide et le remplaçait
+// par le planning réel de la semaine (« le planning type ne se sauvegarde pas »). On accepte les deux formats.
+function ptLireFiche(em){
+  var v=em?em.planning_type:null;
+  if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+  if(!Array.isArray(v))return [];
+  return JSON.parse(JSON.stringify(v)).map(function(j){return Array.isArray(j)?j:[];});
+}
 function ptEstVide(pt){return !Array.isArray(pt)||!pt.some(function(d){return d&&d.length;});}
 // Créneaux réels de la semaine commençant le lundi donné, pour une liste de salariés : {empId: pt}
 async function ptLireSemaine(empIds,lundi){
@@ -5540,7 +5550,7 @@ async function openEditSal(id){
   loadSalPinState(em);
   await ensureRolesDataLoaded();
   renderSalPostesList(id);renderSalRolesList(id);renderSalComptageCatsOverrides(id);renderSalRestosSecList(id);renderSalDiagnosticSelectors(id);
-  tmpSalPlanningType=(em&&Array.isArray(em.planning_type))?JSON.parse(JSON.stringify(em.planning_type)):[];
+  tmpSalPlanningType=ptLireFiche(em);
   ptEtat(ptEstVide(tmpSalPlanningType)?'':'Planning type enregistré sur la fiche');
   renderPlanningType(id);
   ptPreremplirSiVide(id);
