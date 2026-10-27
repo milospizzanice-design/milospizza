@@ -1205,7 +1205,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="abt2"></div>
     <div class="fr"><label class="fl2">Note</label><input type="text" class="fi" id="abn"></div>
     <div class="fr"><label class="fl2">Justificatif</label><input type="file" class="fi" id="abfi" accept="image/*,application/pdf" style="padding:5px"></div>
-    <div class="ma"><button class="btn sm" id="ab-del-btn" onclick="deleteAb()" style="display:none;background:#FEE2E2;color:#991B1B">Supprimer</button><button class="btn bs" onclick="closeM('mab')">Annuler</button><button class="btn bp" onclick="saveAb()">Enregistrer</button></div>
+    <div class="ma"><button class="btn sm" id="ab-del-btn" onclick="deleteAb()" style="display:none;background:#FEE2E2;color:#991B1B">Supprimer</button><button class="btn bs" onclick="closeM('mab')">Annuler</button><button class="btn bp" id="ab-save-btn" onclick="saveAb()">Enregistrer</button></div>
   </div>
 </div>
 
@@ -3594,7 +3594,7 @@ async function drhGenerateData(){
   // Journées métier (7h → 7h, heure locale) : les sorties après minuit du dernier jour sont incluses.
   var pbDrh=RG.bizPeriodeBornes(from,to);
   var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',pbDrh.debutISO).lt('timestamp',pbDrh.finISO).order('id');});
-  var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to);
+  var abd=await db.from('absences').select(ABS_COLONNES).gte('date_fin',from).lte('date_debut',to);
   var crd=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh).order('id');});
   var apd=await RG.toutesLignes(function(){return db.from('absences_planning').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh).order('employee_id').order('date');});
   var result=[];
@@ -3665,7 +3665,7 @@ async function drhGenerateOne(empId,from,to){
   var em=emp(empId);if(!em)return null;
   var pbOne=RG.bizPeriodeBornes(from,to);
   var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',pbOne.debutISO).lt('timestamp',pbOne.finISO).eq('employee_id',empId).order('id');});
-  var abd=await db.from('absences').select('*').gte('date_fin',from).lte('date_debut',to).eq('employee_id',empId);
+  var abd=await db.from('absences').select(ABS_COLONNES).gte('date_fin',from).lte('date_debut',to).eq('employee_id',empId);
   var crd=await db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).eq('employee_id',empId);
   var apd=await db.from('absences_planning').select('*').gte('date',from).lte('date',to).eq('employee_id',empId);
   var ep=pd.data||[];var ea=abd.data||[];
@@ -5638,7 +5638,7 @@ async function loadRc(){
   // Dates du planning = dr.ds / dr.de (avant : dr.s.slice(0,10), date UTC qui ajoutait la veille au « prévu »).
   var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',dr.s).lt('timestamp',dr.e).order('id');});
   var pld=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',dr.ds).lte('date',dr.de).order('id');});
-  var abd=await db.from('absences').select('*').gte('date_fin',dr.ds).lte('date_debut',dr.de);
+  var abd=await db.from('absences').select(ABS_COLONNES).gte('date_fin',dr.ds).lte('date_debut',dr.de);
   var h='';
   les.forEach(function(em){
     var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
@@ -5838,9 +5838,14 @@ function toggleAbsArchive(){
 
 
 
-function showAbsJustif(btn){
+// 27/10/2026 : la photo n'est lue qu'au clic sur « Voir » (les listes ne la chargent plus).
+async function showAbsJustif(btn){
   var aid=parseInt(btn.dataset.aid);
-  var a=absAllData.find(function(x){return x.id===aid;});
+  var txt=btn.textContent;btn.disabled=true;btn.textContent='\u2026';
+  var rj=await db.from('absences').select('id,justif_b64').eq('id',aid).maybeSingle();
+  btn.disabled=false;btn.textContent=txt;
+  if(rj.error){alert('Erreur : '+rj.error.message);return;}
+  var a=rj.data;
   if(!a||!a.justif_b64){alert('Justificatif introuvable');return;}
   var img=document.getElementById('justif-img');
   var pdf=document.getElementById('justif-pdf');
@@ -5870,11 +5875,10 @@ async function loadAb(){
   // liste affichée (le filtre était calculé puis ignoré).
   var now=new Date();
   var firstOfMonth=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
-  var r=await RG.toutesLignes(function(){
-    var q=db.from('absences').select('*').order('date_debut',{ascending:false}).order('id');
-    return absShowArchive?q.lt('date_fin',firstOfMonth):q.gte('date_fin',firstOfMonth);
-  });
-  absAllData=r.data||[];
+  function filtreAb(q){return absShowArchive?q.lt('date_fin',firstOfMonth):q.gte('date_fin',firstOfMonth);}
+  var r=await RG.toutesLignes(function(){return filtreAb(db.from('absences').select(ABS_COLONNES).order('date_debut',{ascending:false}).order('id'));});
+  var rj=await RG.toutesLignes(function(){return filtreAb(db.from('absences').select('id').not('justif_b64','is',null).order('id'));});
+  absAllData=absMarquerJustif(r.data||[],rj.data);
   var data=absAllData.filter(function(a){if(resto==='all')return true;var em=emp(a.employee_id);return em.restaurant_id===resto;});
   var labels=motifsCarte('nom');
   var tb=document.getElementById('abb');
@@ -5888,7 +5892,7 @@ async function loadAb(){
     h+='<td onclick="openEditAb('+a.id+')"><span style="background:'+col+'22;color:'+col+';padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">'+(labels[a.type]||a.type)+'</span></td>';
     h+='<td onclick="openEditAb('+a.id+')">'+a.date_debut+'</td><td onclick="openEditAb('+a.id+')">'+a.date_fin+'</td>';
     h+='<td onclick="openEditAb('+a.id+')">'+(a.note||'\u2014')+'</td>';
-    h+='<td>'+(a.justif_b64?'<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>':'\u2014')+'</td>';
+    h+='<td>'+(a._justif?'<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>':'\u2014')+'</td>';
     h+='<td><button class="btn sm" style="background:#FEE2E2;color:#991B1B" onclick="event.stopPropagation();delAbs('+a.id+')">\u{1F5D1}</button></td>';
     h+='</tr>';
   });
@@ -5970,7 +5974,7 @@ async function ptChargerDonnees(empIds,jourDebut,jourFin){
     RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).in('employee_id',empIds).order('id');}),
     RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',jourDebut).lte('date',jourFin).in('employee_id',empIds).order('id');}),
     RG.toutesLignes(function(){return db.from('absences_planning').select('*').gte('date',jourDebut).lte('date',jourFin).in('employee_id',empIds).order('employee_id').order('date');}),
-    RG.toutesLignes(function(){return db.from('absences').select('*').gte('date_fin',jourDebut).lte('date_debut',jourFin).in('employee_id',empIds).order('id');}),
+    RG.toutesLignes(function(){return db.from('absences').select(ABS_COLONNES).gte('date_fin',jourDebut).lte('date_debut',jourFin).in('employee_id',empIds).order('id');}),
     ptChargerTraitements(empIds,jourDebut,jourFin)
   ]);
   var jours=ptJoursEntre(jourDebut,jourFin);
@@ -6685,8 +6689,15 @@ var ficheAbsRetour=false;
 function ficheLoadAbs(){
   var body=document.getElementById('fiche-pane-abs');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
-  db.from('absences').select('*').eq('employee_id',ficheCurEmp).order('date_debut',{ascending:false}).then(function(r){
-    var abs=r.data||[];
+  var empFiche=ficheCurEmp;
+  Promise.all([
+    db.from('absences').select(ABS_COLONNES).eq('employee_id',empFiche).order('date_debut',{ascending:false}).order('id'),
+    db.from('absences').select('id').eq('employee_id',empFiche).not('justif_b64','is',null)
+  ]).then(function(res){
+    var r=res[0];
+    if(r.error){body.innerHTML='<div style="color:#B91C1C;padding:16px">Erreur de chargement : '+escHtmlAbs(r.error.message)+'</div>';return;}
+    var abs=absMarquerJustif(r.data||[],res[1].data);
+    absMemoriser(abs);
     var btnAdd='<button class="btn bp sm" style="width:100%;margin-bottom:10px" onclick="ficheCreerAbsence()">+ Cr\u00e9er une absence</button>';
     if(!abs.length){body.innerHTML=btnAdd+'<div style="text-align:center;color:#aaa;padding:16px">Aucune absence</div>';return;}
     var h=btnAdd;
@@ -6697,7 +6708,7 @@ function ficheLoadAbs(){
       h+='<span style="width:10px;height:10px;border-radius:50%;background:'+col+';flex-shrink:0"></span>';
       h+='<div style="flex:1" onclick="ficheAbsRetour=true;closeM(\'modal-absfiche\');openEditAb('+a.id+')"><div style="font-weight:600;font-size:12px">'+getMotifNom(a.type)+'</div>';
       h+='<div style="font-size:11px;color:var(--txm)">Du '+a.date_debut+' au '+a.date_fin+(a.note?' \u2022 '+a.note:'')+'</div></div>';
-      if(a.justif_b64)h+='<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>';
+      if(a._justif)h+='<button class="btn bs sm" data-aid="'+a.id+'" onclick="event.stopPropagation();showAbsJustif(this)">Voir</button>';
       else h+='<button class="btn bs sm" onclick="ficheAbsRetour=true;closeM(\'modal-absfiche\');openEditAb('+a.id+')">+ Justif</button>';
       h+='</div></div>';
     });
@@ -6882,7 +6893,55 @@ async function deleteAb(){
   pointageRafraichir();
 }
 
+// ── Absences : enregistrement (corrigé le 27/10/2026) ───────────────────────────────────────────────────
+// Avant : la photo du justificatif était envoyée telle quelle (photo de téléphone = plusieurs Mo), sans rien
+// afficher pendant l'envoi ni bloquer le bouton. L'envoi pouvait durer très longtemps : on rappuyait, plusieurs
+// envois partaient en même temps, l'écran ramait, et une actualisation de la page annulait tout.
+// Maintenant : photo réduite avant l'envoi (≈ 200 à 400 Ko, lisible), bouton bloqué avec « Enregistrement… »,
+// erreurs affichées. Les listes d'absences ne lisent plus les photos (ABS_COLONNES), seulement au clic sur « Voir ».
+var ABS_COLONNES='id,employee_id,type,date_debut,date_fin,note';
+var ABS_PHOTO_MAX_PX=1600;      // plus grand côté de la photo enregistrée
+var ABS_PDF_MAX_OCTETS=3*1024*1024;
+var abEnregistrement=false;
+function escHtmlAbs(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+// Marque les absences qui ont un justificatif (liste d'id lue à part, sans la photo).
+function absMarquerJustif(liste,avecJustif){
+  var ids={};(avecJustif||[]).forEach(function(x){ids[x.id]=true;});
+  liste.forEach(function(a){a._justif=!!ids[a.id];});
+  return liste;
+}
+// Absences lues depuis une fiche salarié : ajoutées à la liste en mémoire, pour que « Modifier » les retrouve
+// même si elles ne sont pas dans la liste affichée (mois en cours / archives).
+function absMemoriser(liste){
+  liste.forEach(function(a){
+    var i=absAllData.findIndex(function(x){return x.id===a.id;});
+    if(i>=0)absAllData[i]=a;else absAllData.push(a);
+  });
+}
+function absLireFichier(f){
+  return new Promise(function(ok,ko){var rd=new FileReader();rd.onload=function(e){ok(e.target.result);};rd.onerror=function(){ko(new Error('fichier illisible'));};rd.readAsDataURL(f);});
+}
+// Photo → JPEG réduit. PDF → gardé tel quel (refusé au-delà de 3 Mo).
+async function absPreparerJustif(f){
+  var estPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');
+  if(estPdf){
+    if(f.size>ABS_PDF_MAX_OCTETS)throw new Error('Ce PDF est trop lourd ('+(f.size/1048576).toFixed(1)+' Mo, 3 Mo maximum). Prenez plutôt une photo du document.');
+    return await absLireFichier(f);
+  }
+  var url=URL.createObjectURL(f);
+  try{
+    var img=await new Promise(function(ok,ko){var im=new Image();im.onload=function(){ok(im);};im.onerror=function(){ko(new Error('photo illisible'));};im.src=url;});
+    var sc=Math.min(1,ABS_PHOTO_MAX_PX/Math.max(img.naturalWidth,img.naturalHeight));
+    var c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(img.naturalWidth*sc));c.height=Math.max(1,Math.round(img.naturalHeight*sc));
+    var cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);cx.drawImage(img,0,0,c.width,c.height);
+    return c.toDataURL('image/jpeg',0.75);
+  }catch(e){
+    throw new Error('Cette photo ne peut pas être lue par le navigateur. Faites une capture d’écran de la photo et joignez la capture.');
+  }finally{URL.revokeObjectURL(url);}
+}
 async function saveAb(){
+  if(abEnregistrement)return; // un seul enregistrement à la fois
   var editId=document.getElementById('ab-edit-id').value;
   var eid=parseInt(document.getElementById('abe').value);
   var type=document.getElementById('abt').value;
@@ -6890,16 +6949,36 @@ async function saveAb(){
   var to=document.getElementById('abt2').value;
   var note=document.getElementById('abn').value;
   var fi=document.getElementById('abfi');
-  var jb=null;
-  if(fi.files[0]){jb=await new Promise(function(res){var rd=new FileReader();rd.onload=function(e){res(e.target.result);};rd.readAsDataURL(fi.files[0]);});}
-  if(editId){
-    var upd={employee_id:eid,type:type,date_debut:from,date_fin:to,note:note};
-    if(jb)upd.justif_b64=jb;
-    var r=await db.from('absences').update(upd).eq('id',parseInt(editId));
-    if(r.error){alert('Erreur: '+r.error.message);return;}
-  }else{
-    var r2=await db.from('absences').insert({employee_id:eid,type:type,date_debut:from,date_fin:to,note:note,justif_b64:jb});
-    if(r2.error){alert('Erreur: '+r2.error.message);return;}
+  if(!eid){alert('Choisissez le salarié.');return;}
+  if(!from||!to){alert('Indiquez les dates de début et de fin.');return;}
+  if(to<from){alert('La date de fin est avant la date de début.');return;}
+  var btn=document.getElementById('ab-save-btn');
+  var btnTxt=btn?btn.textContent:'';
+  abEnregistrement=true;
+  if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
+  try{
+    var jb=null;
+    if(fi.files&&fi.files[0]){
+      if(btn)btn.textContent='Préparation de la photo…';
+      jb=await absPreparerJustif(fi.files[0]);
+      if(btn)btn.textContent='Enregistrement…';
+    }
+    if(editId){
+      var upd={employee_id:eid,type:type,date_debut:from,date_fin:to,note:note};
+      if(jb)upd.justif_b64=jb;
+      var r=await db.from('absences').update(upd).eq('id',parseInt(editId));
+      if(r.error)throw r.error;
+    }else{
+      var r2=await db.from('absences').insert({employee_id:eid,type:type,date_debut:from,date_fin:to,note:note,justif_b64:jb});
+      if(r2.error)throw r2.error;
+    }
+  }catch(e){
+    console.error('saveAb',e);
+    alert('L’absence n’a PAS été enregistrée.\n'+((e&&e.message)||e));
+    return;
+  }finally{
+    abEnregistrement=false;
+    if(btn){btn.disabled=false;btn.textContent=btnTxt;}
   }
   closeM('mab');
   document.getElementById('abn').value='';fi.value='';
