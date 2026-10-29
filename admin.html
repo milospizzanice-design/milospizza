@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Administration</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-24b"></script>
+<script src="restoglobal-commun.js?v=2026-10-29a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -382,7 +382,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="rc-pane-recap" style="display:none">
       <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
         <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option></select>
-        <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option><option value="semaines">Par semaine (mois)</option></select>
+        <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option><option value="semaines">Par semaine (mois)</option><option value="compteur">Compteur récup</option></select>
         <input type="month" class="fs" id="rc-mois" onchange="loadRc()" style="display:none" aria-label="Mois du récap par semaine">
         <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
       </div>
@@ -1424,7 +1424,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 var db=supabase.createClient(SURL,SKEY);
 // Logique métier partagée avec la tablette (restoglobal-commun.js) : une seule copie de chaque règle.
 if(!window.RG){alert('Fichier restoglobal-commun.js introuvable : il doit être mis en ligne à côté de admin.html. Les besoins, messages de commande et le Labo ne fonctionneront pas correctement sans lui.');}
-else{RG.chargerModeleMessage(db);RG.chargerEnseigne(db).then(function(){RG.appliquerEnseigne('Administration');});} // message type et enseigne prêts dès l'ouverture de l'admin
+// 28/10/2026 : message type et enseigne chargés APRÈS la connexion (function startApp) — la base n'est plus lisible sans être connecté.
 // Nom de l'enseigne (Réglages > Enseigne) pour les documents et mails : jamais écrit en dur.
 function enseigneNom(){return (window.RG&&RG.ENSEIGNE&&RG.ENSEIGNE.nom)||'';}
 function enseignePrefixe(){var n=enseigneNom();return n?(n+' \u2014 '):'';}
@@ -1450,6 +1450,7 @@ async function startApp(){
   // Lance le chargement des données une seule fois
   if(appStarted)return;
   appStarted=true;
+  if(window.RG){RG.chargerModeleMessage(db);RG.chargerEnseigne(db).then(function(){RG.appliquerEnseigne('Administration');});}
   await loadRestaurantsCache();
   fillAllRestaurantSelects();
   init();
@@ -1537,6 +1538,11 @@ async function doLogout(){
 }
 
 checkAuth();
+// 28/10/2026 : connexion perdue (expirée, déconnexion dans un autre onglet…) → retour à l'écran de connexion,
+// au lieu d'écrans vides (sans connexion, la base renvoie des listes vides).
+db.auth.onAuthStateChange(function(evt,session){
+  if(evt==='SIGNED_OUT'||(!session&&evt!=='INITIAL_SESSION'))location.reload();
+});
 
 function monOf(d){var x=new Date(d);var day=x.getDay();var diff=x.getDate()-(day===0?6:day-1);x.setDate(diff);x.setHours(0,0,0,0);return x;}
 function fmt(ts){return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}
@@ -5633,6 +5639,7 @@ async function loadRc(){
   var moisInp=document.getElementById('rc-mois');
   if(moisInp)moisInp.style.display=period==='semaines'?'':'none';
   if(period==='semaines'){await loadRcSemaines(resto);return;}
+  if(period==='compteur'){await loadRcCompteur(resto);return;}
   var dr=getDR(period);
   var les=emps.filter(function(e){return e.actif&&(resto==='all'||e.restaurant_id===resto);});
   // Dates du planning = dr.ds / dr.de (avant : dr.s.slice(0,10), date UTC qui ajoutait la veille au « prévu »).
@@ -5753,6 +5760,97 @@ async function loadRcSemaines(resto){
   });
   box.innerHTML=h;
   fillRcArchiveSelect();
+}
+
+// ── Compteur récup (29/10/2026) ──────────────────────────────────────────────────────────────────────
+// Un compteur d'heures permanent par salarié depuis une date de départ (app_config « compteur_recup_debut ») :
+// partir plus tard ajoute, partir plus tôt retire (récup automatique, plus d'alerte « départ anticipé »),
+// un jour de récup posé retire les heures prévues, les ajustements (heures payées, solde de départ) sont saisis à la main
+// (table compteur_ajustements, script compteur_recup.sql). Règle unique : RG.compteurRecup (restoglobal-commun.js).
+var RC_COMPTEUR_CLE='compteur_recup_debut';
+var rcCompteurDernier=null; // dernier calcul (pour l'ajout d'un ajustement)
+async function rcCompteurLireDebut(){
+  try{var r=await db.from('app_config').select('value').eq('key',RC_COMPTEUR_CLE).maybeSingle();if(r.data&&/^\d{4}-\d{2}-\d{2}$/.test(r.data.value||''))return r.data.value;}catch(e){}
+  return null;
+}
+async function rcCompteurChangerDebut(v){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v||''))return;
+  if(!confirm('Le compteur repartira de zéro le '+v.split('-').reverse().join('/')+' pour tous les salariés (les heures d’avant ne compteront plus). Continuer ?')){loadRc();return;}
+  var r=await db.from('app_config').upsert({key:RC_COMPTEUR_CLE,value:v},{onConflict:'key'});
+  if(r.error){alert('Erreur : '+r.error.message);return;}
+  loadRc();
+}
+async function loadRcCompteur(resto){
+  var box=document.getElementById('rcb');
+  box.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Calcul du compteur…</div>';
+  var ex=document.getElementById('rc-acomptes');if(ex)ex.remove();
+  var auj=RG.bizDateKey();
+  var debutEnBase=await rcCompteurLireDebut();
+  var debut=debutEnBase||(auj.slice(0,7)+'-01');
+  var les=emps.filter(function(e){return empActifNow(e)&&(resto==='all'||e.restaurant_id===resto);});
+  if(!les.length){box.innerHTML='<div class="card" style="text-align:center;color:#aaa">Aucun salarié</div>';return;}
+  var ids=les.map(function(e){return e.id;});
+  var veille=planDs(planAddD(new Date(auj+'T12:00:00'),-1));
+  var d={analyse:{journees:{}},creneaux:[],absentsCode:{}};
+  if(veille>=debut){
+    d=await ptChargerDonnees(ids,debut,veille);
+    if(d.erreur){box.innerHTML='<div class="card" style="color:#8E1A20">Erreur de lecture : '+esc(d.erreur.message||'')+'</div>';return;}
+  }
+  var aj=await RG.toutesLignes(function(){return db.from('compteur_ajustements').select('*').in('employee_id',ids).order('date').order('id');});
+  var ajOk=!aj.error;
+  var cpt=RG.compteurRecup({analyse:d.analyse,creneaux:d.creneaux,absentsCode:d.absentsCode,ajustements:ajOk?aj.data:[],debut:debut,aujourdhui:auj});
+  rcCompteurDernier={debut:debut};
+  function jl(j){var x=new Date(j+'T12:00:00');return x.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});}
+  var LIB={plus:'Heures en plus',moins:'Heures en moins',recup:'Récupération',ajustement:'Ajustement'};
+  var h='<div class="card" style="padding:10px 12px">'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px"><b style="font-size:13px">Compteur depuis le</b>'
+    +'<input type="date" class="fs" value="'+esc(debut)+'" onchange="rcCompteurChangerDebut(this.value)" aria-label="Date de départ du compteur">'
+    +(debutEnBase?'':'<span class="pj-sub">(date par défaut : 1er du mois — choisis-la pour la fixer)</span>')+'</div>'
+    +'<div class="pj-sub">Chaque journée terminée compte <b>réalisé − prévu</b> : partir plus tard ajoute, partir plus tôt ou arriver en retard retire (écarts de 5 min ou moins ignorés). Un jour de récup posé retire les heures prévues. Les jours d’absence ne comptent pas. Une journée avec un badge à régulariser est <b>en attente</b> jusqu’à sa correction. <b style="color:#B91C1C">+ en rouge</b> : heures dues au salarié · <b style="color:#15803D">− en vert</b> : heures dues par le salarié.</div>'
+    +(ajOk?'':'<div style="margin-top:8px;background:#FEF3C7;color:#92400E;border-radius:8px;padding:8px 10px;font-size:12px">&#9888; Ajustements manuels pas encore activés : exécuter <b>compteur_recup.sql</b> dans Supabase. Le compteur s’affiche quand même.</div>')
+    +'</div>';
+  var negatifs=les.filter(function(em){var c=cpt[String(em.id)];return c&&c.solde<0;});
+  if(negatifs.length)h+='<div class="card" style="border:2px solid #D97706;background:#FFFBEB;padding:10px 12px;font-size:13px"><b>&#9888; Compteur négatif</b> (le salarié doit des heures) : '+negatifs.map(function(em){return esc(em.prenom+' '+em.nom)+' '+rcEcartTxt(cpt[String(em.id)].solde);}).join(' · ')+'</div>';
+  les.sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'','fr');}).forEach(function(em){
+    var c=cpt[String(em.id)]||{solde:0,plus:0,moins:0,recup:0,ajust:0,enAttente:[],mouvements:[]};
+    var lignes=c.mouvements.slice().reverse().map(function(m){
+      return '<tr style="border-top:1px solid var(--bd)"><td style="padding:4px;white-space:nowrap">'+esc(jl(m.jour))+'</td><td style="padding:4px">'+esc(LIB[m.type]||m.type)+'<div class="pj-sub">'+esc(m.detail)+'</div></td><td style="padding:4px;text-align:right;font-weight:700;white-space:nowrap;color:'+rcCouleurEcart(m.minutes)+'">'+rcEcartTxt(m.minutes)+'</td></tr>';
+    }).join('');
+    h+='<div class="card" style="padding:10px 12px'+(c.solde<0?';border-left:4px solid #D97706':'')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+        +'<a href="#" onclick="openAbsEmpFiche('+em.id+');return false" style="font-weight:700;font-size:13px;color:var(--bx)">'+esc(em.prenom+' '+em.nom)+'</a>'
+        +'<span style="font-size:20px;font-weight:800;color:'+rcCouleurEcart(c.solde)+'">'+rcEcartTxt(c.solde)+'</span>'
+      +'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin-top:4px;color:var(--txm)">'
+        +'<span>En plus <b style="color:#B91C1C">'+rcEcartTxt(c.plus)+'</b></span>'
+        +'<span>En moins <b style="color:#15803D">'+rcEcartTxt(c.moins)+'</b></span>'
+        +'<span>Récup prises <b>'+rcEcartTxt(c.recup)+'</b></span>'
+        +(c.ajust?'<span>Ajustements <b>'+rcEcartTxt(c.ajust)+'</b></span>':'')
+      +'</div>'
+      +(c.enAttente.length?'<div style="margin-top:6px;font-size:12px;color:#92400E">&#9203; En attente de correction de badge : '+c.enAttente.map(jl).map(esc).join(', ')+'</div>':'')
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">'
+        +(lignes?'<details style="flex:1;min-width:200px"><summary style="cursor:pointer;font-size:12px;font-weight:700">Détail ('+c.mouvements.length+')</summary><table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">'+lignes+'</table></details>':'<span class="pj-sub" style="flex:1">Aucun mouvement depuis le '+esc(debut.split('-').reverse().join('/'))+'.</span>')
+        +(ajOk?'<button class="btn bs sm" onclick="rcCompteurAjuster('+em.id+')">&#177; Ajustement</button>':'')
+      +'</div>'
+    +'</div>';
+  });
+  box.innerHTML=h;
+  fillRcArchiveSelect();
+}
+// Ajustement manuel : heures payées sur la paie (−), solde de départ (+ ou −), correction… Saisi en heures.
+async function rcCompteurAjuster(empId){
+  var em=emp(empId);
+  var t=prompt('Ajustement du compteur de '+(em?em.prenom+' '+em.nom:'')+' en heures.\nExemples : -4 (4 h payées sur la paie), 2,5 (2 h 30 à ajouter), -0,75 (45 min).');
+  if(t==null)return;
+  var v=parseFloat(String(t).replace(',','.').replace(/\s/g,''));
+  if(isNaN(v)||!v){alert('Nombre d’heures invalide.');return;}
+  var motif=prompt('Motif (obligatoire) — ex. « heures sup payées octobre », « solde au 01/11 » :');
+  if(motif==null)return;
+  motif=motif.trim();if(!motif){alert('Le motif est obligatoire.');return;}
+  var par='';try{var s=await db.auth.getSession();par=(s.data&&s.data.session&&s.data.session.user&&s.data.session.user.email)||'';}catch(e){}
+  var r=await db.from('compteur_ajustements').insert({employee_id:empId,date:RG.bizDateKey(),minutes:Math.round(v*60),motif:motif,par_nom:par||null});
+  if(r.error){alert('Erreur : '+r.error.message);return;}
+  loadRc();
 }
 
 // Liste déroulante des salariés archivés dans l'onglet Récap : permet de rouvrir
@@ -5979,6 +6077,10 @@ async function ptChargerDonnees(empIds,jourDebut,jourFin){
   ]);
   var jours=ptJoursEntre(jourDebut,jourFin);
   var ABSP_L=motifsCarte('nom');
+  // Code du motif par jour (le compteur de récup a besoin du code, pas du libellé) — 29/10/2026.
+  var absentsCode={};
+  (res[2].data||[]).forEach(function(a){absentsCode[a.employee_id+'|'+a.date]=a.code;});
+  (res[3].data||[]).forEach(function(a){jours.forEach(function(j){var k=a.employee_id+'|'+j;if(j>=a.date_debut&&j<=a.date_fin&&!absentsCode[k])absentsCode[k]=a.type;});});
   var absents={};
   (res[2].data||[]).forEach(function(a){absents[a.employee_id+'|'+a.date]=ABSP_L[a.code]||a.code;});
   (res[3].data||[]).forEach(function(a){
@@ -5988,7 +6090,7 @@ async function ptChargerDonnees(empIds,jourDebut,jourFin){
   var analyse=RG.analyserPointages({entries:entries,creneaux:creneaux,jours:jours,absents:absents});
   ptProposerConversions(entries,analyse.anomalies);
   analyse.anomalies.forEach(function(a){ptAnomaliesIndex[a.cle]=a;});
-  return {entries:entries,creneaux:creneaux,absents:absents,analyse:analyse,traitements:res[4],jours:jours,
+  return {entries:entries,creneaux:creneaux,absents:absents,absentsCode:absentsCode,analyse:analyse,traitements:res[4],jours:jours,
     erreur:res[0].error||res[1].error||null};
 }
 

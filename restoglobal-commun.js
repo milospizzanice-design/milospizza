@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-24b';
+  RG.VERSION='2026-10-29a';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -230,9 +230,8 @@
           if(retard>tol)ajoute({type:'retard',niveau:'orange',ref:RG.heureCourte(c.debut),minutes:retard,
             titre:'Retard '+RG.dureeTexte(retard),detail:'Prévu à '+RG.heureCourte(c.debut)+', badgé à '+RG.heureCourte(s.in)+'.',entree:s.entree});
           if(s.out){
-            var avance=Math.round((c.fin-s.out)/60000);
-            if(avance>tol)ajoute({type:'depart',niveau:'orange',ref:RG.heureCourte(c.debut),minutes:avance,
-              titre:'Départ anticipé '+RG.dureeTexte(avance),detail:'Prévu jusqu’à '+RG.heureCourte(c.fin)+', sorti à '+RG.heureCourte(s.out)+'.',sortie:s.sortie});
+            // 29/10/2026 : un départ anticipé n'est plus une anomalie à justifier : il est déduit du compteur d'heures du
+            // salarié (RG.compteurRecup). L'alerte se fait sur le compteur, seulement s'il passe en négatif.
             var plus=Math.round((s.out-c.fin)/60000);
             if(plus>=dep)ajoute({type:'depassement',niveau:'orange',ref:RG.heureCourte(c.debut),minutes:plus,
               titre:'Dépassement '+RG.dureeTexte(plus),detail:'Prévu jusqu’à '+RG.heureCourte(c.fin)+', sorti à '+RG.heureCourte(s.out)+'.',sortie:s.sortie});
@@ -274,6 +273,61 @@
     var ordre={rouge:0,orange:1};
     toutes.sort(function(x,y){return (ordre[x.niveau]-ordre[y.niveau])||(x.jour<y.jour?1:x.jour>y.jour?-1:0);});
     return {journees:parJour,anomalies:toutes,aujourdhui:aujourdhui};
+  };
+
+  // ── Compteur d'heures (récup) — 29/10/2026 ──────────────────────────────────────────────────────────
+  // Un compteur permanent par salarié, à partir d'une date de départ (Admin › RH › Récap › Compteur récup) :
+  //   chaque journée TERMINÉE compte (heures réalisées − heures prévues) : partir plus tard ajoute, partir plus tôt
+  //   (ou arriver en retard) retire. Écart de 5 min ou moins (RG.POINTAGE_RETARD_TOLERANCE_MIN) : ignoré.
+  //   Jour d'absence (CP, maladie…) : pas compté. Jour de récupération (motif « Récupération ») : retire les heures
+  //   prévues ce jour-là (créneau du planning marqué Récup, ou absence Récup sur des créneaux prévus).
+  //   Journée avec un badge à régulariser (sortie / entrée oubliée, aucun badge) : en attente, comptée une fois corrigée.
+  //   Ajustements saisis à la main (heures payées, solde de départ…) : ajoutés tels quels.
+  // opts = {analyse (RG.analyserPointages), creneaux (planning brut, absences comprises), absentsCode {'emp|jour':code},
+  //         ajustements [{employee_id,date,minutes,motif}], debut 'AAAA-MM-JJ', aujourdhui (facultatif)}
+  // Renvoie {empId:{solde,plus,moins,recup,ajust,enAttente:[jours],mouvements:[{jour,minutes,type,detail}]}}.
+  RG.CODE_RECUP='rec';
+  RG.compteurRecup=function(opts){
+    var auj=opts.aujourdhui||RG.bizDateKey(),debut=opts.debut||'0000-00-00';
+    var tol=RG.POINTAGE_RETARD_TOLERANCE_MIN;
+    var alias=RG.MOTIFS_ALIAS||{};
+    function estRecup(code){return !!code&&(alias[code]||code)===RG.CODE_RECUP;}
+    var res={};
+    function cpt(emp){var k=String(emp);return res[k]||(res[k]={solde:0,plus:0,moins:0,recup:0,ajust:0,enAttente:[],mouvements:[]});}
+    function bouge(emp,jour,min,type,detail){
+      if(!min)return;
+      var c=cpt(emp);
+      c.solde+=min;
+      if(type==='recup')c.recup+=min;else if(type==='ajustement')c.ajust+=min;else if(min>0)c.plus+=min;else c.moins+=min;
+      c.mouvements.push({jour:jour,minutes:min,type:type,detail:detail||''});
+    }
+    var bloquants={sortie_oubliee:1,entree_oubliee:1,absent:1,pas_arrive:1};
+    var journees=(opts.analyse&&opts.analyse.journees)||{};
+    Object.keys(journees).forEach(function(k){
+      var J=journees[k];
+      if(J.jour<debut||J.jour>=auj)return; // seulement les journées terminées depuis la date de départ
+      var code=(opts.absentsCode||{})[k]||null;
+      if(code&&!estRecup(code))return; // CP, maladie… : pas compté
+      if(J.anomalies.some(function(a){return bloquants[a.type];})){cpt(J.employee_id).enAttente.push(J.jour);return;}
+      if(code){ // journée de récup posée en absence : les heures prévues sont prises sur le compteur
+        bouge(J.employee_id,J.jour,J.minutes-J.minutesPrevues,'recup','Récupération'+(J.minutes?' (heures badgées déduites)':''));
+        return;
+      }
+      var net=J.minutes-J.minutesPrevues;
+      if(Math.abs(net)<=tol)return;
+      bouge(J.employee_id,J.jour,net,net>0?'plus':'moins','Prévu '+RG.dureeTexte(J.minutesPrevues)+', réalisé '+RG.dureeTexte(J.minutes));
+    });
+    (opts.creneaux||[]).forEach(function(c){
+      if(!estRecup(c.absence_code)||c.date<debut||c.date>=auj)return;
+      var b=RG.bornesCreneau(c);
+      bouge(c.employee_id,c.date,-Math.round((b.fin-b.debut)/60000),'recup','Récupération au planning '+String(c.heure_debut||'').slice(0,5)+'–'+String(c.heure_fin||'').slice(0,5));
+    });
+    (opts.ajustements||[]).forEach(function(a){
+      if(a.date&&a.date<debut)return;
+      bouge(a.employee_id,a.date,Math.round(Number(a.minutes)||0),'ajustement',a.motif||'Ajustement');
+    });
+    Object.keys(res).forEach(function(k){res[k].mouvements.sort(function(x,y){return x.jour<y.jour?-1:x.jour>y.jour?1:0;});res[k].enAttente.sort();});
+    return res;
   };
 
   // Prochain badgeage d'un salarié d'après son dernier pointage valide : 'sortie' si une entrée est ouverte
