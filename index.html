@@ -422,6 +422,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .lang-overlay{position:fixed;inset:0;z-index:199;display:none;}
 .lang-overlay.open{display:block;}
 </style>
+<script src="restoglobal-langues.js?v=2026-11-02a"></script>
 </head>
 <body>
 <!-- LANGUAGE SELECTOR -->
@@ -694,6 +695,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
         <button class="admin-sidebar-btn" id="stab_print" onclick="switchAdminTab('print')">🖨️ Impression</button>
         <button class="admin-sidebar-btn" id="stab_qrcode" onclick="switchAdminTab('qrcode')">📲 QR Code</button>
         <button class="admin-sidebar-btn" id="stab_import" onclick="switchAdminTab('import')">📥 Import carte</button>
+        <button class="admin-sidebar-btn" id="stab_traductions" onclick="switchAdminTab('traductions')">🌍 Traductions</button>
         <button class="admin-sidebar-btn" id="stab_history" onclick="switchAdminTab('history')">🕐 Historique</button>
       </div>
       <div class="admin-content" id="adminContent">
@@ -1029,6 +1031,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
       </div>
 
       <!-- IMPORT MENU -->
+      <div class="admin-section" id="as-traductions"><div class="admin-section-title" style="font-weight:700;color:#9B1C1C;margin-bottom:0.6rem;">🌍 Traductions</div><div id="tradPanel"></div></div>
       <div class="admin-section" id="as-import">
         <p style="font-size:0.75rem;color:#888;margin-bottom:1rem">Importez une carte existante (PDF ou photo) : l'IA lit le document et propose les catégories/plats détectés. Rien n'est ajouté avant votre validation.</p>
         <input type="file" id="importFileInput" accept="application/pdf,image/*" style="width:100%;font-size:0.72rem;margin-bottom:0.6rem;font-family:'Montserrat',sans-serif;">
@@ -1114,7 +1117,7 @@ let currentAdminTab='plats';
 // ═══════════════════════════════════════
 // TRANSLATIONS
 // ═══════════════════════════════════════
-const T={
+const T_ANCIEN={ // textes d'origine, remplacés le 02/11/2026 par RGL.ui (restoglobal-langues.js)
   fr:{close:'Fermer',footer:'Prix nets service compris · Allergènes disponibles sur demande',childMenu:'Menu Enfant',childDesc:'1 Mini Pizza (Reine ou Marguerite)<br>+ 1 Sirop à l\'eau<br>+ 1 Boule de glace au choix',supplements:'Ajoutez une touche gourmande',supplementsDesc:'Personnalisez votre pizza selon vos envies',from:'À partir de'},
   en:{close:'Close',footer:'All prices inclusive · Allergens available on request',childMenu:'Kids Menu',childDesc:'1 Mini Pizza (Queen or Margherita)<br>+ 1 Water syrup<br>+ 1 Scoop of ice cream',supplements:'Add a gourmet touch',supplementsDesc:'Customize your pizza as you like',from:'From'},
   it:{close:'Chiudi',footer:'Prezzi netti servizio incluso · Allergeni disponibili su richiesta',childMenu:'Menu Bambini',childDesc:'1 Mini Pizza (Regina o Margherita)<br>+ 1 Sciroppo con acqua<br>+ 1 Pallina di gelato a scelta',supplements:'Aggiungi un tocco gourmand',supplementsDesc:'Personalizza la tua pizza a piacere',from:'A partire da'},
@@ -1123,6 +1126,247 @@ const T={
   ru:{close:'Закрыть',footer:'Цены включают сервис · Аллергены по запросу',childMenu:'Детское меню',childDesc:'1 мини-пицца (Маргарита или Регина)<br>+ 1 сироп с водой<br>+ 1 шарик мороженого на выбор',supplements:'Добавьте изюминку в вашу пиццу',supplementsDesc:'Персонализируйте пиццу по вкусу',from:'От'},
   es:{close:'Cerrar',footer:'Precios netos · Alérgenos disponibles bajo petición',childMenu:'Menú Infantil',childDesc:'1 Mini Pizza (Reina o Margarita)<br>+ 1 Refresco<br>+ 1 Bola de helado a elegir',supplements:'Añade un toque gourmet',supplementsDesc:'Personaliza tu pizza a tu gusto',from:'Desde'},
 };
+// T[langue] : mêmes clés qu'avant, valeurs lues dans RGL.ui → fonctionne pour toute langue de la liste.
+const T = new Proxy({}, {get: (o, l) => (typeof l !== 'string') ? undefined : ({close:RGL.ui('fermer',l), footer:RGL.ui('prix_nets',l), childMenu:RGL.ui('menu_enfant',l), childDesc:RGL.ui('menu_enfant_desc',l), supplements:RGL.ui('supplements',l), supplementsDesc:RGL.ui('supplements_desc',l), from:RGL.ui('a_partir_de',l)})});
+
+// ═══════════════════════════════════════
+// LANGUES ET TRADUCTIONS (02/11/2026) — règles communes dans restoglobal-langues.js (RGL)
+// ═══════════════════════════════════════
+// Le traducteur (Worker Cloudflare « restoglobal-traduction ») ; peut être changé dans design.json → traduction_url.
+RGL.URL_TRADUCTEUR = RGL.URL_TRADUCTEUR || 'https://restoglobal-traduction.milospizza-nice.workers.dev';
+// Contenu du menu enfant (propre à cette carte) : traduit comme les autres textes d'interface.
+RGL.ajouterUI({menu_enfant_desc:{
+  fr:'1 mini pizza (Reine ou Marguerite)<br>+ 1 sirop à l\'eau<br>+ 1 boule de glace au choix',
+  en:'1 mini pizza (Reine – ham & mushroom – or Margherita)<br>+ 1 syrup with water<br>+ 1 scoop of ice cream of your choice',
+  it:'1 mini pizza (Reine – prosciutto e funghi – o Margherita)<br>+ 1 sciroppo con acqua<br>+ 1 pallina di gelato a scelta',
+  de:'1 Mini-Pizza (Reine – Schinken & Champignons – oder Margherita)<br>+ 1 Sirup mit Wasser<br>+ 1 Kugel Eis nach Wahl',
+  es:'1 mini pizza (Reine – jamón y champiñones – o Margarita)<br>+ 1 sirope con agua<br>+ 1 bola de helado a elegir',
+  zh:'1份迷你披萨（火腿蘑菇披萨或玛格丽特披萨）<br>+ 1杯果味糖浆兑水<br>+ 1球冰淇淋（口味任选）',
+  ru:'1 мини-пицца (с ветчиной и грибами или «Маргарита»)<br>+ 1 сироп с водой<br>+ 1 шарик мороженого на выбор'
+}});
+function rglDrapeau(l){ const L = RGL.langue(l); return L ? L.drapeau : '🌐'; }
+// Sélecteurs de langue (menu déroulant + barre) construits depuis la liste des langues : une langue ajoutée
+// dans Admin › 🌍 Traductions apparaît toute seule.
+function rglConstruireSelecteurs(){
+  const vis = RGL.visibles();
+  if (!vis.some(x => x.code === currentLang)) currentLang = 'fr';
+  const dd = document.getElementById('langDropdown');
+  if (dd) dd.innerHTML = vis.map(x => `<div class="lang-option${x.code===currentLang?' active':''}" data-lang="${x.code}" onclick="selectLang('${x.code}')">${x.drapeau} ${x.nom}</div>`).join('');
+  const bar = document.querySelector('.lang-bar');
+  if (bar) bar.innerHTML = vis.map(x => `<button class="lang-btn${x.code===currentLang?' active':''}" onclick="setLang('${x.code}')">${x.drapeau} ${x.court}</button>`).join('');
+  const flag = document.getElementById('langFlag');
+  if (flag) flag.innerHTML = rglDrapeau(currentLang);
+}
+function rglMajPied(l){
+  document.documentElement.lang = l;
+  const footerHTML = `${RGL.ui('prix_nets',l)} · <a href="#" onclick="openAllergenPopup();return false;" style="color:var(--rouge);font-weight:600;text-decoration:underline;text-underline-offset:2px">${RGL.ui('allergenes_lien',l)}</a>`;
+  const f1 = document.getElementById('footer'); if (f1) f1.innerHTML = footerHTML;
+  const f2 = document.getElementById('homeFooter'); if (f2) f2.innerHTML = footerHTML;
+  const cb = document.getElementById('modalCloseBtn'); if (cb) cb.textContent = RGL.ui('fermer',l);
+}
+function rglTextesSociaux(l){
+  return {title:RGL.ui('suivez_nous_titre',l), sub:RGL.ui('communaute',l), review_title:RGL.ui('avis_titre',l),
+    review_sub:RGL.ui('avis_texte',l), review_cta_g:RGL.ui('avis_google',l), review_cta_t:RGL.ui('avis_tripadvisor',l)};
+}
+function rglAllergene(a, l){ return RGL.ui('al.'+a.id, l) || a.name; }
+
+// ── Traduction automatique dans l'éditeur ──
+// Après chaque enregistrement (plats, catégories, suggestions, pop-ups, sections), les textes dont le français a changé
+// (ou jamais traduits) sont traduits dans toutes les langues, puis réenregistrés. Avant chaque publication aussi.
+// Tant qu'un texte n'est pas retraduit, la carte affiche le français : jamais une traduction qui ne correspond plus.
+let tradTimer = null, tradEnCours = null, tradDerniereErreur = '';
+function tradDonnees(){ return {cats, items, upsells, popups, sections: HOME_GROUPS}; }
+function tradJeton(){ try { return localStorage.getItem('milos_token') || ''; } catch(e){ return ''; } }
+function tradPlanifier(){
+  if (!isDraftMode || !tradJeton()) return;
+  clearTimeout(tradTimer);
+  tradTimer = setTimeout(() => tradSynchroniser({silencieux:true}), 4000);
+}
+function tradEtatSauvegarde(){
+  return {menu: JSON.stringify({cats, items, upsells}), popups: JSON.stringify(popups), sections: JSON.stringify(HOME_GROUPS)};
+}
+function sectionsPourSauvegarde(){
+  const sc = {};
+  Object.keys(HOME_GROUPS).forEach(key => {
+    const g = HOME_GROUPS[key];
+    sc[key] = {
+      title: g.title, subtitle: g.subtitle, aboutText: g.aboutText,
+      insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId,
+      photo: g.photo || '',
+      supplements: Array.isArray(g.supplements) ? g.supplements : [],
+      aboutBlocks: Array.isArray(g.aboutBlocks) ? g.aboutBlocks : undefined,
+      // Traductions des textes de la section (02/11/2026)
+      trad: g.trad, tradEmp: g.tradEmp, tradManuel: g.tradManuel
+    };
+  });
+  return sc;
+}
+async function tradEnregistrer(avant){
+  const apres = tradEtatSauvegarde();
+  const res = [];
+  if (avant.menu !== apres.menu) res.push(await autoSaveItemsBrut());
+  if (avant.popups !== apres.popups) {
+    try { localStorage.setItem('milos_popups', JSON.stringify(popups)); } catch(e){}
+    const r = await saveKeyToGithub(isDraftMode ? DRAFT_POPUP : 'popup.json', popups);
+    res.push(!!(r && r.content && r.content.sha));
+  }
+  if (avant.sections !== apres.sections) {
+    const r = await saveKeyToGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json', sectionsPourSauvegarde());
+    res.push(!!(r && r.content && r.content.sha));
+  }
+  return res.every(Boolean);
+}
+// opts : {forcer, silencieux, progres}
+async function tradSynchroniser(opts){
+  opts = opts || {};
+  if (tradEnCours) return tradEnCours;
+  tradEnCours = (async () => {
+    const avant = tradEtatSauvegarde();
+    try {
+      const r = await RGL.traduireManquants(tradDonnees(), {
+        url: RGL.URL_TRADUCTEUR, jeton: tradJeton(), lexique: (currentDesign && currentDesign.lexique) || '',
+        forcer: !!opts.forcer, progres: opts.progres
+      });
+      tradDerniereErreur = r.erreurs.length ? r.erreurs[0] : '';
+      if (r.traduits) {
+        const ok = await tradEnregistrer(avant);
+        renderMenu();
+        if (!opts.silencieux || !ok) showToast(ok ? `🌍 ${r.traduits} traduction(s) mise(s) à jour` : '❌ Traductions faites mais pas enregistrées — réessayez');
+      }
+      if (r.erreurs.length && !opts.silencieux) showToast('⚠️ Traduction automatique : ' + r.erreurs[0]);
+      return r;
+    } catch(e) {
+      tradDerniereErreur = e.message || String(e);
+      if (!opts.silencieux) showToast('⚠️ Traduction automatique impossible : ' + tradDerniereErreur);
+      return {traduits:0, erreurs:[tradDerniereErreur], restant:-1};
+    } finally {
+      tradEnCours = null;
+      if (currentAdminTab === 'traductions') renderTraductionsPanel();
+    }
+  })();
+  return tradEnCours;
+}
+// Avant de publier : on traduit ce qui manque (au plus 90 s). En cas d'échec, la publication continue et la carte
+// affiche le français pour les textes pas encore traduits.
+async function tradAvantPublication(){
+  if (!tradJeton() || !RGL.aTraduire(tradDonnees()).length) return;
+  showToast('🌍 Mise à jour des traductions avant publication…');
+  try { await withTimeout(tradSynchroniser({silencieux:true}), 90000); } catch(e) {}
+}
+
+// ── Écran Admin › 🌍 Traductions ──
+let tradFiltreLangue = '', tradFiltreRevoir = true, tradSaisieTimer = null;
+function tradEsc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function renderTraductionsPanel(){
+  const el = document.getElementById('tradPanel'); if (!el) return;
+  const d = tradDonnees();
+  const cibles = RGL.cibles();
+  if (!tradFiltreLangue || !cibles.includes(tradFiltreLangue)) tradFiltreLangue = cibles[0] || '';
+  const couv = RGL.couverture(d);
+  let h = `<p style="font-size:0.75rem;color:#666;margin-bottom:0.8rem;">Chaque texte est traduit automatiquement dans toutes les langues quand vous l'enregistrez, et avant chaque publication. Tant qu'un texte n'est pas retraduit, la carte affiche le français (jamais une ancienne traduction).</p>`;
+  h += `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.8rem;">` + cibles.map(l => {
+    const c = couv[l]; const ok = c.aJour === c.total; const L = RGL.langue(l);
+    return `<span style="font-size:0.72rem;padding:0.3rem 0.6rem;border-radius:20px;background:${ok?'#E8F5E9':'#FFF4E5'};color:${ok?'#1E8449':'#B45309'};font-weight:700;">${L.drapeau} ${tradEsc(L.nom)} ${c.aJour}/${c.total}${ok?' ✓':''}</span>`;
+  }).join('') + `</div>`;
+  const reste = RGL.aTraduire(d).length;
+  h += `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.4rem;">
+    <button class="admin-save-btn" onclick="tradBoutonSynchro(false)" ${tradEnCours?'disabled':''}>${tradEnCours?'⏳ Traduction en cours…':'🔄 Traduire ce qui manque ('+reste+')'}</button>
+    <button class="admin-save-btn" style="background:#fff;color:#9B1C1C;border:1px solid #9B1C1C;" onclick="tradBoutonSynchro(true)" ${tradEnCours?'disabled':''}>♻️ Tout retraduire</button></div>`;
+  if (tradDerniereErreur) h += `<div style="font-size:0.72rem;color:#B91C1C;margin-bottom:0.6rem;">Dernière erreur : ${tradEsc(tradDerniereErreur)}</div>`;
+  h += `<div id="tradProgres" style="font-size:0.72rem;color:#666;margin-bottom:0.8rem;"></div>`;
+
+  // Langues
+  h += `<div class="cat-section-label">Langues de la carte</div>`;
+  h += RGL.LANGUES.filter(L => L.code !== 'fr').map(L => `<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;padding:0.25rem 0;">
+      <input type="checkbox" ${L.masquee?'':'checked'} onchange="tradLangueAfficher('${L.code}', this.checked)"> ${L.drapeau} ${tradEsc(L.nom)} <span style="color:#aaa;font-size:0.7rem;">(${L.code})</span></label>`).join('');
+  h += `<details style="margin:0.5rem 0 1rem;"><summary style="cursor:pointer;font-size:0.78rem;font-weight:700;color:#9B1C1C;">➕ Ajouter une langue</summary>
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem;">
+      <input class="admin-input" id="tradNvCode" placeholder="Code (ex. ja, pt, ar)" style="width:9rem;margin:0;">
+      <input class="admin-input" id="tradNvNom" placeholder="Nom (ex. 日本語)" style="width:10rem;margin:0;">
+      <input class="admin-input" id="tradNvDrapeau" placeholder="Drapeau (ex. 🇯🇵)" style="width:8rem;margin:0;">
+      <button class="admin-save-btn" onclick="tradAjouterLangue()">Ajouter et traduire toute la carte</button></div>
+    <div style="font-size:0.7rem;color:#888;margin-top:0.3rem;">Code à 2 lettres de la langue (norme ISO 639-1). Toute la carte et les textes de l'interface sont traduits automatiquement.</div></details>`;
+
+  // Lexique
+  h += `<div class="cat-section-label">Lexique du restaurant</div>
+    <div style="font-size:0.7rem;color:#888;margin-bottom:0.3rem;">Termes à toujours traduire de la même façon, ou à ne jamais traduire. Une règle par ligne, ex. « Stracciatella : ne pas traduire » ou « Noisette (café) = espresso macchiato ».</div>
+    <textarea class="admin-input" id="tradLexique" rows="3" style="resize:vertical;">${tradEsc((currentDesign && currentDesign.lexique) || '')}</textarea>
+    <button class="admin-save-btn" style="margin-bottom:1rem;" onclick="tradEnregistrerLexique()">Enregistrer le lexique</button>`;
+
+  // Liste des textes
+  h += `<div class="cat-section-label">Textes traduits</div>
+    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem;">
+      <select class="cat-select" style="width:auto;margin:0;" onchange="tradFiltreLangue=this.value;renderTraductionsPanel()">${cibles.map(l => `<option value="${l}" ${l===tradFiltreLangue?'selected':''}>${RGL.langue(l).drapeau} ${tradEsc(RGL.langue(l).nom)}</option>`).join('')}</select>
+      <label style="font-size:0.75rem;"><input type="checkbox" ${tradFiltreRevoir?'checked':''} onchange="tradFiltreRevoir=this.checked;renderTraductionsPanel()"> seulement à revoir</label></div>`;
+  const inv = RGL.inventaire(d);
+  const l = tradFiltreLangue;
+  const lignes = inv.filter(e => !tradFiltreRevoir || !RGL.aJour(e.o, e.f, l));
+  window._tradInventaire = inv;
+  if (!lignes.length) h += `<div style="font-size:0.78rem;color:#1E8449;padding:0.5rem 0;">✓ Tout est à jour dans cette langue.</div>`;
+  h += lignes.map(e => {
+    const i = inv.indexOf(e);
+    const aJour = RGL.aJour(e.o, e.f, l), manuel = RGL.estManuel(e.o, e.f, l);
+    const brut = (e.o[e.f] && typeof e.o[e.f] === 'object') ? (e.o[e.f][l] || '') : ((e.o.trad && e.o.trad[e.f] && e.o.trad[e.f][l]) || '');
+    const etat = manuel ? ['✍️ corrigée à la main','#5B21B6'] : aJour ? ['✓ à jour','#1E8449'] : (brut ? ['⚠️ ancienne (le français a changé)','#B45309'] : ['○ à traduire','#B91C1C']);
+    return `<div style="border-bottom:1px solid #eee;padding:0.5rem 0;">
+      <div style="font-size:0.7rem;color:#999;">${tradEsc(e.type.replace('_',' '))}${e.contexte?' · '+tradEsc(e.contexte):''} · <span style="color:${etat[1]};font-weight:700;">${etat[0]}</span></div>
+      <div style="font-size:0.8rem;color:#333;margin:0.15rem 0;">🇫🇷 ${tradEsc(e.fr)}</div>
+      <textarea class="admin-input" rows="1" style="margin:0;resize:vertical;min-height:2rem;" oninput="tradSaisieManuelle(${i},'${l}',this.value)">${tradEsc(brut)}</textarea></div>`;
+  }).join('');
+  el.innerHTML = h;
+}
+async function tradBoutonSynchro(forcer){
+  if (forcer && !confirm('Retraduire toute la carte dans toutes les langues ? Les traductions corrigées à la main sont gardées.')) return;
+  if (!tradJeton()) { alert('Connectez-vous à l\'éditeur pour traduire.'); return; }
+  const prog = n => { const p = document.getElementById('tradProgres'); if (p) p.textContent = n; };
+  setTimeout(renderTraductionsPanel, 0);
+  await tradSynchroniser({forcer, progres:(fait,total) => prog(`⏳ ${fait} / ${total} textes traités…`)});
+}
+// Correction à la main d'une traduction : gardée telle quelle tant que le français ne change pas.
+function tradSaisieManuelle(i, l, val){
+  const e = (window._tradInventaire || [])[i]; if (!e) return;
+  const avant = tradEtatSauvegarde();
+  if (String(val).trim()) RGL.ecrire(e.o, e.f, l, val, true);
+  clearTimeout(tradSaisieTimer);
+  tradSaisieTimer = setTimeout(async () => { const ok = await tradEnregistrer(avant); renderMenu(); showToast(ok ? '✓ Traduction enregistrée' : '❌ Échec de l\'enregistrement'); }, 1200);
+}
+async function tradEnregistrerLexique(){
+  currentDesign.lexique = document.getElementById('tradLexique').value;
+  await saveDesign();
+}
+async function tradLangueAfficher(code, visible){
+  const liste = Array.isArray(currentDesign.langues) ? currentDesign.langues : [];
+  let L = liste.find(x => x.code === code);
+  if (!L) { const base = RGL.langue(code) || {code}; L = {code, nom:base.nom, court:base.court, drapeau:base.drapeau}; liste.push(L); }
+  L.masquee = !visible;
+  currentDesign.langues = liste;
+  RGL.appliquerDesign(currentDesign);
+  rglConstruireSelecteurs();
+  await saveDesign();
+  renderTraductionsPanel();
+}
+async function tradAjouterLangue(){
+  const code = (document.getElementById('tradNvCode').value || '').trim().toLowerCase();
+  const nom = (document.getElementById('tradNvNom').value || '').trim();
+  const drapeau = (document.getElementById('tradNvDrapeau').value || '').trim() || '🌐';
+  if (!/^[a-z]{2,3}$/.test(code)) { alert('Code de langue invalide (2 ou 3 lettres, ex. ja, pt, ar).'); return; }
+  if (RGL.langue(code)) { alert('Cette langue existe déjà.'); return; }
+  if (!nom) { alert('Indiquez le nom de la langue.'); return; }
+  if (!tradJeton()) { alert('Connectez-vous à l\'éditeur pour traduire.'); return; }
+  const liste = Array.isArray(currentDesign.langues) ? currentDesign.langues : [];
+  liste.push({code, nom, court: code.toUpperCase(), drapeau});
+  currentDesign.langues = liste;
+  RGL.appliquerDesign(currentDesign);
+  showToast('🌍 Traduction de l\'interface en ' + nom + '…');
+  try {
+    await RGL.traduireInterface(code, {url: RGL.URL_TRADUCTEUR, jeton: tradJeton(), lexique: currentDesign.lexique || ''});
+    currentDesign.langues_ui = RGL.UI_LANGUES;
+  } catch(e) { showToast('⚠️ Interface non traduite : ' + (e.message || e) + ' (anglais affiché en attendant)'); }
+  await saveDesign();
+  rglConstruireSelecteurs();
+  renderTraductionsPanel();
+  await tradBoutonSynchro(false);
+}
 
 // ═══════════════════════════════════════
 // DEFAULT MENU DATA
@@ -1440,7 +1684,8 @@ function closeLangMenu(){
 function selectLang(l){
   currentLang = l;
   const flag = document.getElementById('langFlag');
-  if(flag) flag.innerHTML = LANG_FLAGS[l] || LANG_FLAGS.fr;
+  if(flag) flag.innerHTML = rglDrapeau(l);
+  rglMajPied(l);
   document.querySelectorAll('.lang-option').forEach(opt=>{
     opt.classList.toggle('active', opt.getAttribute('data-lang')===l);
   });
@@ -1470,13 +1715,8 @@ function selectLang(l){
 function setLang(lang) {
   currentLang = lang;
   document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`).classList.add('active');
-  const priceText = (T[lang].footer || '').split('·')[0].trim();
-  const footerHTML = `${priceText} · Consulter la liste des allergènes disponible <a href="#" onclick="openAllergenPopup();return false;" style="color:var(--rouge);font-weight:600;text-decoration:underline;text-underline-offset:2px">ici</a>`;
-  document.getElementById('footer').innerHTML = footerHTML;
-  const homeFooterEl = document.getElementById('homeFooter');
-  if (homeFooterEl) homeFooterEl.innerHTML = footerHTML;
-  document.getElementById('modalCloseBtn').textContent = T[lang].close;
+  const btnLang = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`); if (btnLang) btnLang.classList.add('active');
+  rglMajPied(lang);
   renderMenu();
 }
 
@@ -1488,9 +1728,9 @@ function renderMenu() {
   const socialLabel = {fr:'Nous suivre',en:'Follow us',it:'Seguici',de:'Folgen Sie uns',zh:'关注我们',ru:'Следите за нами',es:'Nous suivre'};
   const allergenLabel = {fr:'Allergènes',en:'Allergens',it:'Allergeni',de:'Allergene',zh:'过敏原',ru:'Аллергены',es:'Allergènes'};
   document.getElementById('nav').innerHTML = `<button onclick="goHome()" id="tab_home" style="font-size:1rem;padding:0.7rem 0.9rem">🏠</button>` + activeCats.map((c,i)=>
-    `<button onclick="showTab('${c.id}')" id="tab_${c.id}" class="${i===0?'active':''}">${c.name[l]||c.name.fr}</button>`
-  ).join('') + `<button onclick="showTab('social')" id="tab_social">❤️ ${socialLabel[l]||socialLabel.fr}</button>`
-  + `<button onclick="showTab('allergens')" id="tab_allergens">⚠️ ${allergenLabel[l]||allergenLabel.fr}</button>`;
+    `<button onclick="showTab('${c.id}')" id="tab_${c.id}" class="${i===0?'active':''}">${RGL.lire(c,'name',l)}</button>`
+  ).join('') + `<button onclick="showTab('social')" id="tab_social">❤️ ${RGL.ui('nous_suivre',l)}</button>`
+  + `<button onclick="showTab('allergens')" id="tab_allergens">⚠️ ${RGL.ui('allergenes',l)}</button>`;
   // Add or update social section in main
 
 
@@ -1504,13 +1744,13 @@ function renderMenu() {
     const upsell = upsells.find(u=>u.active && (u.cats ? u.cats.includes(c.id) : u.cat===c.id));
     
     let html = `<div class="section ${i===0?'active':''}" id="sec_${c.id}">`;
-    html += `<div class="section-title">${c.name[l]||c.name.fr}</div>`;
-    if (c.subtitle) html += `<div class="section-subtitle">${c.subtitle[l]||c.subtitle.fr}</div>`;
+    html += `<div class="section-title">${RGL.lire(c,'name',l)}</div>`;
+    if (c.subtitle) html += `<div class="section-subtitle">${RGL.lire(c,'subtitle',l)}</div>`;
     html += `<div class="divider"></div>`;
     
     if (upsell) {
-      const uTitle = (typeof upsell.title === 'object') ? (upsell.title[l] || upsell.title.fr) : upsell.title;
-      const uMsg = (typeof upsell.message === 'object') ? (upsell.message[l] || upsell.message.fr) : upsell.message;
+      const uTitle = RGL.lire(upsell,'title',l);
+      const uMsg = RGL.lire(upsell,'message',l);
       html += `<div class="upsell-banner"><div class="u-icon">💡</div><div class="u-text"><div class="u-title">${uTitle}</div>${uMsg}</div></div>`;
     }
     
@@ -1520,10 +1760,10 @@ function renderMenu() {
     subcats.forEach(sub => {
       const subId = 'sub_' + c.id + '_' + sub.replace(/[^a-z0-9]/gi,'_');
       if (c.collapsible) {
-        html += `<div class="sub-cat" id="hd_${subId}" onclick="toggleSubcat('${subId}')">${sub}<span class="sub-arrow">▼</span></div>`;
+        html += `<div class="sub-cat" id="hd_${subId}" onclick="toggleSubcat('${subId}')">${RGL.lireSous(c,sub,l)}<span class="sub-arrow">▼</span></div>`;
         html += `<div class="sub-cat-items" id="${subId}">`;
       } else {
-        html += `<div class="sub-cat">${sub}</div>`;
+        html += `<div class="sub-cat">${RGL.lireSous(c,sub,l)}</div>`;
       }
       catItems.filter(it=>it.subcat===sub).forEach(it => html += renderItem(it, l));
       if (c.collapsible) html += `</div>`;
@@ -1572,7 +1812,7 @@ function prewarmImage(url){
 // ensemble dès qu'ils diffèrent, pour que le client puisse toujours reconnaître/commander le bon plat.
 function itemDisplayNameHTML(it, l) {
   const fr = it.name.fr || '';
-  const translated = it.name[l];
+  const translated = RGL.lire(it,'name',l);
   if (l === 'fr' || !translated || translated === fr) return fr;
   return `${translated}<span class="item-name-fr">${fr}</span>`;
 }
@@ -1580,12 +1820,12 @@ function itemDisplayNameHTML(it, l) {
 function renderItem(it, l) {
   const hasPhoto = it.photo && it.photo.trim();
   const priceHTML = (it.priceVariants && it.priceVariants.length)
-    ? it.priceVariants.map(v=>`<div>${v.label||''} ${v.price||''}</div>`).join('')
+    ? it.priceVariants.map(v=>`<div>${RGL.lire(v,'label',l)} ${v.price||''}</div>`).join('')
     : it.price;
   return `<div class="item" onclick="openModal('${it.id}')">
     <div class="item-info">
       <div class="item-name">${itemDisplayNameHTML(it,l)}${hasPhoto?'<span class="photo-badge"></span>':''}</div>
-      ${(it.desc[l]||it.desc.fr)?`<div class="item-desc">${it.desc[l]||it.desc.fr}</div>`:''}
+      ${RGL.lire(it,'desc',l)?`<div class="item-desc">${RGL.lire(it,'desc',l)}</div>`:''}
     </div>
     <div class="item-price">${priceHTML}</div>
   </div>`;
@@ -1619,15 +1859,15 @@ function openModal(id) {
   if (it.photo){img.src=cld(it.photo,800);img.className='modal-img';img.onerror=()=>img.className='modal-img hidden';}
   else{img.src='';img.className='modal-img hidden';}
   document.getElementById('modalName').innerHTML = itemDisplayNameHTML(it,l);
-  document.getElementById('modalDesc').textContent = it.desc[l]||it.desc.fr;
+  document.getElementById('modalDesc').textContent = RGL.lire(it,'desc',l);
   document.getElementById('modalPrice').innerHTML = (it.priceVariants && it.priceVariants.length)
-    ? it.priceVariants.map(v=>`<div>${v.label||''} ${v.price||''}</div>`).join('')
+    ? it.priceVariants.map(v=>`<div>${RGL.lire(v,'label',l)} ${v.price||''}</div>`).join('')
     : it.price;
   const als = getItemAllergens(it);
   const allergenEl = document.getElementById('modalAllergens');
   if (allergenEl) {
     allergenEl.innerHTML = als.length
-      ? als.map(aid => { const a = ALLERGEN_LIST.find(x=>x.id===aid); return a ? `<span class="modal-allergen-pill" title="${a.name}">${a.icon} ${a.name}</span>` : ''; }).join('')
+      ? als.map(aid => { const a = ALLERGEN_LIST.find(x=>x.id===aid); return a ? `<span class="modal-allergen-pill" title="${rglAllergene(a,l)}">${a.icon} ${rglAllergene(a,l)}</span>` : ''; }).join('')
       : '';
   }
   document.getElementById('modalOverlay').classList.add('open');
@@ -1641,7 +1881,7 @@ const ALLERG_INVITE = {
   es:['¿Alergias o intolerancias?','Consultar la lista de alérgenos']
 };
 function allergInviteHTML(l){
-  const t = ALLERG_INVITE[l] || ALLERG_INVITE.en;
+  const t = [RGL.ui('allergies_question',l), RGL.ui('allergies_voir',l)];
   return `<button type="button" class="allerg-invite" onclick="openAllergenPopup()"><span class="ai-ico">⚠️</span><span class="ai-txt"><span class="ai-t">${t[0]}</span><span class="ai-b">${t[1]}</span></span><span class="ai-fl">›</span></button>`;
 }
 
@@ -1773,6 +2013,7 @@ function renderAdminContent(){
   if(currentAdminTab==='about_histoire') initAboutAdmin();
   if(currentAdminTab==='social') initSocialPanel();
   if(currentAdminTab==='sections') renderAdminSections();
+  if(currentAdminTab==='traductions') renderTraductionsPanel();
   if(currentAdminTab==='import') { /* statique, rien à pré-charger */ }
   if(currentAdminTab==='print') renderPrintPanel();
   if(currentAdminTab==='prixemporter') renderPrixEmporter();
@@ -1956,7 +2197,8 @@ function renderAdminItems(list){
   }).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun plat</p>';
 }
 
-async function autoSaveItems(){
+async function autoSaveItems(){ const ok = await autoSaveItemsBrut(); if (ok) tradPlanifier(); return ok; }
+async function autoSaveItemsBrut(){
   const targetFile = isDraftMode ? DRAFT_FILE : DATA_FILE;
   const result = await saveKeyToGithub(targetFile, {cats, items, upsells});
   return !!(result && result.content && result.content.sha);
@@ -4140,31 +4382,31 @@ function renderAllergenPage(l, targetId) {
   };
 
   let html = `<div class="allergen-page">
-    <div class="section-title">${pageTitles[l]||pageTitles.fr}</div>
+    <div class="section-title">${RGL.ui('allergenes',l)}</div>
     <div class="divider"></div>
-    <div class="allergen-warning">${warningTexts[l]||warningTexts.fr}</div>
+    <div class="allergen-warning">${RGL.ui('allergenes_avert',l)}</div>
     <div class="allergen-ref-grid">
       ${ALLERGEN_LIST.map(a=>`
         <div class="allergen-ref-card">
-          <div class="ar-name">${a.icon} ${a.name}</div>
-          <div class="ar-desc">${ALLERGEN_DESCS[a.id]||''}</div>
+          <div class="ar-name">${a.icon} ${rglAllergene(a,l)}</div>
+          <div class="ar-desc">${RGL.ui('ald.'+a.id,l)}</div>
         </div>`).join('')}
     </div>
     <div class="allergen-table-wrap">
     <table class="allergen-table">
       <thead><tr>
-        <th>Plat</th>
-        ${ALLERGEN_LIST.map(a=>`<th title="${a.name}">${a.icon}</th>`).join('')}
+        <th>${RGL.ui('plat',l)}</th>
+        ${ALLERGEN_LIST.map(a=>`<th title="${rglAllergene(a,l)}">${a.icon}</th>`).join('')}
       </tr></thead>
       <tbody>
         ${cats.filter(c=>!c.archived && c.inAllergenList!==false).map(cat=>{
           const catItems = allItems.filter(it=>itemBelongsToCat(it, cat.id));
           if(catItems.length===0) return '';
-          return `<tr class="allergen-cat-row"><td colspan="${ALLERGEN_LIST.length+1}">${(cat.name[l]||cat.name.fr).toUpperCase()}</td></tr>`
+          return `<tr class="allergen-cat-row"><td colspan="${ALLERGEN_LIST.length+1}">${RGL.lire(cat,'name',l).toUpperCase()}</td></tr>`
             + catItems.map(it=>{
               const als = getItemAllergens(it);
               return `<tr>
-                <td>${it.name[l]||it.name.fr}</td>
+                <td>${RGL.lire(it,'name',l)}</td>
                 ${ALLERGEN_LIST.map(a=>`<td>${als.includes(a.id)?'<span class="allergen-dot"></span>':''}</td>`).join('')}
               </tr>`;
             }).join('');
@@ -4255,7 +4497,7 @@ const SOCIAL_SVGS = {
 };
 
 function renderSocialSection(l) {
-  const t = SOCIAL_TEXTS[l] || SOCIAL_TEXTS.fr;
+  const t = rglTextesSociaux(l);
   const sc = socialConfig;
   const el = document.getElementById('sec_social');
   if (!el) return;
@@ -4323,6 +4565,7 @@ async function savePopupConfig() {
   collectPopupEdits();
   try { localStorage.setItem('milos_popups', JSON.stringify(popups)); } catch(e){}
   await saveKeyToGithub(isDraftMode ? DRAFT_POPUP : 'popup.json', popups);
+  tradPlanifier();
   renderMenu(); // les fiches produit des pop-ups apparaissent tout de suite dans la carte
   showToast('✨ Pop-ups sauvegardés !');
 }
@@ -4539,9 +4782,9 @@ function popupFichesHTML(catId) {
     const hasPhoto = p.photo && String(p.photo).trim();
     return `<div class="item" onclick="openPopupFiche('${popupEsc(p.id)}')" style="border:2px solid var(--rouge);border-radius:10px;padding-left:0.7rem;padding-right:0.7rem;background:rgba(155,28,28,0.04);">
     <div class="item-info">
-      ${p.badge ? `<div style="font-family:'Montserrat',sans-serif;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--rouge);margin-bottom:0.2rem;">${popupEsc(p.badge)}</div>` : ''}
-      <div class="item-name">${popupEsc(p.title)}${hasPhoto?'<span class="photo-badge"></span>':''}</div>
-      ${p.desc ? `<div class="item-desc">${popupEsc(p.desc)}</div>` : ''}
+      ${p.badge ? `<div style="font-family:'Montserrat',sans-serif;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--rouge);margin-bottom:0.2rem;">${popupEsc(RGL.lire(p,'badge',currentLang))}</div>` : ''}
+      <div class="item-name">${popupEsc(RGL.lire(p,'title',currentLang))}${hasPhoto?'<span class="photo-badge"></span>':''}</div>
+      ${p.desc ? `<div class="item-desc">${popupEsc(RGL.lire(p,'desc',currentLang))}</div>` : ''}
     </div>
     <div class="item-price">${popupEsc(p.price || '')}</div>
   </div>`;
@@ -4553,8 +4796,8 @@ function openPopupFiche(id) {
   const img = document.getElementById('modalImg');
   if (p.photo) { img.src = cld(p.photo, 800); img.className = 'modal-img'; img.onerror = () => img.className = 'modal-img hidden'; }
   else { img.src = ''; img.className = 'modal-img hidden'; }
-  document.getElementById('modalName').textContent = p.title || '';
-  document.getElementById('modalDesc').textContent = p.desc || '';
+  document.getElementById('modalName').textContent = RGL.lire(p,'title',currentLang);
+  document.getElementById('modalDesc').textContent = RGL.lire(p,'desc',currentLang);
   document.getElementById('modalPrice').textContent = p.price || '';
   const allergenEl = document.getElementById('modalAllergens');
   if (allergenEl) allergenEl.innerHTML = '';
@@ -4562,9 +4805,9 @@ function openPopupFiche(id) {
 }
 
 function showPopupObj(p) {
-  document.getElementById('popupBadge').textContent = p.badge || '';
-  document.getElementById('popupTitle').textContent = p.title || '';
-  document.getElementById('popupDesc').textContent = p.desc || '';
+  document.getElementById('popupBadge').textContent = RGL.lire(p,'badge',currentLang);
+  document.getElementById('popupTitle').textContent = RGL.lire(p,'title',currentLang);
+  document.getElementById('popupDesc').textContent = RGL.lire(p,'desc',currentLang);
   document.getElementById('popupPrice').textContent = p.price || '';
   const img = document.getElementById('popupImg');
   if(p.photo) { img.src=cld(p.photo,600); img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
@@ -4594,6 +4837,7 @@ function loadDesign() {
     if (saved) currentDesign = {...DESIGN_DEFAULTS, ...JSON.parse(saved)};
   } catch(e){}
   applyDesignVars(currentDesign);
+  RGL.appliquerDesign(currentDesign);
 }
 
 function applyDesignVars(d) {
@@ -7540,6 +7784,7 @@ async function brouillonAbsent(filename) {
 }
 
 async function publishDraft() {
+  await tradAvantPublication(); // traductions à jour avant de publier (02/11/2026)
   const btns = document.querySelectorAll('.publish-btn');
   btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
   const barBtn = document.querySelector('.draft-bar .publish-btn');
@@ -7743,15 +7988,15 @@ function buildSectionTabs(groupCats){
   groupCats.forEach(c => {
     const subcats = ensureCatSubcats(c);
     if (subcats.length === 0) {
-      tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
+      tabs.push({key:'cat:'+c.id, label:RGL.lire(c,'name',currentLang), catId:c.id, subcat:null});
     } else {
       const hasUnassigned = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, null) && it.dispoSurPlace!==false);
       subcats.forEach(sc => {
         const hasItems = items.some(it=>!it.archived && itemIsInPlacement(it, c.id, sc) && it.dispoSurPlace!==false) && subcatVisible(c, sc, 'dispoSurPlace');
-        if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:sc, catId:c.id, subcat:sc});
+        if (hasItems) tabs.push({key:'sc:'+c.id+':::'+sc, label:RGL.lireSous(c,sc,currentLang), catId:c.id, subcat:sc});
       });
       if (hasUnassigned) {
-        tabs.push({key:'cat:'+c.id, label:(c.name[currentLang]||c.name.fr), catId:c.id, subcat:null});
+        tabs.push({key:'cat:'+c.id, label:RGL.lire(c,'name',currentLang), catId:c.id, subcat:null});
       }
     }
   });
@@ -7813,8 +8058,8 @@ function openSectionPage(groupKey) {
       suppInsert.onclick = action;
       suppInsert.setAttribute('role', action ? 'button' : 'note');
       suppInsert.innerHTML = `
-        <div class="supplements-insert-text">✨ ${group.insertText}</div>
-        ${action ? `<span class="supplements-insert-btn">${(group.insertLinkLabel||'').trim() || 'Voir les suppléments'} <b>›</b></span>` : ''}
+        <div class="supplements-insert-text">✨ ${RGL.lire(group,'insertText',l)}</div>
+        ${action ? `<span class="supplements-insert-btn">${(RGL.lire(group,'insertLinkLabel',l)||'').trim() || RGL.ui('voir_supplements',l)} <b>›</b></span>` : ''}
       `;
       suppInsert.style.display = 'flex';
     } else {
@@ -7835,7 +8080,7 @@ function openSectionPage(groupKey) {
 
   // Show first tab
   if (tabs.length > 0) showSectionTab(tabs[0].key);
-  else document.getElementById('sectionContent').innerHTML = '<p style="text-align:center;color:#aaa;padding:2rem;">Aucun produit dans cette section pour le moment.</p>';
+  else document.getElementById('sectionContent').innerHTML = '<p style="text-align:center;color:#aaa;padding:2rem;">'+RGL.ui('aucun_produit',currentLang)+'</p>';
 
   // Show page
   document.getElementById('homePage').style.display = 'none';
@@ -7844,7 +8089,7 @@ function openSectionPage(groupKey) {
 
 function renderAboutPage(l) {
   const g = HOME_GROUPS.about || {};
-  const title = g.title?.[l] || g.title?.fr || 'Notre Histoire';
+  const title = RGL.lire(g,'title',l) || RGL.ui('notre_histoire',l);
   const blocks = g.aboutBlocks || [];
   // Rétrocompatibilité avec l'ancien format
   const legacyText = g.aboutText || '';
@@ -7867,7 +8112,7 @@ function renderAboutPage(l) {
     blocks.forEach(b=>{
       if(b.type==='text' && b.content){
         blocksHtml += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;color:#5A4535;line-height:1.7;margin-bottom:1.2rem;padding:0 0.5rem;">
-          ${b.content.split('\n').filter(t=>t.trim()).map(t=>`<p style="margin-bottom:0.5rem;">${t}</p>`).join('')}
+          ${RGL.lire(b,'content',l).split('\n').filter(t=>t.trim()).map(t=>`<p style="margin-bottom:0.5rem;">${t}</p>`).join('')}
         </div>`;
       } else if(b.type==='photo' && b.urls?.length){
         const cols = Math.min(b.urls.length, 3);
@@ -7899,7 +8144,7 @@ function renderAboutPage(l) {
 
   // Réseaux sociaux
   html += `<div style="background:#fff;border-radius:14px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
-    <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#9B1C1C;margin-bottom:1rem;">${followText[l]||followText.fr}</div>
+    <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#9B1C1C;margin-bottom:1rem;">${RGL.ui('suivez_nous',l)}</div>
     <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">`;
   if(social.instagram) html += `<a href="${social.instagram_url||'https://instagram.com/'+social.instagram.replace('@','')}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;text-decoration:none;"><div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></div><span style="font-family:'Montserrat',sans-serif;font-size:0.65rem;color:#5A4535;font-weight:600;">${social.instagram}</span></a>`;
   if(social.facebook) html += `<a href="${social.facebook_url||'https://facebook.com/'+social.facebook}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;text-decoration:none;"><div style="width:52px;height:52px;border-radius:14px;background:#1877F2;display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></div><span style="font-family:'Montserrat',sans-serif;font-size:0.65rem;color:#5A4535;font-weight:600;">Facebook</span></a>`;
@@ -7907,7 +8152,7 @@ function renderAboutPage(l) {
 
   // Avis
   html += `<div style="background:#fff;border-radius:14px;padding:1.2rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
-    <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#9B1C1C;margin-bottom:1rem;">${reviewText[l]||reviewText.fr}</div>
+    <div style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#9B1C1C;margin-bottom:1rem;">${RGL.ui('donnez_avis',l)}</div>
     <div style="display:flex;gap:0.8rem;flex-direction:column;">`;
   if(social.google) html += `<a href="${social.google}" target="_blank" style="display:flex;align-items:center;gap:0.9rem;text-decoration:none;background:#F8F9FA;border-radius:10px;padding:0.8rem 1rem;"><svg width="28" height="28" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg><div><div style="font-family:'Montserrat',sans-serif;font-size:0.8rem;font-weight:700;color:#2C2010;">Google</div><div style="font-family:'Montserrat',sans-serif;font-size:0.68rem;color:#888;">⭐⭐⭐⭐⭐ Laisser un avis</div></div><div style="margin-left:auto;color:#9B1C1C;font-size:1rem;">→</div></a>`;
   if(social.tripadvisor) html += `<a href="${social.tripadvisor}" target="_blank" style="display:flex;align-items:center;gap:0.9rem;text-decoration:none;background:#F8F9FA;border-radius:10px;padding:0.8rem 1rem;"><div style="width:28px;height:28px;background:#34E0A1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;">🦉</div><div><div style="font-family:'Montserrat',sans-serif;font-size:0.8rem;font-weight:700;color:#2C2010;">TripAdvisor</div><div style="font-family:'Montserrat',sans-serif;font-size:0.68rem;color:#888;">⭐⭐⭐⭐⭐ Laisser un avis</div></div><div style="margin-left:auto;color:#9B1C1C;font-size:1rem;">→</div></a>`;
@@ -7961,8 +8206,8 @@ function showSectionTab(tabKey) {
   const upsell = upsells.find(u=>u.active && (u.cats ? u.cats.includes(tab.catId) : u.cat===tab.catId));
 
   let html = '';
-  if (c.subtitle) html += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;font-style:italic;color:#5A4535;margin-bottom:1rem">${c.subtitle[l]||c.subtitle.fr}</div>`;
-  if (upsell) html += `<div class="upsell-banner"><div class="u-icon">💡</div><div class="u-text"><div class="u-title">${upsell.title}</div>${upsell.message}</div></div>`;
+  if (c.subtitle) html += `<div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;font-style:italic;color:#5A4535;margin-bottom:1rem">${RGL.lire(c,'subtitle',l)}</div>`;
+  if (upsell) html += `<div class="upsell-banner"><div class="u-icon">💡</div><div class="u-text"><div class="u-title">${RGL.lire(upsell,'title',l)}</div>${RGL.lire(upsell,'message',l)}</div></div>`;
 
   // Fiches produit des pop-ups : une seule fois par catégorie, dans son premier onglet (une catégorie avec
   // sous-catégories a plusieurs onglets ; sans ça la fiche se répéterait dans chacun).
@@ -8007,8 +8252,8 @@ function renderHomePage(l) {
   const entries = Object.entries(HOME_GROUPS);
   entries.forEach(([key, group], idx) => {
     const photo = HOME_PHOTOS[group.photoKey] || '';
-    const title = group.title[l] || group.title.fr;
-    const sub = group.subtitle[l] || group.subtitle.fr;
+    const title = RGL.lire(group,'title',l);
+    const sub = RGL.lire(group,'subtitle',l);
     const isAbout = group.isAbout;
     const minH = isAbout ? '140px' : '220px';
     html += `<div onclick="openSectionPage('${key}')" style="position:relative;border-radius:16px;overflow:hidden;flex:${isAbout?'0 0 140px':'1'};min-height:${minH};cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.2);">
@@ -8081,6 +8326,7 @@ function afficherConnexionMenuRequise(){
 async function init(){
   // Load local first for instant display
   loadDesign();
+  rglConstruireSelecteurs();
   loadPopupConfig();
   loadSocialConfig();
   loadHomeConfig();
@@ -8130,7 +8376,7 @@ async function init(){
     loadKeyFromGithub(isDraftMode ? DRAFT_HOME : 'home.json'),
     loadKeyFromGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json'),
   ]);
-  if (remoteDesign) { currentDesign = {...DESIGN_DEFAULTS, ...remoteDesign}; applyDesignVars(currentDesign); try{localStorage.setItem('milos_design',JSON.stringify(currentDesign));}catch(e){} }
+  if (remoteDesign) { currentDesign = {...DESIGN_DEFAULTS, ...remoteDesign}; applyDesignVars(currentDesign); RGL.appliquerDesign(currentDesign); rglConstruireSelecteurs(); rglMajPied(currentLang); try{localStorage.setItem('milos_design',JSON.stringify(currentDesign));}catch(e){} }
   if (remotePopup) {
     if (Array.isArray(remotePopup)) { popups = remotePopup; }
     else if (remotePopup.title) { popups = [{id:'p1',...remotePopup,cats:[]}]; }
@@ -8312,7 +8558,8 @@ async function saveSections(){
     for(var li=0;li<langs.length;li++){
       var l = langs[li];
       var inp = document.getElementById('sec_title_'+l+'_'+key);
-      if(inp && inp.value.trim()) group.title[l] = inp.value.trim();
+      // 02/11/2026 : un titre saisi à la main dans une autre langue est gardé (marqué « corrigé à la main »).
+      if(inp && inp.value.trim()){ var vTitre = inp.value.trim(); if(l==='fr') group.title.fr = vTitre; else if(vTitre !== (group.title[l]||'')) RGL.ecrire(group,'title',l,vTitre,true); }
     }
     if(!group.isAbout){
       var subInp = document.getElementById('sec_sub_fr_'+key);
@@ -8330,24 +8577,10 @@ async function saveSections(){
   renderMenu();
   renderHomePage(currentLang);
 
-  var sectionsConfig = {};
-  keys.forEach(function(key){
-    var g = HOME_GROUPS[key];
-    sectionsConfig[key] = {
-      title: g.title, subtitle: g.subtitle, aboutText: g.aboutText,
-      insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId,
-      // Photo de bannière choisie dans l'admin (adresse Cloudinary). Avant le 14/10/2026 elle n'était pas
-      // enregistrée : la nouvelle photo disparaissait au rechargement de la page.
-      photo: g.photo || '',
-      // Liste de la fenêtre « Suppléments » : [{nom, prix}] (prix écrit comme sur la carte, ex. « 1,50€ »).
-      supplements: Array.isArray(g.supplements) ? g.supplements : [],
-      // Blocs de la page « Notre Histoire » (textes et photos). Correctif du 18/10/2026 : ils n'étaient pas
-      // enregistrés dans sections.json, le texte saisi disparaissait au rechargement de la page.
-      aboutBlocks: Array.isArray(g.aboutBlocks) ? g.aboutBlocks : undefined
-    };
-  });
+  var sectionsConfig = sectionsPourSauvegarde(); // traductions comprises (02/11/2026)
   var result = await saveKeyToGithub(isDraftMode ? DRAFT_SECTIONS : 'sections.json', sectionsConfig);
   var ok = !!(result && result.content && result.content.sha);
+  if (ok) tradPlanifier();
   showToast(ok ? '✓ Sections sauvegardées !' : '❌ Échec de l\'enregistrement - réessayez');
 }
 
