@@ -1263,6 +1263,11 @@ function renderTraductionsPanel(){
     <button class="admin-save-btn" onclick="tradBoutonSynchro(false)" ${tradEnCours?'disabled':''}>${tradEnCours?'⏳ Traduction en cours…':'🔄 Traduire ce qui manque ('+reste+')'}</button>
     <button class="admin-save-btn" style="background:#fff;color:#9B1C1C;border:1px solid #9B1C1C;" onclick="tradBoutonSynchro(true)" ${tradEnCours?'disabled':''}>♻️ Tout retraduire</button></div>`;
   if (tradDerniereErreur) h += `<div style="font-size:0.72rem;color:#B91C1C;margin-bottom:0.6rem;">Dernière erreur : ${tradEsc(tradDerniereErreur)}</div>`;
+  // Connexion à l'éditeur absente ou expirée : on se reconnecte dans un nouvel onglet (l'éditeur reste ouvert ici),
+  // puis « Traduire ce qui manque » repart avec le nouveau jeton (même navigateur, même site).
+  if (!tradJeton() || /non autoris|reconnect|401/i.test(tradDerniereErreur)) h += `<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;padding:0.7rem;margin-bottom:0.8rem;font-size:0.78rem;line-height:1.45;">
+    🔐 La connexion à l'éditeur du menu a expiré ou n'est pas reconnue. Reconnectez-vous dans l'onglet qui s'ouvre (si la page indique « déjà connecté », touchez Déconnexion puis reconnectez-vous), revenez ici et touchez « Traduire ce qui manque ».
+    <a href="login.html" target="_blank" rel="noopener" style="display:block;margin-top:0.5rem;background:#9B1C1C;color:#fff;border-radius:8px;padding:0.55rem;text-align:center;font-weight:700;text-decoration:none;">🔐 Se reconnecter</a></div>`;
   h += `<div id="tradProgres" style="font-size:0.72rem;color:#666;margin-bottom:0.8rem;"></div>`;
 
   // Langues
