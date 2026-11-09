@@ -1885,10 +1885,17 @@ async function saveCor(){
   var em=emp(eid);
   var payload={employee_id:eid,restaurant_id:em.restaurant_id,type:type,timestamp:new Date(dt).toISOString(),ip_address:'correction-manuelle',ip_ok:true,photo_b64:null,manuel:true,motif:motif+(note?' - '+note:'')};
   if(origId)payload.corrige_de_id=parseInt(origId);
+  // 09/11/2026 : avant d'enregistrer, on rejoue la journée avec le nouveau badge. Saisir une sortie quand un autre badge
+  // d'entrée se trouve entre l'entrée et cette sortie ne réglait pas l'alerte et en créait une nouvelle (« Entrée
+  // oubliée ») à chaque validation. Doublon exact : refusé. Alerte non réglée : expliqué, rien n'est enregistré.
+  var verif=await ptVerifierAjout(payload,ptCorContexte);
+  if(verif.bloque){alert(verif.bloque);return;}
+  if(verif.confirmer&&!confirm(verif.confirmer))return;
   var r=await db.from('time_entries').insert(payload);
   if(r.error){alert('Erreur: '+r.error.message);return;}
   // 24/10/2026 : plus de modification de l'ancien pointage (table protégée) : corrige_de_id suffit à l'écarter.
   closeM('mc');
+  ptCorContexte=null;
   document.getElementById('ccn').value='';
   pointageRafraichir();
   await loadPt();
@@ -1896,6 +1903,47 @@ async function saveCor(){
   updateDemBadge();
   checkDepassements();
   RG.toutesLignes(function(){return db.from('demandes_acompte').select('*').order('id');}).then(function(r){acoAllData=r.data||[];updateAcoBadge();});
+}
+
+// Rejoue la journée métier du salarié avec le badge à ajouter (payload) et dit s'il faut bloquer ou demander confirmation.
+// ctx (facultatif) : {type:'sortie'|'entree', badge: le badge de l'alerte, jour} quand la saisie règle une alerte.
+async function ptVerifierAjout(payload,ctx){
+  try{
+    var jour=RG.bizDateKey(payload.timestamp);
+    var pb=RG.bizPeriodeBornes(jour,jour);
+    await RG.chargerAnnulations(db);
+    var r=await RG.toutesLignes(function(){return db.from('time_entries').select('*').eq('employee_id',payload.employee_id).gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).order('id');});
+    if(r.error)return {};
+    var avant=r.data||[];
+    var neuf=Object.assign({id:Number.MAX_SAFE_INTEGER},payload);
+    var minute=function(ts){return String(new Date(ts).toISOString()).slice(0,16);};
+    var valides=RG.pointagesValides(avant.slice());
+    var doublon=valides.find(function(e){return e.type===payload.type&&minute(e.timestamp)===minute(payload.timestamp)&&String(e.id)!==String(payload.corrige_de_id||'');});
+    if(doublon)return {bloque:'Ce badge existe déjà : '+(payload.type==='sortie'?'sortie':'entrée')+' à '+RG.heureCourte(payload.timestamp)+' ce jour-là.\n\nRien n’a été ajouté.'};
+    var pa=RG.appairerPointages(avant.slice()),pn=RG.appairerPointages(avant.concat([neuf]));
+    var orphelins=function(p){return p.sansSortie.length+p.sansEntree.length;};
+    var lib=function(e){return (e.type==='entree'?'entrée':'sortie')+' à '+RG.heureCourte(e.timestamp);};
+    if(ctx&&ctx.badge&&!payload.corrige_de_id){
+      var idB=String(ctx.badge.id);
+      var encore=(ctx.type==='sortie'?pn.sansSortie:pn.sansEntree).some(function(e){return String(e.id)===idB;});
+      if(jour!==ctx.jour)return {bloque:'Cette heure tombe sur une autre journée ('+new Date(jour+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+'). Une journée va de '+RG.HEURE_DEBUT_JOURNEE+'h à '+RG.HEURE_DEBUT_JOURNEE+'h le lendemain.\n\nRien n’a été ajouté.'};
+      if(encore){
+        var t0=new Date(ctx.badge.timestamp),t1=new Date(payload.timestamp);
+        var entre=RG.pointagesValides(avant.slice()).filter(function(e){var t=new Date(e.timestamp);return String(e.id)!==idB&&t>Math.min(t0,t1)&&t<Math.max(t0,t1);});
+        var msg='Cette '+(ctx.type==='sortie'?'sortie':'entrée')+' ne réglerait pas l’alerte : ';
+        if(entre.length)msg+='il y a déjà '+entre.map(function(e){return 'une '+lib(e);}).join(', ')+' entre l’'+(ctx.type==='sortie'?'entrée de '+RG.heureCourte(t0)+' et cette sortie':'heure saisie et la sortie de '+RG.heureCourte(t0))+'.\n\n'
+          +'Réglez d’abord ce badge (fiche du salarié › Badges) :\n• double appui → ✕ Annuler\n• c’était en fait '+(ctx.type==='sortie'?'la sortie → ⇄ Sortie':'l’entrée → ⇄ Entrée')+'\n\nPuis revenez sur cette alerte.';
+        else msg+=(ctx.type==='sortie'?'l’heure de sortie doit être après l’entrée de ':'l’heure d’entrée doit être avant la sortie de ')+RG.heureCourte(t0)+'.';
+        return {bloque:msg+'\n\nRien n’a été ajouté.'};
+      }
+      return {};
+    }
+    if(orphelins(pn)>orphelins(pa)){
+      var nouveaux=pn.sansSortie.concat(pn.sansEntree).filter(function(e){return !pa.sansSortie.concat(pa.sansEntree).some(function(x){return x.id===e.id;});});
+      return {confirmer:'Avec ce badge, la journée aura un badge sans '+(nouveaux.length&&nouveaux[0].type==='entree'?'sortie':'entrée')+(nouveaux.length?' ('+nouveaux.map(lib).join(', ')+')':'')+'.\n\nEnregistrer quand même ?'};
+    }
+    return {};
+  }catch(e){return {};}
 }
 
 function expCSV(){
@@ -6167,10 +6215,12 @@ async function ptAction(cle,action){
   // correction tombait sur aujourd'hui au lieu du jour de l'alerte, qui restait affichée. On propose désormais
   // l'heure du badge concerné, le bon jour.
   if(action==='sortie'){
-    ptOuvrirCorrection(a.employee_id,'sortie',a.heureConseillee||(a.entree&&a.entree.timestamp)||ptMidiDuJour(a.jour),'Sortie oubliée ('+ptJourLib(a.jour)+') — heure réelle de départ');return;
+    ptOuvrirCorrection(a.employee_id,'sortie',a.heureConseillee||(a.entree&&a.entree.timestamp)||ptMidiDuJour(a.jour),'Sortie oubliée ('+ptJourLib(a.jour)+') — heure réelle de départ');
+    ptCorContexte={type:'sortie',badge:a.entree||null,jour:a.jour};return;
   }
   if(action==='entree'){
-    ptOuvrirCorrection(a.employee_id,'entree',a.heureConseillee||(a.sortie&&a.sortie.timestamp)||ptMidiDuJour(a.jour),'Entrée oubliée ('+ptJourLib(a.jour)+') — heure réelle d’arrivée');return;
+    ptOuvrirCorrection(a.employee_id,'entree',a.heureConseillee||(a.sortie&&a.sortie.timestamp)||ptMidiDuJour(a.jour),'Entrée oubliée ('+ptJourLib(a.jour)+') — heure réelle d’arrivée');
+    ptCorContexte={type:'entree',badge:a.sortie||null,jour:a.jour};return;
   }
   if(action==='convertir'&&a.convertir){await ptConvertirBadge(a.convertir.entry,a.convertir.type);return;}
   if(action==='annuler'&&a.annuler){await ptAnnulerBadge(a.annuler.entry,'double appui');return;}
@@ -6284,7 +6334,9 @@ async function ptAnnuler(cle){
   pointageRafraichir();
 }
 // Correction manuelle pré-remplie (heure locale ; avant, l'heure UTC était proposée → décalage de 1 à 2 h).
+var ptCorContexte=null; // alerte « sortie / entrée oubliée » réglée par la saisie en cours (ptAction)
 function ptOuvrirCorrection(empId,type,date,titre){
+  ptCorContexte=null;
   document.getElementById('cce').value=empId;
   document.getElementById('cct').value=type;
   document.getElementById('ccd').value=ptDateLocale(date);
