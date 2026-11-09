@@ -3658,10 +3658,15 @@ async function delPoste(id){
 // ── PDF GÉNÉRAL MENSUEL (couleurs tableau) ────────────────────────────────────
 
 // ── EXPORT DRH (bulletins de paie) ──────────────────────────────────────────
+// 09/11/2026 : l'export paie s'ouvre sur TOUS les restaurants (une feuille par salarié, groupées par restaurant) et
+// sur le mois précédent jusqu'au 15 du mois (la paie se fait sur le mois écoulé), le mois en cours ensuite.
+// Avant, il reprenait le restaurant du sélecteur global (ex. Dabray) : le Port et le Labo n'étaient pas exportés.
 function openDrhExport(){
-  var now=new Date();
-  document.getElementById('drh-from').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-01';
-  document.getElementById('drh-to').value=now.getFullYear()+'-'+planPad(now.getMonth()+1)+'-'+planPad(new Date(now.getFullYear(),now.getMonth()+1,0).getDate());
+  var auj=new Date(RG.bizDateKey()+'T12:00:00');
+  var m=auj.getDate()<=15?auj.getMonth()-1:auj.getMonth();
+  document.getElementById('drh-from').value=planDs(new Date(auj.getFullYear(),m,1,12));
+  document.getElementById('drh-to').value=planDs(new Date(auj.getFullYear(),m+1,0,12));
+  var sel=document.getElementById('drh-resto');if(sel)sel.value='all';
   openM('modal-drh');
 }
 
@@ -15167,6 +15172,7 @@ async function majAccueil(){
     <div class="mdt">&#128203; Export Paie (DRH)</div>
     <div style="font-size:11px;color:var(--txm);margin-bottom:10px">Génère un récap détaillé par salarié (jour par jour, entrées/sorties, coupures, repas, absences, totaux semaine et mois) pour les bulletins de paie.</div>
     <div class="fr"><label class="fl2">Restaurant</label><select class="fi" id="drh-resto"><option value="all">Tous</option></select></div>
+    <div style="font-size:11px;color:var(--txm);margin:-4px 0 8px">« Tous » : tous les restaurants dans un seul fichier, salariés regroupés par restaurant.</div>
     <div class="fr"><label class="fl2">Du</label><input type="date" class="fi" id="drh-from"></div>
     <div class="fr"><label class="fl2">Au</label><input type="date" class="fi" id="drh-to"></div>
     <div class="ma" style="flex-wrap:wrap;gap:6px">
