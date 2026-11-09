@@ -366,7 +366,10 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
           <option value="yesterday">Hier</option>
           <option value="week" selected>Cette semaine</option>
           <option value="month">Ce mois</option>
+          <option value="lastmonth">Mois dernier</option>
+          <option value="custom">Dates personnalis&#233;es&#8230;</option>
         </select>
+        <span id="fd-dates" style="display:none;align-items:center;gap:5px;flex-wrap:wrap"><span style="font-size:12px;color:var(--txm)">Du</span><input type="date" class="fs" id="fd-du" onchange="loadPt()" aria-label="Du"><span style="font-size:12px;color:var(--txm)">au</span><input type="date" class="fs" id="fd-au" onchange="loadPt()" aria-label="Au"></span>
         <button class="btn bs sm" onclick="expCSV()">&#8595; CSV</button>
         <button class="btn bp sm" onclick="openCor()">+ Correction</button>
       </div>
@@ -382,8 +385,9 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div id="rc-pane-recap" style="display:none">
       <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
         <select class="fs" id="rcr" onchange="loadRc()"><option value="all">Tous</option></select>
-        <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option><option value="semaines">Par semaine (mois)</option><option value="compteur">Compteur récup</option></select>
+        <select class="fs" id="rcp" onchange="loadRc()"><option value="day">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option><option value="lastmonth">Mois dernier</option><option value="custom">Dates personnalis&#233;es&#8230;</option><option value="semaines">Par semaine (mois)</option><option value="compteur">Compteur récup</option></select>
         <input type="month" class="fs" id="rc-mois" onchange="loadRc()" style="display:none" aria-label="Mois du récap par semaine">
+        <span id="rcp-dates" style="display:none;align-items:center;gap:5px;flex-wrap:wrap"><span style="font-size:12px;color:var(--txm)">Du</span><input type="date" class="fs" id="rcp-du" onchange="loadRc()" aria-label="Du"><span style="font-size:12px;color:var(--txm)">au</span><input type="date" class="fs" id="rcp-au" onchange="loadRc()" aria-label="Au"></span>
         <button class="btn bp sm" onclick="openDrhExport()">&#128203; Export Paie (DRH)</button>
       </div>
       <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
@@ -1737,15 +1741,39 @@ function rcSubTab(which){
 // Correctif du 17/10/2026 : périodes en JOURNÉES MÉTIER (7h → 7h, heure locale) pour qu'une sortie badgée
 // après minuit reste dans la bonne journée. s/e : bornes à envoyer à la base (e exclue) ; ds/de : dates
 // 'AAAA-MM-JJ' du premier et du dernier jour (pour le planning). Avant, les jours étaient découpés en UTC.
-function getDR(p){
+// 09/11/2026 : « Mois dernier » et « Dates personnalisées » (champs <pref>-du / <pref>-au, pref = id du menu).
+function getDR(p,pref){
   var auj=new Date(RG.bizDateKey()+'T12:00:00');
   var ds,de;
-  if(p==='today'){ds=de=planDs(auj);}
+  if(p==='custom'){
+    var per=periodePerso(pref);ds=per.ds;de=per.de;
+  }
+  else if(p==='lastmonth'){ds=planDs(new Date(auj.getFullYear(),auj.getMonth()-1,1,12));de=planDs(new Date(auj.getFullYear(),auj.getMonth(),0,12));}
+  else if(p==='today'){ds=de=planDs(auj);}
   else if(p==='yesterday'){var hier=planAddD(auj,-1);ds=de=planDs(hier);}
   else if(p==='week'){var m=monOf(auj);ds=planDs(m);de=planDs(planAddD(m,6));}
   else{ds=planDs(new Date(auj.getFullYear(),auj.getMonth(),1));de=planDs(new Date(auj.getFullYear(),auj.getMonth()+1,0));}
   var b=RG.bizPeriodeBornes(ds,de);
   return {s:b.debutISO,e:b.finISO,ds:ds,de:de};
+}
+
+// Dates personnalisées d'un menu de période : affiche les champs Du / Au quand « Dates personnalisées » est choisi
+// (pré-remplis avec le mois dernier), et renvoie {ds, de} dans l'ordre. Plage limitée à 366 jours.
+var PERIODE_PERSO_MAX_JOURS=366;
+function periodePerso(pref){
+  var du=document.getElementById(pref+'-du'),au=document.getElementById(pref+'-au');
+  var auj=new Date(RG.bizDateKey()+'T12:00:00');
+  if(du&&!du.value)du.value=planDs(new Date(auj.getFullYear(),auj.getMonth()-1,1,12));
+  if(au&&!au.value)au.value=planDs(new Date(auj.getFullYear(),auj.getMonth(),0,12));
+  var ds=(du&&du.value)||planDs(auj),de=(au&&au.value)||ds;
+  if(de<ds){var t=ds;ds=de;de=t;du.value=ds;au.value=de;}
+  var max=planDs(planAddD(new Date(ds+'T12:00:00'),PERIODE_PERSO_MAX_JOURS-1));
+  if(de>max){de=max;au.value=de;}
+  return {ds:ds,de:de};
+}
+function periodeChamps(pref,periode){
+  var box=document.getElementById(pref+'-dates');
+  if(box)box.style.display=periode==='custom'?'inline-flex':'none';
 }
 
 // Durée d'un créneau de planning en minutes ; un créneau qui finit après minuit (18:00 → 00:30) compte
@@ -1790,7 +1818,8 @@ async function loadPt(){
   var resto=document.getElementById('fr').value;
   var empId=document.getElementById('fe').value;
   var period=document.getElementById('fd').value;
-  var dr=getDR(period);
+  periodeChamps('fd',period);
+  var dr=getDR(period,'fd');
   // Correctif du 17/10/2026 : plus de limite à 200 pointages (le mois entier était tronqué) — lecture par pages.
   var r=await RG.toutesLignes(function(){
     var q=db.from('time_entries').select('*').gte('timestamp',dr.s).lt('timestamp',dr.e).order('timestamp',{ascending:false}).order('id');
@@ -5638,9 +5667,10 @@ async function loadRc(){
   var period=document.getElementById('rcp').value;
   var moisInp=document.getElementById('rc-mois');
   if(moisInp)moisInp.style.display=period==='semaines'?'':'none';
+  periodeChamps('rcp',period);
   if(period==='semaines'){await loadRcSemaines(resto);return;}
   if(period==='compteur'){await loadRcCompteur(resto);return;}
-  var dr=getDR(period);
+  var dr=getDR(period,'rcp');
   var les=emps.filter(function(e){return e.actif&&(resto==='all'||e.restaurant_id===resto);});
   // Dates du planning = dr.ds / dr.de (avant : dr.s.slice(0,10), date UTC qui ajoutait la veille au « prévu »).
   var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',dr.s).lt('timestamp',dr.e).order('id');});
@@ -5669,9 +5699,13 @@ async function loadRc(){
     h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Diff</div><div style="font-size:18px;font-weight:700;color:'+dc+'">'+(diff>=0?'+':'')+toHM(diff)+'</div></div>';
     h+='</div>';
     if(sa)h+='<div style="margin-top:7px"><span class="bg sup al2">⚠ +3h sup détectées</span></div>';
+    // 09/11/2026 : correction directe des badges de la période affichée (fiche salarié › Badges, mêmes dates).
+    h+='<div style="margin-top:8px"><button class="btn bs sm" onclick="ficheOuvrirBadges('+em.id+',\''+dr.ds+'\',\''+dr.de+'\')">&#9998; Voir et corriger les badges</button></div>';
     if(ats.length){h+='<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">';ats.forEach(function(t){h+='<span class="bg" style="'+motifStyle(t)+'">'+esc(getMotifCourt(t))+'</span>';});h+='</div>';}
     h+='</div></div></div>';
   });
+  var libP='Du '+new Date(dr.ds+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+new Date(dr.de+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  if(h)h='<div class="pj-sub" style="margin-bottom:8px;font-weight:700">'+esc(libP)+'</div>'+h;
   document.getElementById('rcb').innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
   // Acomptes validés sur la période
   loadRcAcomptes(dr);
@@ -6278,6 +6312,9 @@ function pointageRafraichir(){
   if(pane&&pane.style.display!=='none'&&document.getElementById('rc').style.display!=='none')loadAuj();
   var fiche=document.getElementById('modal-absfiche');
   if(fiche&&fiche.classList.contains('op')){ficheAnoCache=null;ficheTab(ficheOnglet);ficheEntete();}
+  // 09/11/2026 : le récap Heures & paie affiché derrière la fiche se met à jour après une correction.
+  var rcRecap=document.getElementById('rc-pane-recap');
+  if(rcRecap&&rcRecap.style.display!=='none'&&document.getElementById('rc').style.display!=='none')loadRc();
   // 23/10/2026 : la liste des salariés (pastilles d'anomalies) n'était jamais recalculée après une correction.
   var sa=document.getElementById('sa'),pageRh=document.getElementById('page-rh');
   if(sa&&sa.style.display!=='none'&&pageRh&&pageRh.style.display!=='none')renderSal();
@@ -6418,11 +6455,12 @@ function ajuExportCSV(){
 
 // ── Fiche salarié en onglets ──────────────────────────────────────────────────────────────────────────
 var ficheOnglet='sem',ficheSemDecal=0,ficheMoisDecal=0,ficheAnoCache=null;
+var ficheBadgesDu=null,ficheBadgesAu=null; // période de l'onglet Badges (null = 31 derniers jours)
 var FICHE_ONGLETS=['sem','mois','ano','abs','plan','doc','pt'];
 
 function openAbsEmpFiche(empId){
   var em=emp(empId);if(!em||em.prenom==='?')return;
-  ficheCurEmp=empId;ficheSemDecal=0;ficheMoisDecal=0;ficheAnoCache=null;
+  ficheCurEmp=empId;ficheSemDecal=0;ficheMoisDecal=0;ficheAnoCache=null;ficheBadgesDu=null;ficheBadgesAu=null;
   document.getElementById('absfiche-name').textContent=em.prenom+' '+em.nom;
   document.getElementById('absfiche-av').textContent=((em.prenom||'?')[0]+(em.nom||'')[0]||'').toUpperCase();
   document.getElementById('absfiche-sub').textContent=[em.secteur||'',rctRestoLabel(em.restaurant_id),em.heures_contrat?em.heures_contrat+' h/sem':''].filter(Boolean).join(' · ');
@@ -6898,34 +6936,87 @@ async function ficheAfficherLuPlanning(){
 // 24/10/2026 : liste des badges par jour (31 derniers jours), avec sur chaque badge valide :
 // ⇄ changer le sens (entrée ↔ sortie), ✎ corriger l'heure ou le sens, ✕ annuler. Rien n'est modifié ni effacé
 // (table protégée) : chaque action ajoute une ligne, l'ancien badge reste visible, barré.
+// 09/11/2026 : période libre (Du / Au) au lieu des seuls 31 derniers jours, et chaque jour de la période où il y a un
+// créneau prévu, une absence ou un badge : prévu, heures, badges (⇄ ✎ ✕) et « + Ajouter » sur ce jour.
+// Ouverte depuis le récap Heures & paie avec les mêmes dates (ficheOuvrirBadges).
+function ficheOuvrirBadges(empId,du,au){
+  openAbsEmpFiche(empId);
+  ficheBadgesDu=du;ficheBadgesAu=au;
+  ficheTab('pt');
+}
+function ficheBadgesPeriode(){
+  var du=document.getElementById('fbp-du'),au=document.getElementById('fbp-au');
+  if(!du||!au||!du.value||!au.value)return;
+  var a=du.value,b=au.value;if(b<a){var t=a;a=b;b=t;}
+  ficheBadgesDu=a;ficheBadgesAu=b;
+  ficheLoadPt();
+}
+function ficheBadgesRaccourci(quoi){
+  var auj=new Date(RG.bizDateKey()+'T12:00:00');
+  if(quoi==='31'){ficheBadgesDu=null;ficheBadgesAu=null;}
+  else if(quoi==='mois'){ficheBadgesDu=planDs(new Date(auj.getFullYear(),auj.getMonth(),1,12));ficheBadgesAu=planDs(auj);}
+  else if(quoi==='moisprec'){ficheBadgesDu=planDs(new Date(auj.getFullYear(),auj.getMonth()-1,1,12));ficheBadgesAu=planDs(new Date(auj.getFullYear(),auj.getMonth(),0,12));}
+  ficheLoadPt();
+}
 async function ficheLoadPt(){
   var body=document.getElementById('fiche-pane-pt');
   body.innerHTML='<div style="text-align:center;color:#aaa;padding:16px">Chargement...</div>';
   var empId=ficheCurEmp;
   var auj=RG.bizDateKey();
-  var debut=planDs(planAddD(new Date(auj+'T12:00:00'),-30));
-  var pb=RG.bizPeriodeBornes(debut,auj);
-  await RG.chargerAnnulations(db);
-  var r=await RG.toutesLignes(function(){return db.from('time_entries').select('*').eq('employee_id',empId).gte('timestamp',pb.debutISO).lt('timestamp',pb.finISO).order('timestamp').order('id');});
+  var debut=ficheBadgesDu||planDs(planAddD(new Date(auj+'T12:00:00'),-30));
+  var fin=ficheBadgesAu||auj;
+  if(fin<debut){var t=debut;debut=fin;fin=t;}
+  var max=planDs(planAddD(new Date(debut+'T12:00:00'),PERIODE_PERSO_MAX_JOURS-1));
+  if(fin>max)fin=max;
+  var finCalc=fin>auj?auj:fin;
+  var h='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'
+    +'<span class="pj-sub">Du</span><input type="date" class="fs" id="fbp-du" value="'+debut+'" onchange="ficheBadgesPeriode()" aria-label="Du">'
+    +'<span class="pj-sub">au</span><input type="date" class="fs" id="fbp-au" value="'+fin+'" onchange="ficheBadgesPeriode()" aria-label="Au"></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+    +'<button class="pj-btn" style="min-height:32px;padding:4px 10px;font-size:12px" onclick="ficheBadgesRaccourci(\'31\')">31 derniers jours</button>'
+    +'<button class="pj-btn" style="min-height:32px;padding:4px 10px;font-size:12px" onclick="ficheBadgesRaccourci(\'mois\')">Ce mois</button>'
+    +'<button class="pj-btn" style="min-height:32px;padding:4px 10px;font-size:12px" onclick="ficheBadgesRaccourci(\'moisprec\')">Mois dernier</button></div>';
+  if(debut>auj){body.innerHTML=h+'<div style="text-align:center;color:#aaa;padding:16px">Période à venir : aucun badge.</div>';return;}
+  var d=await ptChargerDonnees([empId],debut,finCalc);
   if(empId!==ficheCurEmp||ficheOnglet!=='pt')return;
-  if(r.error){body.innerHTML='<div class="pj-ok" style="color:#8E1A20">Erreur de lecture : '+esc(r.error.message||'')+'</div>';return;}
-  var liste=RG.marquerRemplaces(r.data||[]);
+  if(d.erreur){body.innerHTML=h+'<div class="pj-ok" style="color:#8E1A20">Erreur de lecture : '+esc(d.erreur.message||'')+'</div>';return;}
+  var liste=RG.marquerRemplaces((d.entries||[]).slice().sort(function(x,y){return (new Date(x.timestamp)-new Date(y.timestamp))||(x.id-y.id);}));
   liste.forEach(function(e){ptBadgesCache[String(e.id)]=e;});
-  var h='<div class="pj-sub" style="margin-bottom:8px">31 derniers jours, du plus récent au plus ancien. Sur chaque badge : <b>⇄</b> changer le sens, <b>✎</b> corriger l’heure, <b>✕</b> annuler (double appui, badge en trop). Rien n’est effacé : l’ancien badge reste visible, barré.</div>';
-  if(RG.ANNULATIONS_OK===false)h+='<div class="pj-note">Pour pouvoir annuler un badge, exécutez d’abord le script <b>pointage_annulations.sql</b> dans Supabase.</div>';
-  if(!liste.length){body.innerHTML=h+'<div style="text-align:center;color:#aaa;padding:16px">Aucun pointage sur cette période</div>';return;}
   var parJour={};
   liste.forEach(function(e){var k=RG.bizDateKey(e.timestamp);(parJour[k]=parJour[k]||[]).push(e);});
-  Object.keys(parJour).sort().reverse().forEach(function(j){
-    var jour=parJour[j];
+  var totalReel=RG.minutesTravaillees(liste.slice()),totalPrevu=0;
+  d.jours.forEach(function(j){var J=d.analyse.journees[empId+'|'+j];if(J)totalPrevu+=J.minutesPrevues;});
+  var ecartTot=totalReel-totalPrevu;
+  h+='<div class="pj-tot"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b>'+ptHM(totalReel)+'</b><span class="pj-sub">prévu '+ptHM(totalPrevu)+' · écart <span style="font-weight:800;color:'+rcCouleurEcart(ecartTot)+'">'+rcEcartTxt(ecartTot)+'</span></span></div>'
+    +(fin>auj?'<div class="pj-sub">Compté jusqu’à aujourd’hui.</div>':'')+'</div>'
+    +'<div class="pj-sub" style="margin-bottom:6px">Sur chaque badge : <strong>⇄</strong> changer le sens, <strong>✎</strong> corriger l’heure, <strong>✕</strong> annuler (double appui, badge en trop). <strong>+ Ajouter</strong> : badge oublié ce jour-là. Rien n’est effacé : chaque correction reste visible.</div>';
+  if(RG.ANNULATIONS_OK===false)h+='<div class="pj-note">Pour pouvoir annuler un badge, exécutez d’abord le script <b>pointage_annulations.sql</b> dans Supabase.</div>';
+  var joursAff=d.jours.slice().reverse().filter(function(j){
+    var J=d.analyse.journees[empId+'|'+j];
+    return parJour[j]||(J&&(J.creneaux.length||J.absent));
+  });
+  if(!joursAff.length){body.innerHTML=h+'<div style="text-align:center;color:#aaa;padding:16px">Aucun pointage ni créneau prévu sur cette période</div>';return;}
+  joursAff.forEach(function(j){
+    var jour=parJour[j]||[];
+    var J=d.analyse.journees[empId+'|'+j];
     var valides=RG.pointagesValides(jour.slice());
     var minutes=RG.minutesTravaillees(jour.slice());
-    // Deux badges valides du même sens à la suite : signalé pour aider à corriger.
-    var suspect=valides.some(function(e,i){return i>0&&valides[i-1].type===e.type;})||(valides.length&&valides[0].type==='sortie');
+    var prevuMin=J?J.minutesPrevues:0;
+    var prevuTxt=J&&J.creneaux.length?J.creneaux.map(function(c){return RG.heureCourte(c.debut)+'–'+RG.heureCourte(c.fin);}).join(' · '):'';
+    // Deux badges valides du même sens à la suite, ou un jour qui commence par une sortie, ou un nombre impair : à vérifier.
+    var suspect=valides.some(function(e,i){return i>0&&valides[i-1].type===e.type;})||(valides.length&&valides[0].type==='sortie')||(j<auj&&valides.length%2===1);
+    var manque=!valides.length&&prevuMin&&!(J&&J.absent)&&j<auj;
+    var dernier=valides.length?valides[valides.length-1]:null;
+    var typeAjout=dernier&&dernier.type==='entree'?'sortie':'entree';
     var dt=new Date(j+'T12:00:00');
-    h+='<div style="display:flex;justify-content:space-between;align-items:baseline;margin:12px 0 4px">'
+    var ecart=(j<=auj&&(minutes||prevuMin))?minutes-prevuMin:null;
+    h+='<div style="margin:14px 0 4px;padding-top:6px;border-top:1px solid var(--bd)">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
       +'<b style="font-size:13px;color:var(--bx);text-transform:capitalize">'+esc(dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}))+'</b>'
-      +'<span class="pj-sub">'+(minutes?ptHM(minutes):'')+(suspect?' <span style="color:#B91E26;font-weight:700">· à vérifier</span>':'')+'</span></div>';
+      +'<span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums">'+(minutes?ptHM(minutes):'—')+(ecart!==null&&ecart!==0?' <span style="font-size:11px;color:'+rcCouleurEcart(ecart)+'">'+rcEcartTxt(ecart)+'</span>':'')+'</span></div>'
+      +'<div class="pj-sub">'+(J&&J.absent?'Absent : '+esc(J.absent):(prevuTxt?'Prévu '+esc(prevuTxt):'Pas de créneau prévu'))
+      +(suspect?' <span style="color:#B91E26;font-weight:700">· à vérifier</span>':'')
+      +(manque?' <span style="color:#B91E26;font-weight:700">· aucun badge</span>':'')+'</div></div>';
     jour.forEach(function(e){
       var hors=e.remplace||e.annule;
       var ent=e.type==='entree';
@@ -6945,10 +7036,16 @@ async function ficheLoadPt(){
       }
       h+='</div>';
     });
+    // Heure proposée pour l'ajout : fin du créneau prévu pour une sortie, début pour une entrée, sinon midi.
+    var cr=J&&J.creneaux.length?J.creneaux[typeAjout==='sortie'?J.creneaux.length-1:0]:null;
+    var heureAjout=cr?(typeAjout==='sortie'?cr.fin:cr.debut):new Date(j+'T12:00:00');
+    ptAjoutHeures[j]=heureAjout;
+    h+='<div style="margin-top:4px"><button class="pj-btn" style="min-height:32px;padding:4px 10px;font-size:12px" onclick="ptOuvrirCorrection('+empId+',\''+typeAjout+'\',ptAjoutHeures[\''+j+'\'],\'Ajouter un pointage\')">+ Ajouter '+(typeAjout==='sortie'?'la sortie':'une entrée')+'</button></div>';
   });
   h+='<div style="margin-top:12px"><button class="pj-btn" onclick="ptOuvrirCorrection('+empId+',\'entree\',new Date(),\'Ajouter un pointage\')">+ Ajouter un pointage</button></div>';
   body.innerHTML=h;
 }
+var ptAjoutHeures={};
 
 function absFicheEdit(){
   var id=parseInt(document.getElementById('absfiche-edit').getAttribute('data-id'));
