@@ -1791,6 +1791,17 @@ function calcW(entries){
   return RG.minutesTravaillees(entries);
 }
 
+// 09/11/2026 : salarié à afficher dans un récap de période [ds, de] : présent au moins un jour de la période.
+// Archivé (sorti) : affiché si son dernier jour (date_fin) est dans la période ou après ; pas encore entré : masqué.
+function empPresentSurPeriode(em,ds,de){
+  if(em.archive){if(!em.date_fin||em.date_fin<ds)return false;}
+  else if(em.actif===false)return false;
+  if(em.date_debut&&em.date_debut>de)return false;
+  return true;
+}
+function empSortieTag(em,de){
+  return (em.archive&&em.date_fin&&em.date_fin<=de)?' <span class="bg" style="background:#F3F4F6;color:#4B5563">sorti le '+new Date(em.date_fin+'T12:00:00').toLocaleDateString('fr-FR')+'</span>':'';
+}
 function empActifNow(em){
   if(em.archive){
     if(!em.date_fin)return false;
@@ -3672,7 +3683,8 @@ async function drhGenerateData(){
   var to=document.getElementById('drh-to').value;
   var resto=document.getElementById('drh-resto').value;
   if(!from||!to){alert('S\u00e9lectionnez la p\u00e9riode');return null;}
-  var les=emps.filter(function(e){return (resto==='all'||e.restaurant_id===resto||e.multi_site);});
+  // 09/11/2026 : seulement les salariés présents sur la période (un salarié sorti avant n'apparaît plus, même à 0 h).
+  var les=emps.filter(function(e){return empPresentSurPeriode(e,from,to)&&(resto==='all'||e.restaurant_id===resto||e.multi_site);});
   var empIdsDrh=les.map(function(e){return e.id;});
   // Journées métier (7h → 7h, heure locale) : les sorties après minuit du dernier jour sont incluses.
   var pbDrh=RG.bizPeriodeBornes(from,to);
@@ -5719,7 +5731,8 @@ async function loadRc(){
   if(period==='semaines'){await loadRcSemaines(resto);return;}
   if(period==='compteur'){await loadRcCompteur(resto);return;}
   var dr=getDR(period,'rcp');
-  var les=emps.filter(function(e){return e.actif&&(resto==='all'||e.restaurant_id===resto);});
+  // 09/11/2026 : salariés présents sur la période (sortis pendant la période compris, sortis avant exclus).
+  var les=emps.filter(function(e){return empPresentSurPeriode(e,dr.ds,dr.de)&&(resto==='all'||e.restaurant_id===resto);});
   // Dates du planning = dr.ds / dr.de (avant : dr.s.slice(0,10), date UTC qui ajoutait la veille au « prévu »).
   var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',dr.s).lt('timestamp',dr.e).order('id');});
   var pld=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',dr.ds).lte('date',dr.de).order('id');});
@@ -5727,7 +5740,7 @@ async function loadRc(){
   var h='';
   les.forEach(function(em){
     var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
-    var epl=(pld.data||[]).filter(function(p){return p.employee_id===em.id;});
+    var epl=(pld.data||[]).filter(function(p){return p.employee_id===em.id&&!(em.archive&&em.date_fin&&p.date>em.date_fin);});
     var ea=(abd.data||[]).filter(function(a){return a.employee_id===em.id;});
     var w=calcW(ep);
     var pl=epl.reduce(function(s,p){
@@ -5740,7 +5753,7 @@ async function loadRc(){
     var ats=[];ea.forEach(function(a){if(ats.indexOf(a.type)<0)ats.push(a.type);});
     h+='<div class="card"><div style="display:flex;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:var(--bx);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+em.prenom[0]+'</div>';
     h+='<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+em.id+')">'+em.prenom+' '+em.nom+'</div>';
-    h+='<div style="margin-top:2px"><span class="bg '+em.restaurant_id+'">'+rl+'</span></div>';
+    h+='<div style="margin-top:2px"><span class="bg '+em.restaurant_id+'">'+rl+'</span>'+empSortieTag(em,dr.de)+'</div>';
     h+='<div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">';
     h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Prévu</div><div style="font-size:18px;font-weight:700;color:var(--txm)">'+toHM(pl)+'</div></div>';
     h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Réel</div><div style="font-size:18px;font-weight:700;color:var(--bx)">'+toHM(w)+'</div></div>';
@@ -5781,7 +5794,7 @@ async function loadRcSemaines(resto){
   var semaines=[];
   for(var l=new Date(lundi);l<=dernier;l=planAddD(l,7)){semaines.push(ptJoursEntre(planDs(l),planDs(planAddD(l,6))));}
   var debut=semaines[0][0],fin=semaines[semaines.length-1][6];
-  var les=emps.filter(function(e){return empActifNow(e)&&(resto==='all'||e.restaurant_id===resto);});
+  var les=emps.filter(function(e){return empPresentSurPeriode(e,planDs(premier),planDs(dernier))&&(resto==='all'||e.restaurant_id===resto);});
   if(!les.length){box.innerHTML='<div class="card" style="text-align:center;color:#aaa">Aucun salarié</div>';return;}
   var d=await ptChargerDonnees(les.map(function(e){return e.id;}),debut,fin<auj?fin:auj);
   if(d.erreur){box.innerHTML='<div class="card" style="color:#8E1A20">Erreur de lecture : '+esc(d.erreur.message||'')+'</div>';return;}
