@@ -430,8 +430,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
       <!-- Sous-onglet Acomptes -->
       <div id="ab-pane-aco" style="display:none">
         <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--txm)">Demandes d'avance sur salaire (par virement)</div>
-          <button class="btn bs sm" onclick="toggleAcoArchive()" id="aco-arch-btn">&#128230; Historique</button>
+          <div style="font-size:12px;color:var(--txm)">Avances sur salaire : demandes des salari&#233;s et acomptes saisis ici</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn bs sm" onclick="toggleAcoArchive()" id="aco-arch-btn">&#128230; Historique</button>
+            <button class="btn bp sm" onclick="acoNouveau()">+ Acompte</button>
+          </div>
         </div>
         <div id="aco-body"><div style="text-align:center;color:#aaa;padding:20px">Chargement...</div></div>
       </div>
@@ -2227,8 +2230,8 @@ async function loadAco(){
     h+='<div class="card" style="margin-bottom:8px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:start">';
     h+='<div style="flex:1"><div style="font-weight:600;font-size:14px;color:var(--bx);cursor:pointer;text-decoration:underline" onclick="openAbsEmpFiche('+a.employee_id+')">'+nom+'</div>';
-    h+='<div style="font-size:13px;margin-top:3px"><b>'+a.montant+' \u20ac</b> par virement</div>';
-    h+='<div style="font-size:11px;color:var(--txm)">Souhait\u00e9 le '+a.date_souhaitee+'</div>';
+    h+='<div style="font-size:13px;margin-top:3px"><b>'+a.montant+' \u20ac</b> \u2022 '+esc(acoMoyenLib(a.moyen))+'</div>';
+    h+='<div style="font-size:11px;color:var(--txm)">'+(a.statut==='att'?'Souhait\u00e9 le ':'Date : ')+a.date_souhaitee+'</div>';
     if(a.note_admin&&a.statut==='att')h+='<div style="font-size:11px;color:var(--txm);margin-top:2px;font-style:italic">Message salari\u00e9: \u00ab '+a.note_admin+' \u00bb</div>';
     if(a.montant_accorde&&a.montant_accorde!==a.montant)h+='<div style="font-size:12px;color:#065F46;margin-top:2px;font-weight:600">Montant accord\u00e9: '+a.montant_accorde+' \u20ac</div>';
     if(a.note_admin&&a.statut!=='att')h+='<div style="font-size:11px;color:var(--tx);margin-top:4px;background:var(--bd);padding:5px 8px;border-radius:6px"><b>Observation:</b> '+a.note_admin+'</div>';
@@ -2255,6 +2258,70 @@ async function loadAco(){
   updateAcoBadge();
 }
 
+
+// ── Saisie directe d'un acompte (09/11/2026) ──
+var ACO_MOYENS={virement:'Virement',especes:'Espèces',cheque:'Chèque'};
+function acoMoyenLib(m){return ACO_MOYENS[m]||(m?String(m):'Virement');}
+var acoNouveauImg=null;
+function acoNouveau(empId){
+  var sel=document.getElementById('aconew-emp');
+  var auj=RG.bizDateKey();
+  // Salariés en poste + sortis depuis moins de 45 jours (dernier acompte à saisir après un départ).
+  var depuis=planDs(planAddD(new Date(auj+'T12:00:00'),-45));
+  var liste=emps.filter(function(e){return empPresentSurPeriode(e,depuis,auj);})
+    .sort(function(a,b){return (a.prenom+' '+a.nom).localeCompare(b.prenom+' '+b.nom);});
+  sel.innerHTML='<option value="">— Choisir —</option>'+liste.map(function(e){
+    return '<option value="'+e.id+'">'+esc(e.prenom+' '+e.nom)+' ('+esc(rctRestoLabel(e.restaurant_id))+')'+(e.archive?' — sorti':'')+'</option>';}).join('');
+  sel.value=empId?String(empId):'';
+  document.getElementById('aconew-montant').value='';
+  document.getElementById('aconew-date').value=auj;
+  document.getElementById('aconew-moyen').value='virement';
+  document.getElementById('aconew-note').value='';
+  document.getElementById('aconew-file').value='';
+  document.getElementById('aconew-preview').innerHTML='';
+  document.getElementById('aconew-file-lbl').innerHTML='\u{1F4F7} Joindre une image (capture, reçu)';
+  acoNouveauImg=null;
+  openM('modal-aco-new');
+}
+function acoNouveauFichier(input){
+  var f=input.files&&input.files[0];if(!f)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    acoNouveauImg=e.target.result;
+    document.getElementById('aconew-preview').innerHTML='<img src="'+acoNouveauImg+'" style="max-width:100%;max-height:200px;border-radius:8px">';
+    document.getElementById('aconew-file-lbl').innerHTML='\u{1F504} Remplacer l\u0027image';
+  };
+  reader.readAsDataURL(f);
+}
+async function acoNouveauEnregistrer(){
+  var eid=parseInt(document.getElementById('aconew-emp').value,10);
+  var montant=parseFloat(String(document.getElementById('aconew-montant').value).replace(',','.'));
+  var date=document.getElementById('aconew-date').value;
+  var moyen=document.getElementById('aconew-moyen').value;
+  var note=document.getElementById('aconew-note').value.trim();
+  if(!eid){alert('Choisissez le salarié.');return;}
+  if(!montant||montant<=0){alert('Indiquez un montant valide.');return;}
+  if(!date){alert('Indiquez la date de versement.');return;}
+  var btn=document.getElementById('aconew-save');btn.disabled=true;
+  try{
+    var ligne={employee_id:eid,montant:montant,montant_accorde:montant,date_souhaitee:date,
+      moyen:moyen,statut:'ok',note_admin:note||null,justif_b64:acoNouveauImg||null};
+    var r=await db.from('demandes_acompte').insert(ligne);
+    // La colonne « moyen » n'a jamais reçu que « virement » (tablette) : si la base refuse une autre valeur,
+    // on enregistre « virement » et le vrai moyen en tête de l'observation, plutôt que de perdre la saisie.
+    if(r.error&&moyen!=='virement'){
+      ligne.moyen='virement';ligne.note_admin=acoMoyenLib(moyen)+(note?' — '+note:'');
+      r=await db.from('demandes_acompte').insert(ligne);
+    }
+    if(r.error){alert('Erreur : '+r.error.message);return;}
+  }finally{btn.disabled=false;}
+  closeM('modal-aco-new');acoNouveauImg=null;
+  if(document.getElementById('ab-pane-aco')&&document.getElementById('ab-pane-aco').style.display!=='none')loadAco();
+  if(document.getElementById('modal-absfiche').classList.contains('op')&&ficheOnglet==='dem')ficheLoadDem();
+  var rcRecap=document.getElementById('rc-pane-recap');
+  if(rcRecap&&rcRecap.style.display!=='none'&&document.getElementById('rc').style.display!=='none')loadRc();
+  RG.toutesLignes(function(){return db.from('demandes_acompte').select('*').order('id');}).then(function(r){acoAllData=r.data||[];updateAcoBadge();});
+}
 
 async function acoDelete(id){
   var a=acoAllData.find(function(x){return x.id===id;});
@@ -3697,6 +3764,7 @@ async function drhGenerateData(){
   var abd=await db.from('absences').select(ABS_COLONNES).gte('date_fin',from).lte('date_debut',to);
   var crd=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh).order('id');});
   var apd=await RG.toutesLignes(function(){return db.from('absences_planning').select('*').gte('date',from).lte('date',to).in('employee_id',empIdsDrh).order('employee_id').order('date');});
+  var acoDrh=await rcAcomptesPeriode(from,to); // 09/11/2026 : acomptes accordés, dans l'export paie
   var result=[];
   les.forEach(function(em){
     var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
@@ -3745,7 +3813,7 @@ async function drhGenerateData(){
         rows.push({date:dstr,shifts:shifts,totalMins:totalMins,repas:repas,absence:absLabel,coupure:shifts.length>1});
       }
     });
-    result.push({em:em,rows:rows});
+    result.push({em:em,rows:rows,acomptes:acoDrh.filter(function(a){return a.employee_id===em.id;})});
   });
   // Grouper par restaurant (ordre de Réglages > Établissements). Les multisite vont dans un groupe séparé.
   var groups={ordre:[],parResto:{},multi:[]};
@@ -3888,7 +3956,7 @@ async function ficheExportExcel(){
     aoa.push(['ACOMPTES VERS\u00c9S']);
     aoa.push(['Date','Moyen','Montant','Observation']);
     var acoTot=0;
-    acos.forEach(function(a){var mt=parseFloat(a.montant_accorde||a.montant)||0;acoTot+=mt;aoa.push([a.date_souhaitee,'Virement',mt.toFixed(2)+' EUR',a.note_admin||'']);});
+    acos.forEach(function(a){var mt=parseFloat(a.montant_accorde||a.montant)||0;acoTot+=mt;aoa.push([a.date_souhaitee,acoMoyenLib(a.moyen),mt.toFixed(2)+' EUR',a.note_admin||'']);});
     aoa.push(['','Total',acoTot.toFixed(2)+' EUR','']);
   }
   var ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -3950,7 +4018,7 @@ async function ficheExportPDF(){
       var mt=parseFloat(a.montant_accorde||a.montant)||0;acoTot+=mt;
       doc.setDrawColor(225,210,195);doc.line(MG,y,PW-MG,y);
       doc.text(a.date_souhaitee,MG+1.5,y+4);
-      doc.text('Virement',MG+50,y+4);
+      doc.text(acoMoyenLib(a.moyen),MG+50,y+4);
       doc.text(mt.toFixed(2)+' EUR',MG+90,y+4);
       if(a.note_admin){var nt=a.note_admin.length>45?a.note_admin.slice(0,45)+'...':a.note_admin;doc.setFontSize(6.5);doc.setTextColor(120,74,53);doc.text(nt,MG+120,y+4);doc.setFontSize(8);doc.setTextColor(40,10,11);}
       y+=5.5;
@@ -4014,6 +4082,14 @@ async function drhExportExcel(){
     aoa.push(['','','','','TOTAL SEMAINE',fmtHM(weekTotMins),weekRepas+' repas',weekCp+' j CP']);
     aoa.push([]);
     aoa.push(['','','','','TOTAL MOIS',fmtHM(monthTotMins),monthRepas+' repas',monthCp+' j CP']);
+    if(emData.acomptes&&emData.acomptes.length){
+      aoa.push([]);
+      aoa.push(['ACOMPTES VERS\u00c9S SUR LA P\u00c9RIODE']);
+      aoa.push(['Date','','Moyen','','Montant (\u20ac)','Observation']);
+      var acoTotX=0;
+      emData.acomptes.forEach(function(a){var mt=acoMontant(a);acoTotX+=mt;aoa.push([a.date_souhaitee,'',acoMoyenLib(a.moyen),'',mt,a.note_admin||'']);});
+      aoa.push(['','','','TOTAL ACOMPTES',acoTotX]);
+    }
     var ws=XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols']=[{wch:12},{wch:6},{wch:9},{wch:9},{wch:14},{wch:9},{wch:8},{wch:20}];
     var sheetName=(prefix+' '+em.prenom+' '+em.nom).slice(0,31).replace(/[\\\/\?\*\[\]:]/g,'');
@@ -4123,6 +4199,30 @@ async function drhExportPDF(){
     doc.text(fmtHM(monthTotMins),MG+50,y+5.3);
     doc.text(monthRepas+' repas',MG+90,y+5.3);
     if(monthCp>0)doc.text(monthCp+' jours CP',MG+120,y+5.3);
+    y+=12;
+    // 09/11/2026 : acomptes accordés sur la période
+    var acosP=emData.acomptes||[];
+    if(acosP.length){
+      if(y>PH-20-acosP.length*5.5){doc.addPage();y=20;}
+      doc.setFillColor(185,30,38);doc.rect(MG,y,PW-MG*2,7,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
+      doc.text('ACOMPTES VERS\u00c9S SUR LA P\u00c9RIODE',MG+1.5,y+4.8);
+      y+=7;
+      doc.setTextColor(40,10,11);doc.setFontSize(8);doc.setFont('helvetica','normal');
+      var acoTotP=0;
+      acosP.forEach(function(a){
+        var mt=acoMontant(a);acoTotP+=mt;
+        doc.setDrawColor(225,210,195);doc.line(MG,y,PW-MG,y);
+        doc.text(a.date_souhaitee,MG+1.5,y+4);
+        doc.text(acoMoyenLib(a.moyen),MG+50,y+4);
+        doc.text(mt.toFixed(2)+' EUR',MG+90,y+4);
+        if(a.note_admin){var nt=a.note_admin.length>45?a.note_admin.slice(0,45)+'...':a.note_admin;doc.setFontSize(6.5);doc.setTextColor(120,74,53);doc.text(nt,MG+120,y+4);doc.setFontSize(8);doc.setTextColor(40,10,11);}
+        y+=5.5;
+      });
+      doc.setFillColor(245,235,220);doc.rect(MG,y,PW-MG*2,6,'F');
+      doc.setFont('helvetica','bold');doc.setTextColor(185,30,38);
+      doc.text('Total acomptes',MG+1.5,y+4);doc.text(acoTotP.toFixed(2)+' EUR',MG+90,y+4);
+    }
   }
 
   // Justificatifs d'un salarié, regroupés (4 par page)
@@ -5742,6 +5842,7 @@ async function loadRc(){
   var pd=await RG.toutesLignes(function(){return db.from('time_entries').select('*').gte('timestamp',dr.s).lt('timestamp',dr.e).order('id');});
   var pld=await RG.toutesLignes(function(){return db.from('planning_creneaux').select('*').gte('date',dr.ds).lte('date',dr.de).order('id');});
   var abd=await db.from('absences').select(ABS_COLONNES).gte('date_fin',dr.ds).lte('date_debut',dr.de);
+  var acoRc=await rcAcomptesPeriode(dr.ds,dr.de);
   var h='';
   les.forEach(function(em){
     var ep=(pd.data||[]).filter(function(p){return p.employee_id===em.id;});
@@ -5765,6 +5866,11 @@ async function loadRc(){
     h+='<div><div style="font-size:10px;color:var(--txm);font-weight:700;text-transform:uppercase">Diff</div><div style="font-size:18px;font-weight:700;color:'+dc+'">'+(diff>=0?'+':'')+toHM(diff)+'</div></div>';
     h+='</div>';
     if(sa)h+='<div style="margin-top:7px"><span class="bg sup al2">⚠ +3h sup détectées</span></div>';
+    var acoEm=acoRc.filter(function(a){return a.employee_id===em.id;});
+    if(acoEm.length){
+      var acoTotEm=acoEm.reduce(function(t,a){return t+acoMontant(a);},0);
+      h+='<div style="margin-top:7px;font-size:12px;color:#92400E"><b>\u{1F4B0} Acompte'+(acoEm.length>1?'s':'')+' : '+acoFmt(acoTotEm)+'</b> <span style="color:var(--txm)">('+acoEm.map(function(a){return new Date(a.date_souhaitee+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' '+acoFmt(acoMontant(a));}).join(', ')+')</span></div>';
+    }
     // 09/11/2026 : correction directe des badges de la période affichée (fiche salarié › Badges, mêmes dates).
     h+='<div style="margin-top:8px"><button class="btn bs sm" onclick="ficheOuvrirBadges('+em.id+',\''+dr.ds+'\',\''+dr.de+'\')">&#9998; Voir et corriger les badges</button></div>';
     if(ats.length){h+='<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">';ats.forEach(function(t){h+='<span class="bg" style="'+motifStyle(t)+'">'+esc(getMotifCourt(t))+'</span>';});h+='</div>';}
@@ -5773,8 +5879,9 @@ async function loadRc(){
   var libP='Du '+new Date(dr.ds+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+' au '+new Date(dr.de+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   if(h)h='<div class="pj-sub" style="margin-bottom:8px;font-weight:700">'+esc(libP)+'</div>'+h;
   document.getElementById('rcb').innerHTML=h||'<div class="card" style="text-align:center;color:#aaa">Aucune donnée</div>';
-  // Acomptes validés sur la période
-  loadRcAcomptes(dr);
+  // Acomptes validés sur la période (salariés affichés seulement)
+  var idsRc={};les.forEach(function(e){idsRc[e.id]=true;});
+  loadRcAcomptes(dr,acoRc.filter(function(a){return idsRc[a.employee_id];}));
   fillRcArchiveSelect();
 }
 
@@ -5974,13 +6081,19 @@ function rcOpenArchiveFiche(){
   openAbsEmpFiche(id);
 }
 
-async function loadRcAcomptes(dr){
-  var r=await db.from('demandes_acompte').select('*').eq('statut','ok').gte('date_souhaitee',dr.s.slice(0,10)).lte('date_souhaitee',dr.e.slice(0,10)).order('date_souhaitee');
-  var acos=r.data||[];
+// 09/11/2026 : acomptes accordés d'une période, par dates de journée (avant : dates UTC, qui débordaient d'un jour).
+async function rcAcomptesPeriode(ds,de){
+  var r=await RG.toutesLignes(function(){return db.from('demandes_acompte').select('*').eq('statut','ok').gte('date_souhaitee',ds).lte('date_souhaitee',de).order('date_souhaitee').order('id');});
+  return r.data||[];
+}
+function acoMontant(a){return parseFloat(a.montant_accorde||a.montant)||0;}
+function acoFmt(n){return (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:2})+' \u20ac';}
+async function loadRcAcomptes(dr,liste){
+  var acos=liste||await rcAcomptesPeriode(dr.ds,dr.de);
   var existing=document.getElementById('rc-acomptes');
   if(existing)existing.remove();
   if(!acos.length)return;
-  var total=acos.reduce(function(s,a){return s+(parseFloat(a.montant_accorde||a.montant)||0);},0);
+  var total=acos.reduce(function(s,a){return s+acoMontant(a);},0);
   var h='<div id="rc-acomptes" class="card" style="margin-top:10px"><div class="sec-title">\u{1F4B0} Acomptes accord\u00e9s sur la p\u00e9riode</div>';
   acos.forEach(function(a){
     var em=emp(a.employee_id);var nom=em?em.prenom+' '+em.nom:'?';
@@ -6766,7 +6879,7 @@ async function ficheLoadDem(){
     });
   }
   // Demandes d'acompte
-  h+='<div style="font-size:12px;font-weight:700;color:#92400E;margin:14px 0 8px">\u{1F4B0} Acomptes demand\u00e9s</div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px"><div style="font-size:12px;font-weight:700;color:#92400E">\u{1F4B0} Acomptes</div><button class="btn bp sm" onclick="acoNouveau('+ficheCurEmp+')">+ Acompte</button></div>';
   if(!daco.length){h+='<div style="color:#aaa;font-size:12px;padding:4px 0">Aucune demande d\u0027acompte</div>';}
   else{
     daco.forEach(function(d){
@@ -15277,6 +15390,27 @@ async function majAccueil(){
       </select>
     </div>
     <div class="ma"><button class="btn bs" onclick="closeM('modal-pabs')">Annuler</button><button class="btn bp" onclick="planAbsSave()">Valider</button></div>
+  </div>
+</div>
+
+<!-- 09/11/2026 : saisie directe d'un acompte par l'admin (comme une absence), enregistré comme accordé. -->
+<div class="mb" id="modal-aco-new">
+  <div class="md">
+    <div class="mdt">Saisir un acompte</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:10px">Acompte d&#233;j&#224; accord&#233; ou vers&#233; : il est enregistr&#233; comme accord&#233; et appara&#238;t dans le r&#233;cap Heures &amp; paie et l'export paie du mois de la date indiqu&#233;e.</div>
+    <div class="fr"><label class="fl2">Salari&#233;</label><select class="fi" id="aconew-emp"></select></div>
+    <div class="fr"><label class="fl2">Montant (&#8364;)</label><input type="number" class="fi" id="aconew-montant" step="10" min="0" inputmode="decimal"></div>
+    <div class="fr"><label class="fl2">Date de versement</label><input type="date" class="fi" id="aconew-date"></div>
+    <div class="fr"><label class="fl2">Moyen</label><select class="fi" id="aconew-moyen"><option value="virement">Virement</option><option value="especes">Esp&#232;ces</option><option value="cheque">Ch&#232;que</option></select></div>
+    <div class="fr"><label class="fl2">Observation (facultatif)</label><input type="text" class="fi" id="aconew-note" placeholder="Ex : demand&#233; par SMS le 12/10"></div>
+    <div class="fr"><label class="fl2">Justificatif (facultatif)</label>
+      <label style="display:block;background:var(--bd);border:1px dashed var(--txf);border-radius:8px;padding:10px;text-align:center;cursor:pointer;color:var(--txm);font-size:12px">
+        <span id="aconew-file-lbl">&#128247; Joindre une image (capture, re&#231;u)</span>
+        <input type="file" id="aconew-file" accept="image/*" style="display:none" onchange="acoNouveauFichier(this)">
+      </label>
+      <div id="aconew-preview" style="margin-top:8px;text-align:center"></div>
+    </div>
+    <div class="ma"><button class="btn bs" onclick="closeM('modal-aco-new')">Annuler</button><button class="btn bp" id="aconew-save" onclick="acoNouveauEnregistrer()">Enregistrer</button></div>
   </div>
 </div>
 
