@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Administration</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-29a"></script>
+<script src="restoglobal-commun.js?v=2026-11-16a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -8468,7 +8468,7 @@ async function loadLaboModule(){
   maybeShowLaboPopup();
 }
 function maybeShowLaboPopup(){
-  if(!laboCommandesCache.length)return;
+  if(!laboCommandesARester().length)return;
   if(sessionStorage.getItem('labo_popup_shown')==='1')return;
   sessionStorage.setItem('labo_popup_shown','1');
   openLaboPopup();
@@ -8483,76 +8483,96 @@ function closeLaboPopup(){
   var ov=document.getElementById('labo-popup-overlay');
   if(ov)ov.style.display='none';
 }
-function laboCommandesHtml(compact){
-  if(!laboCommandesCache.length)return '<div style="color:var(--txm);">Aucune commande en attente.</div>';
-  return laboCommandesCache.map(function(c){
-    var lignesHtml=(c.lignes||[]).map(function(l){
-      return '<div style="padding:2px 0;">• '+esc(l.produit_nom||l.produit_code)+' — '+(l.quantite_couverte||0)+'/'+l.quantite_demandee+'</div>';
-    }).join('');
-    return '<div style="padding:8px 0;border-bottom:1px solid var(--bd);">'
-      +'<div style="font-weight:700;">Commande #'+c.numero+' — '+esc(laboNomResto(c.restaurant_id))+'</div>'
-      +lignesHtml
-      +'</div>';
+// 16/11/2026 : même présentation que la tablette du Labo — PAR JOUR (le plus récent en haut, à dérouler),
+// un gros bandeau de couleur par restaurant demandeur, seuls les produits qui restent à expédier détaillés.
+var laboJoursOuverts={};
+function laboToggleJour(key,ouvert){laboJoursOuverts[key]=!!ouvert;}
+function laboLignesARester(c){
+  var sel=laboPrepSelections[c.id]||{};
+  return (c.lignes||[]).filter(function(l){return RG.resteLigneLabo(l)>0||(sel[l.id]&&sel[l.id].length);});
+}
+function laboCommandesARester(){return laboCommandesCache.filter(function(c){return laboLignesARester(c).length>0;});}
+function laboJoursHtml(compact){
+  var commandes=laboCommandesARester();
+  if(!commandes.length)return '<div style="color:var(--txm);">Rien à expédier pour le moment.</div>';
+  var catByCode={};
+  laboIngredientsCache.forEach(function(i){catByCode[i.code]=i.categorie||'Autre';});
+  return RG.grouperCommandesLaboParJour(commandes).map(function(j,idx){
+    var ouvert=compact?true:((j.key in laboJoursOuverts)?laboJoursOuverts[j.key]:(idx===0));
+    var nbParResto={};
+    j.commandes.forEach(function(c){nbParResto[c.restaurant_id]=(nbParResto[c.restaurant_id]||0)+(c.lignes||[]).filter(function(l){return RG.resteLigneLabo(l)>0;}).length;});
+    var pastilles=Object.keys(nbParResto).map(function(r){return RG.pastilleRestoHtml(r,nbParResto[r]+' produit'+(nbParResto[r]>1?'s':''));}).join('');
+    var cartes=j.commandes.map(function(c){return compact?laboCarteCompacteHtml(c):laboCarteCommandeHtml(c,catByCode);}).join('');
+    return '<details style="border:1px solid var(--bd);border-radius:10px;margin-bottom:10px;background:#FFFCF7;"'+(ouvert?' open':'')+(compact?'':' ontoggle="laboToggleJour(\''+j.key+'\',this.open)"')+'>'
+      +'<summary style="cursor:pointer;padding:10px 12px;"><span style="font-weight:800;font-size:14px;">📅 '+esc(RG.libelleJourMetier(j.key))+'</span><div style="margin-top:4px;">'+pastilles+'</div></summary>'
+      +'<div style="padding:0 10px 4px;">'+cartes+'</div>'
+      +'</details>';
   }).join('');
 }
+function laboCarteCompacteHtml(c){
+  var lignes=(c.lignes||[]).filter(function(l){return RG.resteLigneLabo(l)>0;});
+  return RG.bandeauRestoHtml(c.restaurant_id,lignes.length+' produit'+(lignes.length>1?'s':'')+' à expédier',true)
+    +lignes.map(function(l){
+      var u=laboUniteByRestoCode[c.restaurant_id+'|'+l.produit_code]||'piece';
+      return '<div style="padding:2px 0 2px 4px;">• '+esc(l.produit_nom||l.produit_code)+' — reste '+esc(RG.libelleQuantite(RG.resteLigneLabo(l),u))+'</div>';
+    }).join('')+'<div style="height:8px;"></div>';
+}
+function laboCommandesHtml(compact){return laboJoursHtml(true);}
 function renderLaboPrepList(){
   var el=document.getElementById('labo-prep-list');
   if(!el)return;
-  if(!laboCommandesCache.length){
-    el.innerHTML='<div style="color:var(--txm);">Aucune commande en attente de préparation.</div>';
-    return;
-  }
-  // Catégorie de chaque produit (via le catalogue ingrédients global), pour regrouper l'affichage — sinon
-  // les lignes restent dans l'ordre brut de la base, illisible dès que plusieurs familles se mélangent.
-  var catByCode={};
-  laboIngredientsCache.forEach(function(i){catByCode[i.code]=i.categorie||'Autre';});
-  el.innerHTML=laboCommandesCache.map(function(c){
-    if(!laboPrepSelections[c.id])laboPrepSelections[c.id]={};
-    var lignesByCat={};
-    (c.lignes||[]).forEach(function(l){
-      var cat=catByCode[l.produit_code]||'Autre';
-      (lignesByCat[cat]=lignesByCat[cat]||[]).push(l);
-    });
-    var catNames=Object.keys(lignesByCat).sort(function(a,b){return a.localeCompare(b,'fr');});
-    var lignesHtml=catNames.map(function(cat){
-      var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
-        // Unité de la demande (unité de comptage du restaurant demandeur) : un lot compte pour son poids si la
-        // demande est en kg/g/L…, sinon pour 1 (RG.valeurLotDansUnite).
-        var u=laboUniteByRestoCode[c.restaurant_id+'|'+l.produit_code]||'piece';
-        var candidats=laboLotsCache.filter(function(lot){return lot.statut==='en_stock'&&lot.produit_code===l.produit_code;});
-        // Identifiants comparés en TEXTE : la case cochée est mémorisée en texte (onchange), alors qu'un id de lot
-        // peut être un nombre — avant, la case se décochait aussitôt après le clic.
-        var selected=(laboPrepSelections[c.id][l.id]||[]).map(String);
-        var coche=0;candidats.forEach(function(lot){if(selected.indexOf(String(lot.id))>=0)coche+=RG.valeurLotDansUnite(lot.poids_reel_g,u);});
-        var restant=RG.arrondiQte(l.quantite_demandee-(l.quantite_couverte||0)-coche);
-        var lotsHtml=candidats.length?candidats.map(function(lot){
-          var checked=selected.indexOf(String(lot.id))>=0?' checked':'';
-          return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;">'
-            +'<input type="checkbox" style="width:20px;height:20px;accent-color:var(--bx);" '+checked+' onchange="toggleLaboLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
-            +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg — créé le '+fmtD(lot.created_at)
-            +'</label>';
-        }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit : pèse-le ci-dessous, il sera coché automatiquement.</div>';
-        // Pesée directement sur la ligne : crée le lot ET le coche (avant, il fallait descendre dans « Nouveau lot »,
-        // choisir le produit dans une longue liste, puis revenir cocher).
-        var peserHtml='<div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;">'
-          +'<input type="number" class="fi" min="0" step="0.001" id="lotpoids-'+l.id+'" placeholder="Poids du lot (kg)" style="width:140px;font-size:12px;" onkeydown="if(event.key===\'Enter\')laboPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">'
-          +'<button type="button" class="btn bs sm" onclick="laboPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">⚖️ Peser et cocher un lot</button>'
-          +'</div>';
-        return '<div style="margin:8px 0;padding:8px;background:#FAF4EC;border-radius:8px;">'
-          +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+RG.libelleQuantite(l.quantite_demandee,u)+', déjà envoyé '+RG.libelleQuantite(l.quantite_couverte||0,u)+(coche?' <span style="color:#1ABC9C;">+ '+RG.libelleQuantite(RG.arrondiQte(coche),u)+' coché</span>':'')+(restant>0?' <span style="color:#C0392B;">(reste '+RG.libelleQuantite(restant,u)+')</span>':' ✓')+'</div>'
-          +lotsHtml
-          +peserHtml
-          +'</div>';
-      }).join('');
-      return '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--bx);margin:10px 0 2px;">'+esc(cat)+'</div>'+lignesCatHtml;
+  el.innerHTML=laboJoursHtml(false);
+}
+function laboCarteCommandeHtml(c,catByCode){
+  if(!laboPrepSelections[c.id])laboPrepSelections[c.id]={};
+  var aExpedier=laboLignesARester(c);
+  var dejaParties=(c.lignes||[]).filter(function(l){return (Number(l.quantite_couverte)||0)>0&&aExpedier.indexOf(l)<0;}).length;
+  var lignesByCat={};
+  aExpedier.forEach(function(l){
+    var cat=catByCode[l.produit_code]||'Autre';
+    (lignesByCat[cat]=lignesByCat[cat]||[]).push(l);
+  });
+  var catNames=Object.keys(lignesByCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+  var lignesHtml=catNames.map(function(cat){
+    var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
+      // Unité de la demande (unité de comptage du restaurant demandeur) : un lot compte pour son poids si la
+      // demande est en kg/g/L…, sinon pour 1 (RG.valeurLotDansUnite).
+      var u=laboUniteByRestoCode[c.restaurant_id+'|'+l.produit_code]||'piece';
+      var candidats=laboLotsCache.filter(function(lot){return lot.statut==='en_stock'&&lot.produit_code===l.produit_code;});
+      // Identifiants comparés en TEXTE : la case cochée est mémorisée en texte (onchange), alors qu'un id de lot
+      // peut être un nombre — avant, la case se décochait aussitôt après le clic.
+      var selected=(laboPrepSelections[c.id][l.id]||[]).map(String);
+      var coche=0;candidats.forEach(function(lot){if(selected.indexOf(String(lot.id))>=0)coche+=RG.valeurLotDansUnite(lot.poids_reel_g,u);});
+      var restant=RG.arrondiQte(l.quantite_demandee-(l.quantite_couverte||0)-coche);
+      var lotsHtml=candidats.length?candidats.map(function(lot){
+        var checked=selected.indexOf(String(lot.id))>=0?' checked':'';
+        return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;">'
+          +'<input type="checkbox" style="width:20px;height:20px;accent-color:var(--bx);" '+checked+' onchange="toggleLaboLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
+          +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg — créé le '+fmtD(lot.created_at)
+          +'</label>';
+      }).join(''):'<div style="font-size:11px;color:var(--txm);">Aucun lot en stock pour ce produit : pèse-le ci-dessous, il sera coché automatiquement.</div>';
+      // Pesée directement sur la ligne : crée le lot ET le coche.
+      var peserHtml='<div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;">'
+        +'<input type="number" class="fi" min="0" step="0.001" id="lotpoids-'+l.id+'" placeholder="Poids du lot (kg)" style="width:140px;font-size:12px;" onkeydown="if(event.key===\'Enter\')laboPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">'
+        +'<button type="button" class="btn bs sm" onclick="laboPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">⚖️ Peser et cocher un lot</button>'
+        +'</div>';
+      var dejaEnvoye=(Number(l.quantite_couverte)||0)>0?(', déjà envoyé '+RG.libelleQuantite(l.quantite_couverte,u)):'';
+      return '<div style="margin:8px 0;padding:8px;background:#FAF4EC;border-radius:8px;">'
+        +'<div style="font-weight:600;font-size:13px;">'+esc(l.produit_nom||l.produit_code)+' — demandé '+RG.libelleQuantite(l.quantite_demandee,u)+dejaEnvoye+(coche?' <span style="color:#1ABC9C;">+ '+RG.libelleQuantite(RG.arrondiQte(coche),u)+' coché</span>':'')+(restant>0?' <span style="color:#C0392B;">(reste '+RG.libelleQuantite(restant,u)+')</span>':' ✓')+'</div>'
+        +lotsHtml
+        +peserHtml
+        +'</div>';
     }).join('');
-    return '<div style="border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:10px;">'
-      +'<div style="font-weight:700;margin-bottom:4px;">Commande #'+c.numero+' — '+esc(laboNomResto(c.restaurant_id))+' <span style="font-weight:400;font-size:11px;color:var(--txm);">('+fmtD(c.created_at)+')</span></div>'
-      +lignesHtml
-      +'<button class="btn bp" style="width:100%;margin-top:6px;" onclick="envoyerLaboCommande(\''+c.id+'\')">📤 Envoyer les lots cochés</button>'
-      +'<button class="btn bs" style="width:100%;margin-top:6px;color:#C0392B;" onclick="annulerLaboCommande(\''+c.id+'\')">✕ Annuler cette commande (cassée / obsolète)</button>'
-      +'</div>';
+    return '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--bx);margin:10px 0 2px;">'+esc(cat)+'</div>'+lignesCatHtml;
   }).join('');
+  var heure=new Date(c.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  var sousTitre='Demandé '+(c.created_by_nom?('par '+esc(c.created_by_nom)+' '):'')+'à '+heure+' · '+aExpedier.length+' produit'+(aExpedier.length>1?'s':'')+' à expédier'+(dejaParties?(' · '+dejaParties+' déjà parti'+(dejaParties>1?'s':'')):'')+' · n°'+esc(c.numero||c.id);
+  return '<div style="border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:10px;background:#fff;">'
+    +RG.bandeauRestoHtml(c.restaurant_id,sousTitre)
+    +lignesHtml
+    +'<button class="btn bp" style="width:100%;margin-top:6px;" onclick="envoyerLaboCommande(\''+c.id+'\')">📤 Envoyer les lots cochés à '+esc(RG.nomResto(c.restaurant_id))+'</button>'
+    +'<button class="btn bs" style="width:100%;margin-top:6px;color:#C0392B;" onclick="annulerLaboCommande(\''+c.id+'\')">✕ Annuler cette commande (cassée / obsolète)</button>'
+    +'</div>';
 }
 async function annulerLaboCommande(commandeId){
   if(!confirm('Annuler cette commande ? Utile pour les commandes cassées créées avant que les produits soient reliés au catalogue Labo. Cette action ne peut pas être annulée.'))return;
@@ -12457,23 +12477,21 @@ async function creerCommandeLaboDepuisBesoins(fournKey){
   g.items.forEach(function(it){(byResto[it.resto]=byResto[it.resto]||[]).push(it);});
   var restos=Object.keys(byResto);
   var restoLabels={};(typeof restosData!=='undefined'?restosData:[]).forEach(function(r){restoLabels[r.id]=r.nom||r.id;});
-  if(!confirm('Créer '+(restos.length>1?(restos.length+' commandes Labo'):'la commande Labo')+' pour : '+restos.map(function(r){return (restoLabels[r]||r)+' ('+byResto[r].length+' ingrédient(s))';}).join(', ')+' ?\n\nElle apparaîtra dans Admin > Labo et sur la tablette du Labo, prête à préparer.'))return;
+  if(!confirm('Ajouter à la commande Labo du jour de : '+restos.map(function(r){return (restoLabels[r]||r)+' ('+byResto[r].length+' ingrédient(s))';}).join(', ')+' ?\n\nElle apparaîtra dans Admin > Labo et sur la tablette du Labo, sous la date d\'aujourd\'hui.'))return;
   try{
     var creePar=await laboCurrentUserNom();
-    var numeroCommandes=[];
+    var restosFaits=[];
     for(var i=0;i<restos.length;i++){
       var resto=restos[i];
-      var cmd=sbCheck(await db.from('labo_commandes').insert({restaurant_id:resto,statut:'en_attente',created_by_nom:creePar}).select().single());
-      var commandeId=cmd.data.id;
-      numeroCommandes.push(cmd.data.numero||commandeId);
-      var rows=byResto[resto].map(function(it){
-        return {commande_id:commandeId,produit_code:it.code,produit_nom:it.nom,restaurant_produit_id:null,quantite_demandee:it.qteACommander||1};
-      });
-      sbCheck(await db.from('labo_commandes_lignes').insert(rows));
-      // Trace permanente (📜 Historique de la tablette), comme pour un envoi automatique au comptage.
-      byResto[resto].forEach(function(it){
-        RG.journal(db,{type:'labo_demande',restaurant_id:resto,ingredient_code:it.code,produit_nom:it.nom,quantite:it.qteACommander||1,detail:'stock '+it.stock+' → demandé '+it.commande+' (depuis l\'admin)',par_nom:creePar,ref_id:commandeId});
-      });
+      // 16/11/2026 : même règle que le comptage sur tablette (RG.ajouterDemandeLabo) — une commande par
+      // restaurant et par jour, et une demande plus ancienne du même produit non expédiée est remplacée.
+      for(var j=0;j<byResto[resto].length;j++){
+        var it=byResto[resto][j];
+        var dem=await RG.ajouterDemandeLabo(db,{restaurant_id:resto,code:it.code,nom:it.nom,qte:it.qteACommander||1,par:creePar});
+        // Trace permanente (📜 Historique de la tablette), comme pour un envoi automatique au comptage.
+        RG.journal(db,{type:'labo_demande',restaurant_id:resto,ingredient_code:it.code,produit_nom:it.nom,quantite:it.qteACommander||1,detail:'stock '+it.stock+' → demandé '+it.commande+' (depuis l\'admin)',par_nom:creePar,ref_id:dem.commandeId});
+      }
+      restosFaits.push(restoLabels[resto]||resto);
     }
     // Comptages inclus marqués « déjà signalés » (comme pour un envoi WhatsApp) : un second clic ne crée plus
     // une commande Labo en double. Un nouveau comptage sous le seuil les fera revenir normalement.
@@ -12482,7 +12500,7 @@ async function creerCommandeLaboDepuisBesoins(fournKey){
       try{sbCheck(await db.from('ingredient_comptages').update({commande_envoyee:true}).in('id',ids));}
       catch(e2){console.error('creerCommandeLaboDepuisBesoins: marquage',e2);alert('Commande créée, mais les comptages n\'ont pas pu être marqués comme envoyés : ne recrée pas la commande. ('+e2.message+')');}
     }
-    alert('✅ Commande(s) Labo créée(s) : #'+numeroCommandes.join(', #')+'.\nÀ retrouver dans Admin > Labo et sur la tablette du Labo.');
+    alert('✅ Demande(s) ajoutée(s) à la commande Labo du jour : '+restosFaits.join(', ')+'.\nÀ retrouver dans Admin > Labo et sur la tablette du Labo.');
     openBesoinsComptageModal();
   }catch(e){
     console.error('creerCommandeLaboDepuisBesoins',e);

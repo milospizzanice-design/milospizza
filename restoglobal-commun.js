@@ -8,7 +8,7 @@
 (function(global){
   'use strict';
   var RG={};
-  RG.VERSION='2026-10-29a';
+  RG.VERSION='2026-11-16a';
 
   // ── Journée « métier » ──────────────────────────────────────────────────────────────────────────────────
   // Une journée de comptage commence à 7h, pas à minuit : un comptage fait à 1h du matin après une fermeture
@@ -1041,6 +1041,221 @@
     }
     if(t.moment)txt+=' — '+RG.nomMomentMenage(t.moment);
     return txt;
+  };
+
+  // ── Commandes Labo (refonte du 16/11/2026) ──────────────────────────────────────────────────────────────
+  // UNE commande par établissement demandeur ET par journée métier. Avant, chaque comptage s'ajoutait à la
+  // plus ancienne commande encore ouverte du restaurant : elle ne se fermait jamais, tout s'empilait sous sa
+  // date de création (19-20/10), et un nouveau besoin pouvait être considéré « déjà couvert » par un envoi
+  // plus ancien du même produit — le Labo ne le voyait jamais.
+  // Le dernier comptage fait foi : le reste non expédié d'une demande plus ancienne pour le même produit est
+  // « remplacé » (quantité demandée ramenée à ce qui a déjà été envoyé) au lieu d'être demandé deux fois.
+  RG.LABO_STATUTS_OUVERTS=['en_attente','partiellement_envoyee'];
+  RG.resteLigneLabo=function(l){
+    return RG.arrondiQte((Number(l&&l.quantite_demandee)||0)-(Number(l&&l.quantite_couverte)||0));
+  };
+  // Statut d'une commande d'après ses lignes : reste à envoyer → en_attente / partiellement_envoyee ;
+  // plus rien à envoyer → envoyee (si quelque chose est parti) ou cloturee (tout a été remplacé).
+  RG.recalculerStatutCommandeLabo=async function(db,commandeId){
+    var r=await db.from('labo_commandes_lignes').select('quantite_demandee,quantite_couverte').eq('commande_id',commandeId);
+    if(r.error)throw r.error;
+    var lignes=r.data||[];
+    var reste=lignes.some(function(l){return RG.resteLigneLabo(l)>0;});
+    var envoye=lignes.some(function(l){return (Number(l.quantite_couverte)||0)>0;});
+    var statut=reste?(envoye?'partiellement_envoyee':'en_attente'):(envoye?'envoyee':'cloturee');
+    var u=await db.from('labo_commandes').update({statut:statut}).eq('id',commandeId);
+    if(u.error)throw u.error;
+    return statut;
+  };
+  async function ajouterDemandeLaboInterne(db,d){
+    var resto=d.restaurant_id,code=d.code,qte=RG.arrondiQte(d.qte);
+    if(!resto||!code||!(qte>0))throw new Error('Demande Labo incomplète (établissement, produit ou quantité manquant).');
+    // 1. Commande du jour de ce restaurant (même déjà expédiée : elle est rouverte), sinon on la crée.
+    var debut=RG.bizJourneeBornes().debut.toISOString();
+    var jr=await db.from('labo_commandes').select('id').eq('restaurant_id',resto).neq('statut','cloturee').gte('created_at',debut).order('created_at',{ascending:false}).limit(1).maybeSingle();
+    if(jr.error)throw jr.error;
+    var commandeId=jr.data?jr.data.id:null,nouvelle=false;
+    if(!commandeId){
+      var ins=await db.from('labo_commandes').insert({restaurant_id:resto,statut:'en_attente',created_by_nom:d.par||null}).select().single();
+      if(ins.error)throw ins.error;
+      commandeId=ins.data.id;nouvelle=true;
+    }
+    // 2. Toutes les lignes de ce produit encore à expédier, dans toutes les commandes ouvertes du restaurant.
+    var ouv=await db.from('labo_commandes').select('id').eq('restaurant_id',resto).in('statut',RG.LABO_STATUTS_OUVERTS);
+    if(ouv.error)throw ouv.error;
+    var ids=(ouv.data||[]).map(function(c){return c.id;});
+    if(!ids.some(function(x){return String(x)===String(commandeId);}))ids.push(commandeId);
+    var lr=await db.from('labo_commandes_lignes').select('id,commande_id,quantite_demandee,quantite_couverte').in('commande_id',ids).eq('produit_code',code);
+    if(lr.error)throw lr.error;
+    var reprise=null,remplacees=[];
+    (lr.data||[]).forEach(function(l){
+      if(!(RG.resteLigneLabo(l)>0))return;
+      // Ligne du jour pas encore entamée : on met simplement sa quantité à jour (recomptage dans la journée).
+      if(!reprise&&String(l.commande_id)===String(commandeId)&&!((Number(l.quantite_couverte)||0)>0))reprise=l;
+      else remplacees.push(l);
+    });
+    for(var i=0;i<remplacees.length;i++){
+      var up=await db.from('labo_commandes_lignes').update({quantite_demandee:RG.arrondiQte(remplacees[i].quantite_couverte)}).eq('id',remplacees[i].id);
+      if(up.error)throw up.error;
+    }
+    if(reprise){
+      if(RG.arrondiQte(reprise.quantite_demandee)!==qte){
+        var ur=await db.from('labo_commandes_lignes').update({quantite_demandee:qte}).eq('id',reprise.id);
+        if(ur.error)throw ur.error;
+      }
+    }else{
+      var il=await db.from('labo_commandes_lignes').insert({commande_id:commandeId,produit_code:code,produit_nom:d.nom||code,restaurant_produit_id:null,quantite_demandee:qte});
+      if(il.error)throw il.error;
+    }
+    // 3. Statuts à jour : la commande du jour (rouverte si elle était expédiée) et les anciennes vidées.
+    var aRecalculer=[commandeId];
+    remplacees.forEach(function(l){if(!aRecalculer.some(function(x){return String(x)===String(l.commande_id);}))aRecalculer.push(l.commande_id);});
+    for(var k=0;k<aRecalculer.length;k++)await RG.recalculerStatutCommandeLabo(db,aRecalculer[k]);
+    return {commandeId:commandeId,nouvelleCommande:nouvelle,remplacees:remplacees.length};
+  }
+  // Les demandes passent l'une après l'autre : plusieurs produits comptés coup sur coup créaient sinon
+  // plusieurs commandes le même jour (chacune croyant être la première).
+  var fileDemandesLabo=Promise.resolve();
+  // d = {restaurant_id, code, nom, qte, par}
+  RG.ajouterDemandeLabo=function(db,d){
+    var p=fileDemandesLabo.then(function(){return ajouterDemandeLaboInterne(db,d);});
+    fileDemandesLabo=p.catch(function(){});
+    return p;
+  };
+  // Regroupe des commandes par journée métier de création, la plus récente d'abord ; dans un jour, par
+  // nom d'établissement.
+  RG.grouperCommandesLaboParJour=function(commandes){
+    var parJour={};
+    (commandes||[]).forEach(function(c){var k=RG.bizDateKey(c.created_at);(parJour[k]=parJour[k]||[]).push(c);});
+    return Object.keys(parJour).sort().reverse().map(function(k){
+      return {key:k,commandes:parJour[k].slice().sort(function(a,b){
+        return RG.nomResto(a.restaurant_id).localeCompare(RG.nomResto(b.restaurant_id),'fr')||String(a.created_at).localeCompare(String(b.created_at));
+      })};
+    });
+  };
+  // « Aujourd'hui — lundi 16 novembre », « Hier — … », sinon « Lundi 16 novembre ».
+  RG.libelleJourMetier=function(key){
+    var auj=RG.bizDateKey();
+    var h=new Date(auj+'T12:00:00');h.setDate(h.getDate()-1);
+    var hier=h.getFullYear()+'-'+pad2(h.getMonth()+1)+'-'+pad2(h.getDate());
+    var long=new Date(key+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    if(key===auj)return 'Aujourd’hui — '+long;
+    if(key===hier)return 'Hier — '+long;
+    return long.charAt(0).toUpperCase()+long.slice(1);
+  };
+  function echapperHtml(s){
+    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  // Couleur franche d'un établissement pour les bandeaux : celle des Réglages ; à défaut, une couleur
+  // distincte par établissement (sinon deux restaurants sans couleur réglée auraient le même gris).
+  var COULEURS_BANDEAU=['#B45309','#1D4ED8','#047857','#7C3AED','#BE123C','#0E7490','#4D7C0F','#9D174D'];
+  RG.couleurBandeauResto=function(id){
+    var r=RG.resto(id);
+    if(r&&/^#?[0-9a-f]{6}$/i.test(String(r.couleur||'').trim())){var c=String(r.couleur).trim();return c.charAt(0)==='#'?c:('#'+c);}
+    var ids=RG.RESTOS.map(function(x){return String(x.id);}).sort();
+    var i=ids.indexOf(String(id));
+    if(i<0){i=0;String(id||'').split('').forEach(function(ch){i+=ch.charCodeAt(0);});}
+    return COULEURS_BANDEAU[i%COULEURS_BANDEAU.length];
+  };
+  // Gros bandeau « qui demande / qui reçoit » : impossible de confondre deux établissements.
+  // sousTitreHtml doit déjà être échappé par l'appelant.
+  RG.bandeauRestoHtml=function(id,sousTitreHtml,petit){
+    return '<div style="background:'+RG.couleurBandeauResto(id)+';color:#fff;border-radius:10px;padding:'+(petit?'6px 10px':'9px 12px')+';margin-bottom:8px;">'
+      +'<div style="font-size:'+(petit?'13':'17')+'px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;line-height:1.15;">&#128205; '+echapperHtml(RG.nomResto(id))+'</div>'
+      +(sousTitreHtml?'<div style="font-size:11px;font-weight:600;opacity:.95;margin-top:2px;">'+sousTitreHtml+'</div>':'')
+      +'</div>';
+  };
+  // Petite pastille de couleur (résumé d'une journée).
+  RG.pastilleRestoHtml=function(id,texte){
+    return '<span style="display:inline-block;background:'+RG.couleurBandeauResto(id)+';color:#fff;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:800;margin:2px 4px 2px 0;text-transform:uppercase;">'+echapperHtml(RG.nomResto(id))+(texte?(' · '+echapperHtml(texte)):'')+'</span>';
+  };
+
+  // ── Envois du Labo et confirmation de réception (16/11/2026) ─────────────────────────────────────────────
+  // Réutilise la table labo_receptions_lignes (une ligne par lot reçu : statut 'accepte' ou 'rejete').
+  RG.RECEPTION_LABO_JOURS=7; // au-delà, un envoi non confirmé n'est plus réclamé
+  // Envois des N derniers jours, avec leurs produits et l'état de réception.
+  // opts = {restaurant_id (facultatif : tous si absent), jours}
+  // Renvoie [{envoi, commande, produits:[{code, nom, nbLots, poidsG, envoiLigneIds:[], lotIds:[], recu, probleme, recuPar, commentaire}], enAttente, recuPar, recuLe}]
+  RG.chargerEnvoisLabo=async function(db,opts){
+    opts=opts||{};
+    var jours=opts.jours||RG.RECEPTION_LABO_JOURS;
+    var depuis=new Date(Date.now()-jours*86400000).toISOString();
+    var er=await db.from('labo_envois').select('*').gte('created_at',depuis).order('created_at',{ascending:false});
+    if(er.error)throw er.error;
+    var envois=er.data||[];
+    if(!envois.length)return [];
+    var cmdIds=envois.map(function(e){return e.commande_id;}).filter(function(x,i,a){return x!=null&&a.indexOf(x)===i;});
+    var cq=db.from('labo_commandes').select('id,restaurant_id,numero,created_at').in('id',cmdIds);
+    if(opts.restaurant_id)cq=cq.eq('restaurant_id',opts.restaurant_id);
+    var cr=await cq;
+    if(cr.error)throw cr.error;
+    var cmdById={};(cr.data||[]).forEach(function(c){cmdById[String(c.id)]=c;});
+    envois=envois.filter(function(e){return cmdById[String(e.commande_id)];});
+    if(!envois.length)return [];
+    var envoiIds=envois.map(function(e){return e.id;});
+    var elr=await RG.toutesLignes(function(){return db.from('labo_envois_lignes').select('*').in('envoi_id',envoiIds).order('id');});
+    if(elr.error)throw elr.error;
+    var els=elr.data||[];
+    var elIds=els.map(function(x){return x.id;});
+    var lotIds=els.map(function(x){return x.lot_id;}).filter(function(x){return x!=null;});
+    var ligneIds=els.map(function(x){return x.commande_ligne_id;}).filter(function(x){return x!=null;});
+    var res=await Promise.all([
+      elIds.length?RG.toutesLignes(function(){return db.from('labo_receptions_lignes').select('*').in('envoi_ligne_id',elIds).order('envoi_ligne_id');}):Promise.resolve({data:[]}),
+      lotIds.length?db.from('labo_lots').select('id,produit_code,produit_nom,poids_reel_g').in('id',lotIds):Promise.resolve({data:[]}),
+      ligneIds.length?db.from('labo_commandes_lignes').select('id,produit_code,produit_nom').in('id',ligneIds):Promise.resolve({data:[]})
+    ]);
+    for(var i=0;i<res.length;i++){if(res[i].error)throw res[i].error;}
+    var recByEl={};(res[0].data||[]).forEach(function(r){recByEl[String(r.envoi_ligne_id)]=r;});
+    var lotById={};(res[1].data||[]).forEach(function(l){lotById[String(l.id)]=l;});
+    var ligneById={};(res[2].data||[]).forEach(function(l){ligneById[String(l.id)]=l;});
+    return envois.map(function(e){
+      var parProduit={},ordre=[];
+      els.filter(function(x){return String(x.envoi_id)===String(e.id);}).forEach(function(x){
+        var lot=lotById[String(x.lot_id)]||{};
+        var lig=ligneById[String(x.commande_ligne_id)]||{};
+        var code=lig.produit_code||lot.produit_code||'?';
+        if(!parProduit[code]){parProduit[code]={code:code,nom:lig.produit_nom||lot.produit_nom||code,nbLots:0,poidsG:0,envoiLigneIds:[],lotIds:[],nbRecus:0,nbProblemes:0,recuPar:null,commentaire:null};ordre.push(code);}
+        var p=parProduit[code];
+        p.nbLots++;p.poidsG+=Number(lot.poids_reel_g)||0;p.envoiLigneIds.push(x.id);if(x.lot_id!=null)p.lotIds.push(x.lot_id);
+        var rec=recByEl[String(x.id)];
+        if(rec){
+          if(rec.statut==='rejete')p.nbProblemes++;else p.nbRecus++;
+          p.recuPar=rec.recu_par_nom||p.recuPar;
+          if(rec.commentaire)p.commentaire=rec.commentaire;
+        }
+      });
+      var produits=ordre.map(function(c){var p=parProduit[c];p.recu=(p.nbRecus+p.nbProblemes)>=p.nbLots;p.probleme=p.nbProblemes>0;return p;});
+      var recs=els.filter(function(x){return String(x.envoi_id)===String(e.id);}).map(function(x){return recByEl[String(x.id)];}).filter(Boolean);
+      var dernier=recs.slice().sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''));})[0];
+      return {envoi:e,commande:cmdById[String(e.commande_id)],produits:produits,
+        enAttente:produits.some(function(p){return !p.recu;}),
+        probleme:produits.some(function(p){return p.probleme;}),
+        recuPar:dernier?(dernier.recu_par_nom||null):null,recuLe:dernier?(dernier.created_at||null):null};
+    });
+  };
+  // Confirme la réception d'un envoi. problemesParCode = {code:true} pour les produits signalés en
+  // problème (lots marqués 'rejete'), tous les autres sont acceptés. Le stock compté n'est PAS modifié
+  // (décision du 16/11/2026) : il reste celui du prochain comptage.
+  RG.confirmerReceptionLabo=async function(db,envoiDetail,parNom,problemesParCode,commentaire){
+    problemesParCode=problemesParCode||{};
+    var rows=[],lotsOk=[],lotsKo=[];
+    envoiDetail.produits.forEach(function(p){
+      if(p.recu)return;
+      var ko=!!problemesParCode[p.code];
+      p.envoiLigneIds.forEach(function(elId){
+        rows.push({envoi_ligne_id:elId,statut:ko?'rejete':'accepte',commentaire:ko?(commentaire||null):null,recu_par_nom:parNom||null});
+      });
+      (ko?lotsKo:lotsOk).push.apply(ko?lotsKo:lotsOk,p.lotIds);
+    });
+    if(!rows.length)return 0;
+    var ins=await db.from('labo_receptions_lignes').insert(rows);
+    if(ins.error)throw ins.error;
+    // Statut des lots : simple suivi, ne bloque pas la réception si la mise à jour échoue.
+    try{
+      if(lotsOk.length)await db.from('labo_lots').update({statut:'recu'}).in('id',lotsOk);
+      if(lotsKo.length)await db.from('labo_lots').update({statut:'rejete'}).in('id',lotsKo);
+    }catch(e){console.warn('RG.confirmerReceptionLabo: statut des lots',e);}
+    return rows.length;
   };
 
   global.RG=RG;

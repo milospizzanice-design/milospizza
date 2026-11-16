@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pointage</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-24b"></script>
+<script src="restoglobal-commun.js?v=2026-11-16a"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bx:#B91E26;--cr:#EEF1EA;--panel:#587861}
@@ -172,6 +172,16 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 .lp-empty-lot{font-size:11px;color:#A08060;padding:2px 0}
 .lp-send-btn{width:100%;margin-top:8px;padding:11px;font-size:13px;background:var(--bx);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer}
 .lp-cancel-btn{width:100%;margin-top:6px;padding:9px;font-size:11px;background:#FDEDEC;color:#C0392B;border:1px solid #F5C6C2;border-radius:10px;font-weight:700;cursor:pointer}
+.lp-jour{background:rgba(255,255,255,.12);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.lp-jour-sum{list-style:none;cursor:pointer;padding:11px 12px;color:#fff;position:relative;padding-right:34px}
+.lp-jour-sum::-webkit-details-marker{display:none}
+.lp-jour-sum::after{content:'\25BC';position:absolute;right:12px;top:12px;font-size:12px;transition:transform .2s}
+.lp-jour:not([open]) .lp-jour-sum::after{transform:rotate(-90deg)}
+.lp-jour-titre{font-size:15px;font-weight:800;margin-bottom:4px}
+.lp-jour-body{padding:0 8px 4px}
+.lp-envoi{background:#fff;border-radius:10px;padding:9px 11px;margin-bottom:8px;color:#1A1008;font-size:12px}
+.lp-envoi-prod{padding:2px 0}
+.rl-btn{flex:1;padding:12px;font-size:14px;border:none;border-radius:10px;font-weight:800;cursor:pointer}
 .lp-create-btn{width:100%;padding:14px;font-size:14px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:12px;color:#fff;font-weight:700;cursor:pointer;text-align:center;margin-bottom:10px}
 .lp-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center;padding:18px}
 .lp-modal-overlay.on{display:flex}
@@ -247,6 +257,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     <div class="screen" id="s-menu">
       <div class="panel-title" id="menu-welcome" style="font-size:16px;color:#fff;margin-bottom:14px">Bienvenue</div>
       <div id="menu-alertes-badge" style="display:none;background:#FFF4F4;color:#7A1515;border:2px solid #B91E26;border-radius:14px;padding:12px 14px;margin-bottom:14px;text-align:left;font-size:14px;line-height:1.45"></div>
+      <div id="menu-receptions-labo" style="display:none;background:#FFF7E6;color:#5A3A00;border:3px solid #E08A00;border-radius:14px;padding:12px 12px 4px;margin-bottom:14px;text-align:left;line-height:1.4"></div>
       <div class="cbtn" onclick="menuPointer()">
         <div class="ci">&#128070;</div>
         <div class="cl">Pointer mes heures</div>
@@ -329,8 +340,9 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
 
     <div class="screen" id="s-laboprep">
       <div class="panel-title" style="margin-bottom:10px">&#127859; &Agrave; pr&eacute;parer / exp&eacute;dier</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:10px">Visible par toute l'&eacute;quipe Labo tant qu'une commande n'est pas enti&egrave;rement exp&eacute;di&eacute;e.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:10px">Class&eacute; par jour, le plus r&eacute;cent en haut : touche une date pour voir ce qu'il reste &agrave; exp&eacute;dier, restaurant par restaurant. Un produit recompt&eacute; plus tard remplace l'ancienne demande.</div>
       <div id="laboprep-list" style="max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px"></div>
+      <details class="lp-jour" id="lp-envois-wrap"><summary class="lp-jour-sum"><div class="lp-jour-titre">&#128666; Envois des 7 derniers jours</div><div id="lp-envois-resume" style="font-size:11px;opacity:.9">Re&ccedil;u ou pas encore confirm&eacute; par le restaurant</div></summary><div class="lp-jour-body" id="lp-envois-list"></div></details>
       <button type="button" class="lp-create-btn" onclick="lpOpenNewLotModal()">&#10133; Cr&eacute;er un lot</button>
       <button class="canc" onclick="backToMenu()">Retour au menu</button>
     </div>
@@ -668,7 +680,7 @@ tick();setInterval(tick,1000);
 function ss(name){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('s-'+name);if(el)el.classList.add('on');
-  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();checkCuisineTachesBadge();if(RG.estPreparateur(RESTAURANT_ID))checkLaboPrepBadge();}
+  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();checkCuisineTachesBadge();if(RG.estPreparateur(RESTAURANT_ID))checkLaboPrepBadge();checkReceptionsLabo();}
 }
 
 
@@ -1098,6 +1110,9 @@ function reset(){
   // voyait "rien à compter" alors que son propre rôle a bien des catégories configurées.
   cptSelectedRoleIds=null;cptRoleChoixDone=false;cptAllRoleObjs=[];
   var lpBtn=document.getElementById('cbtn-laboprep');if(lpBtn)lpBtn.style.display='none';
+  // Encart « reçu du Labo » : jamais visible pour le salarié suivant avant rechargement (16/11/2026).
+  var rlBox=document.getElementById('menu-receptions-labo');if(rlBox){rlBox.style.display='none';rlBox.innerHTML='';}
+  rlEnvoisEnAttente=[];rlModeProbleme={};rlProblemesSel={};
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
   if(typeof upd==='function')upd();
   if('NDEFReader' in window){
@@ -2134,6 +2149,7 @@ var HIST_TYPES={
   comptage:{icone:'&#129518;',label:'Comptage',filtre:'comptage'},
   labo_demande:{icone:'&#127981;',label:'Demandé au Labo',filtre:'labo'},
   labo_envoi:{icone:'&#128666;',label:'Envoyé par le Labo',filtre:'labo'},
+  labo_reception:{icone:'&#128230;',label:'Réception du Labo',filtre:'labo'},
   cuisine_demande:{icone:'&#127859;',label:'À préparer en cuisine',filtre:'cuisine'},
   cuisine_fait:{icone:'&#9989;',label:'Préparé en cuisine',filtre:'cuisine'},
   fournisseur:{icone:'&#128228;',label:'Commande fournisseur',filtre:'fournisseur'}
@@ -2178,7 +2194,7 @@ async function chargerHistorique(){
     var jRes=await jq;
     if(jRes.error){histJournalAbsent=true;console.warn('journal_operations',jRes.error);}
     (jRes.data||[]).forEach(function(j){
-      if(histEstLabo()&&j.restaurant_id!==RESTAURANT_ID&&j.type!=='labo_demande'&&j.type!=='labo_envoi')return;
+      if(histEstLabo()&&j.restaurant_id!==RESTAURANT_ID&&j.type!=='labo_demande'&&j.type!=='labo_envoi'&&j.type!=='labo_reception')return;
       entrees.push({type:j.type,le:j.cree_le,produit:j.produit_nom||j.ingredient_code||'',texte:j.detail||'',par:j.par_nom,resto:(histEstLabo()&&j.restaurant_id!==RESTAURANT_ID)?(restoNamesById[j.restaurant_id]||j.restaurant_id):null});
     });
     // 3. Commandes fournisseurs envoyées (même filtre par restaurant que « Commandes passées »)
@@ -2347,12 +2363,8 @@ async function loadLaboPrepData(){
 }
 async function checkLaboPrepBadge(){
   try{
-    var commandes=await loadLaboPrepData();
-    var badge=document.getElementById('laboprep-badge');
-    if(badge){
-      if(commandes.length){badge.style.display='flex';badge.textContent=commandes.length;}
-      else badge.style.display='none';
-    }
+    await loadLaboPrepData();
+    lpMajBadge();
   }catch(e){console.error('checkLaboPrepBadge',e);}
 }
 async function menuLaboPrep(){
@@ -2363,11 +2375,8 @@ async function menuLaboPrep(){
     await loadLaboPrepData();
     renderLaboPrepListPointage();
     renderLaboProduitsListPointage();
-    var badge=document.getElementById('laboprep-badge');
-    if(badge){
-      if(lpCommandesCache.length){badge.style.display='flex';badge.textContent=lpCommandesCache.length;}
-      else badge.style.display='none';
-    }
+    lpChargerEnvois();
+    lpMajBadge();
   }catch(e){
     console.error('menuLaboPrep',e);
     box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Erreur : '+escCpt(e.message)+'</div>';
@@ -2389,70 +2398,248 @@ function renderLaboProduitsListPointage(){
     }).join('')+'</optgroup>';
   }).join('');
 }
+// 16/11/2026 : affichage PAR JOUR. Une ligne par date (la plus récente en haut) qu'on touche pour dérouler ce
+// qu'il reste à expédier ; dedans, un bloc par restaurant avec un gros bandeau de couleur (impossible de
+// confondre deux établissements). Seuls les produits qui restent à expédier sont détaillés.
+var lpJoursOuverts={}; // 'AAAA-MM-JJ' -> true/false (choix de l'utilisateur, conservé entre deux rafraîchissements)
+function lpToggleJour(key,ouvert){lpJoursOuverts[key]=!!ouvert;}
+function lpLignesARester(c){
+  var sel=lpSelections[c.id]||{};
+  return (c.lignes||[]).filter(function(l){return RG.resteLigneLabo(l)>0||(sel[l.id]&&sel[l.id].length);});
+}
+function lpNbProduitsARester(){
+  var n=0;lpCommandesCache.forEach(function(c){n+=(c.lignes||[]).filter(function(l){return RG.resteLigneLabo(l)>0;}).length;});
+  return n;
+}
+function lpMajBadge(){
+  var badge=document.getElementById('laboprep-badge');
+  if(!badge)return;
+  var n=lpNbProduitsARester();
+  if(n){badge.style.display='flex';badge.textContent=n;}else badge.style.display='none';
+}
 function renderLaboPrepListPointage(){
   var box=document.getElementById('laboprep-list');
   if(!box)return;
-  if(!lpCommandesCache.length){
-    box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:16px;font-size:12px;">Aucune commande en attente. &#128077;</div>';
+  var commandes=lpCommandesCache.filter(function(c){return lpLignesARester(c).length>0;});
+  if(!commandes.length){
+    box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:16px;font-size:12px;">Rien &agrave; exp&eacute;dier pour le moment. &#128077;</div>';
     return;
   }
   // Catégorie de chaque produit, pour regrouper l'affichage (sinon les lignes restent dans l'ordre brut
   // de la base, illisible dès qu'une commande a plusieurs produits de familles différentes).
   var catByCode={};
   lpIngredientsCache.forEach(function(i){catByCode[i.code]=i.categorie||'Autre';});
-  box.innerHTML=lpCommandesCache.map(function(c){
-    if(!lpSelections[c.id])lpSelections[c.id]={};
-    var lignesByCat={};
-    (c.lignes||[]).forEach(function(l){
-      var cat=catByCode[l.produit_code]||'Autre';
-      (lignesByCat[cat]=lignesByCat[cat]||[]).push(l);
-    });
-    var catNames=Object.keys(lignesByCat).sort(function(a,b){return a.localeCompare(b,'fr');});
-    // Une commande où AUCUNE ligne n'a de lot candidat (produit_code introuvable dans labo_lots) est très
-    // probablement une commande "cassée" créée avant que ses produits soient reliés au catalogue Labo — les
-    // cases à cocher ne peuvent alors jamais apparaître pour elle, quoi qu'on fasse ("je ne peux pas cocher
-    // les lots"). On le signale explicitement, avec le moyen de la clôturer sans passer par un compte admin.
-    var aucuneCorrespondance=(c.lignes||[]).length>0&&(c.lignes||[]).every(function(l){
-      return !lpLotsCache.some(function(lot){return lot.produit_code===l.produit_code;});
-    });
-    var lignesHtml=catNames.map(function(cat){
-      var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
-        var u=lpUniteByRestoCode[c.restaurant_id+'|'+l.produit_code]||'piece';
-        var candidats=lpLotsCache.filter(function(lot){return lot.produit_code===l.produit_code;});
-        // Identifiants comparés en TEXTE (la case cochée est mémorisée en texte, l'id d'un lot peut être un
-        // nombre) — avant, la case se décochait aussitôt après le clic.
-        var selected=(lpSelections[c.id][l.id]||[]).map(String);
-        var coche=0;candidats.forEach(function(lot){if(selected.indexOf(String(lot.id))>=0)coche+=RG.valeurLotDansUnite(lot.poids_reel_g,u);});
-        var restant=RG.arrondiQte(l.quantite_demandee-(l.quantite_couverte||0)-coche);
-        var lotsHtml=candidats.length?candidats.map(function(lot){
-          var checked=selected.indexOf(String(lot.id))>=0?' checked':'';
-          return '<label class="lp-lot-label">'
-            +'<input type="checkbox"'+checked+' onchange="toggleLpLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
-            +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg'
-            +'</label>';
-        }).join(''):'<div class="lp-empty-lot">Aucun lot en stock pour ce produit : p&egrave;se-le juste en dessous, il sera coch&eacute; automatiquement.</div>';
-        // Pesée directement sur la ligne : crée le lot ET le coche.
-        var peserHtml='<div style="display:flex;gap:6px;align-items:center;margin-top:6px;">'
-          +'<input type="number" inputmode="decimal" class="lp-modal-inp" style="margin:0;width:130px;padding:7px 8px;font-size:13px;" min="0" step="0.001" id="lpq-'+l.id+'" placeholder="Poids (kg)">'
-          +'<button type="button" style="flex:1;padding:8px;font-size:12px;background:#fff;border:1.5px solid var(--bx);color:var(--bx);border-radius:8px;font-weight:700;cursor:pointer" onclick="lpPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">&#9878;&#65039; Peser et cocher</button>'
-          +'</div>';
-        return '<div class="lp-ligne">'
-          +'<div class="lp-ligne-title">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+escCpt(RG.libelleQuantite(l.quantite_demandee,u))+', envoy&eacute; '+escCpt(RG.libelleQuantite(l.quantite_couverte||0,u))+(coche?' <span class="lp-ok">+ '+escCpt(RG.libelleQuantite(RG.arrondiQte(coche),u))+' coch&eacute;</span>':'')+(restant>0?' <span class="lp-restant">(reste '+escCpt(RG.libelleQuantite(restant,u))+')</span>':' <span class="lp-ok">&#10003;</span>')+'</div>'
-          +lotsHtml
-          +peserHtml
-          +'</div>';
-      }).join('');
-      return '<div class="lp-cat-hdr">'+escCpt(cat)+'</div>'+lignesCatHtml;
+  var jours=RG.grouperCommandesLaboParJour(commandes);
+  box.innerHTML=jours.map(function(j,idx){
+    var ouvert=(j.key in lpJoursOuverts)?lpJoursOuverts[j.key]:(idx===0);
+    var nbParResto={};
+    j.commandes.forEach(function(c){nbParResto[c.restaurant_id]=(nbParResto[c.restaurant_id]||0)+(c.lignes||[]).filter(function(l){return RG.resteLigneLabo(l)>0;}).length;});
+    var pastilles=Object.keys(nbParResto).map(function(r){return RG.pastilleRestoHtml(r,nbParResto[r]+' produit'+(nbParResto[r]>1?'s':''));}).join('');
+    var cartes=j.commandes.map(function(c){return lpCarteCommandeHtml(c,catByCode);}).join('');
+    return '<details class="lp-jour"'+(ouvert?' open':'')+' ontoggle="lpToggleJour(\''+j.key+'\',this.open)">'
+      +'<summary class="lp-jour-sum"><div class="lp-jour-titre">&#128197; '+escCpt(RG.libelleJourMetier(j.key))+'</div><div>'+pastilles+'</div></summary>'
+      +'<div class="lp-jour-body">'+cartes+'</div>'
+      +'</details>';
+  }).join('');
+}
+function lpCarteCommandeHtml(c,catByCode){
+  if(!lpSelections[c.id])lpSelections[c.id]={};
+  var aExpedier=lpLignesARester(c);
+  var dejaParties=(c.lignes||[]).filter(function(l){return (Number(l.quantite_couverte)||0)>0&&aExpedier.indexOf(l)<0;}).length;
+  var lignesByCat={};
+  aExpedier.forEach(function(l){
+    var cat=catByCode[l.produit_code]||'Autre';
+    (lignesByCat[cat]=lignesByCat[cat]||[]).push(l);
+  });
+  var catNames=Object.keys(lignesByCat).sort(function(a,b){return a.localeCompare(b,'fr');});
+  // Une commande où AUCUNE ligne n'a de lot candidat (produit_code introuvable dans labo_lots) est très
+  // probablement une commande "cassée" créée avant que ses produits soient reliés au catalogue Labo. On le
+  // signale explicitement, avec le moyen de la clôturer sans passer par un compte admin.
+  // (16/11/2026 : on teste le catalogue Labo, plus la présence de lots en stock — sans lot en stock on peut
+  // désormais peser directement sur la ligne, ce n'est donc pas une commande cassée.)
+  var aucuneCorrespondance=aExpedier.length>0&&lpIngredientsCache.length>0&&aExpedier.every(function(l){
+    return !lpIngredientsCache.some(function(i){return i.code===l.produit_code;});
+  });
+  var lignesHtml=catNames.map(function(cat){
+    var lignesCatHtml=lignesByCat[cat].slice().sort(function(a,b){return (a.produit_nom||a.produit_code).localeCompare(b.produit_nom||b.produit_code,'fr');}).map(function(l){
+      var u=lpUniteByRestoCode[c.restaurant_id+'|'+l.produit_code]||'piece';
+      var candidats=lpLotsCache.filter(function(lot){return lot.produit_code===l.produit_code;});
+      // Identifiants comparés en TEXTE (la case cochée est mémorisée en texte, l'id d'un lot peut être un
+      // nombre) — avant, la case se décochait aussitôt après le clic.
+      var selected=(lpSelections[c.id][l.id]||[]).map(String);
+      var coche=0;candidats.forEach(function(lot){if(selected.indexOf(String(lot.id))>=0)coche+=RG.valeurLotDansUnite(lot.poids_reel_g,u);});
+      var restant=RG.arrondiQte(l.quantite_demandee-(l.quantite_couverte||0)-coche);
+      var lotsHtml=candidats.length?candidats.map(function(lot){
+        var checked=selected.indexOf(String(lot.id))>=0?' checked':'';
+        return '<label class="lp-lot-label">'
+          +'<input type="checkbox"'+checked+' onchange="toggleLpLotSel(\''+c.id+'\',\''+l.id+'\',\''+lot.id+'\',this.checked)">'
+          +(Number(lot.poids_reel_g)/1000).toFixed(3)+' kg'
+          +'</label>';
+      }).join(''):'<div class="lp-empty-lot">Aucun lot en stock pour ce produit : p&egrave;se-le juste en dessous, il sera coch&eacute; automatiquement.</div>';
+      // Pesée directement sur la ligne : crée le lot ET le coche.
+      var peserHtml='<div style="display:flex;gap:6px;align-items:center;margin-top:6px;">'
+        +'<input type="number" inputmode="decimal" class="lp-modal-inp" style="margin:0;width:130px;padding:7px 8px;font-size:13px;" min="0" step="0.001" id="lpq-'+l.id+'" placeholder="Poids (kg)">'
+        +'<button type="button" style="flex:1;padding:8px;font-size:12px;background:#fff;border:1.5px solid var(--bx);color:var(--bx);border-radius:8px;font-weight:700;cursor:pointer" onclick="lpPeserLotPourLigne(\''+c.id+'\',\''+l.id+'\')">&#9878;&#65039; Peser et cocher</button>'
+        +'</div>';
+      var dejaEnvoye=(Number(l.quantite_couverte)||0)>0?(', d&eacute;j&agrave; envoy&eacute; '+escCpt(RG.libelleQuantite(l.quantite_couverte,u))):'';
+      return '<div class="lp-ligne">'
+        +'<div class="lp-ligne-title">'+escCpt(l.produit_nom||l.produit_code)+' — demand&eacute; '+escCpt(RG.libelleQuantite(l.quantite_demandee,u))+dejaEnvoye+(coche?' <span class="lp-ok">+ '+escCpt(RG.libelleQuantite(RG.arrondiQte(coche),u))+' coch&eacute;</span>':'')+(restant>0?' <span class="lp-restant">(reste '+escCpt(RG.libelleQuantite(restant,u))+')</span>':' <span class="lp-ok">&#10003;</span>')+'</div>'
+        +lotsHtml
+        +peserHtml
+        +'</div>';
     }).join('');
-    var alerteHtml=aucuneCorrespondance?('<div style="font-size:11px;color:#C0392B;font-weight:700;background:#FDEDEC;border-radius:8px;padding:7px 9px;margin:6px 0;">&#9888; Aucun lot possible pour cette commande — elle a probablement &eacute;t&eacute; cr&eacute;&eacute;e avant que ses produits soient reli&eacute;s au catalogue Labo. Utilise "Annuler cette commande" ci-dessous pour l\'archiver.</div>'):'';
-    return '<div class="lp-card">'
-      +'<div class="lp-card-title">Commande #'+(c.numero||c.id)+' — '+escCpt(restoNamesById[c.restaurant_id]||c.restaurant_id)+' <span class="lp-card-sub">('+new Date(c.created_at).toLocaleDateString('fr-FR')+')</span></div>'
-      +alerteHtml
-      +lignesHtml
-      +'<button type="button" class="lp-send-btn" onclick="envoyerLaboCommandePointage(\''+c.id+'\')">&#128228; Envoyer les lots coch&eacute;s</button>'
-      +'<button type="button" class="lp-cancel-btn" onclick="annulerLaboCommandePointage(\''+c.id+'\')">&#10005; Annuler cette commande (cass&eacute;e / obsol&egrave;te)</button>'
+    return '<div class="lp-cat-hdr">'+escCpt(cat)+'</div>'+lignesCatHtml;
+  }).join('');
+  var alerteHtml=aucuneCorrespondance?('<div style="font-size:11px;color:#C0392B;font-weight:700;background:#FDEDEC;border-radius:8px;padding:7px 9px;margin:6px 0;">&#9888; Aucun lot possible pour cette commande — elle a probablement &eacute;t&eacute; cr&eacute;&eacute;e avant que ses produits soient reli&eacute;s au catalogue Labo. Utilise "Annuler cette commande" ci-dessous pour l\'archiver.</div>'):'';
+  var heure=new Date(c.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  var sousTitre='Demand&eacute; '+(c.created_by_nom?('par '+escCpt(c.created_by_nom)+' '):'')+'&agrave; '+heure+' &middot; '+aExpedier.length+' produit'+(aExpedier.length>1?'s':'')+' &agrave; exp&eacute;dier'+(dejaParties?(' &middot; '+dejaParties+' d&eacute;j&agrave; parti'+(dejaParties>1?'s':'')):'')+' &middot; n&deg;'+escCpt(c.numero||c.id);
+  return '<div class="lp-card">'
+    +RG.bandeauRestoHtml(c.restaurant_id,sousTitre)
+    +alerteHtml
+    +lignesHtml
+    +'<button type="button" class="lp-send-btn" onclick="envoyerLaboCommandePointage(\''+c.id+'\')">&#128228; Envoyer les lots coch&eacute;s &agrave; '+escCpt(RG.nomResto(c.restaurant_id))+'</button>'
+    +'<button type="button" class="lp-cancel-btn" onclick="annulerLaboCommandePointage(\''+c.id+'\')">&#10005; Annuler cette commande (cass&eacute;e / obsol&egrave;te)</button>'
+    +'</div>';
+}
+// ── ENVOIS DU LABO : suivi côté Labo + confirmation de réception côté restaurant (16/11/2026) ──────────────
+// Chargement commun : RG.chargerEnvoisLabo / RG.confirmerReceptionLabo (restoglobal-commun.js), table
+// labo_receptions_lignes. La réception ne modifie pas le stock compté (décision du 16/11/2026).
+function rlDateEnvoi(iso){
+  if(!iso)return '';
+  var d=new Date(iso);
+  return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+' &agrave; '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+function rlProduitTexte(p){
+  return escCpt(p.nom)+' &mdash; '+p.nbLots+' lot'+(p.nbLots>1?'s':'')+(p.poidsG?(' ('+escCpt(RG.formatNombre(RG.arrondiQte(p.poidsG/1000)))+' kg)'):'');
+}
+// Liste des envois récents sur l'écran Labo « À préparer / expédier ».
+async function lpChargerEnvois(){
+  var box=document.getElementById('lp-envois-list');
+  var resume=document.getElementById('lp-envois-resume');
+  if(!box)return;
+  box.innerHTML='<div style="color:#fff;opacity:.7;font-size:12px;padding:6px 2px;">Chargement&hellip;</div>';
+  try{
+    var envois=await RG.chargerEnvoisLabo(db,{});
+    var nbAtt=envois.filter(function(e){return e.enAttente;}).length;
+    var nbPb=envois.filter(function(e){return e.probleme;}).length;
+    if(resume)resume.innerHTML=envois.length+' envoi'+(envois.length>1?'s':'')+' &middot; '+(nbAtt?(nbAtt+' pas encore confirm&eacute;'+(nbAtt>1?'s':'')):'tous confirm&eacute;s')+(nbPb?(' &middot; &#9888; '+nbPb+' avec probl&egrave;me'):'');
+    if(!envois.length){box.innerHTML='<div style="color:#fff;opacity:.7;font-size:12px;padding:6px 2px;">Aucun envoi ces 7 derniers jours.</div>';return;}
+    box.innerHTML=envois.map(function(d){
+      var e=d.envoi,c=d.commande;
+      var etat=d.enAttente
+        ?'<div style="font-weight:800;color:#B45309;margin-top:4px;">&#9203; Pas encore confirm&eacute; par le restaurant</div>'
+        :(d.probleme
+          ?'<div style="font-weight:800;color:#C0392B;margin-top:4px;">&#9888; Probl&egrave;me signal&eacute;'+(d.recuPar?(' par '+escCpt(d.recuPar)):'')+'</div>'
+          :'<div style="font-weight:800;color:#1E8449;margin-top:4px;">&#10003; Re&ccedil;u'+(d.recuPar?(' par '+escCpt(d.recuPar)):'')+(d.recuLe?(' ('+rlDateEnvoi(d.recuLe)+')'):'')+'</div>');
+      var prods=d.produits.map(function(p){
+        var st=p.probleme?(' <span style="color:#C0392B;font-weight:700;">&#9888;'+(p.commentaire?(' '+escCpt(p.commentaire)):'')+'</span>'):(p.recu?' <span style="color:#1E8449;">&#10003;</span>':'');
+        return '<div class="lp-envoi-prod">&#8226; '+rlProduitTexte(p)+st+'</div>';
+      }).join('');
+      return '<div class="lp-envoi">'
+        +RG.bandeauRestoHtml(c.restaurant_id,'Envoy&eacute; '+rlDateEnvoi(e.created_at)+(e.envoye_par_nom?(' par '+escCpt(e.envoye_par_nom)):''),true)
+        +prods
+        +(e.commentaire?('<div style="font-size:11px;color:#92400E;margin-top:3px;">&#128172; '+escCpt(e.commentaire)+'</div>'):'')
+        +etat
+        +'</div>';
+    }).join('');
+  }catch(err){
+    console.error('lpChargerEnvois',err);
+    box.innerHTML='<div style="color:#fff;font-size:12px;padding:6px 2px;">Erreur : '+escCpt(err.message||err)+'</div>';
+  }
+}
+// Côté restaurant : encart en haut du menu tant qu'un envoi du Labo n'est pas confirmé.
+var rlEnvoisEnAttente=[];
+var rlModeProbleme={}; // envoiId -> true quand on signale un problème
+var rlProblemesSel={}; // envoiId -> {indexProduit:true}
+async function checkReceptionsLabo(){
+  var box=document.getElementById('menu-receptions-labo');
+  if(!box)return;
+  if(!emp||RG.estPreparateur(RESTAURANT_ID)){rlEnvoisEnAttente=[];box.style.display='none';box.innerHTML='';return;}
+  var rid=RESTAURANT_ID,empId=emp.id;
+  try{
+    var envois=await RG.chargerEnvoisLabo(db,{restaurant_id:rid});
+    if(!emp||emp.id!==empId||RESTAURANT_ID!==rid)return; // un autre salarié / restaurant entre-temps
+    rlEnvoisEnAttente=envois.filter(function(d){return d.enAttente;}).reverse(); // le plus ancien d'abord
+    renderReceptionsLabo();
+  }catch(e){console.warn('checkReceptionsLabo',e);}
+}
+function rlTrouver(envoiId){return rlEnvoisEnAttente.find(function(d){return String(d.envoi.id)===String(envoiId);});}
+function renderReceptionsLabo(){
+  var box=document.getElementById('menu-receptions-labo');
+  if(!box)return;
+  if(!rlEnvoisEnAttente.length){box.style.display='none';box.innerHTML='';return;}
+  var h='<div style="font-weight:900;font-size:16px;margin-bottom:2px">&#128230; Le Labo vous a envoy&eacute; de la marchandise</div>'
+    +'<div style="font-size:12px;margin-bottom:8px">V&eacute;rifiez &agrave; l\'arriv&eacute;e, puis confirmez la r&eacute;ception.</div>';
+  h+=rlEnvoisEnAttente.map(function(d){
+    var id=String(d.envoi.id);
+    var idArg=id.replace(/[^0-9A-Za-z_-]/g,''); // ids : uuid ou nombre
+    var aRecevoir=d.produits.filter(function(p){return !p.recu;});
+    var prods;
+    if(rlModeProbleme[id]){
+      var sel=rlProblemesSel[id]||{};
+      prods='<div style="font-size:12px;font-weight:700;margin:4px 0">Coche le ou les produits qui posent probl&egrave;me :</div>'
+        +d.produits.map(function(p,idx){
+          if(p.recu)return '';
+          return '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" style="width:22px;height:22px" '+(sel[idx]?'checked ':'')+'onchange="rlToggleProbleme(\''+idArg+'\','+idx+',this.checked)"> '+rlProduitTexte(p)+'</label>';
+        }).join('')
+        +'<textarea id="rl-com-'+escCpt(id)+'" rows="2" placeholder="Quel probl&egrave;me ? (manquant, ab&icirc;m&eacute;, mauvais produit&hellip;)" style="width:100%;box-sizing:border-box;border-radius:8px;border:1px solid #D6C7AF;padding:8px;font-size:13px;margin-top:6px"></textarea>'
+        +'<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<button type="button" class="rl-btn" style="background:#C0392B;color:#fff" onclick="rlValiderProbleme(\''+idArg+'\')">Envoyer le signalement</button>'
+        +'<button type="button" class="rl-btn" style="background:#EEE;color:#333;flex:0 0 auto" onclick="rlAnnulerProbleme(\''+idArg+'\')">Annuler</button>'
+        +'</div>';
+    }else{
+      prods=aRecevoir.map(function(p){return '<div style="padding:2px 0;font-size:13px">&#8226; '+rlProduitTexte(p)+'</div>';}).join('')
+        +'<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<button type="button" class="rl-btn" style="background:#1E8449;color:#fff" onclick="rlConfirmer(\''+idArg+'\')">&#10003; Tout est bien re&ccedil;u</button>'
+        +'<button type="button" class="rl-btn" style="background:#fff;color:#C0392B;border:2px solid #C0392B;flex:0 0 auto" onclick="rlProbleme(\''+idArg+'\')">&#9888; Probl&egrave;me</button>'
+        +'</div>';
+    }
+    return '<div style="background:#fff;border-radius:10px;padding:10px 11px;margin-bottom:8px;color:#1A1008">'
+      +'<div style="font-size:12px;font-weight:700;color:#6B5B45;margin-bottom:4px">Envoy&eacute; '+rlDateEnvoi(d.envoi.created_at)+(d.envoi.envoye_par_nom?(' par '+escCpt(d.envoi.envoye_par_nom)):'')+'</div>'
+      +(d.envoi.commentaire?('<div style="font-size:11px;color:#92400E;margin-bottom:4px">&#128172; '+escCpt(d.envoi.commentaire)+'</div>'):'')
+      +prods
       +'</div>';
   }).join('');
+  box.innerHTML=h;box.style.display='block';
+}
+function rlNomSalarie(){return emp?(emp.prenom+' '+emp.nom):'';}
+function rlJournal(d,detail){
+  RG.journal(db,{type:'labo_reception',restaurant_id:d.commande.restaurant_id,produit_nom:d.produits.filter(function(p){return !p.recu;}).map(function(p){return p.nom;}).join(', '),
+    quantite:d.produits.filter(function(p){return !p.recu;}).length,detail:detail,par_nom:rlNomSalarie(),ref_id:d.commande.id});
+}
+async function rlConfirmer(envoiId){
+  var d=rlTrouver(envoiId);if(!d)return;
+  try{
+    await RG.confirmerReceptionLabo(db,d,rlNomSalarie(),{},null);
+    rlJournal(d,'envoi du Labo du '+new Date(d.envoi.created_at).toLocaleDateString('fr-FR')+' : tout bien reçu');
+  }catch(e){alert('Erreur : la réception n\'a pas été enregistrée ('+(e.message||e)+').');return;}
+  cptToast('✅ Réception confirmée, merci !');
+  await checkReceptionsLabo();
+}
+function rlProbleme(envoiId){rlModeProbleme[String(envoiId)]=true;rlProblemesSel[String(envoiId)]={};renderReceptionsLabo();}
+function rlAnnulerProbleme(envoiId){delete rlModeProbleme[String(envoiId)];delete rlProblemesSel[String(envoiId)];renderReceptionsLabo();}
+function rlToggleProbleme(envoiId,idx,checked){
+  var k=String(envoiId);
+  if(!rlProblemesSel[k])rlProblemesSel[k]={};
+  if(checked)rlProblemesSel[k][idx]=true;else delete rlProblemesSel[k][idx];
+}
+async function rlValiderProbleme(envoiId){
+  var k=String(envoiId);
+  var d=rlTrouver(k);if(!d)return;
+  var sel=rlProblemesSel[k]||{};
+  var parCode={},noms=[];
+  Object.keys(sel).forEach(function(idx){var p=d.produits[Number(idx)];if(p&&!p.recu){parCode[p.code]=true;noms.push(p.nom);}});
+  if(!noms.length){alert('Coche le ou les produits concernés.');return;}
+  var ta=document.getElementById('rl-com-'+k);
+  var com=ta?ta.value.trim():'';
+  if(!com){alert('Explique le problème en quelques mots (manquant, abîmé, mauvais produit…).');return;}
+  try{
+    await RG.confirmerReceptionLabo(db,d,rlNomSalarie(),parCode,com);
+    rlJournal(d,'envoi du Labo du '+new Date(d.envoi.created_at).toLocaleDateString('fr-FR')+' : problème sur '+noms.join(', ')+' — '+com);
+  }catch(e){alert('Erreur : le signalement n\'a pas été enregistré ('+(e.message||e)+').');return;}
+  delete rlModeProbleme[k];delete rlProblemesSel[k];
+  cptToast('⚠ Problème signalé au Labo.');
+  await checkReceptionsLabo();
 }
 function toggleLpLotSel(commandeId,ligneId,lotId,checked){
   if(!lpSelections[commandeId])lpSelections[commandeId]={};
@@ -2492,11 +2679,7 @@ async function annulerLaboCommandePointage(commandeId){
   delete lpSelections[commandeId];
   await loadLaboPrepData();
   renderLaboPrepListPointage();
-  var badge=document.getElementById('laboprep-badge');
-  if(badge){
-    if(lpCommandesCache.length){badge.style.display='flex';badge.textContent=lpCommandesCache.length;}
-    else badge.style.display='none';
-  }
+  lpMajBadge();
 }
 // Pop-up "Créer un lot" — remplace l'ancien formulaire toujours visible sous la liste (encombrant l'écran
 // principal en permanence) par un simple bouton qui l'ouvre à la demande.
@@ -2590,14 +2773,11 @@ async function envoyerLaboCommandePointage(commandeId){
     });
   })();
   delete lpSelections[commandeId];
-  alert('✅ '+pairs.length+' lot(s) envoyé(s).\nStatut : '+(toutesCouvertes?'commande complète':'commande partiellement couverte, il en reste à envoyer'));
+  alert('✅ '+pairs.length+' lot(s) envoyé(s) à '+RG.nomResto(commande.restaurant_id)+'.\nStatut : '+(toutesCouvertes?'commande complète':'commande partiellement couverte, il en reste à envoyer')+'\nLe restaurant devra confirmer la réception sur sa tablette.');
   await loadLaboPrepData();
   renderLaboPrepListPointage();
-  var badge=document.getElementById('laboprep-badge');
-  if(badge){
-    if(lpCommandesCache.length){badge.style.display='flex';badge.textContent=lpCommandesCache.length;}
-    else badge.style.display='none';
-  }
+  lpMajBadge();
+  lpChargerEnvois();
 }
 
 async function menuComptage(){
@@ -3359,8 +3539,8 @@ async function saveComptage(code,choiceVal){
 }
 // Déclenche/actualise automatiquement une commande Labo dès que le comptage fait passer un ingrédient sous
 // son seuil ET que son fournisseur est marqué "🏭 Interne" — pas besoin de repasser par Admin > Besoins.
-// Réutilise une commande déjà ouverte pour ce restaurant (en_attente/partiellement_envoyee) au lieu d'en créer
-// une par ingrédient, pour éviter de multiplier les commandes. Ne bloque jamais l'écran de comptage (le
+// Une seule commande par restaurant et par journée (RG.ajouterDemandeLabo, refonte du 16/11/2026), pas une
+// par ingrédient. Ne bloque jamais l'écran de comptage (le
 // comptage lui-même est déjà enregistré), mais tout échec est désormais AFFICHÉ — avant, une erreur sur cette
 // étape passait inaperçue et le Labo ne recevait rien sans que personne ne le sache.
 //
@@ -3387,29 +3567,11 @@ async function cptAutoCommandeLaboSiNecessaire(i){
   var calc=cptCalcDemandeInterne(i);
   var qte=calc.qte;
   try{
-    // Chaque appel vérifie son .error : avant, seule la création de commande était contrôlée — un échec sur la
-    // lecture de la commande ouverte ou sur l'ajout de la ligne passait inaperçu, et le message "Ajouté" s'affichait
-    // quand même alors que rien n'était arrivé au Labo.
-    var openRes=await db.from('labo_commandes').select('id').eq('restaurant_id',RESTAURANT_ID).in('statut',['en_attente','partiellement_envoyee']).order('created_at',{ascending:false}).limit(1).maybeSingle();
-    if(openRes.error)throw openRes.error;
-    var commandeId=openRes.data?openRes.data.id:null;
-    if(!commandeId){
-      var creePar=(emp?(emp.prenom+' '+emp.nom):'Comptage')+' (auto)';
-      var cmd=await db.from('labo_commandes').insert({restaurant_id:RESTAURANT_ID,statut:'en_attente',created_by_nom:creePar}).select().single();
-      if(cmd.error)throw cmd.error;
-      commandeId=cmd.data.id;
-    }
-    var ligneRes=await db.from('labo_commandes_lignes').select('id,quantite_demandee').eq('commande_id',commandeId).eq('produit_code',i.code).limit(1).maybeSingle();
-    if(ligneRes.error)throw ligneRes.error;
-    if(ligneRes.data){
-      if(qte!==ligneRes.data.quantite_demandee){
-        var lUpd=await db.from('labo_commandes_lignes').update({quantite_demandee:qte}).eq('id',ligneRes.data.id);
-        if(lUpd.error)throw lUpd.error;
-      }
-    }else{
-      var lIns=await db.from('labo_commandes_lignes').insert({commande_id:commandeId,produit_code:i.code,produit_nom:i.nom,restaurant_produit_id:null,quantite_demandee:qte});
-      if(lIns.error)throw lIns.error;
-    }
+    // 16/11/2026 : une commande par restaurant et par journée (RG.ajouterDemandeLabo, restoglobal-commun.js).
+    // Avant, tout s'ajoutait à la plus ancienne commande ouverte (bloquée au 19-20/10) et un nouveau besoin
+    // pouvait être masqué par un envoi plus ancien du même produit. Chaque étape vérifie son erreur.
+    var dem=await RG.ajouterDemandeLabo(db,{restaurant_id:RESTAURANT_ID,code:i.code,nom:i.nom,qte:qte,par:(emp?(emp.prenom+' '+emp.nom):'Comptage')+' (auto)'});
+    var commandeId=dem.commandeId;
     // Marque ce comptage comme "déjà signalé", comme le fait l'envoi WhatsApp côté fournisseurs externes —
     // sinon Admin > 🛒 Besoins (comptage) le proposait encore et pouvait créer une 2e commande Labo en
     // doublon. Non bloquant : la commande Labo, elle, est déjà bien créée à ce stade.
