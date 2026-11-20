@@ -9294,6 +9294,7 @@ async function loadRecettesModule(){
       rctRecettes[r.produit_vendu_code].push(r);
     });
     await loadMenuPricesFromSite(); // nécessaire pour classer Produits & recettes selon le menu public réel
+    await chargerLiensCarte();
     try{
       await syncProduitsFromMenu(); // synchro auto à chaque ouverture du module : les nouveaux articles du menu (dont les boissons) apparaissent sans avoir à cliquer sur "Synchroniser"
     }catch(e){
@@ -9945,21 +9946,29 @@ function renderRecettesList(){
         var r=coutRecette(p.code);
         var coutStr=r.total!=null?r.total.toFixed(2)+' €':'—';
         var hasWarn=r.warnings&&r.warnings.length;
-        var menu=findMenuPriceFor(p.nom);
+        // 20/11/2026 : plat de la carte retrouvé par son nom EXACT (et sa catégorie si deux plats portent
+        // le même nom) — plus jamais par ressemblance pour les champs modifiables, voir findMenuItemForProduit.
+        var menu=findMenuItemForProduit(p);
+        var menuApprox=menu?null:findMenuPriceFor(p.nom);
         var venteHtml='';
         if(r.total!=null&&menu){
           var pvSurPlace=parsePrixVente(menu.price);
-          var pvEmporterRaw=parsePrixVente(menu.priceEmporter);
+          var empInfo=prixEmporterDuPlat(menu);
+          var pvEmporterRaw=empInfo.dispo?parsePrixVente(empInfo.prix):null;
           var tva=menu.tva!=null?menu.tva:10;
           var coefSurPlace=pvSurPlace?((pvSurPlace/(1+tva/100))/r.total).toFixed(2):null;
           var coefEmporter=pvEmporterRaw?((pvEmporterRaw/(1+tva/100))/r.total).toFixed(2):null;
+          var lienManuel=rctLiensCarte&&rctLiensCarte[p.code]===menu.id;
           venteHtml='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px;">'
+            +(lienManuel?'<span style="font-size:9px;color:var(--txm);" title="Relié à la main au plat « '+esc((menu.name&&(menu.name.fr||menu.name))||'')+' »">🔗 <a href="#" onclick="event.preventDefault();event.stopPropagation();if(confirm(\'Délier cette fiche du plat de la carte ?\'))lierProduitCarte(\''+p.code+'\',\'\')">délier</a></span>':'')
             +'<span style="font-size:10px;">🍽️</span>'
             +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvSurPlace!=null?pvSurPlace:'')+'" placeholder="prix" onchange="updateMenuPrice(\''+p.code+'\',\'price\',this.value)">'
             +'<span style="font-size:9px;color:var(--txm);">€'+(coefSurPlace?' · coef '+coefSurPlace:'')+'</span>'
             +'<span style="font-size:10px;">🥡</span>'
-            +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvEmporterRaw!=null?pvEmporterRaw:'')+'" placeholder="idem" onchange="updateMenuPrice(\''+p.code+'\',\'priceEmporter\',this.value)">'
-            +'<span style="font-size:9px;color:var(--txm);">€'+(coefEmporter?' · coef '+coefEmporter:'')+'</span>'
+            +(empInfo.variantes
+              ?'<span style="font-size:9px;color:var(--txm);">prix multiples (modifiables dans Menu)</span>'
+              :'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvEmporterRaw!=null?pvEmporterRaw:'')+'" placeholder="non dispo" title="Prix à emporter — vide = pas disponible à emporter" onchange="updateMenuPrice(\''+p.code+'\',\'priceEmporter\',this.value)">'
+               +'<span style="font-size:9px;color:var(--txm);">€'+(coefEmporter?' · coef '+coefEmporter:(empInfo.dispo?'':' · pas à emporter'))+(empInfo.catMasquee?' (catégorie masquée à emporter)':'')+'</span>')
             +'<span style="font-size:9px;color:var(--txm);">TVA</span>'
             +'<select class="fi" style="font-size:10px;width:auto;padding:1px 3px;" onchange="updateMenuPrice(\''+p.code+'\',\'tva\',this.value)">'
               +'<option value="5.5"'+(tva===5.5?' selected':'')+'>5,5%</option>'
@@ -9968,7 +9977,18 @@ function renderRecettesList(){
             +'</select>'
             +'</div>';
         }else if(r.total!=null&&!menu){
-          venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">Prix de vente non trouvé sur la carte (nom différent ?)</div>';
+          // Pas de plat au nom identique : on affiche, pour information seulement (aucune modification
+          // possible d'ici), le plat le plus ressemblant — jamais d'écriture sur une correspondance approximative.
+          var choix=choixPlatsPourFiche(p);
+          venteHtml='<div style="font-size:10px;color:var(--txm);margin-top:2px;">'
+            +(menuApprox
+              ?'≈ Plat le plus proche sur la carte : « '+esc((menuApprox.name&&(menuApprox.name.fr||menuApprox.name))||'')+' » ('+esc(menuApprox.price||'—')+') — pas sûr que ce soit le même : choisis le bon plat pour voir et modifier ses prix ici.'
+              :'Prix de vente non trouvé sur la carte (nom différent ?)')
+            +'</div>'
+            +(choix.length?'<select class="fi" style="font-size:10px;width:auto;max-width:100%;margin-top:3px;" onclick="event.stopPropagation()" onchange="if(this.value)lierProduitCarte(\''+p.code+'\',this.value)">'
+              +'<option value="">🔗 Relier à quel plat de la carte ?</option>'
+              +choix.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.libelle)+'</option>';}).join('')
+              +'</select>':'');
         }
         html+='<div class="card" data-rct-code="'+p.code+'" style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;margin-left:'+(sub?'8px':'0')+';'+(inactive||!dispoIci?'opacity:.5;':'')+'">'
           +'<div style="flex:1;cursor:pointer;" onclick="event.target.tagName!==\'INPUT\'&&event.target.tagName!==\'SELECT\'&&openPrixRevientDetailModal(\''+p.code+'\')">'
@@ -13026,7 +13046,7 @@ async function confirmBlImport(){
 // dédiée /admin/extract-menu-prices côté Worker, car le prompt d'extraction (nom + prix d'un flyer)
 // est différent de celui d'une facture (nom + quantité + prix total). Voir la doc du projet pour le
 // code de cette route à ajouter au Worker si elle n'existe pas encore.
-var mflyerLines=[]; // {id,nomExtrait,prixExtrait,matchNom,matchScore,selected}
+var mflyerLines=[]; // {id,nomExtrait,prixExtrait,matchId (id du plat de la carte),matchScore,selected}
 function openFlyerImportModal(){
   document.getElementById('mflyer-step-upload').style.display='block';
   document.getElementById('mflyer-step-preview').style.display='none';
@@ -13069,12 +13089,11 @@ async function analyzeFlyerFile(){
         var sc=matchScore(nomExtrait,nom);
         if(sc>bestScore){bestScore=sc;best=m;}
       });
-      var bestNom=best?((best.name&&(best.name.fr||best.name))||''):'';
       return {
         id:'fl'+i,
         nomExtrait:nomExtrait,
         prixExtrait:it.prix!=null?it.prix:'',
-        matchNom:bestScore>=60?bestNom:'',
+        matchId:bestScore>=60&&best?best.id:'',
         matchScore:bestScore<0?0:bestScore,
         selected:true
       };
@@ -13090,14 +13109,22 @@ async function analyzeFlyerFile(){
 function renderFlyerLines(){
   var box=document.getElementById('mflyer-lines');
   var menuItems=((rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[]).filter(function(m){return !m.archived;});
-  var nomOpts='<option value="">— ignorer (aucune correspondance) —</option>'+menuItems.map(function(m){
+  var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
+  // 20/11/2026 : chaque choix désigne le plat par son identifiant ; le nom de catégorie est ajouté au libellé
+  // pour distinguer deux plats de même nom (ex. pizza « Burrata » / supplément « Burrata »).
+  function libelle(m){
     var nom=(m.name&&(m.name.fr||m.name))||'';
-    return '<option value="'+esc(nom)+'">'+esc(nom)+'</option>';
-  }).join('');
+    var c=cats.find(function(x){return x.id===m.cat;});
+    return nom+(c?' — '+((c.name&&(c.name.fr||c.name))||''):'');
+  }
   box.innerHTML=mflyerLines.map(function(l){
-    var ambiguous=!l.matchNom||l.matchScore<80;
-    var current=l.matchNom?findMenuPriceFor(l.matchNom):null;
-    var prixActuel=current?parsePrixVente(current.priceEmporter):null;
+    var ambiguous=!l.matchId||l.matchScore<80;
+    var current=l.matchId?menuItems.find(function(m){return m.id===l.matchId;}):null;
+    var empInfo=current?prixEmporterDuPlat(current):null;
+    var prixActuel=empInfo&&empInfo.dispo?parsePrixVente(empInfo.prix):null;
+    var opts='<option value="">— ignorer (aucune correspondance) —</option>'+menuItems.map(function(m){
+      return '<option value="'+esc(m.id)+'"'+(m.id===l.matchId?' selected':'')+'>'+esc(libelle(m))+'</option>';
+    }).join('');
     return '<div style="border:1px solid '+(ambiguous?'#E8B84B':'var(--bd)')+';background:'+(ambiguous?'#FFF9EC':'#fff')+';border-radius:8px;padding:8px 10px;margin-bottom:8px;">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
       +'<input type="checkbox" '+(l.selected?'checked':'')+' onchange="toggleFlyerLine(\''+l.id+'\',this.checked)">'
@@ -13105,10 +13132,10 @@ function renderFlyerLines(){
       +'<input type="number" class="fi" style="width:70px;font-size:11px;" step="0.01" placeholder="Prix" value="'+l.prixExtrait+'" onchange="updateFlyerLineField(\''+l.id+'\',\'prixExtrait\',this.value)">'
       +'<span style="font-size:11px;color:var(--txm);">€</span>'
       +'</div>'
-      +'<select class="fi" style="font-size:11px;width:100%;" onchange="updateFlyerLineField(\''+l.id+'\',\'matchNom\',this.value)">'+nomOpts.replace('value="'+esc(l.matchNom)+'"','value="'+esc(l.matchNom)+'" selected')+'</select>'
-      +(prixActuel!=null?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Prix emporter actuel sur la carte : '+prixActuel.toFixed(2)+' €</div>':'')
-      +(ambiguous&&l.matchNom?'<div style="font-size:10px;color:#92400E;margin-top:4px;">Correspondance incertaine — vérifie le produit choisi.</div>':'')
-      +(!l.matchNom?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Aucun produit correspondant trouvé sur la carte — choisis-en un ou laisse "ignorer".</div>':'')
+      +'<select class="fi" style="font-size:11px;width:100%;" onchange="updateFlyerLineField(\''+l.id+'\',\'matchId\',this.value)">'+opts+'</select>'
+      +(current?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Prix à emporter actuel sur la carte : '+(prixActuel!=null?prixActuel.toFixed(2)+' €':'pas disponible à emporter')+'</div>':'')
+      +(ambiguous&&l.matchId?'<div style="font-size:10px;color:#92400E;margin-top:4px;">Correspondance incertaine — vérifie le produit choisi.</div>':'')
+      +(!l.matchId?'<div style="font-size:10px;color:var(--txm);margin-top:4px;">Aucun produit correspondant trouvé sur la carte — choisis-en un ou laisse "ignorer".</div>':'')
       +'</div>';
   }).join('');
 }
@@ -13121,18 +13148,19 @@ function updateFlyerLineField(id,field,value){
   if(!l)return;
   if(field==='prixExtrait')l[field]=value===''?'':parseFloat(value);
   else l[field]=value;
-  if(field==='matchNom')l.matchScore=100; // choix manuel = plus d'ambiguïté
+  if(field==='matchId')l.matchScore=100; // choix manuel = plus d'ambiguïté
   renderFlyerLines();
 }
 async function confirmFlyerImport(){
-  var toApply=mflyerLines.filter(function(l){return l.selected&&l.matchNom&&l.prixExtrait!==''&&l.prixExtrait!=null;});
+  var toApply=mflyerLines.filter(function(l){return l.selected&&l.matchId&&l.prixExtrait!==''&&l.prixExtrait!=null;});
   if(!toApply.length){alert('Coche au moins une ligne avec un produit et un prix valides.');return;}
+  var menuItems=(rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[];
   var applied=0,errors=[];
   toApply.forEach(function(l){
-    var item=findMenuPriceFor(l.matchNom);
+    var item=menuItems.find(function(m){return m.id===l.matchId;});
     if(!item){errors.push(l.nomExtrait+' : produit introuvable sur la carte');return;}
-    item.priceEmporter=l.prixExtrait+'€';
-    rctMenuDirtyNames[(item.name&&(item.name.fr||item.name))||'']=true;
+    if(!appliquerPrixEmporter(item,l.prixExtrait)){errors.push(l.nomExtrait+' : prix invalide');return;}
+    marquerPlatModifie(item,['priceEmporter','dispoEmporter']);
     applied++;
   });
   try{
@@ -14746,39 +14774,134 @@ async function loadMenuPricesFromSite(){
 // Écrit les modifications faites en mémoire (prix/TVA) dans menudata.json (carte en ligne) ET dans
 // menudata_draft.json s'il existe : sinon la prochaine publication du brouillon depuis l'écran Menu
 // écraserait silencieusement ces changements. On ne touche qu'aux produits réellement modifiés ici.
-var rctMenuDirtyNames={}; // noms des produits modifiés localement depuis "Prix de revient", à resynchroniser à l'enregistrement
+// 20/11/2026 : les plats modifiés sont repérés par leur IDENTIFIANT (it.id), plus par leur nom. Avant, deux
+// plats de même nom (ex. la pizza « Burrata » et le supplément « Burrata ») se mélangeaient à l'enregistrement :
+// les prix de l'un étaient recopiés sur l'autre.
+// Seuls les CHAMPS réellement modifiés ici sont recopiés, sur le fichier relu juste avant l'écriture : une
+// modification faite ailleurs entre-temps (autre champ ou autre plat) n'est jamais écrasée.
+var rctMenuDirtyIds={}; // {id du plat: {champ: true}}
+function marquerPlatModifie(it,champs){
+  var m=rctMenuDirtyIds[it.id]=rctMenuDirtyIds[it.id]||{};
+  champs.forEach(function(k){m[k]=true;});
+}
 async function saveMenuData(){
-  var dirtyNames=Object.keys(rctMenuDirtyNames);
-  if(!dirtyNames.length)return;
+  var ids=Object.keys(rctMenuDirtyIds);
+  if(!ids.length)return;
   var locaux={};
   (rctMenuData.json.items||[]).forEach(function(localIt){
-    var nom=(localIt.name&&(localIt.name.fr||localIt.name))||'';
-    if(dirtyNames.indexOf(nom)>=0)locaux[nom]=localIt;
+    if(localIt&&localIt.id&&rctMenuDirtyIds[localIt.id])locaux[localIt.id]=localIt;
   });
+  var introuvables=[];
   function appliquer(json){
+    var vus={};
     (json.items||[]).forEach(function(freshIt){
-      var nom=(freshIt.name&&(freshIt.name.fr||freshIt.name))||'';
-      var localIt=locaux[nom];
+      var localIt=freshIt&&locaux[freshIt.id];
       if(!localIt)return;
-      freshIt.price=localIt.price;
-      freshIt.priceEmporter=localIt.priceEmporter;
-      freshIt.tva=localIt.tva;
+      vus[freshIt.id]=true;
+      var champs=rctMenuDirtyIds[freshIt.id]||{};
+      if(champs.__figerEmporter&&platSuitPrixSurPlace(freshIt))freshIt.priceEmporter=freshIt.price;
+      Object.keys(champs).forEach(function(k){
+        if(k.charAt(0)==='_')return;
+        if(localIt[k]===undefined||localIt[k]===null||localIt[k]==='')delete freshIt[k];
+        else freshIt[k]=localIt[k];
+      });
     });
+    introuvables=ids.filter(function(id){return !vus[id];});
   }
   var ecrit=await ecrireMenuFichier('menudata.json',appliquer,'Mise à jour prix/TVA depuis admin.html',false);
   rctMenuData={json:ecrit.json,sha:ecrit.sha}; // resynchronise le cache local avec ce qui vient d'être écrit
   rctMenuData.json.items=rctMenuData.json.items||[];
-  rctMenuDirtyNames={};
+  if(introuvables.length)alert('⚠️ '+introuvables.length+' plat(s) n\'existe(nt) plus sur la carte en ligne (supprimé ailleurs entre-temps) : rien n\'a été écrit pour eux.');
   try{await ecrireMenuFichier('menudata_draft.json',appliquer,'Mise à jour prix/TVA depuis admin.html (brouillon)',true);}
   catch(e){console.error('saveMenuData brouillon',e);alert('⚠️ Carte en ligne enregistrée, mais le brouillon du menu n\'a pas pu être mis à jour ('+e.message+'). Si tu publies le brouillon depuis l\'onglet Menu, vérifie ces prix/TVA avant.');}
+  finally{rctMenuDirtyIds={};}
+}
+// Prix à emporter d'un plat de la carte. Règle (20/11/2026) : un plat est disponible à emporter s'il a un prix à
+// emporter ; case vide = pas disponible à emporter. Les anciens plats sans prix à emporter enregistré mais non
+// masqués (it.dispoEmporter !== false) gardent leur prix sur place comme prix à emporter, comme avant.
+function prixEmporterDuPlat(it){
+  var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
+  var cat=cats.find(function(c){return c.id===it.cat;});
+  var variantes=!!(it.priceVariants&&it.priceVariants.length);
+  var dispo=it.dispoEmporter!==false;
+  return {dispo:dispo,variantes:variantes,catMasquee:!!(cat&&cat.dispoEmporter===false),prix:dispo?(it.priceEmporter||it.price||''):''};
+}
+// Plat disponible à emporter, sans prix multiples, dont le prix à emporter n'est pas enregistré : il affiche
+// son prix sur place sur la carte à emporter.
+function platSuitPrixSurPlace(it){
+  return it.dispoEmporter!==false&&!it.priceEmporter&&!(it.priceVariants&&it.priceVariants.length)&&!!it.price;
+}
+// Écrit un prix à emporter sur un plat (en mémoire), selon la règle ci-dessus.
+function appliquerPrixEmporter(it,valeur){
+  var clean=String(valeur==null?'':valeur).replace('€','').trim();
+  if(!clean){delete it.priceEmporter;it.dispoEmporter=false;return true;}
+  var n=parsePrixVente(clean);
+  if(n==null||n<=0)return false;
+  it.priceEmporter=String(clean).replace('.',',')+'€';
+  it.dispoEmporter=true;
+  return true;
 }
 function parsePrixVente(str){
   if(str==null||str==='')return null;
   var n=parseFloat(String(str).replace(',','.').replace(/[^\d.-]/g,''));
   return isFinite(n)?n:null;
 }
-// Trouve l'item de menu (référence réelle, éditable) correspondant à un produit de la carte admin, par
-// correspondance de nom (les deux systèmes ne partagent pas d'identifiant commun).
+// Liens choisis à la main entre une fiche produit et un plat de la carte (quand le nom ne suffit pas : deux plats
+// de même nom, ou noms différents). Stockés dans app_config, clé 'liens_produit_carte' = {code fiche: id du plat}.
+var LIENS_CARTE_CLE='liens_produit_carte';
+var rctLiensCarte={};
+async function chargerLiensCarte(){
+  try{rctLiensCarte=cfgJson(await cfgLire(LIENS_CARTE_CLE))||{};}
+  catch(e){console.warn('chargerLiensCarte',e);rctLiensCarte={};}
+}
+async function lierProduitCarte(code,itemId){
+  try{
+    var frais=cfgJson(await cfgLire(LIENS_CARTE_CLE))||{}; // relu juste avant d'écrire : un lien fait ailleurs n'est pas perdu
+    if(itemId)frais[code]=itemId;else delete frais[code];
+    await cfgEcrire(LIENS_CARTE_CLE,JSON.stringify(frais));
+    rctLiensCarte=frais;
+  }catch(e){console.error('lierProduitCarte',e);alert('Erreur lors de l\'enregistrement du lien : '+e.message);}
+  renderRecettesList();
+}
+// Liste des plats proposés pour relier une fiche à la main : les plus ressemblants d'abord.
+function choixPlatsPourFiche(p){
+  var items=((rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[]).filter(function(it){return it&&!it.archived;});
+  var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
+  return items.map(function(it){
+    var nom=(it.name&&(it.name.fr||it.name))||'';
+    var c=cats.find(function(x){return x.id===it.cat;});
+    return {id:it.id,score:matchScore(p.nom,nom),libelle:nom+(c?' — '+((c.name&&(c.name.fr||c.name))||''):'')+(it.price?' ('+it.price+')':'')};
+  }).filter(function(x){return x.score>0;}).sort(function(a,b){return b.score-a.score;}).slice(0,10);
+}
+// Plat de la carte correspondant à une fiche produit, pour toute MODIFICATION (prix, TVA). D'abord le lien
+// choisi à la main ; sinon nom identique (accents, majuscules et ponctuation ignorés) parmi les plats non
+// archivés ; si plusieurs plats portent ce nom, on départage par la catégorie de la fiche. Aucun plat ou
+// toujours plusieurs → null (rien n'est modifié ; la fiche propose alors de choisir le plat à la main).
+function findMenuItemForProduit(p){
+  if(!p)return null;
+  var items=((rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[]).filter(function(it){return it&&!it.archived;});
+  var lien=rctLiensCarte&&rctLiensCarte[p.code];
+  if(lien){
+    var lie=items.find(function(it){return it.id===lien;});
+    if(lie)return lie;
+  }
+  var cible=normText(p.nom);
+  if(!cible)return null;
+  var memes=items.filter(function(it){return normText((it.name&&(it.name.fr||it.name))||'')===cible;});
+  if(memes.length===1)return memes[0];
+  if(memes.length>1&&p.categorie){
+    var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
+    var catNorm=normText(p.categorie);
+    var dansCat=memes.filter(function(it){
+      var c=cats.find(function(x){return x.id===it.cat;});
+      return c&&normText((c.name&&(c.name.fr||c.name))||'')===catNorm;
+    });
+    if(dansCat.length===1)return dansCat[0];
+  }
+  return null;
+}
+// Plat le plus RESSEMBLANT (lecture seule : classement, descriptions, affichage indicatif). Ne jamais s'en
+// servir pour écrire sur la carte — utiliser findMenuItemForProduit.
 function findMenuPriceFor(nomProduit){
   var items=(rctMenuData&&rctMenuData.json&&rctMenuData.json.items)||[];
   if(!items.length)return null;
@@ -14795,11 +14918,22 @@ function findMenuPriceFor(nomProduit){
 async function updateMenuPrice(prodCode,field,value){
   var p=rctProduitsVendus.find(function(x){return x.code===prodCode;});
   if(!p)return;
-  var item=findMenuPriceFor(p.nom);
-  if(!item){alert('Produit introuvable sur la carte publique — impossible d\'enregistrer.');return;}
-  if(field==='tva')item.tva=value===''?null:parseFloat(value);
-  else item[field]=value===''?'':(String(value).replace('€','').trim()+'€');
-  rctMenuDirtyNames[(item.name&&(item.name.fr||item.name))||'']=true;
+  var item=findMenuItemForProduit(p);
+  if(!item){alert('Aucun plat de la carte ne porte exactement le nom « '+p.nom+' » (ou plusieurs le portent dans la même catégorie) — rien n\'a été enregistré. Modifie le prix dans Menu.');renderRecettesList();return;}
+  if(field==='tva'){item.tva=value===''?null:parseFloat(value);marquerPlatModifie(item,['tva']);}
+  else if(field==='priceEmporter'){
+    if(!appliquerPrixEmporter(item,value)){alert('Prix à emporter invalide : tape un nombre (ex. 13,5), ou laisse vide si le plat n\'est pas disponible à emporter.');renderRecettesList();return;}
+    marquerPlatModifie(item,['priceEmporter','dispoEmporter']);
+  }else{
+    var clean=String(value).replace('€','').trim();
+    if(!clean){alert('Le prix sur place ne peut pas être vide.');renderRecettesList();return;}
+    // Plat disponible à emporter sans prix à emporter enregistré : il suivait le prix sur place. On fige
+    // l'ancien prix comme prix à emporter, pour que changer le prix sur place ne change pas l'autre.
+    // (fait aussi sur le fichier relu juste avant l'écriture, voir saveMenuData : __figerEmporter)
+    if(platSuitPrixSurPlace(item))item.priceEmporter=item.price;
+    item.price=clean.replace('.',',')+'€';
+    marquerPlatModifie(item,['price','__figerEmporter']);
+  }
   try{
     await saveMenuData();
     renderRecettesList();
@@ -14809,17 +14943,18 @@ async function updateMenuPrice(prodCode,field,value){
 async function applyTvaToCategory(codesCsv,tva){
   await loadMenuPricesFromSite();
   var codes=codesCsv.split(',');
-  var changed=0;
+  var changed=0,vu={},nonRelies=[];
   codes.forEach(function(code){
     var p=rctProduitsVendus.find(function(x){return x.code===code;});
     if(!p)return;
-    var item=findMenuPriceFor(p.nom);
-    if(item){item.tva=parseFloat(tva);changed++;rctMenuDirtyNames[(item.name&&(item.name.fr||item.name))||'']=true;}
+    var item=findMenuItemForProduit(p);
+    if(item&&!vu[item.id]){vu[item.id]=true;item.tva=parseFloat(tva);changed++;marquerPlatModifie(item,['tva']);}
+    else if(!item)nonRelies.push(p.nom);
   });
-  if(!changed){alert('Aucun produit de cette catégorie trouvé sur la carte publique.');return;}
+  if(!changed){alert('Aucun produit de cette catégorie trouvé sur la carte publique (nom exact).');return;}
   try{
     await saveMenuData();
-    alert('✅ TVA à '+tva+'% appliquée à '+changed+' produit(s) de cette catégorie.');
+    alert('✅ TVA à '+tva+'% appliquée à '+changed+' produit(s) de cette catégorie.'+(nonRelies.length?'\n\n⚠️ Sans plat au nom identique sur la carte (non modifiés) : '+nonRelies.join(', '):''));
     renderRecettesList();
   }catch(e){console.error('applyTvaToCategory',e);alert('Erreur lors de l\'enregistrement : '+e.message);}
 }

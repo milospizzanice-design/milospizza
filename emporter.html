@@ -1552,6 +1552,8 @@ async function loadFromGithubRelais() {
     if (d.sha) githubSha = d.sha;
     if (d.content) {
       const parsed = decodeB64UTF8(d.content);
+      // Base de la fusion anti-écrasement (voir fusionnerCarte) : la version lue, telle quelle
+      try { menuBases[file] = decodeB64UTF8(d.content); if (d.sha && !(githubShasPerimes[file] || {})[d.sha]) githubShas[file] = d.sha; } catch(e){}
       if (parsed.cats) cats = parsed.cats;
       if (parsed.items) items = parsed.items;
       if (parsed.upsells) upsells = parsed.upsells;
@@ -1583,40 +1585,154 @@ async function saveToGithub() {
 }
 
 // Generic save any config file to GitHub
+// GitHub sert ses lectures depuis un cache (~60 s) : juste après une écriture, relire le fichier peut encore
+// renvoyer l'ANCIEN sha, et réécrire avec est refusé (HTTP 409 « does not match »). On retient donc les sha
+// que nos propres écritures ont remplacés pour ne jamais les réutiliser, et on réessaie en cas de conflit
+// (même mécanisme que index.html, repris ici le 20/11/2026).
 const githubShas = {};
-async function saveKeyToGithub(filename, data) {
-  try {
-    // Get current SHA via proxy
-    const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`);
-    if (res.ok) {
-      const d = await res.json();
-      if (d.sha) githubShas[filename] = d.sha;
-    }
-  } catch(e){}
-  try {
-    const jsonStr = JSON.stringify(data, null, 2);
-    // Properly encode UTF-8 to base64
-    const bytes = new TextEncoder().encode(jsonStr);
-    let binary = '';
-    bytes.forEach(b => binary += String.fromCharCode(b));
-    const b64 = btoa(binary);
-    const body = {
-      message: 'Update ' + filename,
-      content: b64,
-      ...(githubShas[filename] ? {sha: githubShas[filename]} : {})
-    };
-    const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
+const githubShasPerimes = {}; // {fichier:{sha:true}}
+// ── Fusion anti-écrasement de la carte (20/11/2026) ─────────────────────────────────────────────────
+// Cette page garde la carte en mémoire et réécrit tout le fichier à chaque enregistrement. Si la carte a été
+// modifiée AILLEURS entre-temps (Recettes de l'admin, autre appareil, traduction automatique…), l'ancien
+// enregistrement effaçait ces modifications. Désormais, juste avant d'écrire, on relit le fichier : s'il a changé
+// depuis notre dernière lecture/écriture (« base »), on fusionne plat par plat et champ par champ, par
+// IDENTIFIANT (jamais par nom) : nos propres changements gagnent, les autres changements sont conservés.
+const menuBases = {}; // {fichier: dernière version connue (lue ou écrite par cette page)}
+function estFichierCarte(f){ return f === DATA_FILE || f === 'menudata_draft.json'; }
+function memeValeur(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+function copieProfonde(v){ return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
+// Fusionne une liste d'objets à identifiant (catégories, plats, suggestions). Les objets de `local` sont
+// conservés (mêmes références) et complétés des changements faits ailleurs.
+function fusionnerListe(base, local, distant){
+  base = Array.isArray(base) ? base : []; local = Array.isArray(local) ? local : []; distant = Array.isArray(distant) ? distant : [];
+  const aId = x => x && typeof x === 'object' && x.id != null;
+  if (![...base, ...local, ...distant].every(aId)) return memeValeur(local, base) ? copieProfonde(distant) : local;
+  const parId = l => { const m = {}; l.forEach(x => { m[x.id] = x; }); return m; };
+  const bm = parId(base), lm = parId(local), rm = parId(distant);
+  const res = [];
+  local.forEach(el => {
+    const b = bm[el.id], r = rm[el.id];
+    if (!b) { res.push(el); return; }                       // ajouté ici
+    if (!r) { if (!memeValeur(el, b)) res.push(el); return; } // supprimé ailleurs : on le garde seulement si on l'a modifié ici
+    const cles = new Set([...Object.keys(el), ...Object.keys(b), ...Object.keys(r)]);
+    cles.forEach(k => {
+      if (memeValeur(el[k], b[k]) && !memeValeur(r[k], b[k])) { // pas touché ici, modifié ailleurs → on reprend
+        if (r[k] === undefined) delete el[k]; else el[k] = copieProfonde(r[k]);
+      }
     });
-    const d2 = await res2.json();
-    if (d2.content && d2.content.sha) githubShas[filename] = d2.content.sha;
-    return d2;
-  } catch(e) {
-    console.error('saveKeyToGithub error', filename, e);
+    res.push(el);
+  });
+  // Ajoutés ailleurs : insérés après leur voisin précédent dans la version distante
+  distant.forEach((el, i) => {
+    if (bm[el.id] || lm[el.id]) return;
+    let pos = res.length;
+    for (let j = i - 1; j >= 0; j--) { const k = res.findIndex(x => x.id === distant[j].id); if (k >= 0) { pos = k + 1; break; } }
+    res.splice(pos, 0, copieProfonde(el));
+  });
+  return res;
+}
+function fusionnerCarte(base, local, distant){
+  const out = {};
+  new Set([...Object.keys(base || {}), ...Object.keys(local || {}), ...Object.keys(distant || {})]).forEach(k => {
+    if (k === 'cats' || k === 'items' || k === 'upsells') out[k] = fusionnerListe(base[k], local[k], distant[k]);
+    else if (memeValeur(local[k], base[k])) { if (distant[k] !== undefined) out[k] = copieProfonde(distant[k]); }
+    else if (local[k] !== undefined) out[k] = local[k];
+  });
+  return out;
+}
+function decoderContenuGithub(b64){
+  const bin = atob(String(b64).replace(/\n/g, ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+}
+// Après une fusion : la carte affichée par cette page reprend aussi les changements faits ailleurs.
+function apresFusionCarte(){
+  try { renderMenu(); } catch(e){}
+  try { if (document.getElementById('adminItemsList')) renderAdminItems(getFilteredAdminItems()); } catch(e){}
+  try { showToast('🔄 La carte avait été modifiée ailleurs : ces modifications ont été conservées avec les vôtres'); } catch(e){}
+}
+
+function encoderPourGithub(data){
+  const jsonStr = JSON.stringify(data, null, 2);
+  // Properly encode UTF-8 to base64
+  const bytes = new TextEncoder().encode(jsonStr);
+  let binary = '';
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return {jsonStr, b64: btoa(binary)};
+}
+async function saveKeyToGithub(filename, data) {
+  let enc;
+  try { enc = encoderPourGithub(data); }
+  catch(e) {
+    console.error('saveKeyToGithub encode error', filename, e);
     return null;
   }
+  // Fichier de carte passé directement depuis les variables de la page (cats/items/upsells) : après une
+  // fusion, ces variables sont mises à jour avec le résultat.
+  const depuisLaPage = !!(data && data.items === items);
+  let fusionFaite = false;
+  let last = null;
+  for (let essai = 0; essai < 4; essai++) {
+    if (essai > 0) await new Promise(r => setTimeout(r, 1500 * essai));
+    try {
+      // Get current SHA via proxy
+      const res = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`);
+      if (res.ok) {
+        const d = await res.json();
+        const perimes = githubShasPerimes[filename] || {};
+        if (d.sha && !perimes[d.sha]) {
+          githubShas[filename] = d.sha;
+          // Carte modifiée ailleurs depuis notre base → fusion par identifiant (voir fusionnerCarte)
+          if (estFichierCarte(filename) && menuBases[filename] && d.content && data && Array.isArray(data.items)) {
+            let distant = null;
+            try { distant = decoderContenuGithub(d.content); } catch(e) { console.error('saveKeyToGithub lecture distante', e); }
+            if (distant && !memeValeur(distant, menuBases[filename])) {
+              data = fusionnerCarte(menuBases[filename], data, distant);
+              menuBases[filename] = distant;
+              enc = encoderPourGithub(data);
+              fusionFaite = true;
+            }
+          }
+        }
+      }
+    } catch(e){}
+    try {
+      const shaEnvoye = githubShas[filename];
+      const body = {
+        message: 'Update ' + filename,
+        content: enc.b64,
+        ...(shaEnvoye ? {sha: shaEnvoye} : {})
+      };
+      const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const d2 = await res2.json();
+      last = d2;
+      if (d2.content && d2.content.sha) {
+        if (shaEnvoye) (githubShasPerimes[filename] = githubShasPerimes[filename] || {})[shaEnvoye] = true;
+        githubShas[filename] = d2.content.sha;
+        if (estFichierCarte(filename) && data && Array.isArray(data.items)) menuBases[filename] = JSON.parse(enc.jsonStr);
+        if (fusionFaite && depuisLaPage) {
+          if (data.cats) cats = data.cats;
+          items = data.items;
+          if (data.upsells) upsells = data.upsells;
+          apresFusionCarte();
+        }
+        return d2;
+      }
+      if (res2.status !== 409) return d2; // seul un conflit de version justifie un nouvel essai
+      // Conflit : le sha connu n'est plus le bon, on l'oublie et on relit
+      if (shaEnvoye) (githubShasPerimes[filename] = githubShasPerimes[filename] || {})[shaEnvoye] = true;
+      delete githubShas[filename];
+    } catch(e) {
+      console.error('saveKeyToGithub error', filename, e);
+      return null;
+    }
+  }
+  return last;
 }
 
 
@@ -1626,7 +1742,7 @@ async function loadKeyFromGithub(filename) {
     );
     if (!res.ok) return await lireFichierDuSite(filename);
     const data = await res.json();
-    githubShas[filename] = data.sha;
+    if (!(githubShasPerimes[filename] || {})[data.sha]) githubShas[filename] = data.sha;
     return JSON.parse(new TextDecoder('utf-8').decode((s=>{const b=atob(s.replace(/\\n/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;})(data.content.replace(/\n/g,''))));
   } catch(e){ return await lireFichierDuSite(filename); }
 }
@@ -2148,7 +2264,7 @@ function renderAdminItems(list){
     const priceCell = hasVariants
       ? `<button class="plat-price-bubble plat-price-multi" onclick="openItemEditModal('${it.id}')">🏷 ${it.priceVariants.length}</button>`
       : `<div class="plat-price-wrap">
-           <input class="plat-price-num" id="p_${it.id}" value="${(it.priceEmporter||it.price||'').replace('€','').trim()}" title="Prix à emporter${it.priceEmporter?' (sur place : '+(it.price||'—')+')':' — identique au prix sur place'}" style="${it.priceEmporter?'color:var(--rouge);font-weight:800;':''}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
+           <input class="plat-price-num" id="p_${it.id}" value="${prixEmporterAffiche(it).replace('€','').trim()}" placeholder="non dispo" title="Prix à emporter (sur place : ${it.price||'—'}) — case vide = pas disponible à emporter" style="color:var(--rouge);font-weight:800;" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
            <span class="plat-price-suffix">€</span>
          </div>`;
     return `<div class="plat-row" id="row_${it.id}">
@@ -2168,19 +2284,47 @@ async function autoSaveItemsBrut(){
 }
 
 // Sur cette page (carte à emporter), le prix saisi est le PRIX À EMPORTER (it.priceEmporter) — corrigé le
-// 15/10/2026 : avant, il remplaçait le prix sur place. Égal au prix sur place (ou vide) = pas de prix à emporter
-// particulier. Le prix sur place se règle depuis la carte sur place.
+// 15/10/2026 : avant, il remplaçait le prix sur place. Le prix sur place se règle depuis la carte sur place.
+// RÈGLE (20/11/2026, identique à index.html) : un plat est disponible à emporter s'il a un prix à emporter ;
+// case vide = pas disponible à emporter (it.dispoEmporter = false). Le prix saisi est toujours enregistré, même
+// égal au prix sur place. Les anciens plats disponibles sans prix à emporter enregistré affichent leur prix sur place.
+function prixEmporterAffiche(it){
+  if (!it || it.dispoEmporter === false) return '';
+  return it.priceEmporter || it.price || '';
+}
+function appliquerPrixEmporter(it, val){
+  const clean = String(val == null ? '' : val).replace('€','').trim();
+  if (!clean) { delete it.priceEmporter; it.dispoEmporter = false; return true; }
+  const n = parsePriceValue(clean);
+  if (!n || n <= 0) return false;
+  it.priceEmporter = clean.replace('.', ',') + '€';
+  it.dispoEmporter = true;
+  return true;
+}
+function appliquerDispoEmporter(it, on){
+  if (on) {
+    it.dispoEmporter = true;
+    if (!it.priceEmporter && !(it.priceVariants && it.priceVariants.length) && it.price) it.priceEmporter = it.price;
+  } else {
+    it.dispoEmporter = false;
+    delete it.priceEmporter;
+  }
+}
 function prixEmporterDepuisSaisie(it, val){
-  const clean = String(val||'').replace('€','').trim();
-  if(clean && parsePriceValue(clean) !== parsePriceValue(it.price)) it.priceEmporter = clean + '€';
-  else delete it.priceEmporter;
+  return appliquerPrixEmporter(it, val);
 }
 function onPriceChange(id, val){
   const it = items.find(i=>i.id===id);
   if(!it) return;
-  prixEmporterDepuisSaisie(it, val);
+  const input = document.getElementById('p_' + id);
+  if (!appliquerPrixEmporter(it, val)) {
+    showToast('❌ Prix à emporter invalide — tapez un nombre, ou videz la case si le plat n\'est pas à emporter');
+    if (input) input.value = prixEmporterAffiche(it).replace('€','').trim();
+    return;
+  }
+  if (input) input.value = prixEmporterAffiche(it).replace('€','').trim();
   autoSaveItems().then(ok=>{
-    showToast(ok ? '✓ Prix enregistré' : '❌ Échec de l\'enregistrement - réessayez');
+    showToast(ok ? (it.dispoEmporter === false ? '✓ Plat retiré de la carte à emporter' : '✓ Prix enregistré') : '❌ Échec de l\'enregistrement - réessayez');
   });
 }
 
@@ -3469,7 +3613,10 @@ function toggleDispoSurPlace(id,checked){
 }
 function toggleDispoEmporter(id,checked){
   const it=items.find(i=>i.id===id);
-  if(it)it.dispoEmporter=checked;
+  if(!it) return;
+  appliquerDispoEmporter(it, checked); // décocher vide le prix à emporter ; cocher reprend le prix sur place
+  const p=document.getElementById('p_'+id);
+  if(p) p.value=prixEmporterAffiche(it).replace('€','').trim();
 }
 function deleteItem(id){
   if(!confirm('Supprimer ce plat définitivement ?')) return false;
@@ -3998,13 +4145,10 @@ async function saveAll(){
   collectUpsellEdits();
   const btn=document.querySelector('.admin-save-btn');
   if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
-  let saveSuccess;
-  if (isDraftMode) {
-    const result = await saveKeyToGithub(DRAFT_FILE, {cats, items, upsells});
-    saveSuccess = !!(result && result.content && result.content.sha);
-  } else {
-    saveSuccess = await saveToGithub();
-  }
+  // 20/11/2026 : toujours via saveKeyToGithub (fusion anti-écrasement, comme index.html). L'ancien
+  // saveToGithub() réécrivait toute la carte en ligne et effaçait les modifications faites ailleurs.
+  const result = await saveKeyToGithub(isDraftMode ? DRAFT_FILE : DATA_FILE, {cats, items, upsells});
+  const saveSuccess = !!(result && result.content && result.content.sha);
   renderMenu();
   if(btn){btn.textContent='✓ Enregistrer tout';btn.disabled=false;}
   showToast(saveSuccess ? '✓ Tout est sauvegardé !' : '❌ Échec de la sauvegarde - réessayez');
@@ -7176,10 +7320,11 @@ async function restoreVersion(idx) {
   if (data.items) items = data.items;
   if (data.upsells) upsells = data.upsells;
   
-  await saveToGithub();
+  const result = await saveKeyToGithub(isDraftMode ? DRAFT_FILE : DATA_FILE, {cats, items, upsells});
+  const ok = !!(result && result.content && result.content.sha);
   renderMenu();
   closeAdmin();
-  showToast('↩ Version du ' + entry.label + ' restaurée !');
+  showToast(ok ? ('↩ Version du ' + entry.label + ' restaurée !') : '❌ Restauration non enregistrée — réessaie dans une minute');
 }
 
 // ═══════════════════════════════════════

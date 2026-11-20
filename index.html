@@ -270,6 +270,14 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .plat-price-wrap{flex-shrink:0;display:flex;align-items:center;width:64px;border:1.5px solid var(--vert);border-radius:20px;padding:0.3rem 0.5rem;background:#fff;}
 .plat-price-num{flex:1;width:100%;border:none;background:transparent;text-align:right;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;padding:0;outline:none;}
 .plat-price-suffix{flex-shrink:0;font-size:1rem;font-weight:700;color:var(--vert);font-family:'Montserrat',sans-serif;margin-left:0.15rem;}
+/* 20/11/2026 : 2e colonne « 🥡 prix à emporter » dans la liste des plats — case vide = pas disponible à emporter */
+.plat-price-wrap.emp{border-color:var(--rouge);}
+.plat-price-wrap.emp .plat-price-num,.plat-price-wrap.emp .plat-price-suffix{color:var(--rouge);}
+.plat-price-wrap.emp.vide{border-style:dashed;border-color:#ccc;}
+.plat-price-wrap.emp.vide .plat-price-num::placeholder{color:#bbb;font-weight:600;font-size:0.72rem;}
+.plat-emp-multi{flex-shrink:0;width:64px;display:flex;align-items:center;justify-content:center;gap:0.2rem;font-size:0.8rem;cursor:pointer;}
+.plats-entete-prix{display:flex;justify-content:flex-end;gap:0.5rem;padding:0 0.2rem 0.2rem;font-size:0.62rem;font-weight:700;color:#888;font-family:'Montserrat',sans-serif;}
+.plats-entete-prix span{width:64px;text-align:center;}
 .photo-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--vert);margin-right:0.4rem;flex-shrink:0;}
 .subcat-manager{margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid #f0ede8;}
 .cat-section-label{font-size:0.62rem;color:var(--vert);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0.9rem 0 0.5rem;border-top:1px solid #f0ede8;padding-top:0.7rem;}
@@ -1025,7 +1033,7 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 
       <!-- PRIX À EMPORTER (tous les plats sur un seul écran) -->
       <div class="admin-section" id="as-prixemporter">
-        <p style="font-size:0.75rem;color:#888;margin-bottom:0.6rem;line-height:1.5;">Prix à emporter / livraison de tous les plats. <b>Case vide = même prix que sur place</b> (le prix sur place est écrit en gris dans la case). Décochez 🥡 pour retirer un plat de la carte à emporter. Chaque modification est enregistrée automatiquement ; pensez à ✅ Publier. Ces prix sont ceux du site à emporter et de l'impression « À emporter / Livraison ».</p>
+        <p style="font-size:0.75rem;color:#888;margin-bottom:0.6rem;line-height:1.5;">Prix à emporter / livraison de tous les plats. <b>Case vide = plat pas disponible à emporter.</b> Décocher 🥡 vide le prix ; cocher reprend le prix sur place. Le prix sur place est rappelé sous chaque plat. Chaque modification est enregistrée automatiquement ; pensez à ✅ Publier. Ces prix sont ceux du site à emporter et de l'impression « À emporter / Livraison ».</p>
         <div id="prixEmporterEtat" style="font-size:0.7rem;color:var(--vert);min-height:1em;margin-bottom:0.4rem;"></div>
         <div id="prixEmporterListe"></div>
       </div>
@@ -1562,6 +1570,8 @@ async function loadFromGithubRelais() {
     if (d.sha) githubSha = d.sha;
     if (d.content) {
       const parsed = decodeB64UTF8(d.content);
+      // Base de la fusion anti-écrasement (voir fusionnerCarte) : la version lue, telle quelle
+      try { menuBases[file] = decodeB64UTF8(d.content); if (d.sha && !(githubShasPerimes[file] || {})[d.sha]) githubShas[file] = d.sha; } catch(e){}
       if (parsed.cats) cats = parsed.cats;
       if (parsed.items) items = parsed.items;
       if (parsed.upsells) upsells = parsed.upsells;
@@ -1598,19 +1608,88 @@ async function saveToGithub() {
 // que nos propres écritures ont remplacés pour ne jamais les réutiliser, et on réessaie en cas de conflit.
 const githubShas = {};
 const githubShasPerimes = {}; // {fichier:{sha:true}}
+// ── Fusion anti-écrasement de la carte (20/11/2026) ─────────────────────────────────────────────────
+// Cette page garde la carte en mémoire et réécrit tout le fichier à chaque enregistrement. Si la carte a été
+// modifiée AILLEURS entre-temps (Recettes de l'admin, autre appareil, traduction automatique…), l'ancien
+// enregistrement effaçait ces modifications. Désormais, juste avant d'écrire, on relit le fichier : s'il a changé
+// depuis notre dernière lecture/écriture (« base »), on fusionne plat par plat et champ par champ, par
+// IDENTIFIANT (jamais par nom) : nos propres changements gagnent, les autres changements sont conservés.
+const menuBases = {}; // {fichier: dernière version connue (lue ou écrite par cette page)}
+function estFichierCarte(f){ return f === DATA_FILE || f === 'menudata_draft.json'; }
+function memeValeur(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+function copieProfonde(v){ return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
+// Fusionne une liste d'objets à identifiant (catégories, plats, suggestions). Les objets de `local` sont
+// conservés (mêmes références) et complétés des changements faits ailleurs.
+function fusionnerListe(base, local, distant){
+  base = Array.isArray(base) ? base : []; local = Array.isArray(local) ? local : []; distant = Array.isArray(distant) ? distant : [];
+  const aId = x => x && typeof x === 'object' && x.id != null;
+  if (![...base, ...local, ...distant].every(aId)) return memeValeur(local, base) ? copieProfonde(distant) : local;
+  const parId = l => { const m = {}; l.forEach(x => { m[x.id] = x; }); return m; };
+  const bm = parId(base), lm = parId(local), rm = parId(distant);
+  const res = [];
+  local.forEach(el => {
+    const b = bm[el.id], r = rm[el.id];
+    if (!b) { res.push(el); return; }                       // ajouté ici
+    if (!r) { if (!memeValeur(el, b)) res.push(el); return; } // supprimé ailleurs : on le garde seulement si on l'a modifié ici
+    const cles = new Set([...Object.keys(el), ...Object.keys(b), ...Object.keys(r)]);
+    cles.forEach(k => {
+      if (memeValeur(el[k], b[k]) && !memeValeur(r[k], b[k])) { // pas touché ici, modifié ailleurs → on reprend
+        if (r[k] === undefined) delete el[k]; else el[k] = copieProfonde(r[k]);
+      }
+    });
+    res.push(el);
+  });
+  // Ajoutés ailleurs : insérés après leur voisin précédent dans la version distante
+  distant.forEach((el, i) => {
+    if (bm[el.id] || lm[el.id]) return;
+    let pos = res.length;
+    for (let j = i - 1; j >= 0; j--) { const k = res.findIndex(x => x.id === distant[j].id); if (k >= 0) { pos = k + 1; break; } }
+    res.splice(pos, 0, copieProfonde(el));
+  });
+  return res;
+}
+function fusionnerCarte(base, local, distant){
+  const out = {};
+  new Set([...Object.keys(base || {}), ...Object.keys(local || {}), ...Object.keys(distant || {})]).forEach(k => {
+    if (k === 'cats' || k === 'items' || k === 'upsells') out[k] = fusionnerListe(base[k], local[k], distant[k]);
+    else if (memeValeur(local[k], base[k])) { if (distant[k] !== undefined) out[k] = copieProfonde(distant[k]); }
+    else if (local[k] !== undefined) out[k] = local[k];
+  });
+  return out;
+}
+function decoderContenuGithub(b64){
+  const bin = atob(String(b64).replace(/\n/g, ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+}
+// Après une fusion : la carte affichée par cette page reprend aussi les changements faits ailleurs.
+function apresFusionCarte(){
+  try { renderMenu(); } catch(e){}
+  try { if (document.getElementById('adminItemsList')) renderAdminItems(getFilteredAdminItems()); } catch(e){}
+  try { if (document.getElementById('prixEmporterListe')) renderPrixEmporter(); } catch(e){}
+  try { showToast('🔄 La carte avait été modifiée ailleurs : ces modifications ont été conservées avec les vôtres'); } catch(e){}
+}
+
+function encoderPourGithub(data){
+  const jsonStr = JSON.stringify(data, null, 2);
+  // Properly encode UTF-8 to base64
+  const bytes = new TextEncoder().encode(jsonStr);
+  let binary = '';
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return {jsonStr, b64: btoa(binary)};
+}
 async function saveKeyToGithub(filename, data) {
-  let jsonStr, b64;
-  try {
-    jsonStr = JSON.stringify(data, null, 2);
-    // Properly encode UTF-8 to base64
-    const bytes = new TextEncoder().encode(jsonStr);
-    let binary = '';
-    bytes.forEach(b => binary += String.fromCharCode(b));
-    b64 = btoa(binary);
-  } catch(e) {
+  let enc;
+  try { enc = encoderPourGithub(data); }
+  catch(e) {
     console.error('saveKeyToGithub encode error', filename, e);
     return null;
   }
+  // Fichier de carte passé directement depuis les variables de la page (cats/items/upsells) : après une
+  // fusion, ces variables sont mises à jour avec le résultat.
+  const depuisLaPage = !!(data && data.items === items);
+  let fusionFaite = false;
   let last = null;
   for (let essai = 0; essai < 4; essai++) {
     if (essai > 0) await new Promise(r => setTimeout(r, 1500 * essai));
@@ -1620,14 +1699,27 @@ async function saveKeyToGithub(filename, data) {
       if (res.ok) {
         const d = await res.json();
         const perimes = githubShasPerimes[filename] || {};
-        if (d.sha && !perimes[d.sha]) githubShas[filename] = d.sha;
+        if (d.sha && !perimes[d.sha]) {
+          githubShas[filename] = d.sha;
+          // Carte modifiée ailleurs depuis notre base → fusion par identifiant (voir fusionnerCarte)
+          if (estFichierCarte(filename) && menuBases[filename] && d.content && data && Array.isArray(data.items)) {
+            let distant = null;
+            try { distant = decoderContenuGithub(d.content); } catch(e) { console.error('saveKeyToGithub lecture distante', e); }
+            if (distant && !memeValeur(distant, menuBases[filename])) {
+              data = fusionnerCarte(menuBases[filename], data, distant);
+              menuBases[filename] = distant;
+              enc = encoderPourGithub(data);
+              fusionFaite = true;
+            }
+          }
+        }
       }
     } catch(e){}
     try {
       const shaEnvoye = githubShas[filename];
       const body = {
         message: 'Update ' + filename,
-        content: b64,
+        content: enc.b64,
         ...(shaEnvoye ? {sha: shaEnvoye} : {})
       };
       const res2 = await fetch(`${PROXY_URL}?file=${encodeURIComponent(filename)}`, {
@@ -1640,6 +1732,13 @@ async function saveKeyToGithub(filename, data) {
       if (d2.content && d2.content.sha) {
         if (shaEnvoye) (githubShasPerimes[filename] = githubShasPerimes[filename] || {})[shaEnvoye] = true;
         githubShas[filename] = d2.content.sha;
+        if (estFichierCarte(filename) && data && Array.isArray(data.items)) menuBases[filename] = JSON.parse(enc.jsonStr);
+        if (fusionFaite && depuisLaPage) {
+          if (data.cats) cats = data.cats;
+          items = data.items;
+          if (data.upsells) upsells = data.upsells;
+          apresFusionCarte();
+        }
         return d2;
       }
       if (res2.status !== 409) return d2; // seul un conflit de version justifie un nouvel essai
@@ -2185,7 +2284,8 @@ function quickAddItemHere(catId, subcatName){
 
 function renderAdminItems(list){
   renderAdminItemsContextHeader();
-  document.getElementById('adminItemsList').innerHTML = list.map((it, idx)=>{
+  const entete = list.length ? `<div class="plats-entete-prix"><span>🍽️ Sur place</span><span title="Case vide = pas disponible à emporter">🥡 À emporter</span></div>` : '';
+  document.getElementById('adminItemsList').innerHTML = entete + list.map((it, idx)=>{
     const hasVariants = it.priceVariants && it.priceVariants.length > 0;
     const priceCell = hasVariants
       ? `<button class="plat-price-bubble plat-price-multi" onclick="openItemEditModal('${it.id}')">🏷 ${it.priceVariants.length}</button>`
@@ -2193,11 +2293,21 @@ function renderAdminItems(list){
            <input class="plat-price-num" id="p_${it.id}" value="${(it.price||'').replace('€','').trim()}" inputmode="decimal" onchange="onPriceChange('${it.id}',this.value)">
            <span class="plat-price-suffix">€</span>
          </div>`;
+    // 20/11/2026 : prix à emporter à côté du prix sur place. Case vide = plat pas disponible à emporter.
+    // Prix multiples (communs aux deux cartes) : simple case à cocher « disponible à emporter ».
+    const empVal = prixEmporterAffiche(it).replace('€','').trim();
+    const empCell = hasVariants
+      ? `<label class="plat-emp-multi" title="Prix multiples identiques sur place et à emporter — cocher = disponible à emporter"><input type="checkbox" ${it.dispoEmporter!==false?'checked':''} onchange="onDispoEmporterListe('${it.id}',this.checked)">🥡</label>`
+      : `<div class="plat-price-wrap emp${empVal?'':' vide'}" id="pew_${it.id}">
+           <input class="plat-price-num" id="pel_${it.id}" value="${empVal}" placeholder="non dispo" title="Prix à emporter — vide = pas disponible à emporter" inputmode="decimal" onchange="onPriceEmporterListe('${it.id}',this.value)">
+           <span class="plat-price-suffix">${empVal?'€':''}</span>
+         </div>`;
     return `<div class="plat-row" id="row_${it.id}">
       <button class="plat-pos" onclick="openPositionPicker('item','${it.id}')">${idx+1}</button>
       <div class="plat-row-name" onclick="openItemEditModal('${it.id}')">${it.photo?'<span class="photo-dot"></span>':''}${(it.extraPlacements&&it.extraPlacements.length)?'🔗 ':''}${it.name.fr||'(sans nom)'}</div>
       <button class="plat-photo-btn ${it.photo?'has-photo':''}" onclick="triggerUpload('${it.id}')" style="${it.photo?`background-image:url('${cld(it.photo,100)}');background-size:cover;background-position:center;`:''}">${it.photo?'':'📷'}<span class="upload-progress" id="prog_${it.id}">⏳</span></button>
       ${priceCell}
+      ${empCell}
     </div>`;
   }).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun plat</p>';
 }
@@ -2213,28 +2323,95 @@ function onPriceChange(id, val){
   const it = items.find(i=>i.id===id);
   if(!it) return;
   const clean = val.replace('€','').trim();
-  it.price = clean ? clean + '€' : '';
+  ecrirePrixSurPlace(it, clean);
   autoSaveItems().then(ok=>{
     showToast(ok ? '✓ Prix enregistré' : '❌ Échec de l\'enregistrement - réessayez');
   });
 }
 
 // Prix à emporter / livraison (it.priceEmporter) : utilisé par la carte à emporter (emporter.html) et l'impression
-// « À emporter / Livraison ». Vide = même prix que sur place. Ignoré si le plat a des prix multiples.
+// « À emporter / Livraison ». RÈGLE (20/11/2026) : un plat est disponible à emporter s'il a un prix à emporter ;
+// case vide = pas disponible à emporter (it.dispoEmporter = false). Le prix à emporter est toujours enregistré,
+// même s'il est égal au prix sur place. Les anciens plats disponibles sans prix à emporter enregistré affichent
+// leur prix sur place (comme avant) jusqu'à ce qu'on les modifie. Prix multiples : communs aux deux cartes.
+function prixEmporterAffiche(it){
+  if (!it || it.dispoEmporter === false) return '';
+  return it.priceEmporter || it.price || '';
+}
+// Plat disponible à emporter, sans prix multiples, sans prix à emporter enregistré : il suit le prix sur place.
+function platSuitPrixSurPlace(it){
+  return it.dispoEmporter !== false && !it.priceEmporter && !(it.priceVariants && it.priceVariants.length) && !!it.price;
+}
+// Avant de changer le prix sur place d'un tel plat : on fige son prix à emporter actuel (= ancien prix sur place).
+function figerPrixEmporterSiSuit(it){
+  if (platSuitPrixSurPlace(it)) it.priceEmporter = it.price;
+}
+// Écrit le prix sur place ; s'il change, le prix à emporter ne bouge pas (figé avant).
+function ecrirePrixSurPlace(it, clean){
+  const nv = clean ? clean + '€' : '';
+  if (parsePriceValue(nv) !== parsePriceValue(it.price)) figerPrixEmporterSiSuit(it);
+  it.price = nv;
+}
+// Applique une saisie de prix à emporter. Renvoie false si la saisie n'est pas un prix valide (rien n'est changé).
+function appliquerPrixEmporter(it, val){
+  const clean = String(val == null ? '' : val).replace('€','').trim();
+  if (!clean) { delete it.priceEmporter; it.dispoEmporter = false; return true; }
+  const n = parsePriceValue(clean);
+  if (!n || n <= 0) return false;
+  it.priceEmporter = clean.replace('.', ',') + '€';
+  it.dispoEmporter = true;
+  return true;
+}
+// Cocher / décocher « disponible à emporter » : décocher vide le prix à emporter ; cocher reprend le prix sur place.
+function appliquerDispoEmporter(it, on){
+  if (on) {
+    it.dispoEmporter = true;
+    if (!it.priceEmporter && !(it.priceVariants && it.priceVariants.length) && it.price) it.priceEmporter = it.price;
+  } else {
+    it.dispoEmporter = false;
+    delete it.priceEmporter;
+  }
+}
 function onPriceEmporterChange(id, val){
   const it = items.find(i=>i.id===id);
   if(!it) return;
-  const clean = String(val||'').replace('€','').trim();
-  if(clean && parsePriceValue(clean) !== parsePriceValue(it.price)) it.priceEmporter = clean + '€';
-  else delete it.priceEmporter;
+  if (!appliquerPrixEmporter(it, val)) { showToast('❌ Prix à emporter invalide — tapez un nombre, ou videz la case si le plat n\'est pas à emporter'); return; }
+  const cb = document.getElementById('dispoEmporter_' + id);
+  if (cb) cb.checked = it.dispoEmporter !== false;
   autoSaveItems().then(ok=>{
-    showToast(ok ? '✓ Prix à emporter enregistré' : '❌ Échec de l\'enregistrement - réessayez');
+    showToast(ok ? (it.dispoEmporter === false ? '✓ Plat retiré de la carte à emporter' : '✓ Prix à emporter enregistré') : '❌ Échec de l\'enregistrement - réessayez');
+  });
+}
+// Colonne « 🥡 À emporter » de la liste des plats
+function onPriceEmporterListe(id, val){
+  const it = items.find(i=>i.id===id);
+  if(!it) return;
+  const input = document.getElementById('pel_' + id);
+  if (!appliquerPrixEmporter(it, val)) {
+    showToast('❌ Prix à emporter invalide — tapez un nombre, ou videz la case si le plat n\'est pas à emporter');
+    if (input) input.value = prixEmporterAffiche(it).replace('€','').trim();
+    return;
+  }
+  const v = prixEmporterAffiche(it).replace('€','').trim();
+  if (input) input.value = v;
+  const wrap = document.getElementById('pew_' + id);
+  if (wrap) { wrap.classList.toggle('vide', !v); const suf = wrap.querySelector('.plat-price-suffix'); if (suf) suf.textContent = v ? '€' : ''; }
+  autoSaveItems().then(ok=>{
+    showToast(ok ? (v ? '✓ Prix à emporter enregistré' : '✓ Plat retiré de la carte à emporter') : '❌ Échec de l\'enregistrement - réessayez');
+  });
+}
+function onDispoEmporterListe(id, on){
+  const it = items.find(i=>i.id===id);
+  if(!it) return;
+  appliquerDispoEmporter(it, on);
+  autoSaveItems().then(ok=>{
+    showToast(ok ? (on ? '✓ Disponible à emporter' : '✓ Plat retiré de la carte à emporter') : '❌ Échec de l\'enregistrement - réessayez');
   });
 }
 
 // ── Écran « 🥡 Prix à emporter » (15/10/2026) : tous les plats sur un seul écran, par catégorie ──
-// it.priceEmporter : vide = même prix que sur place. it.dispoEmporter : false = absent de la carte à emporter.
-// Les prix multiples (priceVariants) sont communs aux deux cartes : affichés pour information seulement.
+// Règle (20/11/2026) : case vide = pas disponible à emporter (voir prixEmporterAffiche / appliquerPrixEmporter).
+// Les prix multiples (priceVariants) sont communs aux deux cartes : seule la case 🥡 compte pour eux.
 let prixEmporterTimer = null;
 function prixEmporterSauverBientot(){
   const etat = document.getElementById('prixEmporterEtat');
@@ -2267,10 +2444,10 @@ function renderPrixEmporter(){
         const variantes = it.priceVariants && it.priceVariants.length;
         const absent = it.dispoEmporter === false;
         return `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.2rem;border-bottom:1px solid #f0ebe3;${absent ? 'opacity:.5;' : ''}">
-          <label title="Disponible à emporter" style="flex-shrink:0;cursor:pointer;"><input type="checkbox" ${absent ? '' : 'checked'} onchange="prixEmporterDispo('${it.id}',this.checked)"> 🥡</label>
+          <label title="Disponible à emporter (décocher vide le prix à emporter)" style="flex-shrink:0;cursor:pointer;"><input type="checkbox" ${absent ? '' : 'checked'} onchange="prixEmporterDispo('${it.id}',this.checked)"> 🥡</label>
           <div style="flex:1;min-width:0;font-size:0.76rem;line-height:1.25;">${E(it.name.fr || '(sans nom)')}
             <div style="font-size:0.64rem;color:#999;">Sur place : ${variantes ? it.priceVariants.map(v => E((v.label || '') + ' ' + (v.price || ''))).join(' · ') + ' (prix multiples, identiques à emporter)' : E(it.price || '—')}</div></div>
-          ${variantes ? '' : `<input class="admin-input" style="width:70px;margin:0;text-align:right;${it.priceEmporter ? 'font-weight:700;color:var(--rouge);' : ''}" value="${E(nb(it.priceEmporter))}" placeholder="${E(nb(it.price))}" inputmode="decimal" onchange="prixEmporterSet('${it.id}',this.value,this)"><span style="font-size:0.8rem;color:var(--vert);font-weight:700;">€</span>`}
+          ${variantes ? '' : `<input class="admin-input" style="width:70px;margin:0;text-align:right;font-weight:700;color:var(--rouge);" value="${E(nb(prixEmporterAffiche(it)))}" placeholder="non dispo" inputmode="decimal" onchange="prixEmporterSet('${it.id}',this.value,this)"><span style="font-size:0.8rem;color:var(--vert);font-weight:700;">€</span>`}
         </div>`;
       }).join('')}
     </div>`;
@@ -2279,34 +2456,38 @@ function renderPrixEmporter(){
 }
 function prixEmporterSet(id, val, input){
   const it = items.find(i => i.id === id); if (!it) return;
-  const clean = String(val || '').replace('€', '').trim();
-  if (clean && parsePriceValue(clean) !== parsePriceValue(it.price)) it.priceEmporter = clean + '€';
-  else delete it.priceEmporter;
-  if (input) { input.value = it.priceEmporter ? clean : ''; input.style.fontWeight = it.priceEmporter ? '700' : ''; input.style.color = it.priceEmporter ? 'var(--rouge)' : ''; }
+  if (!appliquerPrixEmporter(it, val)) {
+    showToast('❌ Prix à emporter invalide — tapez un nombre, ou videz la case si le plat n\'est pas à emporter');
+    if (input) input.value = prixEmporterAffiche(it).replace('€', '').trim();
+    return;
+  }
+  renderPrixEmporter();
   prixEmporterSauverBientot();
 }
 function prixEmporterDispo(id, on){
   const it = items.find(i => i.id === id); if (!it) return;
-  it.dispoEmporter = !!on;
+  appliquerDispoEmporter(it, !!on);
   renderPrixEmporter();
   prixEmporterSauverBientot();
 }
-// Applique un écart (ex. -1) au prix sur place de tous les plats de la catégorie, ou remet « = sur place ».
+// Applique un écart (ex. -1) au prix sur place des plats de la catégorie DISPONIBLES à emporter, ou remet
+// « = sur place ». Les plats non disponibles à emporter (case vide) restent non disponibles.
 function prixEmporterEcart(catId, remettre){
-  const its = items.filter(it => !it.archived && it.cat === catId && !(it.priceVariants && it.priceVariants.length));
+  const its = items.filter(it => !it.archived && it.cat === catId && !(it.priceVariants && it.priceVariants.length) && it.dispoEmporter !== false);
+  if (!its.length) { showToast('Aucun plat disponible à emporter dans cette catégorie'); return; }
   if (remettre) {
-    if (!confirm('Remettre le même prix que sur place pour les ' + its.length + ' plats de cette catégorie ?')) return;
-    its.forEach(it => { delete it.priceEmporter; });
+    if (!confirm('Remettre le même prix que sur place pour les ' + its.length + ' plats disponibles à emporter de cette catégorie ?')) return;
+    its.forEach(it => { if (it.price) it.priceEmporter = it.price; });
   } else {
     const el = document.getElementById('pe_ecart_' + catId);
     const d = parseFloat(String(el && el.value || '').replace(',', '.'));
     if (isNaN(d) || !d) { showToast('❌ Tapez un écart, ex. -1 ou 0,5'); return; }
-    if (!confirm('Prix à emporter = prix sur place ' + (d > 0 ? '+ ' : '− ') + Math.abs(d).toString().replace('.', ',') + ' € pour les ' + its.length + ' plats de cette catégorie ?')) return;
+    if (!confirm('Prix à emporter = prix sur place ' + (d > 0 ? '+ ' : '− ') + Math.abs(d).toString().replace('.', ',') + ' € pour les ' + its.length + ' plats disponibles à emporter de cette catégorie ?')) return;
     its.forEach(it => {
       const base = parsePriceValue(it.price);
       if (!base) return;
       const v = Math.round((base + d) * 100) / 100;
-      if (v <= 0 || v === base) { delete it.priceEmporter; return; }
+      if (v <= 0) return;
       it.priceEmporter = v.toFixed(2).replace('.', ',').replace(/,00$/, '') + '€';
     });
   }
@@ -2338,7 +2519,7 @@ function openItemEditModal(itemId){
   if (_editModalItemId) {
     const prevPriceEl = document.getElementById('p_'+_editModalItemId);
     const prevIt = items.find(i=>i.id===_editModalItemId);
-    if(prevPriceEl && prevIt){ const clean=prevPriceEl.value.replace('€','').trim(); prevIt.price = clean ? clean+'€' : ''; }
+    if(prevPriceEl && prevIt){ const clean=prevPriceEl.value.replace('€','').trim(); ecrirePrixSurPlace(prevIt, clean); }
   }
   _editModalItemId = itemId;
   const it = items.find(i=>i.id===itemId);
@@ -2372,9 +2553,9 @@ function openItemEditModal(itemId){
       <input class="admin-input" id="ph_${it.id}" value="${it.photo||''}" placeholder="URL photo" style="flex:1">
       <img id="prev_${it.id}" src="${it.photo?cld(it.photo,100):''}" class="photo-preview ${it.photo?'visible':''}" onerror="this.className='photo-preview'">
     </div>
-    <label class="admin-label">Prix à emporter / livraison <span style="font-size:0.65rem;color:#888;">(vide = même prix que sur place)</span></label>
+    <label class="admin-label">Prix à emporter / livraison <span style="font-size:0.65rem;color:#888;">(vide = pas disponible à emporter)</span></label>
     <div style="display:flex;gap:0.3rem;align-items:center;margin-bottom:0.6rem;">
-      <input class="admin-input" id="pe_${it.id}" style="width:90px;margin-bottom:0;text-align:right;" value="${(it.priceEmporter||'').replace('€','').trim()}" placeholder="${(it.price||'').replace('€','').trim()}" inputmode="decimal" onchange="onPriceEmporterChange('${it.id}',this.value)">
+      <input class="admin-input" id="pe_${it.id}" style="width:90px;margin-bottom:0;text-align:right;" value="${prixEmporterAffiche(it).replace('€','').trim()}" placeholder="non dispo" inputmode="decimal" onchange="onPriceEmporterChange('${it.id}',this.value)">
       <span style="font-size:0.85rem;color:var(--vert);font-weight:700;">€</span>
     </div>
     <label class="admin-label">Disponibilité</label>
@@ -3605,7 +3786,10 @@ function toggleDispoSurPlace(id,checked){
 }
 function toggleDispoEmporter(id,checked){
   const it=items.find(i=>i.id===id);
-  if(it)it.dispoEmporter=checked;
+  if(!it) return;
+  appliquerDispoEmporter(it, checked); // décocher vide le prix à emporter ; cocher reprend le prix sur place
+  const pe=document.getElementById('pe_'+id);
+  if(pe) pe.value=prixEmporterAffiche(it).replace('€','').trim();
 }
 function deleteItem(id){
   if(!confirm('Supprimer ce plat définitivement ?')) return false;
@@ -4116,7 +4300,7 @@ function collectItemEdits(){
     const d=document.getElementById('d_'+it.id);
     const ph=document.getElementById('ph_'+it.id);
     if(n && n.value.trim()) it.name.fr=n.value.trim();
-    if(p){ const clean=p.value.replace('€','').trim(); it.price = clean ? clean+'€' : ''; }
+    if(p){ const clean=p.value.replace('€','').trim(); ecrirePrixSurPlace(it, clean); }
     if(d)it.desc.fr=d.value;
     if(ph)it.photo=ph.value;
     // Collect allergens
@@ -7600,9 +7784,9 @@ async function confirmImportMenu(){
     if (aVariantes) avert.push(`« ${ex.name.fr} » a des prix multiples : vérifiez-les à la main.`);
     else if (prix) {
       if (emp) {
-        if (parsePriceValue(prix) !== parsePriceValue(ex.price)) ex.priceEmporter = prix;
-        else delete ex.priceEmporter;
+        ex.priceEmporter = prix; // toujours enregistré (règle du 20/11/2026 : prix à emporter = disponible)
       } else if (parsePriceValue(prix) !== parsePriceValue(ex.price)) {
+        figerPrixEmporterSiSuit(ex);
         ex.price = prix;
         const el = document.getElementById('p_' + ex.id); if (el) el.value = prix.replace('€','');
       }
