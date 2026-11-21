@@ -630,7 +630,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 <div class="mb" id="mrct">
-  <div class="md" style="max-width:420px;">
+  <div class="md" style="max-width:560px;">
     <div class="mdt" id="mrct-title">Recette</div>
     <div id="mrct-onglets" style="font-size:10px;color:var(--txm);margin:-4px 0 8px;"></div>
     <div id="mrct-lines"></div>
@@ -979,12 +979,12 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   <!-- 18/10/2026 (M1) : fine barre + carte intégrée. La note « Pas connecté ? login.html » a été retirée :
        index.html?admin=1 affiche déjà lui-même un écran « Connexion à l'édition du menu requise » avec le bouton
        de connexion quand ce navigateur n'a pas la connexion au menu (afficherConnexionMenuRequise). -->
-  <div class="page" style="padding-top:10px;">
+  <div class="page" style="padding-top:10px;max-width:none;">
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
       <a href="index.html?admin=1" target="_blank" rel="noopener" class="btn bs sm" style="white-space:nowrap;">🔗 Ouvrir en plein écran</a>
     </div>
     <div class="card" style="padding:0;overflow:hidden;">
-      <iframe id="menuAdminFrame" src="index.html?admin=1" style="width:100%;height:calc(100vh - 190px);min-height:520px;border:0;display:block;" title="Administration du menu en ligne"></iframe>
+      <iframe id="menuAdminFrame" src="index.html?admin=1" style="width:100%;height:calc(100vh - 150px);min-height:520px;border:0;display:block;" title="Administration du menu en ligne"></iframe>
     </div>
   </div>
 </div>
@@ -9364,6 +9364,19 @@ let rctPendingDoseIngredients={}; // {ingredient_code:{nom,unite_defaut,produits
 // synchro. Idempotent : ne duplique jamais une ligne déjà présente, donc peut être relancée après avoir
 // ajouté de nouveaux ingrédients pour compléter une recette déjà partiellement extraite.
 // Renvoie {added, pending, unmatched} pour permettre un rapport détaillé côté appelant.
+// 21/11/2026 : score d'un morceau de description (« basilic », « mozzarella fior di latte ») face à un nom
+// d'ingrédient. Plus strict que matchScore : un mot court contenu dans un long nom (« basilic » dans « Pesto de
+// courgettes et basilic ») ne suffit plus — c'est ce qui mettait du pesto sur toutes les pizzas.
+function scoreMotDescription(tok,nomIng){
+  var a=normText(tok),b=normText(nomIng);
+  if(!a||!b)return 0;
+  if(a===b)return 100;
+  if(a.indexOf(b)>=0)return 90;                       // le nom de l'ingrédient est dans la description
+  // la description est dans le nom : accepté si le nom COMMENCE par elle (« basilic » → « Basilic frais ») ou en
+  // couvre l'essentiel ; refusé sinon (« basilic » dans « Pesto de courgettes et basilic »)
+  if(b.indexOf(a)>=0)return (b.indexOf(a+' ')===0||a.length>=b.length*0.6)?80:0;
+  return matchScore(tok,nomIng)>=60?60:0;
+}
 async function extraireRecetteDepuisDescription(prodCode,descText){
   var diag={added:0,pending:0,unmatched:[]};
   if(!descText||!descText.trim())return diag;
@@ -9375,8 +9388,10 @@ async function extraireRecetteDepuisDescription(prodCode,descText){
   tokens.forEach(function(tok){
     var best=null,bestScore=0;
     finis.forEach(function(ing){
-      var sc=matchScore(tok,ing.nom);
-      if(sc>bestScore){bestScore=sc;best=ing;}
+      if(estEmballageProbable(ing))return; // un contenant (pot, bol, boîte…) n'est jamais un ingrédient de recette
+      var sc=scoreMotDescription(tok,ing.nom);
+      // à score égal, le nom le plus court (« Basilic frais » plutôt que « Pesto de courgettes et basilic »)
+      if(sc>bestScore||(sc===bestScore&&sc>0&&best&&ing.nom.length<best.nom.length)){bestScore=sc;best=ing;}
     });
     if(best&&bestScore>=60){if(matched.indexOf(best.code)<0)matched.push(best.code);}
     else diag.unmatched.push(tok);
@@ -9452,11 +9467,12 @@ async function syncProduitsFromMenu(){
       await extraireRecetteDepuisDescription(code,it.desc&&(it.desc.fr||it.desc));
     }catch(e){console.error('syncProduitsFromMenu',nom,e);}
   }
-  // Deuxième passe : TOUS les produits actifs (pas seulement ceux sans recette) — l'extraction est
-  // idempotente (ne duplique jamais une ligne déjà présente), donc ça permet de compléter une recette
-  // déjà partiellement extraite après avoir ajouté de nouveaux ingrédients reconnaissables.
+  // Deuxième passe : seulement les fiches qui n'ont ENCORE AUCUNE recette (21/11/2026). Avant, elle repassait sur
+  // tous les produits à chaque ouverture de Recettes et remettait les ingrédients qu'on avait retirés à la main
+  // (ex. pesto de courgettes supprimé d'une pizza → revenait à l'ouverture suivante). Une recette déjà
+  // commencée n'est plus jamais modifiée automatiquement.
   var extraitsExistants=0,motsNonReconnus={};
-  var actifs=rctProduitsVendus.filter(function(p){return p.actif!==false;});
+  var actifs=rctProduitsVendus.filter(function(p){return p.actif!==false&&!(rctRecettes[p.code]||[]).length;});
   for(var j=0;j<actifs.length;j++){
     var p=actifs[j];
     try{
@@ -10183,6 +10199,7 @@ function renderRecetteLines(lines){
       +'<select class="fi mrct-unit" style="flex:1;" onchange="updateRecettePctBadge(this)"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
       +'<span class="mrct-pct" style="font-size:9px;color:var(--txm);min-width:34px;text-align:right;"></span>'
       +'<span class="mrct-cost" style="font-size:11px;font-weight:700;color:var(--txm);min-width:42px;text-align:right;"></span>'
+      +'<button type="button" class="btn bs sm mrct-vers-emb" title="C\'est un contenant à emporter, pas un ingrédient : le déplacer dans « Emballage à emporter » (compté seulement à emporter, pas sur place)" onclick="mrctLigneVersEmballage(this)" style="padding:6px 7px;display:none;">🥡</button>'
       +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove();updateRecetteTotalCost();" style="padding:6px 8px;">✕</button>'
       +'</div>';
   }).join('');
@@ -10195,6 +10212,7 @@ function renderRecetteLines(lines){
     row.querySelector('.mrct-qty').value=l.quantite!=null?l.quantite:'';
     row.querySelector('.mrct-unit').value=l.unite||'g';
     updateRecettePctBadge(row.querySelector('.mrct-qty'));
+    mrctMajBoutonEmb(row);
   });
   updateRecetteTotalCost();
 }
@@ -10214,6 +10232,7 @@ function addRecetteLineWithIngredient(ingredientCode){
     +'<select class="fi mrct-unit" style="flex:1;" onchange="updateRecettePctBadge(this)"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option><option value="piece">pièce</option><option value="dose">dose</option></select>'
     +'<span class="mrct-pct" style="font-size:9px;color:var(--txm);min-width:34px;text-align:right;"></span>'
     +'<span class="mrct-cost" style="font-size:11px;font-weight:700;color:var(--txm);min-width:42px;text-align:right;"></span>'
+    +'<button type="button" class="btn bs sm mrct-vers-emb" title="C\'est un contenant à emporter, pas un ingrédient : le déplacer dans « Emballage à emporter » (compté seulement à emporter, pas sur place)" onclick="mrctLigneVersEmballage(this)" style="padding:6px 7px;display:none;">🥡</button>'
     +'<button class="btn bs sm" onclick="this.closest(\'[data-idx]\').remove();updateRecetteTotalCost();" style="padding:6px 8px;">✕</button>';
   container.appendChild(div);
   if(ingredientCode){
@@ -10226,6 +10245,7 @@ function addRecetteLineWithIngredient(ingredientCode){
 function applyDefaultUnitToRow(ingSelectEl){
   var row=ingSelectEl.closest('[data-idx]');
   if(!row)return;
+  mrctMajBoutonEmb(row);
   var ing=rctIngredients.find(function(i){return i.code===ingSelectEl.value;});
   var unitSel=row.querySelector('.mrct-unit, .ccm-unit');
   var qtyInput=row.querySelector('.mrct-qty, .ccm-qty');
@@ -10325,9 +10345,16 @@ function coutLignesEmballage(lignes){
   return {cout:total,warnings:warnings};
 }
 function coutEmballageFiche(p){return coutLignesEmballage(emballagesDeFiche(p).lignes);}
+// Contenant / emballage probable ? D'après l'onglet et la catégorie de l'ingrédient d'abord : un article d'un
+// onglet ou d'une catégorie alimentaire (Food, Matières premières, Marchandises) n'en est jamais un, même s'il
+// s'appelle « Boîte de stracciatella » ou « Pot de crème de truffe » ; un article d'un onglet « emballages »
+// en est un ; sinon on regarde le nom (carton, barquette, bol, gobelet…).
 function estEmballageProbable(i){
-  var t=normText((i.nom||'')+' '+(i.categorie||'')+' '+(ongletDeCategorie(i.categorie||'Autres')||''));
-  return ['emball','carton','boite','barquette','bol ','pot ','gobelet','sac ','couvercle','papier','sachet','etui','kraft'].some(function(m){return (t+' ').indexOf(m)>=0;});
+  var cat=normText(i.categorie||''),ong=normText(ongletDeCategorie(i.categorie||'Autres')||'');
+  var aMot=function(t,mots){return mots.some(function(m){return (' '+t+' ').indexOf(m)>=0;});};
+  if(aMot(cat+' '+ong,['food','matiere','marchandise','alimentaire']))return false;
+  if(aMot(cat+' '+ong,['emball','contenant','jetable']))return true;
+  return aMot(normText(i.nom||''),['carton','barquette',' bol ',' bols ',' pot ',' pots ','gobelet',' sac ',' sacs ','couvercle','sachet','etui','kraft','boite pizza','boites pizza']);
 }
 // Bloc « 🥡 Emballage à emporter » de la fenêtre Recette (modifiable, enregistré avec la recette)
 var mrctEmb=null; // {lignes:[{ingredient_code,quantite}], portee:'fiche'|'categorie', cat:{id,nom}|null, source}
@@ -10374,6 +10401,27 @@ function mrctEmbChamp(idx,champ,val){
 }
 function mrctEmbAjouter(){mrctEmb.lignes.push({ingredient_code:'',quantite:1});mrctRenderEmballage();}
 function mrctEmbSuppr(idx){mrctEmb.lignes.splice(idx,1);mrctRenderEmballage();updateRecetteTotalCost();}
+// Ligne de recette qui est en fait un contenant (pot, boîte, barquette…) : bouton 🥡 pour la déplacer dans le
+// bloc emballage — elle ne compte alors plus dans le coût sur place, seulement à emporter (21/11/2026).
+function mrctMajBoutonEmb(row){
+  var b=row&&row.querySelector('.mrct-vers-emb');if(!b)return;
+  var code=row.querySelector('.mrct-ing').value;
+  var ing=code&&rctIngredients.find(function(i){return i.code===code;});
+  b.style.display=ing&&estEmballageProbable(ing)?'':'none';
+}
+function mrctLigneVersEmballage(btn){
+  var row=btn.closest('[data-idx]');if(!row||!mrctEmb)return;
+  var code=row.querySelector('.mrct-ing').value;if(!code)return;
+  var unite=row.querySelector('.mrct-unit').value,q=parseFloat(row.querySelector('.mrct-qty').value);
+  var qte=(unite==='piece'&&q>0)?q:1;
+  var deja=mrctEmb.lignes.find(function(l){return l.ingredient_code===code;});
+  if(deja)deja.quantite=qte;else mrctEmb.lignes.push({ingredient_code:code,quantite:qte});
+  // un contenant propre à ce produit (ex. le pot de la stracciatella) : « ce produit seulement » par défaut
+  if(mrctEmb.source!=='categorie')mrctEmb.portee='fiche';
+  row.remove();
+  mrctRenderEmballage();
+  updateRecetteTotalCost();
+}
 // Enregistre le bloc emballage (relu juste avant d'écrire : un réglage fait ailleurs n'est pas perdu)
 async function mrctEnregistrerEmballage(code){
   if(!mrctEmb)return;
@@ -10438,8 +10486,10 @@ function mrctIngredientPropose(i){
 function mrctOptionsIngredients(codesPresents,avecLignesAffichees){
   var opts=ingredientOptionsHtml(mrctIngredientPropose);
   var horsListe=(codesPresents||[]).filter(function(c){
-    var i=c&&rctIngredients.find(function(x){return x.code===c;});
-    return i&&!((i.actif!==false)&&(i.nature||'fini')==='fini'&&mrctIngredientPropose(i));
+    if(!c)return false;
+    var i=rctIngredients.find(function(x){return x.code===c;});
+    // ingrédient supprimé du catalogue : gardé visible (sinon la ligne s'affiche vide et disparaît à l'enregistrement)
+    return !i||!((i.actif!==false)&&(i.nature||'fini')==='fini'&&mrctIngredientPropose(i));
   });
   if(avecLignesAffichees)document.querySelectorAll('#mrct-lines .mrct-ing').forEach(function(sel){
     var c=sel.value,i=c&&rctIngredients.find(function(x){return x.code===c;});
@@ -10448,7 +10498,7 @@ function mrctOptionsIngredients(codesPresents,avecLignesAffichees){
   if(horsListe.length){
     opts+='<optgroup label="Déjà dans la recette (hors ingrédients proposés)">'+horsListe.map(function(c){
       var i=rctIngredients.find(function(x){return x.code===c;});
-      return '<option value="'+c+'">'+esc(i?i.nom:c)+'</option>';
+      return '<option value="'+esc(c)+'">'+(i?esc(i.nom):'⚠️ ingrédient supprimé du catalogue ('+esc(c)+')')+'</option>';
     }).join('')+'</optgroup>';
   }
   return opts;
