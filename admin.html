@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Administration</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-29a"></script>
+<script src="restoglobal-commun.js?v=2026-11-21a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -1064,7 +1064,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <div style="font-weight:700;">🧽 Tâches de ménage <span id="menage-total" style="font-weight:600;color:var(--txm);font-size:12px;"></span></div>
-        <button class="btn bp sm" onclick="menageOuvrirTache(null)">+ Nouvelle tâche</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn bs sm" onclick="menageOuvrirRegistre()">📋 Registre</button><button class="btn bp sm" onclick="menageOuvrirTache(null)">+ Nouvelle tâche</button></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
         <select class="fi" id="menage-f-resto" onchange="menageFiltreResto=this.value;renderMenageListe();" style="width:auto;min-width:170px;"></select>
@@ -1074,7 +1074,7 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
     </div>
     <details class="card" id="menage-moments-card">
       <summary style="cursor:pointer;font-weight:700;">🕘 Moments de la journée</summary>
-      <div style="font-size:11px;color:var(--txm);margin:8px 0;">Les moments servent à ranger les tâches quotidiennes sur la tablette (dans cet ordre). Décoche, pour chaque établissement, les moments qui ne le concernent pas (ex. pas de service du midi).</div>
+      <div style="font-size:11px;color:var(--txm);margin:8px 0;">Les moments servent à ranger les tâches quotidiennes sur la tablette (dans cet ordre). Décoche, pour chaque établissement, les moments qui ne le concernent pas (ex. pas de service du midi). L'<b>heure limite</b> (facultative) : passé cette heure, les tâches non faites de ce moment passent « à rattraper » sur la tablette, avec un message sur le menu, jusqu'à ce qu'elles soient faites.</div>
       <div id="menage-moments-liste"></div>
       <button type="button" class="btn bs sm" onclick="menageMomentAjouter()" style="margin:6px 0 12px;">+ Ajouter un moment</button>
       <div class="fl2" style="margin-top:4px;">Moments utilisés par établissement</div>
@@ -15425,7 +15425,7 @@ function renderMenageFiltres(){
   }
   var seg=document.getElementById('menage-f-freq');
   if(seg){
-    var opts=[{id:'tous',nom:'Toutes'}].concat(RG.MENAGE_FREQUENCES.map(function(f){return {id:f.id,nom:{quotidien:'Jour',hebdo:'Semaine',mensuel:'Mois',trimestriel:'Trimestre',annuel:'Année'}[f.id]||f.nom};}));
+    var opts=[{id:'tous',nom:'Toutes'}].concat(RG.MENAGE_FREQUENCES.map(function(f){return {id:f.id,nom:{quotidien:'Jour',hebdo:'Semaine',mensuel:'Mois',trimestriel:'Trimestre',annuel:'Année',tous_n_jours:'N jours'}[f.id]||f.nom};}));
     seg.innerHTML=opts.map(function(o){return '<button type="button" class="'+(menageFiltreFreq===o.id?'on':'')+'" onclick="menageFiltreFreq=\''+o.id+'\';renderMenageFiltres();renderMenageListe();">'+esc(o.nom)+'</button>';}).join('');
   }
 }
@@ -15536,12 +15536,14 @@ function menageOuvrirTache(id){
     return '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:5px 10px;border:1px solid var(--bd);border-radius:20px;cursor:pointer;"><input type="checkbox" class="mm-role-chk" value="'+esc(ro.id)+'"'+(rolesSel.indexOf(String(ro.id))>=0?' checked':'')+'> <span style="width:10px;height:10px;border-radius:50%;background:'+esc(ro.couleur||'#B91E26')+'"></span>'+esc(ro.nom)+'</label>';
   }).join(''):'<span style="font-size:11px;color:var(--txm)">Aucun poste défini (Réglages › Rôles de comptage).</span>';
   document.getElementById('mm-actif').checked=!t||t.actif!==false;
+  document.getElementById('mm-intervalle').value=String(t&&t.intervalle_jours?t.intervalle_jours:2);
   menageFreqChange();
   openM('mmenage');
 }
 function menageFreqChange(){
   var f=document.getElementById('mm-freq').value;
   document.getElementById('mm-bloc-jours').style.display=f==='hebdo'?'':'none';
+  document.getElementById('mm-bloc-intervalle').style.display=f==='tous_n_jours'?'':'none';
   document.getElementById('mm-bloc-jourmois').style.display=(f==='mensuel'||f==='trimestriel'||f==='annuel')?'':'none';
   document.getElementById('mm-bloc-tri').style.display=f==='trimestriel'?'':'none';
   document.getElementById('mm-bloc-an').style.display=f==='annuel'?'':'none';
@@ -15565,6 +15567,11 @@ function menageLireFormulaire(){
   if(f==='mensuel'||f==='trimestriel'||f==='annuel')t.jour_mois=parseInt(document.getElementById('mm-jour-mois').value,10)||1;
   if(f==='trimestriel'){var d=parseInt(document.getElementById('mm-mois-tri').value,10)||1;t.mois=[d,d+3,d+6,d+9];}
   if(f==='annuel')t.mois=[parseInt(document.getElementById('mm-mois-an').value,10)||1];
+  // 21/11/2026 : colonne intervalle_jours (script menage_v2.sql). Écrite seulement si la tâche l'utilise ou
+  // l'utilisait : une base pas encore mise à jour continue d'accepter les autres tâches.
+  var ancienne=menageEditId?menageTaches.find(function(x){return x.id===menageEditId;}):null;
+  if(f==='tous_n_jours')t.intervalle_jours=Math.max(1,Math.min(90,parseInt(document.getElementById('mm-intervalle').value,10)||2));
+  else if(ancienne&&ancienne.intervalle_jours!=null)t.intervalle_jours=null;
   return t;
 }
 function menageApercu(){
@@ -15593,9 +15600,44 @@ async function menageEnregistrerTache(){
     t.ordre=menageTaches.reduce(function(m,x){return Math.max(m,x.ordre||0);},0)+1;
     r=await db.from('menage_taches').insert(t);
   }
-  if(r.error){alert('Erreur : '+r.error.message);return;}
+  if(r.error){alert('Erreur : '+r.error.message+(t.frequence==='tous_n_jours'?'\n\nPour « Tous les N jours », exécute d\'abord le script menage_v2.sql dans Supabase (SQL Editor).':''));return;}
   closeM('mmenage');
   await loadMenageModule();
+}
+// ── Registre (21/11/2026) : même calcul et même mise en page que la tablette (RG.menageRegistre / Html) ──
+var menageRegistreAdminDernier=null;
+function menageOuvrirRegistre(){
+  var sel=document.getElementById('mmenreg-resto');
+  sel.innerHTML=(restosData||[]).map(function(r){return '<option value="'+esc(r.id)+'">'+esc(r.nom||r.id)+'</option>';}).join('');
+  if(menageFiltreResto!=='tous')sel.value=menageFiltreResto;
+  var auj=RG.bizDateKey(),d=RG.menageDateDepuisCle(auj);d.setDate(d.getDate()-6);
+  var deb=document.getElementById('mmenreg-debut'),fin=document.getElementById('mmenreg-fin');
+  if(!deb.value)deb.value=RG.menageCle(d);
+  if(!fin.value)fin.value=auj;
+  openM('mmenreg');
+  menageRegistreAdmin();
+}
+async function menageRegistreAdmin(){
+  var box=document.getElementById('mmenreg-contenu');
+  var resto=document.getElementById('mmenreg-resto').value;
+  var debut=document.getElementById('mmenreg-debut').value,fin=document.getElementById('mmenreg-fin').value;
+  if(!resto||!debut||!fin||debut>fin){box.textContent='Choisis un établissement et une période.';return;}
+  var lim=RG.menageDateDepuisCle(fin);lim.setDate(lim.getDate()-92);
+  if(RG.menageCle(lim)>debut){box.textContent='Période trop longue : 3 mois au maximum à la fois.';return;}
+  box.textContent='Chargement…';
+  try{
+    await RG.chargerMenageMoments(db);
+    var r=await db.from('menage_realisations').select('*').eq('restaurant_id',resto).gte('echeance',debut).lte('echeance',fin).limit(10000);
+    if(r.error)throw r.error;
+    var titre='Registre des tâches — '+menageNomResto(resto)+' — du '+RG.menageDateDepuisCle(debut).toLocaleDateString('fr-FR')+' au '+RG.menageDateDepuisCle(fin).toLocaleDateString('fr-FR');
+    var reg=RG.menageRegistre(menageTaches,r.data||[],resto,debut,fin);
+    menageRegistreAdminDernier={html:RG.menageRegistreHtml(reg,titre),titre:titre};
+    box.innerHTML=menageRegistreAdminDernier.html;
+  }catch(e){console.error('menageRegistreAdmin',e);box.textContent='Erreur : '+(e.message||e);}
+}
+function menageRegistreAdminImprimer(){
+  if(!menageRegistreAdminDernier){alert('Affiche d\'abord le registre.');return;}
+  RG.imprimerHtml(menageRegistreAdminDernier.html,menageRegistreAdminDernier.titre);
 }
 async function menageBasculerActif(id){
   var t=menageTaches.find(function(x){return x.id===id;});if(!t)return;
@@ -15620,6 +15662,7 @@ function renderMenageMoments(){
     var nb=menageTaches.filter(function(t){return t.moment===m.id;}).length;
     return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">'
       +'<input type="text" class="fi" value="'+esc(m.nom)+'" oninput="menageMomentsEdit.moments['+i+'].nom=this.value" style="flex:1;">'
+      +'<input type="time" class="fi" value="'+esc(m.heure||'')+'" title="Heure limite (facultatif) : passé cette heure, les tâches non faites de ce moment sont « à rattraper » sur la tablette" oninput="menageMomentsEdit.moments['+i+'].heure=this.value" style="width:96px;">'
       +'<span style="font-size:10px;color:var(--txm);white-space:nowrap;">'+nb+' tâche'+(nb>1?'s':'')+'</span>'
       +'<button type="button" class="btn bs sm" title="Monter" onclick="menageMomentDeplacer('+i+',-1)"'+(i===0?' disabled':'')+'>&#8593;</button>'
       +'<button type="button" class="btn bs sm" title="Descendre" onclick="menageMomentDeplacer('+i+',1)"'+(i===ms.length-1?' disabled':'')+'>&#8595;</button>'
@@ -15979,6 +16022,21 @@ async function majAccueil(){
 </div>
 
 <!-- 21/10/2026 : fenêtre « Tâche de ménage » (Admin › Ménage) -->
+<div class="mb" id="mmenreg">
+  <div class="md" style="max-width:760px">
+    <div class="mdt">📋 Registre des tâches</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Ce qui était prévu et ce qui a été fait (nom + heure de la coche). Le même registre est consultable et imprimable par tous depuis la tablette (Tâches du jour › Registre).</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px;">
+      <select class="fi" id="mmenreg-resto" style="width:auto;"></select>
+      Du <input type="date" class="fi" id="mmenreg-debut" style="width:auto;"> au <input type="date" class="fi" id="mmenreg-fin" style="width:auto;">
+      <button class="btn bs sm" onclick="menageRegistreAdmin()">Afficher</button>
+      <button class="btn bp sm" onclick="menageRegistreAdminImprimer()">🖨️ Imprimer / PDF</button>
+    </div>
+    <div id="mmenreg-contenu" style="max-height:60vh;overflow-y:auto;font-size:12px;"></div>
+    <div class="ma"><button class="btn bs" onclick="closeM('mmenreg')">Fermer</button></div>
+  </div>
+</div>
+
 <div class="mb" id="mmenage">
   <div class="md" style="max-width:460px">
     <div class="mdt" id="mmenage-titre">Nouvelle tâche de ménage</div>
@@ -15986,6 +16044,8 @@ async function majAccueil(){
     <div class="fr"><label class="fl2">Zone <span style="font-weight:400;text-transform:none;">(facultatif)</span></label><input type="text" class="fi" id="mm-zone" list="mm-zones" placeholder="Ex : Salle, Toilettes, Four"><datalist id="mm-zones"></datalist></div>
     <div class="fr"><label class="fl2">Consigne <span style="font-weight:400;text-transform:none;">(facultatif : produit, méthode)</span></label><textarea class="fi" id="mm-consigne" rows="2" style="font-family:inherit;"></textarea></div>
     <div class="fr"><label class="fl2">Fréquence</label><select class="fi" id="mm-freq" onchange="menageFreqChange()"></select></div>
+    <div class="fr" id="mm-bloc-intervalle"><label class="fl2">Tous les combien de jours ?</label>
+      <div style="display:flex;align-items:center;gap:6px;"><input type="number" class="fi" id="mm-intervalle" min="1" max="90" step="1" value="2" style="width:80px;" oninput="menageApercu()"><span style="font-size:12px;">jours, à compter du jour de création de la tâche</span></div></div>
     <div class="fr" id="mm-bloc-jours"><label class="fl2">Jours</label><div id="mm-jours" style="display:flex;flex-wrap:wrap;gap:6px"></div></div>
     <div class="fr" id="mm-bloc-jourmois"><label class="fl2">Jour du mois</label><select class="fi" id="mm-jour-mois" onchange="menageApercu()"></select></div>
     <div class="fr" id="mm-bloc-tri"><label class="fl2">Mois</label><select class="fi" id="mm-mois-tri" onchange="menageApercu()">

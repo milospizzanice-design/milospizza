@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pointage</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="restoglobal-commun.js?v=2026-10-24b"></script>
+<script src="restoglobal-commun.js?v=2026-11-21a"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bx:#B91E26;--cr:#EEF1EA;--panel:#587861}
@@ -246,6 +246,7 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
     </div>
     <div class="screen" id="s-menu">
       <div class="panel-title" id="menu-welcome" style="font-size:16px;color:#fff;margin-bottom:14px">Bienvenue</div>
+      <div id="menu-menage-alerte" style="display:none;background:#FFF7E6;color:#7A4A05;border:2px solid #D97706;border-radius:14px;padding:12px 14px;margin-bottom:14px;text-align:left;font-size:14px;line-height:1.45;cursor:pointer" onclick="menuMenage()"></div>
       <div id="menu-alertes-badge" style="display:none;background:#FFF4F4;color:#7A1515;border:2px solid #B91E26;border-radius:14px;padding:12px 14px;margin-bottom:14px;text-align:left;font-size:14px;line-height:1.45"></div>
       <div class="cbtn" onclick="menuPointer()">
         <div class="ci">&#128070;</div>
@@ -295,6 +296,12 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
         <div class="cs">Ce que la cuisine doit pr&eacute;parer aujourd'hui</div>
         <div id="cuisine-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
       </div>
+      <div class="cbtn" onclick="menuMenage()" id="cbtn-menage" style="position:relative">
+        <div class="ci">&#129533;</div>
+        <div class="cl">T&acirc;ches du jour</div>
+        <div class="cs" id="menage-cs">M&eacute;nage, hygi&egrave;ne, ouverture / fermeture</div>
+        <div id="menage-badge" style="display:none;position:absolute;top:10px;right:10px;background:#EF4444;color:#fff;border-radius:20px;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center">0</div>
+      </div>
       <div class="cbtn" onclick="menuLaboPrep()" id="cbtn-laboprep" style="position:relative;display:none">
         <div class="ci">&#127859;</div>
         <div class="cl">&Agrave; pr&eacute;parer / exp&eacute;dier</div>
@@ -325,6 +332,30 @@ body{background:var(--cr);display:flex;align-items:center;justify-content:center
       <div id="cmdf-history-filtres" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
       <div id="cmdf-history-list" style="max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
       <button class="canc" onclick="ss('commandes')" style="margin-top:10px">Retour</button>
+    </div>
+
+    <div class="screen" id="s-menage">
+      <div class="panel-title" style="margin-bottom:6px">&#129533; T&acirc;ches du jour</div>
+      <div id="menage-entete" style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <button type="button" class="nb" id="menage-btn-portee" style="font-size:11px;padding:6px 12px" onclick="menageBasculerPortee()"></button>
+        <button type="button" class="nb" style="font-size:11px;padding:6px 12px" onclick="menuMenageRegistre()">&#128203; Registre (contr&ocirc;le d'hygi&egrave;ne)</button>
+      </div>
+      <div id="menage-list" style="max-height:62vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <button class="canc" onclick="backToMenu()" style="margin-top:10px">Retour au menu</button>
+    </div>
+
+    <div class="screen" id="s-menage-reg">
+      <div class="panel-title" style="margin-bottom:6px">&#128203; Registre des t&acirc;ches</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:8px">Ce qui &eacute;tait pr&eacute;vu et ce qui a &eacute;t&eacute; fait, avec le nom et l'heure. &Agrave; montrer ou imprimer en cas de contr&ocirc;le.</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;color:#fff;font-size:12px">
+        Du <input type="date" id="menage-reg-debut" class="ainp" style="width:auto">
+        au <input type="date" id="menage-reg-fin" class="ainp" style="width:auto">
+        <button type="button" class="nb" style="font-size:12px;padding:6px 12px" onclick="menageRegistreAfficher()">Afficher</button>
+        <button type="button" class="nb" style="font-size:12px;padding:6px 12px" onclick="menageRegistreImprimer()">&#128424; Imprimer / PDF</button>
+      </div>
+      <div id="menage-reg-contenu" style="background:#fff;color:#111;border-radius:12px;padding:12px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <button class="canc" onclick="menuMenage()" style="margin-top:10px">Retour aux t&acirc;ches</button>
     </div>
 
     <div class="screen" id="s-laboprep">
@@ -668,7 +699,7 @@ tick();setInterval(tick,1000);
 function ss(name){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('s-'+name);if(el)el.classList.add('on');
-  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();checkCuisineTachesBadge();if(RG.estPreparateur(RESTAURANT_ID))checkLaboPrepBadge();}
+  if(name==='menu'&&emp){checkDemandesNouveautes();checkCommandesFournisseursBadge();checkCuisineTachesBadge();checkMenageBadge();if(RG.estPreparateur(RESTAURANT_ID))checkLaboPrepBadge();}
 }
 
 
@@ -3599,6 +3630,206 @@ function menuAcompte(){
   document.getElementById('aco-date').value='';
   document.getElementById('aco-msg').value='';
   ss('aco-form');
+}
+
+
+// ── 🧽 TÂCHES DU JOUR (ménage, hygiène, ouverture / fermeture) — 21/11/2026 ───────────────────────────
+// Tâches créées dans Admin › Ménage (table menage_taches), règles communes dans restoglobal-commun.js (RG.menage*).
+// Chaque coche crée une ligne au registre (menage_realisations) avec le nom du salarié connecté et l'heure :
+// c'est la signature. Annulation possible 10 minutes (règle de la base), ensuite la ligne est définitive.
+// Une tâche d'un moment dont l'heure limite est passée (réglée dans Admin › Ménage › Moments) et pas faite est
+// « à rattraper » : elle reste en tête de liste et un message s'affiche sur le menu jusqu'à ce qu'elle soit faite.
+var menageTachesTab=[],menageRealTab=[],menageMesRoles=[],menageVoirTout=false,menageCharge=null;
+function menageCleMoins(cle,jours){var d=RG.menageDateDepuisCle(cle);d.setDate(d.getDate()-jours);return RG.menageCle(d);}
+async function menageChargerDonnees(){
+  if(!emp)return;
+  var resto=RESTAURANT_ID,auj=RG.bizDateKey();
+  await RG.chargerMenageMoments(db);
+  var res=await Promise.all([
+    db.from('menage_taches').select('*').eq('actif',true),
+    db.from('menage_realisations').select('*').eq('restaurant_id',resto).gte('echeance',menageCleMoins(auj,400)).order('fait_le',{ascending:false}).limit(5000),
+    db.from('employees').select('*').eq('id',emp.id).single()
+  ]);
+  if(res[0].error)throw res[0].error;
+  if(res[1].error)throw res[1].error;
+  menageTachesTab=res[0].data||[];
+  menageRealTab=res[1].data||[];
+  var roleIds=(res[2]&&res[2].data&&Array.isArray(res[2].data.roles))?res[2].data.roles:[];
+  // Postes du jour choisis dans Comptage (salarié multi-postes), sinon tous ses postes
+  if(cptSelectedRoleIds&&cptSelectedRoleIds.length)roleIds=roleIds.filter(function(r){return cptSelectedRoleIds.indexOf(r)>=0;});
+  menageMesRoles=roleIds.map(String);
+}
+function menageListe(){
+  return RG.menageAFaire(menageTachesTab,menageRealTab,RESTAURANT_ID,RG.bizDateKey(),menageVoirTout?null:menageMesRoles);
+}
+function menageResume(liste){
+  var reste=liste.filter(function(x){return !x.faite;});
+  return {reste:reste.length,rattraper:reste.filter(function(x){return x.aRattraper;}).length,retard:reste.filter(function(x){return x.retard;}).length,total:liste.length};
+}
+async function checkMenageBadge(){
+  var badge=document.getElementById('menage-badge'),cs=document.getElementById('menage-cs'),alerte=document.getElementById('menu-menage-alerte');
+  try{
+    await menageChargerDonnees();
+    var vt=menageVoirTout;menageVoirTout=false;
+    var liste=menageListe();
+    menageVoirTout=vt;
+    var r=menageResume(liste);
+    if(badge){if(r.reste){badge.style.display='flex';badge.textContent=r.reste;}else badge.style.display='none';}
+    if(cs)cs.textContent=!r.total?'Aucune tâche pour tes postes aujourd\u2019hui':(r.reste?(r.reste+' à faire'+(r.rattraper+r.retard?' · '+(r.rattraper+r.retard)+' en retard':'')):'Tout est fait \u2714');
+    if(alerte){
+      var enRetard=liste.filter(function(x){return !x.faite&&(x.aRattraper||x.retard);});
+      if(enRetard.length){
+        var parMoment={};
+        enRetard.forEach(function(x){var k=x.retard?'Jours précédents':RG.nomMomentMenage(x.moment);parMoment[k]=(parMoment[k]||0)+1;});
+        alerte.innerHTML='<div style="font-weight:700;margin-bottom:4px">&#129533; '+enRetard.length+' t&acirc;che'+(enRetard.length>1?'s':'')+' &agrave; rattraper</div>'
+          +Object.keys(parMoment).map(function(k){return '<div>'+escCpt(k)+' : '+parMoment[k]+'</div>';}).join('')
+          +'<div style="margin-top:4px;font-size:13px;text-decoration:underline">Voir les t&acirc;ches</div>';
+        alerte.style.display='block';
+      }else{alerte.style.display='none';alerte.innerHTML='';}
+    }
+  }catch(e){
+    console.warn('checkMenageBadge',e);
+    if(badge)badge.style.display='none';
+    if(alerte)alerte.style.display='none';
+  }
+}
+async function menuMenage(){
+  ss('menage');
+  var box=document.getElementById('menage-list');
+  box.innerHTML='<div style="text-align:center;color:#fff;opacity:.7;padding:20px;font-size:13px;">Chargement...</div>';
+  try{
+    await menageChargerDonnees();
+    renderMenageTablette();
+  }catch(e){
+    console.error('menuMenage',e);
+    box.innerHTML='<div style="color:#fff;text-align:center;padding:20px;font-size:12px;">Les t&acirc;ches ne sont pas disponibles ('+escCpt(e.message||'')+'). Pr&eacute;viens ton responsable.</div>';
+  }
+}
+function menageBasculerPortee(){menageVoirTout=!menageVoirTout;renderMenageTablette();}
+function menageHeure(iso){var d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function renderMenageTablette(){
+  var box=document.getElementById('menage-list');
+  var btn=document.getElementById('menage-btn-portee');
+  if(btn)btn.innerHTML=menageVoirTout?'&#128100; Voir seulement mes postes':'&#128101; Voir toutes les t&acirc;ches';
+  var ent=document.getElementById('menage-entete');
+  var liste=menageListe();
+  var r=menageResume(liste);
+  if(ent)ent.innerHTML=escCpt(restoNamesById[RESTAURANT_ID]||RESTAURANT_ID||'')+' &middot; '+(menageVoirTout?'toutes les t&acirc;ches':'tes postes')+' &middot; '+(r.total?((r.total-r.reste)+'/'+r.total+' faites'):'aucune t&acirc;che');
+  if(!liste.length){
+    box.innerHTML='<div style="text-align:center;color:#fff;opacity:.8;padding:20px;font-size:13px;">Aucune t&acirc;che pr&eacute;vue '+(menageVoirTout?'':'pour tes postes ')+'aujourd\'hui.</div>';
+    return;
+  }
+  // Groupes : en retard (jours précédents), puis chaque moment dans l'ordre, « dans la journée » à la fin
+  var groupes=[],parCle={};
+  function grp(cle,titre,sousTitre){
+    if(!parCle[cle]){parCle[cle]={titre:titre,sous:sousTitre,items:[]};groupes.push(parCle[cle]);}
+    return parCle[cle];
+  }
+  liste.filter(function(x){return x.retard&&!x.faite;}).forEach(function(x){grp('_retard','&#9888; En retard (jours pr&eacute;c&eacute;dents)','').items.push(x);});
+  liste.forEach(function(x){
+    if(x.retard&&!x.faite)return;
+    var m=x.moment?RG.momentMenage(x.moment):null;
+    grp('m_'+(x.moment||''),escCpt(RG.nomMomentMenage(x.moment)),m&&m.heure?'avant '+m.heure:'').items.push(x);
+  });
+  var maintenant=Date.now();
+  box.innerHTML=groupes.map(function(g){
+    var restant=g.items.filter(function(x){return !x.faite;}).length;
+    var rattraper=g.items.some(function(x){return x.aRattraper;});
+    return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:'+(rattraper?'#FDE68A':'rgba(255,255,255,.8)')+';margin:12px 0 4px;">'+g.titre
+      +(g.sous?' <span style="font-weight:400;text-transform:none;letter-spacing:0;">('+escCpt(g.sous)+')</span>':'')
+      +' <span style="font-weight:400;text-transform:none;letter-spacing:0;">&middot; '+(restant?restant+' &agrave; faire':'termin&eacute; &#10004;')+'</span>'
+      +(rattraper?' <span style="text-transform:none;letter-spacing:0;">&#9888; heure d&eacute;pass&eacute;e, &agrave; rattraper</span>':'')+'</div>'
+      +g.items.map(function(x){
+        var t=x.tache,f=x.faite;
+        var info=(t.zone?'<span style="font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:1px 7px;margin-right:4px;">'+escCpt(t.zone)+'</span>':'')
+          +(x.retard?'<span style="font-size:11px;">pr&eacute;vue le '+escCpt(RG.menageDateDepuisCle(x.echeance).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}))+'</span>':'');
+        var droite;
+        if(f){
+          var annulable=emp&&String(f.par_id)===String(emp.id)&&(maintenant-new Date(f.fait_le).getTime())<9.5*60000;
+          droite='<div style="text-align:right;font-size:11px;"><div style="font-weight:700;">&#10004; '+escCpt(f.par_nom||'')+'</div><div>'+menageHeure(f.fait_le)+'</div>'
+            +(annulable?'<button type="button" class="nb" style="font-size:10px;padding:3px 8px;margin-top:3px;" onclick="menageAnnuler('+f.id+')">Annuler</button>':'')+'</div>';
+        }else{
+          droite='<div style="display:flex;flex-direction:column;gap:5px;">'
+            +'<button type="button" class="nb" style="padding:9px 14px;font-size:13px;'+((x.aRattraper||x.retard)?'background:#F59E0B;border-color:#F59E0B;':'')+'" onclick="menageCocher('+t.id+',\''+x.echeance+'\',false)">&#10003; Fait</button>'
+            +'<button type="button" class="nb" style="padding:4px 8px;font-size:10px;" onclick="menageCocher('+t.id+',\''+x.echeance+'\',true)">&#128221; Fait + remarque</button></div>';
+        }
+        return '<div class="cbtn" style="cursor:default;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;'+(f?'opacity:.7;':'')+((x.aRattraper||x.retard)&&!f?'border:2px solid #F59E0B;':'')+'">'
+          +'<div style="min-width:0;"><div class="cl" style="margin-bottom:2px;font-size:14px;">'+escCpt(t.nom)+'</div>'
+          +(info?'<div class="cs">'+info+'</div>':'')
+          +(t.consigne?'<div class="cs" style="font-style:italic;">'+escCpt(t.consigne)+'</div>':'')
+          +(f&&f.note?'<div class="cs">&#128221; '+escCpt(f.note)+'</div>':'')
+          +'</div>'+droite+'</div>';
+      }).join('');
+  }).join('');
+}
+var menageEnCours={};
+async function menageCocher(tacheId,echeance,avecRemarque){
+  var cle=tacheId+'|'+echeance;
+  if(menageEnCours[cle]||!emp)return;
+  var t=menageTachesTab.find(function(x){return x.id===tacheId;});
+  if(!t)return;
+  var note=null;
+  if(avecRemarque){
+    note=prompt('Remarque (ex. produit manquant, anomalie constatée, signalé au responsable) :','');
+    if(note===null)return;
+    note=note.trim()||null;
+  }
+  menageEnCours[cle]=true;
+  try{
+    var ligne={tache_id:t.id,tache_nom:t.nom,restaurant_id:RESTAURANT_ID,echeance:echeance,moment:t.moment||null,par_id:emp.id,par_nom:(emp.prenom+' '+(emp.nom||'')).trim(),note:note};
+    var r=await db.from('menage_realisations').insert(ligne);
+    if(r.error){
+      if(String(r.error.code)==='23505')alert('Cette tâche vient déjà d\'être cochée par quelqu\'un d\'autre.');
+      else alert('Erreur : '+r.error.message);
+    }
+    await menageChargerDonnees();
+    renderMenageTablette();
+  }catch(e){console.error('menageCocher',e);alert('Erreur : '+e.message);}
+  finally{delete menageEnCours[cle];}
+}
+async function menageAnnuler(id){
+  if(!confirm('Annuler cette coche ? (possible seulement dans les 10 minutes)'))return;
+  try{
+    var r=await db.from('menage_realisations').delete().eq('id',id).eq('par_id',emp.id).select();
+    if(r.error)alert('Erreur : '+r.error.message);
+    else if(!r.data||!r.data.length)alert('Trop tard : la coche est définitive au-delà de 10 minutes.');
+    await menageChargerDonnees();
+    renderMenageTablette();
+  }catch(e){console.error('menageAnnuler',e);alert('Erreur : '+e.message);}
+}
+// Registre : lisible par tous, imprimable (contrôle d'hygiène)
+function menuMenageRegistre(){
+  var auj=RG.bizDateKey();
+  var d=document.getElementById('menage-reg-debut'),f=document.getElementById('menage-reg-fin');
+  if(!d.value)d.value=menageCleMoins(auj,6);
+  if(!f.value)f.value=auj;
+  ss('menage-reg');
+  menageRegistreAfficher();
+}
+var menageRegistreDernier=null;
+async function menageRegistreAfficher(){
+  var box=document.getElementById('menage-reg-contenu');
+  var debut=document.getElementById('menage-reg-debut').value,fin=document.getElementById('menage-reg-fin').value;
+  if(!debut||!fin||debut>fin){box.innerHTML='Choisis une date de début avant la date de fin.';return;}
+  if(menageCleMoins(fin,92)>debut){box.innerHTML='Période trop longue : 3 mois au maximum à la fois.';return;}
+  box.innerHTML='Chargement…';
+  try{
+    await RG.chargerMenageMoments(db);
+    var res=await Promise.all([
+      db.from('menage_taches').select('*'),
+      db.from('menage_realisations').select('*').eq('restaurant_id',RESTAURANT_ID).gte('echeance',debut).lte('echeance',fin).limit(10000)
+    ]);
+    if(res[0].error)throw res[0].error;
+    if(res[1].error)throw res[1].error;
+    var reg=RG.menageRegistre(res[0].data||[],res[1].data||[],RESTAURANT_ID,debut,fin);
+    var titre='Registre des tâches — '+(restoNamesById[RESTAURANT_ID]||RESTAURANT_ID)+' — du '+RG.menageDateDepuisCle(debut).toLocaleDateString('fr-FR')+' au '+RG.menageDateDepuisCle(fin).toLocaleDateString('fr-FR');
+    menageRegistreDernier={html:RG.menageRegistreHtml(reg,titre),titre:titre};
+    box.innerHTML=menageRegistreDernier.html;
+  }catch(e){console.error('menageRegistreAfficher',e);box.innerHTML='Erreur : '+escCpt(e.message||'');}
+}
+function menageRegistreImprimer(){
+  if(!menageRegistreDernier){alert('Affiche d\'abord le registre.');return;}
+  RG.imprimerHtml(menageRegistreDernier.html,menageRegistreDernier.titre);
 }
 
 

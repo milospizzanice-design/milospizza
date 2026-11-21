@@ -861,7 +861,8 @@
   //                 au registre de ce jour-là) ;
   //   hebdo       : les jours cochés ;
   //   mensuel     : un jour du mois (jour_mois 1 à 28, ou 99 = dernier jour du mois) ;
-  //   trimestriel / annuel : même chose, seulement les mois cochés (mois).
+  //   trimestriel / annuel : même chose, seulement les mois cochés (mois) ;
+  //   tous_n_jours : tous les N jours (intervalle_jours, 2 par défaut), à compter du jour de création (21/11/2026).
   // Hebdo, mensuel, trimestriel, annuel : une tâche non faite le jour prévu RESTE à faire (« en retard ») jusqu'à
   // ce qu'elle soit cochée, ou jusqu'à sa prochaine échéance (elle est alors notée « non faite » au registre et
   // c'est la nouvelle échéance qui est à faire). Une tâche n'a pas d'échéance avant le jour de sa création.
@@ -877,7 +878,8 @@
     {id:'hebdo',nom:'Chaque semaine'},
     {id:'mensuel',nom:'Chaque mois'},
     {id:'trimestriel',nom:'Chaque trimestre'},
-    {id:'annuel',nom:'Chaque année'}
+    {id:'annuel',nom:'Chaque année'},
+    {id:'tous_n_jours',nom:'Tous les N jours'}
   ];
   RG.MOIS_COURTS=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
   RG.MENAGE_DERNIER_JOUR=99;
@@ -888,7 +890,10 @@
     (Array.isArray(v.liste)?v.liste:RG.MENAGE_MOMENTS_DEFAUT).forEach(function(m){
       if(!m||!m.id||vus[m.id])return;
       vus[m.id]=true;
-      liste.push({id:String(m.id),nom:String(m.nom||m.id)});
+      var mo={id:String(m.id),nom:String(m.nom||m.id)};
+      // Heure limite facultative (« HH:MM ») : passé cette heure, une tâche de ce moment non faite est « à rattraper »
+      if(m.heure&&/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(m.heure).trim()))mo.heure=pad2(parseInt(String(m.heure).split(':')[0],10))+':'+String(m.heure).trim().split(':')[1];
+      liste.push(mo);
     });
     var parResto={};
     var pr=(v.parResto&&typeof v.parResto==='object')?v.parResto:{};
@@ -921,6 +926,21 @@
     if(!Array.isArray(choix))return RG.MENAGE.moments.slice();
     return RG.MENAGE.moments.filter(function(m){return choix.indexOf(m.id)>=0;});
   };
+  RG.momentMenage=function(id){
+    for(var i=0;i<RG.MENAGE.moments.length;i++){if(RG.MENAGE.moments[i].id===id)return RG.MENAGE.moments[i];}
+    return null;
+  };
+  // L'heure limite du moment est-elle dépassée ? (jour métier « cle » = aujourd'hui uniquement)
+  RG.menageMomentDepasse=function(id,cle,maintenant){
+    var m=id?RG.momentMenage(id):null;
+    if(!m||!m.heure)return false;
+    maintenant=maintenant||new Date();
+    if(cle&&cle!==RG.bizDateKey(maintenant))return cle<RG.bizDateKey(maintenant);
+    var hm=pad2(maintenant.getHours())+':'+pad2(maintenant.getMinutes());
+    // Journée métier qui déborde après minuit : après minuit on est forcément au-delà de l'heure limite
+    if(menageCle(maintenant)!==RG.bizDateKey(maintenant))return true;
+    return hm>=m.heure;
+  };
   RG.nomMomentMenage=function(id){
     if(!id)return 'Dans la journée';
     for(var i=0;i<RG.MENAGE.moments.length;i++){if(RG.MENAGE.moments[i].id===id)return RG.MENAGE.moments[i].nom;}
@@ -951,6 +971,13 @@
     var d=menageDate(cle);
     if(t.frequence==='quotidien')return true;
     if(t.frequence==='hebdo')return (Array.isArray(t.jours)?t.jours.map(Number):[]).indexOf(d.getDay())>=0;
+    if(t.frequence==='tous_n_jours'){
+      var n=parseInt(t.intervalle_jours,10);if(!(n>=1))n=2;
+      var crea=cleCreation(t);
+      if(!crea)return true;
+      var ecart=Math.round((d-menageDate(crea))/86400000);
+      return ecart>=0&&ecart%n===0;
+    }
     if(t.frequence==='mensuel'||t.frequence==='trimestriel'||t.frequence==='annuel'){
       var j=jourDuMois(t,d.getFullYear(),d.getMonth());
       return !!j&&j.getDate()===d.getDate();
@@ -962,7 +989,7 @@
   RG.menageDerniereEcheance=function(t,cle){
     var crea=cleCreation(t);
     var d=menageDate(cle);
-    var limite=(t&&(t.frequence==='annuel'||t.frequence==='trimestriel'))?400:(t&&t.frequence==='mensuel'?70:8);
+    var limite=(t&&(t.frequence==='annuel'||t.frequence==='trimestriel'))?400:(t&&t.frequence==='mensuel'?70:(t&&t.frequence==='tous_n_jours'?Math.max(8,(parseInt(t.intervalle_jours,10)||2)+1):8));
     for(var i=0;i<limite;i++){
       var c=menageCle(d);
       if(crea&&c<crea)return null;
@@ -1011,7 +1038,9 @@
       var ech=RG.menageDerniereEcheance(t,cle);
       if(!ech)return;
       if(t.frequence==='quotidien'&&ech!==cle)return;
-      out.push({tache:t,echeance:ech,retard:ech<cle,moment:t.moment||null,faite:faites[t.id+'|'+ech]||null});
+      var faite=faites[t.id+'|'+ech]||null;
+      // à rattraper : prévue aujourd'hui pour un moment dont l'heure limite est passée, et pas encore faite
+      out.push({tache:t,echeance:ech,retard:ech<cle,moment:t.moment||null,faite:faite,aRattraper:!faite&&ech===cle&&RG.menageMomentDepasse(t.moment,cle)});
     });
     function rang(x){return (x.moment&&ordreMoments[x.moment]!=null)?ordreMoments[x.moment]:999;}
     out.sort(function(a,b){
@@ -1037,10 +1066,88 @@
       case 'mensuel':txt='Chaque mois, '+jourTxt();break;
       case 'trimestriel':txt='Chaque trimestre, '+jourTxt()+' ('+(mois.length?mois.map(function(m){return RG.MOIS_COURTS[m-1];}).join(', '):'aucun mois')+')';break;
       case 'annuel':txt='Chaque année, '+jourTxt()+' '+(mois.length?mois.map(function(m){return RG.MOIS_COURTS[m-1];}).join(', '):'(aucun mois)');break;
+      case 'tous_n_jours':var nj=parseInt(t.intervalle_jours,10)||2;txt=nj===1?'Tous les jours':'Tous les '+nj+' jours';break;
       default:txt=t.frequence||'';
     }
     if(t.moment)txt+=' — '+RG.nomMomentMenage(t.moment);
     return txt;
+  };
+
+  // ── Registre (21/11/2026) : ce qui était prévu et ce qui a été fait, jour par jour, pour un établissement.
+  // Sert au contrôle d'hygiène (tablette « Registre » et Admin › Ménage). Rien n'est écrit : lecture seule.
+  //   taches : toutes les lignes menage_taches (actives ou non) ; realisations : lignes menage_realisations de
+  //   l'établissement, d'échéance comprise entre debut et fin. Une coche d'une tâche supprimée depuis reste listée.
+  // Renvoie [{jour, lignes:[{nom, zone, moment, frequence, faite (ligne du registre|null), statut}]}] du plus récent
+  // au plus ancien ; statut = 'faite' | 'non_faite' (jour passé) | 'a_faire' (aujourd'hui) | 'en_retard'.
+  RG.menageRegistre=function(taches,realisations,restoId,debut,fin){
+    var auj=RG.bizDateKey();
+    var parCle={};
+    (realisations||[]).forEach(function(r){if(r.restaurant_id===restoId)parCle[r.tache_id+'|'+r.echeance]=r;});
+    var ordreMoments={};
+    RG.menageMomentsPour(restoId).forEach(function(m,i){ordreMoments[m.id]=i;});
+    function rang(m){return (m&&ordreMoments[m]!=null)?ordreMoments[m]:999;}
+    var jours=[];
+    var d=menageDate(fin),d0=menageDate(debut);
+    while(d>=d0&&jours.length<400){jours.push(menageCle(d));d.setDate(d.getDate()-1);}
+    return jours.map(function(j){
+      var lignes=[],vues={};
+      (taches||[]).forEach(function(t){
+        var restos=Array.isArray(t.restaurants)?t.restaurants:[];
+        if(restos.length&&restos.indexOf(restoId)<0)return;
+        var r=parCle[t.id+'|'+j];
+        if(!r&&(t.actif===false||!RG.menageTombeLe(t,j)))return;
+        var crea=cleCreation(t);
+        if(!r&&crea&&j<crea)return;
+        vues[t.id]=true;
+        var statut=r?'faite':(j<auj?'non_faite':'a_faire');
+        // tâche non quotidienne pas encore faite : encore « en retard » tant que sa prochaine échéance n'est pas arrivée
+        if(!r&&j<auj&&t.frequence!=='quotidien'){var pro=RG.menageProchaineEcheance(t,j);if(!pro||pro>auj)statut='en_retard';}
+        lignes.push({nom:t.nom,zone:t.zone||'',moment:t.moment||null,frequence:t.frequence,faite:r||null,statut:statut});
+      });
+      (realisations||[]).forEach(function(r){
+        if(r.restaurant_id!==restoId||r.echeance!==j||vues[r.tache_id])return;
+        lignes.push({nom:r.tache_nom||('Tâche n° '+r.tache_id),zone:'',moment:r.moment||null,frequence:null,faite:r,statut:'faite'});
+      });
+      lignes.sort(function(a,b){return (rang(a.moment)-rang(b.moment))||String(a.zone).localeCompare(String(b.zone),'fr')||String(a.nom).localeCompare(String(b.nom),'fr');});
+      return {jour:j,lignes:lignes};
+    });
+  };
+  // Le registre en HTML (tableau par jour), prêt à afficher et à imprimer.
+  RG.menageRegistreHtml=function(registre,titre){
+    function e(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function heure(iso){var x=new Date(iso);return pad2(x.getHours())+':'+pad2(x.getMinutes());}
+    var h='<div class="rg-registre">';
+    if(titre)h+='<h2 style="margin:0 0 4px;font-size:16px;">'+e(titre)+'</h2>';
+    h+='<div style="font-size:11px;color:#555;margin-bottom:10px;">Chaque coche est enregistrée avec le nom de la personne connectée et l\'heure exacte ; elle ne peut plus être modifiée au-delà de 10 minutes.</div>';
+    registre.forEach(function(j){
+      var dj=menageDate(j.jour).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+      var nf=j.lignes.filter(function(l){return l.statut==='faite';}).length;
+      h+='<div style="break-inside:avoid;page-break-inside:avoid;margin-bottom:12px;">'
+        +'<div style="font-weight:800;font-size:13px;margin:6px 0 4px;">'+e(dj.charAt(0).toUpperCase()+dj.slice(1))+' <span style="font-weight:600;color:#555;">— '+nf+'/'+j.lignes.length+' faite'+(nf>1?'s':'')+'</span></div>';
+      if(!j.lignes.length){h+='<div style="font-size:12px;color:#777;">Aucune tâche prévue.</div></div>';return;}
+      h+='<table style="width:100%;border-collapse:collapse;font-size:11.5px;background:#fff;color:#111;">'
+        +'<tr style="background:#F1EDE6;"><th style="text-align:left;padding:4px 6px;border:1px solid #ccc;">Moment</th><th style="text-align:left;padding:4px 6px;border:1px solid #ccc;">Zone</th><th style="text-align:left;padding:4px 6px;border:1px solid #ccc;">Tâche</th><th style="text-align:left;padding:4px 6px;border:1px solid #ccc;">Fait par</th><th style="text-align:left;padding:4px 6px;border:1px solid #ccc;">Heure</th></tr>';
+      j.lignes.forEach(function(l){
+        var st={faite:'',non_faite:'<b style="color:#B91C1C;">NON FAITE</b>',a_faire:'<span style="color:#92400E;">à faire</span>',en_retard:'<b style="color:#B45309;">en retard</b>'}[l.statut];
+        var tard=l.faite&&RG.bizDateKey(l.faite.fait_le)!==j.jour?' <span style="color:#92400E;">(le '+e(menageDate(RG.bizDateKey(l.faite.fait_le)).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}))+')</span>':'';
+        h+='<tr><td style="padding:4px 6px;border:1px solid #ccc;">'+e(RG.nomMomentMenage(l.moment))+'</td>'
+          +'<td style="padding:4px 6px;border:1px solid #ccc;">'+e(l.zone)+'</td>'
+          +'<td style="padding:4px 6px;border:1px solid #ccc;">'+e(l.nom)+(l.faite&&l.faite.note?'<div style="font-size:10.5px;color:#555;font-style:italic;">Remarque : '+e(l.faite.note)+'</div>':'')+'</td>'
+          +'<td style="padding:4px 6px;border:1px solid #ccc;">'+(l.faite?'✔ '+e(l.faite.par_nom||'?'):st)+'</td>'
+          +'<td style="padding:4px 6px;border:1px solid #ccc;white-space:nowrap;">'+(l.faite?e(heure(l.faite.fait_le))+tard:'')+'</td></tr>';
+      });
+      h+='</table></div>';
+    });
+    return h+'</div>';
+  };
+  // Imprime un morceau de HTML seul (fenêtre d'impression du navigateur → « Enregistrer en PDF » possible).
+  RG.imprimerHtml=function(html,titre){
+    var w=window.open('','_blank');
+    if(!w){alert('Autorise les fenêtres (pop-up) pour imprimer.');return;}
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+String(titre||'').replace(/</g,'&lt;')+'</title>'
+      +'<style>body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;color:#111}@page{size:A4;margin:12mm}tr{page-break-inside:avoid}</style></head><body>'+html
+      +'<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>');
+    w.document.close();
   };
 
   global.RG=RG;
