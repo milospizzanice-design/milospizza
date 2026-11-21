@@ -278,6 +278,13 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .plat-emp-multi{flex-shrink:0;width:64px;display:flex;align-items:center;justify-content:center;gap:0.2rem;font-size:0.8rem;cursor:pointer;}
 .plats-entete-prix{display:flex;justify-content:flex-end;gap:0.5rem;padding:0 0.2rem 0.2rem;font-size:0.62rem;font-weight:700;color:#888;font-family:'Montserrat',sans-serif;}
 .plats-entete-prix span{width:64px;text-align:center;}
+/* 21/11/2026 : ligne « 🧾 Recette · coût · coefficient » sous chaque plat (visible depuis l'admin uniquement) */
+.plat-row.avec-coef{flex-wrap:wrap;row-gap:0.2rem;}
+.plat-coef-ligne{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:0.45rem;padding-left:calc(26px + 0.5rem);font-size:0.68rem;color:#888;font-family:'Montserrat',sans-serif;}
+.plat-coef-ligne:empty{display:none;}
+.plat-coef-btn{border:1px solid #ddd;background:#fff;border-radius:10px;padding:0.12rem 0.5rem;font-size:0.68rem;font-weight:600;cursor:pointer;color:#555;font-family:inherit;}
+.plat-coef-btn:hover{border-color:var(--vert);color:var(--vert);}
+.plat-coef-val{font-weight:800;}
 .photo-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--vert);margin-right:0.4rem;flex-shrink:0;}
 .subcat-manager{margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid #f0ede8;}
 .cat-section-label{font-size:0.62rem;color:var(--vert);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0.9rem 0 0.5rem;border-top:1px solid #f0ede8;padding-top:0.7rem;}
@@ -2285,6 +2292,8 @@ function quickAddItemHere(catId, subcatName){
 function renderAdminItems(list){
   renderAdminItemsContextHeader();
   const entete = list.length ? `<div class="plats-entete-prix"><span>🍽️ Sur place</span><span title="Case vide = pas disponible à emporter">🥡 À emporter</span></div>` : '';
+  derniereListeAdmin = list;
+  const avecCoef = !!pontRecettes();
   document.getElementById('adminItemsList').innerHTML = entete + list.map((it, idx)=>{
     const hasVariants = it.priceVariants && it.priceVariants.length > 0;
     const priceCell = hasVariants
@@ -2308,8 +2317,13 @@ function renderAdminItems(list){
       <button class="plat-photo-btn ${it.photo?'has-photo':''}" onclick="triggerUpload('${it.id}')" style="${it.photo?`background-image:url('${cld(it.photo,100)}');background-size:cover;background-position:center;`:''}">${it.photo?'':'📷'}<span class="upload-progress" id="prog_${it.id}">⏳</span></button>
       ${priceCell}
       ${empCell}
+      ${avecCoef ? `<div class="plat-coef-ligne" id="coef_${it.id}"></div>` : ''}
     </div>`;
   }).join('')||'<p style="text-align:center;color:#aaa;padding:1rem;font-size:0.8rem">Aucun plat</p>';
+  if (avecCoef) {
+    list.forEach(it => { const r = document.getElementById('row_' + it.id); if (r) r.classList.add('avec-coef'); });
+    majCoefsMenu(list);
+  }
 }
 
 async function autoSaveItems(){ const ok = await autoSaveItemsBrut(); if (ok) tradPlanifier(); return ok; }
@@ -2324,6 +2338,7 @@ function onPriceChange(id, val){
   if(!it) return;
   const clean = val.replace('€','').trim();
   ecrirePrixSurPlace(it, clean);
+  majCoefPlat(id);
   autoSaveItems().then(ok=>{
     showToast(ok ? '✓ Prix enregistré' : '❌ Échec de l\'enregistrement - réessayez');
   });
@@ -2396,6 +2411,7 @@ function onPriceEmporterListe(id, val){
   if (input) input.value = v;
   const wrap = document.getElementById('pew_' + id);
   if (wrap) { wrap.classList.toggle('vide', !v); const suf = wrap.querySelector('.plat-price-suffix'); if (suf) suf.textContent = v ? '€' : ''; }
+  majCoefPlat(id);
   autoSaveItems().then(ok=>{
     showToast(ok ? (v ? '✓ Prix à emporter enregistré' : '✓ Plat retiré de la carte à emporter') : '❌ Échec de l\'enregistrement - réessayez');
   });
@@ -2404,9 +2420,95 @@ function onDispoEmporterListe(id, on){
   const it = items.find(i=>i.id===id);
   if(!it) return;
   appliquerDispoEmporter(it, on);
+  majCoefPlat(id);
   autoSaveItems().then(ok=>{
     showToast(ok ? (on ? '✓ Disponible à emporter' : '✓ Plat retiré de la carte à emporter') : '❌ Échec de l\'enregistrement - réessayez');
   });
+}
+
+// ── Coefficient et recette depuis la liste des plats (21/11/2026) ─────────────────────────────────────
+// Quand cette page est ouverte dans l'admin (module Menu), l'admin fournit window.parent.RG_RECETTES : coût
+// matière de chaque plat (fiche recette reliée par identifiant), fenêtre Recette et fenêtre « Relier ». Sous
+// chaque plat : « 🧾 Recette · coût » (clic = la recette s'ouvre par-dessus, sans quitter l'écran) et le
+// coefficient = prix HT ÷ coût matière, sur place et à emporter, recalculé dès qu'un prix change.
+// Ouverte seule (hors admin), la page n'affiche rien de tout ça.
+let derniereListeAdmin = [];
+let infosRecettes = {}; // {id du plat: {code, nom, cout, incomplet, avertissements, nbLignes}}
+let infosRecettesPretes = false;
+function pontRecettes(){
+  try {
+    const p = window.parent;
+    return (p && p !== window && p.RG_RECETTES) ? p.RG_RECETTES : null;
+  } catch(e) { return null; } // autre site : pas d'accès
+}
+function coefDe(prixTTC, tva, cout){
+  const pv = parsePriceValue(prixTTC);
+  if (!pv || pv <= 0 || !(cout > 0)) return null;
+  return (pv / (1 + (tva != null ? tva : 10) / 100)) / cout;
+}
+function coefHTML(c){
+  const pont = pontRecettes();
+  const cible = pont ? pont.coefCible() : 4;
+  const coul = c >= cible ? '#1E7B3C' : (c >= cible - 0.5 ? '#B7791F' : '#C0392B');
+  return `<span class="plat-coef-val" style="color:${coul}">×${c.toFixed(1).replace('.', ',')}</span>`;
+}
+function coefPlatHTML(it){
+  if (!infosRecettesPretes) return '<span style="color:#bbb">calcul du coût…</span>';
+  const info = infosRecettes[it.id];
+  const nom = printEsc(it.name && it.name.fr || '');
+  if (!info) return `<button class="plat-coef-btn" title="Aucune fiche recette au nom identique" onclick="relierPlatRecette('${it.id}')">🔗 Relier une fiche recette</button>`;
+  if (!info.nbLignes) return `<button class="plat-coef-btn" title="Fiche « ${printEsc(info.nom)} »" onclick="ouvrirRecettePlat('${it.id}')">🧾 Créer la recette</button>`;
+  const avert = info.incomplet ? ` title="Coût incomplet : ${printEsc(info.avertissements.join(' · '))}"` : ` title="Fiche « ${printEsc(info.nom)} »"`;
+  let h = `<button class="plat-coef-btn"${avert} onclick="ouvrirRecettePlat('${it.id}')">🧾 Recette · ${info.cout != null ? info.cout.toFixed(2).replace('.', ',') + ' €' : 'coût ?'}${info.incomplet ? ' ⚠️' : ''}</button>`;
+  if (info.cout > 0) {
+    const tva = it.tva != null ? it.tva : 10;
+    if (it.priceVariants && it.priceVariants.length) {
+      h += `<span>prix multiples</span>`;
+    } else {
+      const cs = coefDe(it.price, tva, info.cout);
+      h += `<span title="Coefficient sur place = prix HT ÷ coût matière">🍽️ ${cs != null ? coefHTML(cs) : '—'}</span>`;
+      const pe = prixEmporterAffiche(it);
+      const ce = pe ? coefDe(pe, tva, info.cout) : null;
+      h += `<span title="Coefficient à emporter = prix HT ÷ coût matière">🥡 ${ce != null ? coefHTML(ce) : '<span style="color:#bbb">pas à emporter</span>'}</span>`;
+    }
+  }
+  return h;
+}
+function majCoefPlat(id){
+  const el = document.getElementById('coef_' + id);
+  const it = items.find(i => i.id === id);
+  if (el && it) el.innerHTML = coefPlatHTML(it);
+}
+async function majCoefsMenu(list){
+  const pont = pontRecettes();
+  if (!pont) return;
+  list.forEach(it => majCoefPlat(it.id));
+  try { await pont.pret(); }
+  catch(e) {
+    list.forEach(it => { const el = document.getElementById('coef_' + it.id); if (el) el.innerHTML = `<span style="color:#C0392B">coût indisponible (${printEsc(e.message || '')})</span>`; });
+    return;
+  }
+  const ids = list.map(it => it.id);
+  const infos = pont.infoPlats(ids);
+  ids.forEach(id => { if (infos[id]) infosRecettes[id] = infos[id]; else delete infosRecettes[id]; });
+  infosRecettesPretes = true;
+  list.forEach(it => majCoefPlat(it.id));
+}
+// Appelée par l'admin après l'enregistrement d'une recette ou d'un lien.
+function rafraichirCoefsMenu(){
+  if (derniereListeAdmin.length && document.getElementById('coef_' + derniereListeAdmin[0].id)) majCoefsMenu(derniereListeAdmin);
+}
+function ouvrirRecettePlat(id){
+  const pont = pontRecettes();
+  const it = items.find(i => i.id === id);
+  if (!pont || !it) return;
+  const ok = pont.ouvrirRecette(id, {prix: it.price || '', prixEmporter: prixEmporterAffiche(it), tva: it.tva != null ? it.tva : 10});
+  if (!ok) relierPlatRecette(id);
+}
+function relierPlatRecette(id){
+  const pont = pontRecettes();
+  const it = items.find(i => i.id === id);
+  if (pont && it) pont.relier(id, it.name && it.name.fr || '');
 }
 
 // ── Écran « 🥡 Prix à emporter » (15/10/2026) : tous les plats sur un seul écran, par catégorie ──

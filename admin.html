@@ -650,6 +650,17 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
   </div>
 </div>
 
+<!-- 21/11/2026 : relier un plat de la carte (écran Menu) à une fiche recette — voir RG_RECETTES.relier -->
+<div class="mb" id="mlierfiche">
+  <div class="md" style="max-width:420px;">
+    <div class="mdt" id="mlierfiche-titre">🔗 Relier à une fiche recette</div>
+    <div style="font-size:11px;color:var(--txm);margin-bottom:8px;">Choisis la fiche recette de ce plat : son coût servira à calculer le coefficient dans Menu, et la recette s'ouvrira d'un clic.</div>
+    <input type="text" class="fi" id="mlierfiche-search" placeholder="🔍 Rechercher une fiche…" oninput="rgRenderLierFiche()" style="width:100%;margin-bottom:8px;">
+    <div id="mlierfiche-liste" style="max-height:300px;overflow-y:auto;"></div>
+    <div class="ma" style="margin-top:14px;"><button class="btn bs" onclick="closeM('mlierfiche')">Annuler</button></div>
+  </div>
+</div>
+
 <!-- Modal nouvelle demande interne (restaurant -> Labo) -->
 <div class="mb" id="mdemint">
   <div class="md" style="max-width:420px;">
@@ -10081,8 +10092,12 @@ async function saveEditProduitVendu(){
 
 // ── Modal recette ──────────────────────────────────────────────────────────
 let mrctCurrentCode=null;
-function openRecetteModal(code){
+// 21/11/2026 : recette ouverte depuis l'écran Menu (iframe index.html?admin=1) — on affiche le coefficient en
+// direct avec les prix du plat, et à l'enregistrement on prévient l'écran Menu au lieu de défiler vers la fiche.
+let mrctDepuisMenu=null; // null, ou {prix:'15€', prixEmporter:'13,5€'|'' (vide = pas à emporter), tva:10}
+function openRecetteModal(code,depuisMenu){
   mrctCurrentCode=code;
+  mrctDepuisMenu=depuisMenu||null;
   var p=rctProduitsVendus.find(function(x){return x.code===code;});
   document.getElementById('mrct-title').textContent='Recette — '+(p?p.nom:code);
   var lines=(rctRecettes[code]||[]).map(function(l){return {ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};});
@@ -10251,6 +10266,15 @@ function updateRecetteTotalCost(){
     if(r.cout!=null){total+=r.cout;hasCout=true;}else hasWarn=true;
   });
   totalEl.textContent='Coût total : '+(hasCout?total.toFixed(2)+' €':'—')+(hasWarn?' (incomplet ⚠️)':'');
+  if(mrctDepuisMenu&&hasCout&&total>0){
+    var tva=mrctDepuisMenu.tva!=null?mrctDepuisMenu.tva:10;
+    var morceaux=[];
+    var cs=coefVente(mrctDepuisMenu.prix,tva,total);
+    if(cs!=null)morceaux.push('🍽️ '+rgCoefHtml(cs));
+    var ce=coefVente(mrctDepuisMenu.prixEmporter,tva,total);
+    morceaux.push('🥡 '+(ce!=null?rgCoefHtml(ce):'<span style="color:var(--txm);font-weight:600;">pas à emporter</span>'));
+    totalEl.innerHTML=esc(totalEl.textContent)+'<div style="margin-top:3px;font-size:12px;">Coefficient : '+morceaux.join(' · ')+'</div>';
+  }
 }
 
 // ── Recherche + sélection multiple d'ingrédients pour la recette ────────────
@@ -10341,12 +10365,115 @@ async function saveRecette(){
       }
     }
     rctRecettes[code]=lines;
+    var depuisMenu=!!mrctDepuisMenu;
+    mrctDepuisMenu=null;
     closeM('mrct');
     renderRecettesList();
-    if(document.getElementById('mficheed').classList.contains('op'))ficheEdAfficherIngredients(); // retour dans « Éditer la fiche »
+    if(depuisMenu)rgNotifierMenu(); // l'écran Menu recalcule ses coefficients
+    else if(document.getElementById('mficheed').classList.contains('op'))ficheEdAfficherIngredients(); // retour dans « Éditer la fiche »
     else scrollToProductCard(code);
   }catch(e){console.error('saveRecette',e);alert('Erreur lors de l\'enregistrement de la recette : '+e.message);}
 }
+
+// ══ Pont écran Menu ↔ Recettes (21/11/2026) ══════════════════════════════════════════════════════
+// L'écran Menu est la page index.html?admin=1 affichée dans un cadre (#menuAdminFrame), sur le même site.
+// Elle appelle window.parent.RG_RECETTES pour : connaître le coût matière de chaque plat (coefficient affiché
+// à côté des prix), ouvrir la recette d'un plat dans la fenêtre Recette ci-dessus sans quitter l'écran, et
+// relier un plat à sa fiche quand le nom ne suffit pas. Tout passe par l'identifiant du plat (it.id) et
+// findMenuItemForProduit (nom exact ou lien choisi à la main) — jamais par ressemblance de nom.
+var COEF_CIBLE=4; // coefficient minimum visé (prix HT ÷ coût matière) : vert au-dessus, orange juste en dessous, rouge sous 3,5
+function coefVente(prixTTC,tva,cout){
+  var pv=parsePrixVente(prixTTC);
+  if(pv==null||!(pv>0)||!(cout>0))return null;
+  return (pv/(1+(tva!=null?tva:10)/100))/cout;
+}
+function rgCoefCouleur(c){return c>=COEF_CIBLE?'#1E7B3C':(c>=COEF_CIBLE-0.5?'#B7791F':'#C0392B');}
+function rgCoefHtml(c){return '<b style="color:'+rgCoefCouleur(c)+';">×'+c.toFixed(1).replace('.',',')+'</b>';}
+var rgRecettesPromesse=null;
+// Fiche recette de chaque plat de la carte : {id du plat: fiche}. Si deux fiches visent le même plat, on garde
+// celle reliée à la main, sinon celle qui a une recette.
+function rgFichesParPlat(){
+  var parPlat={};
+  (rctProduitsVendus||[]).filter(function(p){return p.actif!==false;}).forEach(function(p){
+    var it=findMenuItemForProduit(p);
+    if(!it)return;
+    var deja=parPlat[it.id];
+    var score=function(x){return (rctLiensCarte&&rctLiensCarte[x.code]===it.id?2:0)+((rctRecettes[x.code]||[]).length?1:0);};
+    if(!deja||score(p)>score(deja))parPlat[it.id]=p;
+  });
+  // Liens choisis à la main vers un plat pas encore publié (seulement dans le brouillon du menu) : pris tels quels.
+  Object.keys(rctLiensCarte||{}).forEach(function(code){
+    var id=rctLiensCarte[code];
+    if(parPlat[id])return;
+    var p=(rctProduitsVendus||[]).find(function(x){return x.code===code&&x.actif!==false;});
+    if(p)parPlat[id]=p;
+  });
+  return parPlat;
+}
+function rgNotifierMenu(){
+  try{
+    var f=document.getElementById('menuAdminFrame');
+    if(f&&f.contentWindow&&typeof f.contentWindow.rafraichirCoefsMenu==='function')f.contentWindow.rafraichirCoefsMenu();
+  }catch(e){console.warn('rgNotifierMenu',e);}
+}
+var rgLierPlat=null; // {id, nom} du plat de la carte à relier
+function rgRenderLierFiche(){
+  if(!rgLierPlat)return;
+  var q=normText(document.getElementById('mlierfiche-search').value||'');
+  var fiches=(rctProduitsVendus||[]).filter(function(p){return p.actif!==false;}).map(function(p){
+    return {p:p,score:matchScore(rgLierPlat.nom,p.nom)};
+  }).filter(function(x){return q?normText(x.p.nom).indexOf(q)>=0:x.score>0;})
+    .sort(function(a,b){return b.score-a.score||a.p.nom.localeCompare(b.p.nom);}).slice(0,30);
+  document.getElementById('mlierfiche-liste').innerHTML=fiches.length?fiches.map(function(x){
+    var nb=(rctRecettes[x.p.code]||[]).length;
+    var c=coutRecette(x.p.code);
+    return '<button type="button" class="btn bs" style="display:flex;width:100%;justify-content:space-between;gap:8px;margin-bottom:5px;text-align:left;" onclick="rgChoisirFiche(\''+x.p.code+'\')">'
+      +'<span>'+esc(x.p.nom)+'</span><span style="font-size:10px;color:var(--txm);white-space:nowrap;">'+(nb?nb+' ingr.'+(c.total!=null?' · '+c.total.toFixed(2)+' €':''):'sans recette')+'</span></button>';
+  }).join(''):'<div style="font-size:12px;color:var(--txm);text-align:center;padding:10px;">Aucune fiche trouvée — tape une partie du nom.</div>';
+}
+async function rgChoisirFiche(code){
+  if(!rgLierPlat)return;
+  var plat=rgLierPlat;
+  closeM('mlierfiche');
+  await lierProduitCarte(code,plat.id); // enregistre le lien puis prévient l'écran Menu
+}
+window.RG_RECETTES={
+  // Charge les fiches, recettes et prix d'achat (une seule fois ; Recettes › recharger les remet à jour).
+  pret:function(){
+    if(!rgRecettesPromesse){
+      rgRecettesPromesse=((rctProduitsVendus&&rctProduitsVendus.length)?Promise.resolve():loadRecettesModule())
+        .then(function(){if(!(rctProduitsVendus&&rctProduitsVendus.length))throw new Error('fiches non chargées (restaurant sélectionné ?)');})
+        .catch(function(e){rgRecettesPromesse=null;throw e;});
+    }
+    return rgRecettesPromesse;
+  },
+  // {id du plat: {code, nom, cout (null si inconnu), incomplet, nbLignes}} — absent si aucune fiche reliée
+  infoPlats:function(ids){
+    var parPlat=rgFichesParPlat(),res={};
+    (ids||[]).forEach(function(id){
+      var p=parPlat[id];
+      if(!p)return;
+      var c=coutRecette(p.code);
+      res[id]={code:p.code,nom:p.nom,cout:c.total,incomplet:!!(c.warnings&&c.warnings.length&&(rctRecettes[p.code]||[]).length),avertissements:c.warnings||[],nbLignes:(rctRecettes[p.code]||[]).length};
+    });
+    return res;
+  },
+  coefCible:function(){return COEF_CIBLE;},
+  // Ouvre la recette du plat par-dessus l'écran Menu. prix = {prix, prixEmporter, tva} lus dans l'écran Menu.
+  ouvrirRecette:function(itemId,prix){
+    var p=rgFichesParPlat()[itemId];
+    if(!p)return false;
+    openRecetteModal(p.code,prix||{});
+    return true;
+  },
+  relier:function(itemId,nom){
+    rgLierPlat={id:itemId,nom:nom||''};
+    document.getElementById('mlierfiche-titre').textContent='🔗 Fiche recette de « '+(nom||'ce plat')+' »';
+    document.getElementById('mlierfiche-search').value='';
+    rgRenderLierFiche();
+    openM('mlierfiche');
+  }
+};
 
 // ── Nouveau produit vendu manuel ────────────────────────────────────────────
 function openNewProduitVenduModal(){
@@ -14862,6 +14989,7 @@ async function lierProduitCarte(code,itemId){
     rctLiensCarte=frais;
   }catch(e){console.error('lierProduitCarte',e);alert('Erreur lors de l\'enregistrement du lien : '+e.message);}
   renderRecettesList();
+  rgNotifierMenu();
 }
 // Liste des plats proposés pour relier une fiche à la main : les plus ressemblants d'abord.
 function choixPlatsPourFiche(p){
