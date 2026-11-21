@@ -2467,9 +2467,12 @@ function coefPlatHTML(it){
     } else {
       const cs = coefDe(it.price, tva, info.cout);
       h += `<span title="Coefficient sur place = prix HT ÷ coût matière">🍽️ ${cs != null ? coefHTML(cs) : '—'}</span>`;
+      // 21/11/2026 : à emporter, l'emballage (boîte à pizza, pot…) réglé dans la fenêtre Recette est compté
       const pe = prixEmporterAffiche(it);
-      const ce = pe ? coefDe(pe, tva, info.cout) : null;
-      h += `<span title="Coefficient à emporter = prix HT ÷ coût matière">🥡 ${ce != null ? coefHTML(ce) : '<span style="color:#bbb">pas à emporter</span>'}</span>`;
+      const emb = info.coutEmballage || 0;
+      const ce = pe ? coefDe(pe, tva, info.cout + emb) : null;
+      const titreEmb = emb > 0 ? `Coefficient à emporter = prix HT ÷ (coût matière + emballage ${emb.toFixed(2).replace('.', ',')} €)` : 'Coefficient à emporter = prix HT ÷ coût matière — aucun emballage réglé (fenêtre Recette)';
+      h += `<span title="${titreEmb}">🥡 ${ce != null ? coefHTML(ce) + (emb > 0 ? '' : ' <span style="color:#bbb">sans emb.</span>') : '<span style="color:#bbb">pas à emporter</span>'}</span>`;
     }
   }
   return h;

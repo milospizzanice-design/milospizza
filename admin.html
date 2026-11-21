@@ -632,9 +632,11 @@ var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 <div class="mb" id="mrct">
   <div class="md" style="max-width:420px;">
     <div class="mdt" id="mrct-title">Recette</div>
+    <div id="mrct-onglets" style="font-size:10px;color:var(--txm);margin:-4px 0 8px;"></div>
     <div id="mrct-lines"></div>
     <div id="mrct-total-cost" style="text-align:right;font-size:12px;font-weight:700;color:var(--tx);margin-top:6px;padding-top:6px;border-top:1px dashed var(--bd);">Coût total : —</div>
     <button class="btn bs sm" onclick="addRecetteLine()" style="width:100%;margin-top:6px;">+ Ajouter un ingrédient (ligne vide)</button>
+    <div id="mrct-emb" style="margin-top:10px;padding:8px;border:1px dashed var(--bd);border-radius:8px;"></div>
     <div style="margin-top:10px;">
       <button class="btn bs sm" onclick="toggleDupliquerRecette()" id="mrct-dupli-btn" style="width:100%;">⧉ Dupliquer une recette existante</button>
       <div id="mrct-dupli-panel" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);">
@@ -9306,6 +9308,8 @@ async function loadRecettesModule(){
     });
     await loadMenuPricesFromSite(); // nécessaire pour classer Produits & recettes selon le menu public réel
     await chargerLiensCarte();
+    await chargerRecetteOnglets();
+    await chargerEmballages();
     try{
       await syncProduitsFromMenu(); // synchro auto à chaque ouverture du module : les nouveaux articles du menu (dont les boissons) apparaissent sans avoir à cliquer sur "Synchroniser"
     }catch(e){
@@ -9968,7 +9972,8 @@ function renderRecettesList(){
           var pvEmporterRaw=empInfo.dispo?parsePrixVente(empInfo.prix):null;
           var tva=menu.tva!=null?menu.tva:10;
           var coefSurPlace=pvSurPlace?((pvSurPlace/(1+tva/100))/r.total).toFixed(2):null;
-          var coefEmporter=pvEmporterRaw?((pvEmporterRaw/(1+tva/100))/r.total).toFixed(2):null;
+          var embCout=coutEmballageFiche(p).cout;
+          var coefEmporter=pvEmporterRaw?((pvEmporterRaw/(1+tva/100))/(r.total+embCout)).toFixed(2):null;
           var lienManuel=rctLiensCarte&&rctLiensCarte[p.code]===menu.id;
           venteHtml='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px;">'
             +(lienManuel?'<span style="font-size:9px;color:var(--txm);" title="Relié à la main au plat « '+esc((menu.name&&(menu.name.fr||menu.name))||'')+' »">🔗 <a href="#" onclick="event.preventDefault();event.stopPropagation();if(confirm(\'Délier cette fiche du plat de la carte ?\'))lierProduitCarte(\''+p.code+'\',\'\')">délier</a></span>':'')
@@ -9979,7 +9984,7 @@ function renderRecettesList(){
             +(empInfo.variantes
               ?'<span style="font-size:9px;color:var(--txm);">prix multiples (modifiables dans Menu)</span>'
               :'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvEmporterRaw!=null?pvEmporterRaw:'')+'" placeholder="non dispo" title="Prix à emporter — vide = pas disponible à emporter" onchange="updateMenuPrice(\''+p.code+'\',\'priceEmporter\',this.value)">'
-               +'<span style="font-size:9px;color:var(--txm);">€'+(coefEmporter?' · coef '+coefEmporter:(empInfo.dispo?'':' · pas à emporter'))+(empInfo.catMasquee?' (catégorie masquée à emporter)':'')+'</span>')
+               +'<span style="font-size:9px;color:var(--txm);" title="Coefficient à emporter : coût matière + emballage ('+embCout.toFixed(2)+' €)">€'+(coefEmporter?' · coef '+coefEmporter+(embCout>0?' (emb. '+embCout.toFixed(2)+' €)':' (sans emballage)'):(empInfo.dispo?'':' · pas à emporter'))+(empInfo.catMasquee?' (catégorie masquée à emporter)':'')+'</span>')
             +'<span style="font-size:9px;color:var(--txm);">TVA</span>'
             +'<select class="fi" style="font-size:10px;width:auto;padding:1px 3px;" onchange="updateMenuPrice(\''+p.code+'\',\'tva\',this.value)">'
               +'<option value="5.5"'+(tva===5.5?' selected':'')+'>5,5%</option>'
@@ -10096,9 +10101,14 @@ let mrctCurrentCode=null;
 // direct avec les prix du plat, et à l'enregistrement on prévient l'écran Menu au lieu de défiler vers la fiche.
 let mrctDepuisMenu=null; // null, ou {prix:'15€', prixEmporter:'13,5€'|'' (vide = pas à emporter), tva:10}
 function openRecetteModal(code,depuisMenu){
+  // Le réglage des ingrédients proposés doit être connu avant d'afficher les lignes
+  if(!rctRecetteOngletsCharge){Promise.all([chargerRecetteOnglets(),chargerEmballages()]).then(function(){openRecetteModal(code,depuisMenu);});return;}
   mrctCurrentCode=code;
   mrctDepuisMenu=depuisMenu||null;
   var p=rctProduitsVendus.find(function(x){return x.code===code;});
+  mrctTypeProduit=produitEstBoisson(p)?'boissons':'plats';
+  mrctAfficherOnglets(false);
+  mrctInitEmballage(p);
   document.getElementById('mrct-title').textContent='Recette — '+(p?p.nom:code);
   var lines=(rctRecettes[code]||[]).map(function(l){return {ingredient_code:l.ingredient_code,quantite:l.quantite,unite:l.unite};});
   renderRecetteLines(lines);
@@ -10144,9 +10154,9 @@ function dupliquerRecetteDepuis(sourceCode){
   renderRecetteLines(src);
   document.getElementById('mrct-dupli-panel').style.display='none';
 }
-function ingredientOptionsHtml(){
+function ingredientOptionsHtml(filtre){
   var groups={}; // cat -> { subcat -> [] } — uniquement les ingrédients "produit fini" (utilisables tels quels dans une recette de produit vendu)
-  rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini';}).forEach(function(i){
+  rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini'&&(!filtre||filtre(i));}).forEach(function(i){
     var cat=i.categorie||'Autres';
     var sub=i.sous_categorie||'';
     groups[cat]=groups[cat]||{};
@@ -10165,7 +10175,7 @@ function ingredientOptionsHtml(){
   return html;
 }
 function renderRecetteLines(lines){
-  var opts=ingredientOptionsHtml();
+  var opts=mrctOptionsIngredients((lines||[]).map(function(l){return l.ingredient_code;}));
   var html=lines.map(function(l,idx){
     return '<div class="fr" style="display:flex;gap:6px;align-items:center;" data-idx="'+idx+'">'
       +'<select class="fi mrct-ing" style="flex:2;" onchange="applyDefaultUnitToRow(this)"><option value="">-- ingrédient --</option>'+opts+'</select>'
@@ -10194,7 +10204,7 @@ function addRecetteLine(){
 function addRecetteLineWithIngredient(ingredientCode){
   var container=document.getElementById('mrct-lines');
   var idx=container.querySelectorAll('[data-idx]').length;
-  var opts=ingredientOptionsHtml();
+  var opts=mrctOptionsIngredients(ingredientCode?[ingredientCode]:[],true);
   var div=document.createElement('div');
   div.className='fr';
   div.setAttribute('data-idx',idx);
@@ -10265,16 +10275,231 @@ function updateRecetteTotalCost(){
     var r=coutIngredient(code,qty,unitSel?unitSel.value:'g');
     if(r.cout!=null){total+=r.cout;hasCout=true;}else hasWarn=true;
   });
-  totalEl.textContent='Coût total : '+(hasCout?total.toFixed(2)+' €':'—')+(hasWarn?' (incomplet ⚠️)':'');
+  totalEl.textContent='Coût matière : '+(hasCout?total.toFixed(2)+' €':'—')+(hasWarn?' (incomplet ⚠️)':'');
   if(mrctDepuisMenu&&hasCout&&total>0){
     var tva=mrctDepuisMenu.tva!=null?mrctDepuisMenu.tva:10;
     var morceaux=[];
     var cs=coefVente(mrctDepuisMenu.prix,tva,total);
     if(cs!=null)morceaux.push('🍽️ '+rgCoefHtml(cs));
-    var ce=coefVente(mrctDepuisMenu.prixEmporter,tva,total);
-    morceaux.push('🥡 '+(ce!=null?rgCoefHtml(ce):'<span style="color:var(--txm);font-weight:600;">pas à emporter</span>'));
+    var emb=mrctEmb?coutLignesEmballage(mrctEmb.lignes).cout:0;
+    var ce=coefVente(mrctDepuisMenu.prixEmporter,tva,total+emb);
+    morceaux.push('🥡 '+(ce!=null?rgCoefHtml(ce)+(emb>0?' <span style="font-weight:400;color:var(--txm);">(avec emballage '+emb.toFixed(2)+' €)</span>':''):'<span style="color:var(--txm);font-weight:600;">pas à emporter</span>'));
     totalEl.innerHTML=esc(totalEl.textContent)+'<div style="margin-top:3px;font-size:12px;">Coefficient : '+morceaux.join(' · ')+'</div>';
   }
+}
+
+// ── Emballages à emporter (21/11/2026) ─────────────────────────────────────────────────────────────
+// Le coefficient À EMPORTER compte le coût matière + le coût de l'emballage (boîte à pizza, pot à
+// stracciatella…). Réglage par catégorie de la carte (ex. toutes les pizzas : 1 boîte) et/ou par fiche
+// (prioritaire sur la catégorie). Stocké dans app_config 'emballages_emporter' =
+// {categories:{id catégorie carte:[{ingredient_code,quantite}]}, fiches:{code fiche:[...]}} — marque blanche,
+// aucune table à créer. Quantité en pièces ; le coût vient du prix de l'ingrédient (Recettes › Ingrédients).
+var EMBALLAGES_CLE='emballages_emporter';
+var rctEmballages={categories:{},fiches:{}};
+async function chargerEmballages(){
+  try{var v=cfgJson(await cfgLire(EMBALLAGES_CLE))||{};rctEmballages={categories:v.categories||{},fiches:v.fiches||{}};}
+  catch(e){console.warn('chargerEmballages',e);rctEmballages={categories:{},fiches:{}};}
+}
+function catCarteDeFiche(p){
+  var it=p&&findMenuItemForProduit(p);
+  if(!it)return null;
+  var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
+  var c=cats.find(function(x){return x.id===it.cat;});
+  return c?{id:c.id,nom:(c.name&&(c.name.fr||c.name))||c.id}:null;
+}
+// {lignes, source:'fiche'|'categorie'|null, cat:{id,nom}|null}
+function emballagesDeFiche(p){
+  var cat=catCarteDeFiche(p);
+  if(p&&Array.isArray(rctEmballages.fiches[p.code]))return {lignes:rctEmballages.fiches[p.code],source:'fiche',cat:cat};
+  if(cat&&Array.isArray(rctEmballages.categories[cat.id]))return {lignes:rctEmballages.categories[cat.id],source:'categorie',cat:cat};
+  return {lignes:[],source:null,cat:cat};
+}
+function coutLignesEmballage(lignes){
+  var total=0,warnings=[];
+  (lignes||[]).forEach(function(l){
+    if(!l.ingredient_code||!(l.quantite>0))return;
+    var r=coutIngredient(l.ingredient_code,l.quantite,'piece');
+    var ing=rctIngredients.find(function(x){return x.code===l.ingredient_code;});
+    if(r.cout!=null)total+=r.cout;else warnings.push((ing?ing.nom:l.ingredient_code)+' : '+(r.warning||'prix manquant'));
+  });
+  return {cout:total,warnings:warnings};
+}
+function coutEmballageFiche(p){return coutLignesEmballage(emballagesDeFiche(p).lignes);}
+function estEmballageProbable(i){
+  var t=normText((i.nom||'')+' '+(i.categorie||'')+' '+(ongletDeCategorie(i.categorie||'Autres')||''));
+  return ['emball','carton','boite','barquette','bol ','pot ','gobelet','sac ','couvercle','papier','sachet','etui','kraft'].some(function(m){return (t+' ').indexOf(m)>=0;});
+}
+// Bloc « 🥡 Emballage à emporter » de la fenêtre Recette (modifiable, enregistré avec la recette)
+var mrctEmb=null; // {lignes:[{ingredient_code,quantite}], portee:'fiche'|'categorie', cat:{id,nom}|null, source}
+function mrctInitEmballage(p){
+  var e=emballagesDeFiche(p);
+  mrctEmb={lignes:e.lignes.map(function(l){return {ingredient_code:l.ingredient_code,quantite:l.quantite};}),portee:e.source==='fiche'||!e.cat?'fiche':'categorie',cat:e.cat,source:e.source};
+  mrctRenderEmballage();
+}
+function mrctRenderEmballage(){
+  var box=document.getElementById('mrct-emb');
+  if(!box||!mrctEmb)return;
+  var actifs=rctIngredients.filter(function(i){return i.actif!==false;});
+  var emb=actifs.filter(estEmballageProbable).sort(function(a,b){return a.nom.localeCompare(b.nom);});
+  var autres=actifs.filter(function(i){return !estEmballageProbable(i);}).sort(function(a,b){return a.nom.localeCompare(b.nom);});
+  var opt=function(l){return function(i){return '<option value="'+i.code+'"'+(i.code===l.ingredient_code?' selected':'')+'>'+esc(i.nom)+'</option>';};};
+  var c=coutLignesEmballage(mrctEmb.lignes);
+  box.innerHTML='<div style="font-size:11px;font-weight:700;margin-bottom:4px;">🥡 Emballage à emporter <span style="font-weight:400;color:var(--txm);">— compté dans le coefficient à emporter</span></div>'
+    +mrctEmb.lignes.map(function(l,idx){
+      return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">'
+        +'<select class="fi" style="flex:3;font-size:11px;" onchange="mrctEmbChamp('+idx+',\'ingredient_code\',this.value)"><option value="">-- emballage --</option>'
+        +(emb.length?'<optgroup label="Emballages">'+emb.map(opt(l)).join('')+'</optgroup>':'')
+        +'<optgroup label="Autres articles">'+autres.map(opt(l)).join('')+'</optgroup></select>'
+        +'<input type="number" class="fi" style="width:60px;font-size:11px;" min="0" step="1" value="'+(l.quantite!=null?l.quantite:'')+'" oninput="mrctEmbChamp('+idx+',\'quantite\',this.value)" title="Nombre de pièces">'
+        +'<span style="font-size:10px;color:var(--txm);">pc</span>'
+        +'<button type="button" class="btn bs sm" style="padding:4px 7px;" onclick="mrctEmbSuppr('+idx+')">✕</button></div>';
+    }).join('')
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">'
+    +'<button type="button" class="btn bs sm" onclick="mrctEmbAjouter()">+ Emballage</button>'
+    +'<span id="mrct-emb-total" style="font-size:11px;font-weight:700;">'+(mrctEmb.lignes.length?'Emballage : '+c.cout.toFixed(2)+' €'+(c.warnings.length?' ⚠️':''):'Aucun emballage')+'</span></div>'
+    +(c.warnings.length?'<div style="font-size:10px;color:#C0392B;margin-top:3px;">⚠️ '+esc(c.warnings.join(' · '))+'</div>':'')
+    +(mrctEmb.cat?'<div style="font-size:10px;color:var(--txm);margin-top:6px;">S\'applique à : '
+      +'<label style="cursor:pointer;margin-right:8px;"><input type="radio" name="mrct-emb-portee" value="categorie"'+(mrctEmb.portee==='categorie'?' checked':'')+' onchange="mrctEmb.portee=this.value"> toute la catégorie « '+esc(mrctEmb.cat.nom)+' »</label>'
+      +'<label style="cursor:pointer;"><input type="radio" name="mrct-emb-portee" value="fiche"'+(mrctEmb.portee==='fiche'?' checked':'')+' onchange="mrctEmb.portee=this.value"> ce produit seulement</label>'
+      +(mrctEmb.source==='fiche'?' <i>(ce produit a son propre emballage ; choisir « toute la catégorie » le remplace par celui de la catégorie)</i>':'')
+      +'</div>':'<div style="font-size:10px;color:var(--txm);margin-top:6px;">Produit non relié à un plat de la carte : l\'emballage s\'applique à ce produit seulement.</div>');
+}
+function mrctEmbChamp(idx,champ,val){
+  var l=mrctEmb&&mrctEmb.lignes[idx];if(!l)return;
+  l[champ]=champ==='quantite'?(val===''?null:parseFloat(val)):val;
+  if(champ==='ingredient_code'&&val&&!(l.quantite>0))l.quantite=1;
+  if(champ==='ingredient_code')mrctRenderEmballage();
+  else{var c=coutLignesEmballage(mrctEmb.lignes);var b=document.getElementById('mrct-emb-total');if(b)b.textContent=mrctEmb.lignes.length?'Emballage : '+c.cout.toFixed(2)+' €'+(c.warnings.length?' ⚠️':''):'Aucun emballage';}
+  updateRecetteTotalCost();
+}
+function mrctEmbAjouter(){mrctEmb.lignes.push({ingredient_code:'',quantite:1});mrctRenderEmballage();}
+function mrctEmbSuppr(idx){mrctEmb.lignes.splice(idx,1);mrctRenderEmballage();updateRecetteTotalCost();}
+// Enregistre le bloc emballage (relu juste avant d'écrire : un réglage fait ailleurs n'est pas perdu)
+async function mrctEnregistrerEmballage(code){
+  if(!mrctEmb)return;
+  var lignes=mrctEmb.lignes.filter(function(l){return l.ingredient_code&&l.quantite>0;}).map(function(l){return {ingredient_code:l.ingredient_code,quantite:l.quantite};});
+  var frais=cfgJson(await cfgLire(EMBALLAGES_CLE))||{};
+  frais.categories=frais.categories||{};frais.fiches=frais.fiches||{};
+  if(mrctEmb.portee==='categorie'&&mrctEmb.cat){
+    frais.categories[mrctEmb.cat.id]=lignes;
+    delete frais.fiches[code]; // la fiche suit désormais sa catégorie
+  }else{
+    frais.fiches[code]=lignes; // liste vide = aucun emballage pour ce produit, même si sa catégorie en a un
+  }
+  await cfgEcrire(EMBALLAGES_CLE,JSON.stringify(frais));
+  rctEmballages={categories:frais.categories,fiches:frais.fiches};
+}
+
+// ── Ingrédients proposés dans la fenêtre Recette selon le type de produit (21/11/2026) ─────────────
+// Une recette de PLAT (pizza, salade…) ne propose pas les boissons ; une recette de BOISSON (cocktail…) les
+// propose. Le choix se fait par ONGLET d'ingrédients (Recettes › Ingrédients) : réglable dans la fenêtre
+// Recette (« ⚙️ Changer »), enregistré dans app_config 'recette_onglets' = {plats:[onglets], boissons:[onglets]}
+// ('' = catégories sans onglet). Seuls les ingrédients « ✅ Fini » sont proposés (les « 🧱 Brut » ne servent
+// que dans les préparations), comme avant. Un ingrédient déjà dans la recette reste toujours affiché.
+var RECETTE_ONGLETS_CLE='recette_onglets';
+var rctRecetteOnglets=null; // réglage enregistré, ou null = réglage par défaut
+var mrctTypeProduit='plats';
+var rctRecetteOngletsCharge=false;
+async function chargerRecetteOnglets(){
+  try{rctRecetteOnglets=cfgJson(await cfgLire(RECETTE_ONGLETS_CLE))||null;}
+  catch(e){console.warn('chargerRecetteOnglets',e);rctRecetteOnglets=null;}
+  rctRecetteOngletsCharge=true;
+}
+function tousOngletsIngredients(){
+  var vus={};
+  Object.keys(rctOngletsOrdre||{}).forEach(function(o){vus[o]=true;});
+  (rctIngredients||[]).forEach(function(i){var o=ongletDeCategorie(i.categorie||'Autres');vus[o||'']=true;});
+  return Object.keys(vus).sort(function(a,b){
+    if(a==='')return 1;if(b==='')return -1;
+    return ((rctOngletsOrdre[a]!=null?rctOngletsOrdre[a]:999)-(rctOngletsOrdre[b]!=null?rctOngletsOrdre[b]:999))||a.localeCompare(b);
+  });
+}
+// Réglage par défaut : onglets « Marchandises » et « Produits finis » s'ils existent (+ Boissons pour les
+// boissons) ; sinon tous les onglets sauf boissons, emballages et entretien (boissons gardées pour les boissons).
+function ongletsParDefaut(type){
+  var tous=tousOngletsIngredients();
+  var est=function(o,mots){var n=normText(o);return mots.some(function(m){return n.indexOf(m)>=0;});};
+  var nonAlimentaire=['emballage','entretien','hygiene','nettoy','consommable','vaisselle'];
+  var base=tous.filter(function(o){return o&&est(o,['marchandise','produit']);});
+  if(!base.length)base=tous.filter(function(o){return !o||(!est(o,['boisson','drink'])&&!est(o,nonAlimentaire));});
+  else base.push('');
+  if(type==='boissons')tous.forEach(function(o){if(o&&est(o,['boisson','drink'])&&base.indexOf(o)<0)base.push(o);});
+  return base;
+}
+function ongletsProposes(type){
+  var r=rctRecetteOnglets&&rctRecetteOnglets[type];
+  return Array.isArray(r)?r:ongletsParDefaut(type);
+}
+function mrctIngredientPropose(i){
+  var o=ongletDeCategorie(i.categorie||'Autres')||'';
+  return ongletsProposes(mrctTypeProduit).indexOf(o)>=0;
+}
+// Options du menu déroulant d'une ligne : ingrédients proposés + ceux déjà présents (même hors réglage)
+function mrctOptionsIngredients(codesPresents,avecLignesAffichees){
+  var opts=ingredientOptionsHtml(mrctIngredientPropose);
+  var horsListe=(codesPresents||[]).filter(function(c){
+    var i=c&&rctIngredients.find(function(x){return x.code===c;});
+    return i&&!((i.actif!==false)&&(i.nature||'fini')==='fini'&&mrctIngredientPropose(i));
+  });
+  if(avecLignesAffichees)document.querySelectorAll('#mrct-lines .mrct-ing').forEach(function(sel){
+    var c=sel.value,i=c&&rctIngredients.find(function(x){return x.code===c;});
+    if(i&&horsListe.indexOf(c)<0&&!((i.actif!==false)&&(i.nature||'fini')==='fini'&&mrctIngredientPropose(i)))horsListe.push(c);
+  });
+  if(horsListe.length){
+    opts+='<optgroup label="Déjà dans la recette (hors ingrédients proposés)">'+horsListe.map(function(c){
+      var i=rctIngredients.find(function(x){return x.code===c;});
+      return '<option value="'+c+'">'+esc(i?i.nom:c)+'</option>';
+    }).join('')+'</optgroup>';
+  }
+  return opts;
+}
+function produitEstBoisson(p){
+  if(!p)return false;
+  var cats=(rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[];
+  var it=findMenuItemForProduit(p)||findMenuPriceFor(p.nom);
+  var c=it&&cats.find(function(x){return x.id===it.cat;});
+  if(c)return c.homeGroup==='drinks';
+  return !!(p.categorie&&menuCatIsDrinks(p.categorie));
+}
+async function mrctAfficherOnglets(ouvert){
+  var box=document.getElementById('mrct-onglets');
+  if(!box)return;
+  if(!rctRecetteOngletsCharge){await chargerRecetteOnglets();}
+  var type=mrctTypeProduit;
+  var choisis=ongletsProposes(type);
+  var libelle=function(o){return o||'Sans onglet';};
+  var titre=type==='boissons'?'🍹 Recette de boisson':'🍕 Recette de plat';
+  if(!ouvert){
+    box.innerHTML=titre+' — ingrédients proposés : <b>'+esc(choisis.map(libelle).join(', ')||'aucun')+'</b>'
+      +(rctRecetteOnglets&&Array.isArray(rctRecetteOnglets[type])?'':' <i>(réglage par défaut)</i>')
+      +' · <a href="#" onclick="event.preventDefault();mrctAfficherOnglets(true)">⚙️ Changer</a>';
+    return;
+  }
+  box.innerHTML='<div style="border:1px solid var(--bd);border-radius:8px;padding:8px;background:#FAF8F4;">'
+    +'<div style="font-weight:700;margin-bottom:4px;">'+titre+' — onglets d\'ingrédients proposés (pour toutes les recettes de '+(type==='boissons'?'boissons':'plats')+')</div>'
+    +tousOngletsIngredients().map(function(o){
+      return '<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 10px 2px 0;cursor:pointer;"><input type="checkbox" class="mrct-onglet-chk" value="'+esc(o)+'"'+(choisis.indexOf(o)>=0?' checked':'')+'> '+esc(libelle(o))+'</label>';
+    }).join('')
+    +'<div style="margin-top:6px;display:flex;gap:6px;"><button type="button" class="btn bp sm" onclick="mrctEnregistrerOnglets()">Enregistrer</button><button type="button" class="btn bs sm" onclick="mrctAfficherOnglets(false)">Annuler</button></div>'
+    +'</div>';
+}
+async function mrctEnregistrerOnglets(){
+  var choisis=[];
+  document.querySelectorAll('#mrct-onglets .mrct-onglet-chk').forEach(function(c){if(c.checked)choisis.push(c.value);});
+  try{
+    var frais=cfgJson(await cfgLire(RECETTE_ONGLETS_CLE))||{}; // relu juste avant d'écrire
+    frais[mrctTypeProduit]=choisis;
+    await cfgEcrire(RECETTE_ONGLETS_CLE,JSON.stringify(frais));
+    rctRecetteOnglets=frais;
+  }catch(e){console.error('mrctEnregistrerOnglets',e);alert('Erreur lors de l\'enregistrement : '+e.message);return;}
+  // Recharge les menus déroulants des lignes en gardant les choix en cours
+  var lignes=[];
+  document.querySelectorAll('#mrct-lines [data-idx]').forEach(function(row){
+    lignes.push({ingredient_code:row.querySelector('.mrct-ing').value,quantite:parseFloat(row.querySelector('.mrct-qty').value),unite:row.querySelector('.mrct-unit').value});
+  });
+  renderRecetteLines(lignes.map(function(l){return {ingredient_code:l.ingredient_code,quantite:isNaN(l.quantite)?null:l.quantite,unite:l.unite};}));
+  renderMrctSearchResults();
+  mrctAfficherOnglets(false);
 }
 
 // ── Recherche + sélection multiple d'ingrédients pour la recette ────────────
@@ -10287,7 +10512,7 @@ function renderMrctSearchResults(){
   var qn=normText(q);
   var currentCodes={};
   document.querySelectorAll('#mrct-lines .mrct-ing').forEach(function(sel){if(sel.value)currentCodes[sel.value]=true;});
-  var actifs=rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini';});
+  var actifs=rctIngredients.filter(function(i){return i.actif!==false&&(i.nature||'fini')==='fini'&&mrctIngredientPropose(i);});
   var matches=actifs.filter(function(i){return normText(i.nom).indexOf(qn)>=0;}).slice(0,30);
   var fuzzyNote='';
   if(!matches.length){
@@ -10365,6 +10590,8 @@ async function saveRecette(){
       }
     }
     rctRecettes[code]=lines;
+    try{await mrctEnregistrerEmballage(code);}
+    catch(eEmb){console.error('saveRecette emballage',eEmb);alert('Recette enregistrée, mais l\'emballage n\'a pas pu l\'être : '+eEmb.message);}
     var depuisMenu=!!mrctDepuisMenu;
     mrctDepuisMenu=null;
     closeM('mrct');
@@ -10454,7 +10681,8 @@ window.RG_RECETTES={
       var p=parPlat[id];
       if(!p)return;
       var c=coutRecette(p.code);
-      res[id]={code:p.code,nom:p.nom,cout:c.total,incomplet:!!(c.warnings&&c.warnings.length&&(rctRecettes[p.code]||[]).length),avertissements:c.warnings||[],nbLignes:(rctRecettes[p.code]||[]).length};
+      var e=coutEmballageFiche(p);
+      res[id]={code:p.code,nom:p.nom,cout:c.total,incomplet:!!(c.warnings&&c.warnings.length&&(rctRecettes[p.code]||[]).length),avertissements:(c.warnings||[]).concat(e.warnings),nbLignes:(rctRecettes[p.code]||[]).length,coutEmballage:e.cout};
     });
     return res;
   },
