@@ -9982,21 +9982,25 @@ function renderRecettesList(){
         var menu=findMenuItemForProduit(p);
         var menuApprox=menu?null:findMenuPriceFor(p.nom);
         var venteHtml='';
-        if(r.total!=null&&menu){
-          var pvSurPlace=parsePrixVente(menu.price);
+        if(menu){
+          // 23/11/2026 : prix et disponibilité affichés même si la recette n'a pas encore de coût (coef masqué).
+          var dispoSP=menu.dispoSurPlace!==false;
+          var catSP=((rctMenuData&&rctMenuData.json&&rctMenuData.json.cats)||[]).find(function(c){return c.id===menu.cat;});
+          var catMasqueeSP=!!(catSP&&catSP.dispoSurPlace===false);
+          var pvSurPlace=dispoSP?parsePrixVente(menu.price):null;
           var empInfo=prixEmporterDuPlat(menu);
           var pvEmporterRaw=empInfo.dispo?parsePrixVente(empInfo.prix):null;
           var tva=menu.tva!=null?menu.tva:10;
-          var coefSurPlace=pvSurPlace?((pvSurPlace/(1+tva/100))/r.total).toFixed(2):null;
+          var coefSurPlace=(pvSurPlace&&r.total)?((pvSurPlace/(1+tva/100))/r.total).toFixed(2):null;
           var embCout=coutEmballageFiche(p).cout;
-          var coefEmporter=pvEmporterRaw?((pvEmporterRaw/(1+tva/100))/(r.total+embCout)).toFixed(2):null;
+          var coefEmporter=(pvEmporterRaw&&r.total!=null&&(r.total+embCout)>0)?((pvEmporterRaw/(1+tva/100))/(r.total+embCout)).toFixed(2):null;
           var lienManuel=rctLiensCarte&&rctLiensCarte[p.code]===menu.id;
           venteHtml='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px;">'
             +(lienManuel?'<span style="font-size:9px;color:var(--txm);" title="Relié à la main au plat « '+esc((menu.name&&(menu.name.fr||menu.name))||'')+' »">🔗 <a href="#" onclick="event.preventDefault();event.stopPropagation();if(confirm(\'Délier cette fiche du plat de la carte ?\'))lierProduitCarte(\''+p.code+'\',\'\')">délier</a></span>':'')
-            +'<span style="font-size:10px;">🍽️</span>'
-            +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvSurPlace!=null?pvSurPlace:'')+'" placeholder="prix" onchange="updateMenuPrice(\''+p.code+'\',\'price\',this.value)">'
-            +'<span style="font-size:9px;color:var(--txm);">€'+(coefSurPlace?' · coef '+coefSurPlace:'')+'</span>'
-            +'<span style="font-size:10px;">🥡</span>'
+            +'<label style="display:flex;align-items:center;gap:2px;font-size:10px;cursor:pointer;" title="Disponible sur la carte sur place" onclick="event.stopPropagation()"><input type="checkbox"'+(dispoSP?' checked':'')+' onchange="updateMenuDispo(\''+p.code+'\',\'dispoSurPlace\',this.checked)">🍽️</label>'
+            +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvSurPlace!=null?pvSurPlace:'')+'" placeholder="non dispo" title="Prix sur place — vide = pas disponible sur place" onchange="updateMenuPrice(\''+p.code+'\',\'price\',this.value)">'
+            +'<span style="font-size:9px;color:var(--txm);">€'+(coefSurPlace?' · coef '+coefSurPlace:(dispoSP?'':' · pas sur place'))+(catMasqueeSP?' (catégorie masquée sur place)':'')+'</span>'
+            +'<label style="display:flex;align-items:center;gap:2px;font-size:10px;cursor:pointer;" title="Disponible sur la carte à emporter (et livraison)" onclick="event.stopPropagation()"><input type="checkbox"'+(empInfo.dispo?' checked':'')+' onchange="updateMenuDispo(\''+p.code+'\',\'dispoEmporter\',this.checked)">🥡</label>'
             +(empInfo.variantes
               ?'<span style="font-size:9px;color:var(--txm);">prix multiples (modifiables dans Menu)</span>'
               :'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvEmporterRaw!=null?pvEmporterRaw:'')+'" placeholder="non dispo" title="Prix à emporter — vide = pas disponible à emporter" onchange="updateMenuPrice(\''+p.code+'\',\'priceEmporter\',this.value)">'
@@ -10008,7 +10012,7 @@ function renderRecettesList(){
               +'<option value="20"'+(tva===20?' selected':'')+'>20%</option>'
             +'</select>'
             +'</div>';
-        }else if(r.total!=null&&!menu){
+        }else if(!menu){
           // Pas de plat au nom identique : on affiche, pour information seulement (aucune modification
           // possible d'ici), le plat le plus ressemblant — jamais d'écriture sur une correspondance approximative.
           var choix=choixPlatsPourFiche(p);
@@ -15332,18 +15336,53 @@ async function updateMenuPrice(prodCode,field,value){
     marquerPlatModifie(item,['priceEmporter','dispoEmporter']);
   }else{
     var clean=String(value).replace('€','').trim();
-    if(!clean){alert('Le prix sur place ne peut pas être vide.');renderRecettesList();return;}
+    // 23/11/2026 : case vide = plat pas disponible sur place (le prix enregistré est gardé : il sert encore
+    // de prix à emporter aux plats qui n'ont pas de prix à emporter propre, et revient si on recoche 🍽️).
+    if(!clean){
+      item.dispoSurPlace=false;
+      marquerPlatModifie(item,['dispoSurPlace']);
+      try{await saveMenuData();renderRecettesList();rgNotifierMenu();}
+      catch(e){console.error('updateMenuPrice',e);alert('Erreur lors de l\'enregistrement sur la carte : '+e.message);}
+      return;
+    }
+    if(parsePrixVente(clean)==null||parsePrixVente(clean)<=0){alert('Prix sur place invalide : tape un nombre (ex. 16,5), ou laisse vide si le plat n\'est pas disponible sur place.');renderRecettesList();return;}
+    item.dispoSurPlace=true;
     // Plat disponible à emporter sans prix à emporter enregistré : il suivait le prix sur place. On fige
     // l'ancien prix comme prix à emporter, pour que changer le prix sur place ne change pas l'autre.
     // (fait aussi sur le fichier relu juste avant l'écriture, voir saveMenuData : __figerEmporter)
     if(platSuitPrixSurPlace(item))item.priceEmporter=item.price;
     item.price=clean.replace('.',',')+'€';
-    marquerPlatModifie(item,['price','__figerEmporter']);
+    marquerPlatModifie(item,['price','dispoSurPlace','__figerEmporter']);
   }
   try{
     await saveMenuData();
     renderRecettesList();
+    rgNotifierMenu();
   }catch(e){console.error('updateMenuPrice',e);alert('Erreur lors de l\'enregistrement sur la carte : '+e.message);}
+}
+// 23/11/2026 : coche / décoche la présence d'un plat sur la carte sur place (dispoSurPlace) ou à emporter
+// (dispoEmporter, qui vaut aussi pour la livraison) — mêmes champs que les cases de la fiche du plat dans Menu.
+// Décocher ne supprime aucun prix : recocher remet le plat avec ses prix d'avant.
+async function updateMenuDispo(prodCode,champ,coche){
+  if(champ!=='dispoSurPlace'&&champ!=='dispoEmporter')return;
+  var p=rctProduitsVendus.find(function(x){return x.code===prodCode;});
+  if(!p)return;
+  var item=findMenuItemForProduit(p);
+  if(!item){alert('Aucun plat de la carte ne porte exactement le nom « '+p.nom+' » — rien n\'a été enregistré.');renderRecettesList();return;}
+  if(champ==='dispoSurPlace'&&coche&&!parsePrixVente(item.price)){
+    alert('Ce plat n\'a pas de prix sur place : tape le prix dans la case 🍽️ pour le rendre disponible sur place.');renderRecettesList();return;
+  }
+  if(champ==='dispoEmporter'&&coche&&!item.priceEmporter&&!(item.priceVariants&&item.priceVariants.length)&&!parsePrixVente(item.price)){
+    alert('Ce plat n\'a pas de prix : tape le prix à emporter dans la case 🥡 pour le rendre disponible à emporter.');renderRecettesList();return;
+  }
+  item[champ]=!!coche;
+  marquerPlatModifie(item,[champ]);
+  try{
+    await saveMenuData();
+    renderRecettesList();
+    scrollToProductCard(prodCode);
+    rgNotifierMenu();
+  }catch(e){console.error('updateMenuDispo',e);alert('Erreur lors de l\'enregistrement sur la carte : '+e.message);}
 }
 // Applique un taux de TVA à tous les produits d'une catégorie en une fois.
 async function applyTvaToCategory(codesCsv,tva){
