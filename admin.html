@@ -14377,7 +14377,15 @@ function coutIngredient(ingredientCode,quantite,unite){
   // au lien (aucun prix_kilo/gramme/litre/unitaire dessus), et le coût échoue silencieusement alors que
   // l'écran affiche pourtant un prix (lui sait déjà suivre ce lien pour l'affichage).
   var coutSelf=rctIngredientCouts[ingredientCode];
-  if(coutSelf&&coutSelf.prix_source_code)return coutIngredient(coutSelf.prix_source_code,quantite,unite);
+  // 23/11/2026 : le lien n'est suivi que si l'ingrédient visé existe encore ET que cet ingrédient n'a pas sa
+  // propre recette (composition). Avant, un ancien lien vers un ingrédient supprimé (ex. « demi-bac 1/6 pesto
+  // de courgettes ») passait devant la recette : « aucun prix renseigné » → « Recette incomplète » alors que
+  // tous les ingrédients de la recette avaient un prix.
+  if(coutSelf&&coutSelf.prix_source_code){
+    var compoPropre=rctIngredientComposition[ingredientCode];
+    var cibleLien=rctIngredients.find(function(x){return x.code===coutSelf.prix_source_code;});
+    if(cibleLien&&!(compoPropre&&compoPropre.length))return coutIngredient(coutSelf.prix_source_code,quantite,unite);
+  }
   // Si ce fini est "fabriqué à partir de" un brut avec un % de perte renseigné (bloc/déchet de découpe,
   // réduction à la cuisson...), on dérive automatiquement son coût depuis le prix du brut, ajusté de la
   // perte, plutôt que d'exiger un prix saisi séparément — et ça reste à jour si le prix du brut change.
