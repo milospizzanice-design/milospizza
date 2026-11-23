@@ -1192,6 +1192,8 @@ function sectionsPourSauvegarde(){
       title: g.title, subtitle: g.subtitle, aboutText: g.aboutText,
       insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId,
       photo: g.photo || '',
+      // 23/11/2026 : photo propre à la carte à emporter (vide = même photo que sur place)
+      photoEmporter: g.photoEmporter || '',
       supplements: Array.isArray(g.supplements) ? g.supplements : [],
       aboutBlocks: Array.isArray(g.aboutBlocks) ? g.aboutBlocks : undefined,
       // Traductions des textes de la section (02/11/2026)
@@ -7981,7 +7983,9 @@ async function init(){
     Object.keys(remoteSections).forEach(key=>{
       if (HOME_GROUPS[key]) {
         Object.assign(HOME_GROUPS[key], remoteSections[key]);
-        if (remoteSections[key] && remoteSections[key].photo) HOME_PHOTOS[HOME_GROUPS[key].photoKey] = remoteSections[key].photo;
+        // 23/11/2026 : la carte à emporter prend sa propre photo si elle est réglée (photoEmporter), sinon celle de sur place
+        const phSec = remoteSections[key] && (remoteSections[key].photoEmporter || remoteSections[key].photo);
+        if (phSec) HOME_PHOTOS[HOME_GROUPS[key].photoKey] = phSec;
       }
     });
   }
@@ -8106,7 +8110,8 @@ function triggerSectionPhotoUpload(key){
     showToast('\ud83d\udcf7 Upload en cours...');
     uploadImageSecure(file).then(function(url){
       HOME_PHOTOS[HOME_GROUPS[key].photoKey] = url;
-      HOME_GROUPS[key].photo = url;
+      // 23/11/2026 : changée depuis la carte à emporter = photo de la carte à emporter seulement
+      if (HOME_GROUPS[key].isAbout) HOME_GROUPS[key].photo = url; else HOME_GROUPS[key].photoEmporter = url;
       var prev = document.getElementById('sec_prev_'+key);
       if(prev){ prev.src=cld(url,150); prev.className='photo-preview visible'; }
       // Enregistrée tout de suite (sections.json, ou le brouillon) — elle part en ligne avec ✅ Publier.
