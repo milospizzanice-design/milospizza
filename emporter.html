@@ -403,7 +403,16 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:600;align-items:center;justify-content:center;padding:1rem;}
 .popup-overlay.open{display:flex;animation:fadeIn 0.3s ease;}
 .popup-box{background:var(--creme);border-radius:16px;max-width:360px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);}
-.popup-img{width:100%;height:200px;object-fit:cover;display:block;}
+.popup-img{width:100%;height:auto;max-height:min(55vh,460px);object-fit:cover;object-position:center 40%;display:block;background:#EDE6D8;}
+/* 23/11/2026 : écrans d'ordinateur — accueil sur 2 colonnes centrées, photos nettes, carte centrée */
+@media (min-width:900px){
+  .popup-box{max-width:440px;}
+  #homeGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;max-width:1180px;margin:0 auto;box-sizing:border-box;gap:1.2rem!important;}
+  #homeGrid .home-tile{min-height:clamp(320px,58vh,600px)!important;}
+  #homeGrid .home-tile-about{grid-column:1/-1;min-height:160px!important;}
+  #homeGrid .home-tile:last-child:nth-child(odd):not(.home-tile-about){grid-column:1/-1;}
+  #sectionContent,#sectionTabs{padding-left:max(1rem,calc((100% - 960px) / 2))!important;padding-right:max(1rem,calc((100% - 960px) / 2))!important;}
+}
 .popup-img.hidden{display:none;}
 .popup-badge{background:var(--rouge);color:#fff;font-family:'Montserrat',sans-serif;font-size:0.65rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;padding:0.5rem 1rem;text-align:center;}
 .popup-body{padding:1.2rem 1.2rem 0.8rem;}
@@ -1647,9 +1656,36 @@ function decoderContenuGithub(b64){
   return JSON.parse(new TextDecoder('utf-8').decode(bytes));
 }
 // Après une fusion : la carte affichée par cette page reprend aussi les changements faits ailleurs.
+// 23/11/2026 : ne jamais reconstruire une liste de prix pendant qu'on tape dedans. Avant, l'enregistrement
+// d'un prix (ou la fusion avec une modification faite ailleurs) redessinait toute la liste : la case dans laquelle
+// on tapait le prix suivant était remplacée, la saisie effacée et le curseur perdu. Si une case de saisie de la
+// liste a le focus, le nouveau rendu attend que l'on sorte de la liste (les données, elles, sont déjà à jour).
+const rendusEnAttente = {};
+function estCaseDeSaisie(el){
+  if (!el) return false;
+  if (el.tagName === 'TEXTAREA') return true;
+  return el.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|file|range)$/i.test(el.type || '');
+}
+function rendreSansCasserSaisie(conteneurId, rendre){
+  const c = document.getElementById(conteneurId);
+  if (!c) return;
+  if (!(estCaseDeSaisie(document.activeElement) && c.contains(document.activeElement))) { delete rendusEnAttente[conteneurId]; rendre(); return; }
+  const dejaEnAttente = !!rendusEnAttente[conteneurId];
+  rendusEnAttente[conteneurId] = rendre;
+  if (dejaEnAttente) return;
+  const surSortie = () => setTimeout(() => {
+    const a = document.activeElement;
+    if (estCaseDeSaisie(a) && c.contains(a)) return; // on tape toujours dans la liste : on attend encore
+    c.removeEventListener('focusout', surSortie);
+    const f = rendusEnAttente[conteneurId];
+    delete rendusEnAttente[conteneurId];
+    if (f && c.isConnected) f();
+  }, 0);
+  c.addEventListener('focusout', surSortie);
+}
 function apresFusionCarte(){
   try { renderMenu(); } catch(e){}
-  try { if (document.getElementById('adminItemsList')) renderAdminItems(getFilteredAdminItems()); } catch(e){}
+  try { if (document.getElementById('adminItemsList')) rendreSansCasserSaisie('adminItemsList', () => renderAdminItems(getFilteredAdminItems())); } catch(e){}
   try { showToast('🔄 La carte avait été modifiée ailleurs : ces modifications ont été conservées avec les vôtres'); } catch(e){}
 }
 
@@ -1873,6 +1909,11 @@ function renderMenu() {
 }
 
 // Optimise une URL Cloudinary pour un chargement plus rapide (format/qualité/taille auto)
+// 23/11/2026 : liste de tailles Cloudinary pour srcset (photo nette sur grand écran, légère sur téléphone)
+function cldSrcset(url, largeurs){
+  if(!url || url.indexOf('/image/upload/') === -1) return '';
+  return (largeurs || [400, 800, 1200, 1600]).map(w => cld(url, w) + ' ' + w + 'w').join(', ');
+}
 function cld(url, width){
   if(!url) return url;
   const marker = '/image/upload/';
@@ -4650,8 +4691,8 @@ function previewPopup() {
   document.getElementById('popupDesc').textContent = desc;
   document.getElementById('popupPrice').textContent = price;
   const img = document.getElementById('popupImg');
-  if(photo) { img.src=cld(photo,600); img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
-  else { img.src=''; img.className='popup-img hidden'; }
+  if(photo) { img.srcset=cldSrcset(photo,[400,700,1000,1400]); img.sizes='(min-width:900px) 440px, 360px'; img.src=cld(photo,700); img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
+  else { img.removeAttribute('srcset'); img.src=''; img.className='popup-img hidden'; }
   const prev = document.getElementById('popup_prev');
   if(prev && photo) { prev.src=cld(photo,150); prev.className='photo-preview visible'; }
 }
@@ -4696,8 +4737,8 @@ function showPopupObj(p) {
   document.getElementById('popupDesc').textContent = RGL.lire(p,'desc',currentLang);
   document.getElementById('popupPrice').textContent = p.price || '';
   const img = document.getElementById('popupImg');
-  if(p.photo) { img.src=cld(p.photo,600); img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
-  else { img.src=''; img.className='popup-img hidden'; }
+  if(p.photo) { img.srcset=cldSrcset(p.photo,[400,700,1000,1400]); img.sizes='(min-width:900px) 440px, 360px'; img.src=cld(p.photo,700); img.className='popup-img'; img.onerror=()=>img.className='popup-img hidden'; }
+  else { img.removeAttribute('srcset'); img.src=''; img.className='popup-img hidden'; }
   document.getElementById('popupOverlay').classList.add('open');
 }
 
@@ -7828,8 +7869,8 @@ function renderHomePage(l) {
     const sub = RGL.lire(group,'subtitle',l);
     const isAbout = group.isAbout;
     const minH = isAbout ? '140px' : '220px';
-    html += `<div onclick="openSectionPage('${key}')" style="position:relative;border-radius:16px;overflow:hidden;flex:${isAbout?'0 0 140px':'1'};min-height:${minH};cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.2);">
-      ${photo ? `<img src="${cld(photo,500)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">` : `<div style="position:absolute;inset:0;background:var(--brun,#3D2B1F);"></div>`}
+    html += `<div class="home-tile${isAbout?' home-tile-about':''}" onclick="openSectionPage('${key}')" style="position:relative;border-radius:16px;overflow:hidden;flex:${isAbout?'0 0 140px':'1'};min-height:${minH};cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.2);">
+      ${photo ? `<img src="${cld(photo,800)}" srcset="${cldSrcset(photo)}" sizes="(min-width:900px) ${isAbout?'1180px':'590px'}, 100vw" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">` : `<div style="position:absolute;inset:0;background:var(--brun,#3D2B1F);"></div>`}
       <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.2) 60%,transparent 100%);"></div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:1.2rem 1.4rem;">
         <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:${isAbout?'1.6rem':'2.2rem'};color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.5);">${title}</div>
