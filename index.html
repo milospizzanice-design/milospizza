@@ -1217,6 +1217,8 @@ function sectionsPourSauvegarde(){
       title: g.title, subtitle: g.subtitle, aboutText: g.aboutText,
       insertText: g.insertText, insertLinkLabel: g.insertLinkLabel, insertLinkCatId: g.insertLinkCatId,
       photo: g.photo || '',
+      // 23/11/2026 : photo propre à la carte à emporter (vide = même photo que sur place)
+      photoEmporter: g.photoEmporter || '',
       supplements: Array.isArray(g.supplements) ? g.supplements : [],
       aboutBlocks: Array.isArray(g.aboutBlocks) ? g.aboutBlocks : undefined,
       // Traductions des textes de la section (02/11/2026)
@@ -8778,6 +8780,16 @@ function renderAdminSections(){
     var ph = (HOME_PHOTOS && HOME_PHOTOS[group.photoKey]) ? HOME_PHOTOS[group.photoKey] : '';
     html += "<img id='sec_prev_"+key+"' src='"+ph+"' class='photo-preview "+(ph?'visible':'')+"' style='width:80px;height:50px;object-fit:cover;border-radius:6px;'>";
     html += "</div>";
+    if(!group.isAbout){
+      // 23/11/2026 : photo de bannière différente sur la carte à emporter (emporter.html), ex. boissons en bouteille
+      var phEmp = group.photoEmporter || '';
+      html += "<label class='admin-label' style='margin-top:0.5rem;'>Photo de banni\u00e8re \u2014 carte \u00e0 emporter <span style='color:#aaa;font-size:0.65rem;'>(vide = m\u00eame photo que sur place)</span></label>";
+      html += "<div class='photo-upload-row'>";
+      html += "<button class='photo-upload-btn' onclick=\"triggerSectionPhotoUpload('"+key+"','emporter')\">\ud83d\udcf7 Changer</button>";
+      html += "<img id='sec_prev_emp_"+key+"' src='"+(phEmp?cld(phEmp,150):'')+"' class='photo-preview "+(phEmp?'visible':'')+"' style='width:80px;height:50px;object-fit:cover;border-radius:6px;'>";
+      if(phEmp) html += "<button class='photo-upload-btn' style='background:#fff;color:#888;border:1px solid #ddd;' onclick=\"retirerPhotoEmporterSection('"+key+"')\">\u2715 M\u00eame photo que sur place</button>";
+      html += "</div>";
+    }
     if(group.isAbout){
       html += "<label class='admin-label' style='margin-top:0.5rem;'>Paragraphe \"Notre Histoire\"</label>";
       html += "<textarea class='admin-input' id='sec_about_text_"+key+"' rows='4' style='resize:vertical;min-height:80px;'>"+(group.aboutText||'')+"</textarea>";
@@ -8920,7 +8932,14 @@ async function saveSections(){
   showToast(ok ? '✓ Sections sauvegardées !' : '❌ Échec de l\'enregistrement - réessayez');
 }
 
-function triggerSectionPhotoUpload(key){
+// cible 'emporter' : photo de la carte à emporter seulement (group.photoEmporter), la carte sur place ne change pas
+function retirerPhotoEmporterSection(key){
+  if(!HOME_GROUPS[key]) return;
+  HOME_GROUPS[key].photoEmporter = '';
+  saveSections();
+  try { renderAdminSections(); } catch(e){}
+}
+function triggerSectionPhotoUpload(key, cible){
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -8929,6 +8948,13 @@ function triggerSectionPhotoUpload(key){
     if(!file) return;
     showToast('\ud83d\udcf7 Upload en cours...');
     uploadImageSecure(file).then(function(url){
+      if(cible === 'emporter'){
+        HOME_GROUPS[key].photoEmporter = url;
+        var prevE = document.getElementById('sec_prev_emp_'+key);
+        if(prevE){ prevE.src=cld(url,150); prevE.className='photo-preview visible'; }
+        saveSections();
+        return;
+      }
       HOME_PHOTOS[HOME_GROUPS[key].photoKey] = url;
       HOME_GROUPS[key].photo = url;
       var prev = document.getElementById('sec_prev_'+key);
