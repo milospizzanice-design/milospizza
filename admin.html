@@ -15201,37 +15201,85 @@ function marquerPlatModifie(it,champs){
   var m=rctMenuDirtyIds[it.id]=rctMenuDirtyIds[it.id]||{};
   champs.forEach(function(k){m[k]=true;});
 }
-async function saveMenuData(){
-  var ids=Object.keys(rctMenuDirtyIds);
-  if(!ids.length)return;
-  var locaux={};
-  (rctMenuData.json.items||[]).forEach(function(localIt){
-    if(localIt&&localIt.id&&rctMenuDirtyIds[localIt.id])locaux[localIt.id]=localIt;
+// 23/11/2026 : enregistrements des prix mis en FILE D'ATTENTE, chacun avec les valeurs saisies au moment du
+// changement. Avant, deux prix modifiés coup sur coup (sur place puis à emporter) partaient en même temps : le
+// premier enregistrement terminé effaçait la liste des champs modifiés et remplaçait la carte en mémoire, si bien
+// que le second n'écrivait plus rien (ou réaffichait l'ancien prix) — saisie « perdue ».
+var rctMenuChaine=Promise.resolve();
+var rctMenuLotsEnAttente=[]; // lots pas encore écrits dans menudata.json : réappliqués sur la carte relue
+function appliquerLotMenu(lot,json){
+  var vus={};
+  (json.items||[]).forEach(function(freshIt){
+    if(!freshIt||!lot.valeurs[freshIt.id])return;
+    vus[freshIt.id]=true;
+    var champs=lot.champs[freshIt.id]||{},valeurs=lot.valeurs[freshIt.id];
+    if(champs.__figerEmporter&&platSuitPrixSurPlace(freshIt))freshIt.priceEmporter=freshIt.price;
+    Object.keys(champs).forEach(function(k){
+      if(k.charAt(0)==='_')return;
+      var v=valeurs[k];
+      if(v===undefined||v===null||v==='')delete freshIt[k];
+      else freshIt[k]=v;
+    });
   });
+  return vus;
+}
+function saveMenuData(){
+  var aEcrire=rctMenuDirtyIds;
+  if(!Object.keys(aEcrire).length)return Promise.resolve();
+  rctMenuDirtyIds={}; // ce lot prend en charge ces champs ; un changement suivant forme un nouveau lot
+  var lot={champs:aEcrire,valeurs:{}};
+  (rctMenuData.json.items||[]).forEach(function(it){
+    if(!it||!it.id||!aEcrire[it.id])return;
+    var v={};
+    Object.keys(aEcrire[it.id]).forEach(function(k){if(k.charAt(0)!=='_')v[k]=it[k];});
+    lot.valeurs[it.id]=v;
+  });
+  rctMenuLotsEnAttente.push(lot);
+  var p=rctMenuChaine.then(function(){return ecrireLotMenu(lot);});
+  rctMenuChaine=p.catch(function(){});
+  return p;
+}
+async function ecrireLotMenu(lot){
+  var ids=Object.keys(lot.valeurs);
   var introuvables=[];
   function appliquer(json){
-    var vus={};
-    (json.items||[]).forEach(function(freshIt){
-      var localIt=freshIt&&locaux[freshIt.id];
-      if(!localIt)return;
-      vus[freshIt.id]=true;
-      var champs=rctMenuDirtyIds[freshIt.id]||{};
-      if(champs.__figerEmporter&&platSuitPrixSurPlace(freshIt))freshIt.priceEmporter=freshIt.price;
-      Object.keys(champs).forEach(function(k){
-        if(k.charAt(0)==='_')return;
-        if(localIt[k]===undefined||localIt[k]===null||localIt[k]==='')delete freshIt[k];
-        else freshIt[k]=localIt[k];
-      });
-    });
+    var vus=appliquerLotMenu(lot,json);
     introuvables=ids.filter(function(id){return !vus[id];});
   }
-  var ecrit=await ecrireMenuFichier('menudata.json',appliquer,'Mise à jour prix/TVA depuis admin.html',false);
+  var ecrit;
+  try{ecrit=await ecrireMenuFichier('menudata.json',appliquer,'Mise à jour prix/TVA depuis admin.html',false);}
+  finally{rctMenuLotsEnAttente=rctMenuLotsEnAttente.filter(function(l){return l!==lot;});}
   rctMenuData={json:ecrit.json,sha:ecrit.sha}; // resynchronise le cache local avec ce qui vient d'être écrit
   rctMenuData.json.items=rctMenuData.json.items||[];
+  // les prix saisis entre-temps (lots encore en file) restent affichés tels que tapés
+  rctMenuLotsEnAttente.forEach(function(l){appliquerLotMenu(l,rctMenuData.json);});
   if(introuvables.length)alert('⚠️ '+introuvables.length+' plat(s) n\'existe(nt) plus sur la carte en ligne (supprimé ailleurs entre-temps) : rien n\'a été écrit pour eux.');
   try{await ecrireMenuFichier('menudata_draft.json',appliquer,'Mise à jour prix/TVA depuis admin.html (brouillon)',true);}
   catch(e){console.error('saveMenuData brouillon',e);alert('⚠️ Carte en ligne enregistrée, mais le brouillon du menu n\'a pas pu être mis à jour ('+e.message+'). Si tu publies le brouillon depuis l\'onglet Menu, vérifie ces prix/TVA avant.');}
-  finally{rctMenuDirtyIds={};}
+}
+// 23/11/2026 : ne pas redessiner la liste Produits & recettes pendant qu'on tape un prix dedans (la case en cours
+// de saisie était remplacée et la frappe effacée). Le rendu attend que l'on sorte de la liste.
+var rctRenduEnAttente=null;
+function estCaseDeSaisie(el){
+  if(!el)return false;
+  if(el.tagName==='TEXTAREA')return true;
+  return el.tagName==='INPUT'&&!/^(checkbox|radio|button|submit|file|range)$/i.test(el.type||'');
+}
+function renderRecettesListSansCasserSaisie(apres){
+  var c=document.getElementById('rct-list-container');
+  var faire=function(){renderRecettesList();if(apres)apres();};
+  if(!c||!(estCaseDeSaisie(document.activeElement)&&c.contains(document.activeElement))){rctRenduEnAttente=null;faire();return;}
+  var deja=!!rctRenduEnAttente;
+  rctRenduEnAttente=faire;
+  if(deja)return;
+  var surSortie=function(){setTimeout(function(){
+    var a=document.activeElement;
+    if(estCaseDeSaisie(a)&&c.contains(a))return; // on tape toujours dans la liste
+    c.removeEventListener('focusout',surSortie);
+    var f=rctRenduEnAttente;rctRenduEnAttente=null;
+    if(f&&c.isConnected)f();
+  },0);};
+  c.addEventListener('focusout',surSortie);
 }
 // Prix à emporter d'un plat de la carte. Règle (20/11/2026) : un plat est disponible à emporter s'il a un prix à
 // emporter ; case vide = pas disponible à emporter. Les anciens plats sans prix à emporter enregistré mais non
@@ -15349,7 +15397,7 @@ async function updateMenuPrice(prodCode,field,value){
     if(!clean){
       item.dispoSurPlace=false;
       marquerPlatModifie(item,['dispoSurPlace']);
-      try{await saveMenuData();renderRecettesList();rgNotifierMenu();}
+      try{await saveMenuData();renderRecettesListSansCasserSaisie();rgNotifierMenu();}
       catch(e){console.error('updateMenuPrice',e);alert('Erreur lors de l\'enregistrement sur la carte : '+e.message);}
       return;
     }
@@ -15364,7 +15412,7 @@ async function updateMenuPrice(prodCode,field,value){
   }
   try{
     await saveMenuData();
-    renderRecettesList();
+    renderRecettesListSansCasserSaisie();
     rgNotifierMenu();
   }catch(e){console.error('updateMenuPrice',e);alert('Erreur lors de l\'enregistrement sur la carte : '+e.message);}
 }
@@ -15387,8 +15435,7 @@ async function updateMenuDispo(prodCode,champ,coche){
   marquerPlatModifie(item,[champ]);
   try{
     await saveMenuData();
-    renderRecettesList();
-    scrollToProductCard(prodCode);
+    renderRecettesListSansCasserSaisie(function(){scrollToProductCard(prodCode);});
     rgNotifierMenu();
   }catch(e){console.error('updateMenuDispo',e);alert('Erreur lors de l\'enregistrement sur la carte : '+e.message);}
 }
