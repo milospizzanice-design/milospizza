@@ -1617,24 +1617,27 @@
         "de": "Tartiflette",
         "zh": "塔蒂弗莱特",
         "ru": "Тартифлет",
-        "es": "La Jamón Crudo"
+        "es": "Tartiflette"
       },
       "desc": {
-        "fr": "Crème, mozzarella Fior di latte, pommes de terre à l'ail et au romarin, reblochon de Savoie, lardons fumés, oignons cuisinés",
-        "en": "Cream, Fior di latte mozzarella, garlic and rosemary potatoes, Savoie reblochon, smoked bacon, caramelised onions",
-        "it": "Crema, mozzarella Fior di latte, patate all'aglio e rosmarino, reblochon di Savoia, pancetta affumicata, cipolle",
-        "de": "Sahne, Fior di latte Mozzarella, Knoblauch-Rosmarin-Kartoffeln, Savoyer Reblochon, Räucherspeck, Zwiebeln",
-        "zh": "奶油，鲜奶马苏里拉，蒜香迷迭香土豆，萨瓦雷布洛雄奶酪，烟熏培根，洋葱",
-        "ru": "Сливки, моцарелла, картофель с чесноком и розмарином, реблошон, копчёный бекон, лук",
-        "es": "Crema, mozzarella Fior di latte, patatas al ajo y romero, reblochon de Saboya, bacon ahumado, cebollas caramelizadas"
+        "fr": "Crème, mozzarella Fior di latte, fromage à tartiflette, pancetta, pommes de terre à l'ail et au romarin, oignons cuisinés",
+        "en": "Cream, Fior di latte mozzarella, tartiflette cheese, pancetta, garlic and rosemary potatoes, cooked onions",
+        "it": "Panna, mozzarella Fior di latte, formaggio per tartiflette, pancetta, patate all'aglio e rosmarino, cipolle stufate",
+        "de": "Sahne, Fior di latte Mozzarella, Tartiflette-Käse, Pancetta, Knoblauch-Rosmarin-Kartoffeln, geschmorte Zwiebeln",
+        "zh": "奶油，鲜奶马苏里拉，塔蒂弗莱特奶酪，意式培根，蒜香迷迭香土豆，炖洋葱",
+        "ru": "Сливки, моцарелла Fior di latte, сыр для тартифлета, панчетта, картофель с чесноком и розмарином, тушёный лук",
+        "es": "Nata, mozzarella Fior di latte, queso para tartiflette, panceta, patatas al ajo y romero, cebolla pochada"
       },
       "price": "17,5€",
       "photo": "",
-      "archived": true,
+      "archived": false,
       "allergens": [
         "gluten",
         "lait"
-      ]
+      ],
+      "dispoSurPlace": false,
+      "dispoEmporter": false,
+      "priceEmporter": "16€"
     },
     {
       "id": "i3",
@@ -6892,6 +6895,140 @@
       },
       "allergens": [],
       "priceEmporter": "7€"
+    },
+    {
+      "id": "i1795525384774w0",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Zucca e Prosciutto",
+        "en": "Zucca e Prosciutto",
+        "it": "Zucca e Prosciutto",
+        "de": "Zucca e Prosciutto",
+        "zh": "南瓜火腿披萨",
+        "ru": "Цукка э Прошутто",
+        "es": "Zucca e Prosciutto"
+      },
+      "desc": {
+        "fr": "Crème de courge, mozzarella Fior di latte, jambon blanc, champignons, copeaux de parmesan",
+        "en": "Butternut squash cream, Fior di latte mozzarella, cooked ham, mushrooms, Parmesan shavings",
+        "it": "Crema di zucca, mozzarella Fior di latte, prosciutto cotto, funghi, scaglie di parmigiano",
+        "de": "Kürbiscreme, Fior di latte Mozzarella, Kochschinken, Champignons, Parmesanspäne",
+        "zh": "南瓜奶油，鲜奶马苏里拉，熟火腿，蘑菇，帕尔马干酪片",
+        "ru": "Тыквенный крем, моцарелла Fior di latte, варёная ветчина, шампиньоны, стружка пармезана",
+        "es": "Crema de calabaza, mozzarella Fior di latte, jamón cocido, champiñones, lascas de parmesano"
+      },
+      "price": "17,5€",
+      "priceEmporter": "16€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ],
+      "dispoSurPlace": false,
+      "dispoEmporter": false
+    },
+    {
+      "id": "i1795525384774w1",
+      "cat": "veggie",
+      "subcat": null,
+      "name": {
+        "fr": "Zucca e Gorgonzola",
+        "en": "Zucca e Gorgonzola",
+        "it": "Zucca e Gorgonzola",
+        "de": "Zucca e Gorgonzola",
+        "zh": "南瓜戈贡佐拉披萨",
+        "ru": "Цукка э Горгонзола",
+        "es": "Zucca e Gorgonzola"
+      },
+      "desc": {
+        "fr": "Crème de courge, mozzarella Fior di latte, gorgonzola, champignons, éclats de noix, filet de miel",
+        "en": "Butternut squash cream, Fior di latte mozzarella, gorgonzola, mushrooms, crushed walnuts, drizzle of honey",
+        "it": "Crema di zucca, mozzarella Fior di latte, gorgonzola, funghi, granella di noci, filo di miele",
+        "de": "Kürbiscreme, Fior di latte Mozzarella, Gorgonzola, Champignons, Walnussstücke, ein Hauch Honig",
+        "zh": "南瓜奶油，鲜奶马苏里拉，戈贡佐拉奶酪，蘑菇，碎核桃，蜂蜜",
+        "ru": "Тыквенный крем, моцарелла Fior di latte, горгонзола, шампиньоны, грецкий орех, мёд",
+        "es": "Crema de calabaza, mozzarella Fior di latte, gorgonzola, champiñones, nueces troceadas, hilo de miel"
+      },
+      "price": "16,5€",
+      "priceEmporter": "15€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait",
+        "noix"
+      ],
+      "dispoSurPlace": false,
+      "dispoEmporter": false
+    },
+    {
+      "id": "i1795525384774w2",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Zucca e Pollo",
+        "en": "Zucca e Pollo",
+        "it": "Zucca e Pollo",
+        "de": "Zucca e Pollo",
+        "zh": "南瓜鸡肉披萨",
+        "ru": "Цукка э Полло",
+        "es": "Zucca e Pollo"
+      },
+      "desc": {
+        "fr": "Crème de courge, mozzarella Fior di latte, poulet mariné à l'ail et au romarin, oignons cuisinés, copeaux de parmesan, amandes effilées grillées, ciboulette",
+        "en": "Butternut squash cream, Fior di latte mozzarella, garlic and rosemary marinated chicken, cooked onions, Parmesan shavings, toasted flaked almonds, chives",
+        "it": "Crema di zucca, mozzarella Fior di latte, pollo marinato all'aglio e rosmarino, cipolle stufate, scaglie di parmigiano, mandorle a lamelle tostate, erba cipollina",
+        "de": "Kürbiscreme, Fior di latte Mozzarella, in Knoblauch und Rosmarin marinierte Hähnchen, geschmorte Zwiebeln, Parmesanspäne, geröstete Mandelblättchen, Schnittlauch",
+        "zh": "南瓜奶油，鲜奶马苏里拉，蒜香迷迭香腌鸡肉，炖洋葱，帕尔马干酪片，烤杏仁片，细香葱",
+        "ru": "Тыквенный крем, моцарелла Fior di latte, курица в чесноке и розмарине, тушёный лук, стружка пармезана, обжаренные лепестки миндаля, шнитт-лук",
+        "es": "Crema de calabaza, mozzarella Fior di latte, pollo marinado al ajo y romero, cebolla pochada, lascas de parmesano, almendras laminadas tostadas, cebollino"
+      },
+      "price": "17,5€",
+      "priceEmporter": "16€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait",
+        "noix"
+      ],
+      "dispoSurPlace": false,
+      "dispoEmporter": false
+    },
+    {
+      "id": "i1795525384774w3",
+      "cat": "charcuterie",
+      "subcat": null,
+      "name": {
+        "fr": "Raclette",
+        "en": "Raclette",
+        "it": "Raclette",
+        "de": "Raclette",
+        "zh": "拉克莱特披萨",
+        "ru": "Раклет",
+        "es": "Raclette"
+      },
+      "desc": {
+        "fr": "Crème, mozzarella Fior di latte, fromage à raclette, pommes de terre à l'ail et au romarin, jambon cru, tomates cerises, ciboulette",
+        "en": "Cream, Fior di latte mozzarella, raclette cheese, garlic and rosemary potatoes, cured ham, cherry tomatoes, chives",
+        "it": "Panna, mozzarella Fior di latte, formaggio da raclette, patate all'aglio e rosmarino, prosciutto crudo, pomodorini, erba cipollina",
+        "de": "Sahne, Fior di latte Mozzarella, Raclettekäse, Knoblauch-Rosmarin-Kartoffeln, Rohschinken, Kirschtomaten, Schnittlauch",
+        "zh": "奶油，鲜奶马苏里拉，拉克莱特奶酪，蒜香迷迭香土豆，生火腿，樱桃番茄，细香葱",
+        "ru": "Сливки, моцарелла Fior di latte, сыр раклет, картофель с чесноком и розмарином, вяленая ветчина, черри, шнитт-лук",
+        "es": "Nata, mozzarella Fior di latte, queso raclette, patatas al ajo y romero, jamón curado, tomates cherry, cebollino"
+      },
+      "price": "17,5€",
+      "priceEmporter": "16€",
+      "photo": "",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ],
+      "dispoSurPlace": false,
+      "dispoEmporter": false
     }
   ],
   "upsells": [
