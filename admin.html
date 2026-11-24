@@ -10009,17 +10009,36 @@ function renderRecettesList(){
           var coefSurPlace=(pvSurPlace&&r.total)?((pvSurPlace/(1+tva/100))/r.total).toFixed(2):null;
           var embCout=coutEmballageFiche(p).cout;
           var coefEmporter=(pvEmporterRaw&&r.total!=null&&(r.total+embCout)>0)?((pvEmporterRaw/(1+tva/100))/(r.total+embCout)).toFixed(2):null;
+          // 24/11/2026 : plat masqué dont le prix est gardé (ex. nouvelle pizza pas encore lancée) : le coefficient
+          // reste affiché, pour préparer le lancement sans rendre le plat visible.
+          var pvSPMasque=(!dispoSP&&!empInfo.variantes)?parsePrixVente(menu.price):null;
+          var coefSPMasque=(pvSPMasque&&r.total)?((pvSPMasque/(1+tva/100))/r.total).toFixed(2):null;
+          var pvEmpMasque=(!empInfo.dispo&&!empInfo.variantes)?parsePrixVente(menu.priceEmporter):null;
+          var coefEmpMasque=(pvEmpMasque&&r.total!=null&&(r.total+embCout)>0)?((pvEmpMasque/(1+tva/100))/(r.total+embCout)).toFixed(2):null;
+          // 24/11/2026 : prix multiples — un coefficient par prix (portions de la fiche par prix, voir rgPortionsVariantes)
+          var variantesHtml='';
+          if(empInfo.variantes){
+            var cv=rgCoefsVariantes(menu,r.total);
+            var unEstime=cv.some(function(x){return x.estime&&x.portions;});
+            variantesHtml='<span style="font-size:9px;color:var(--txm);" title="Coefficient de chaque prix = prix HT ÷ (coût de la fiche × portions de ce prix)'+(unEstime?'. ≈ = portions estimées d\'après le nom (verre 12,5 cl, bouteille 75 cl, cl, nombre de boules…) : à régler dans la fiche du plat, onglet Menu.':'')+'">'
+              +cv.map(function(x,i){
+                return esc(x.label||('prix '+(i+1)))+' '+esc(x.prix)
+                  +(x.coef!=null?' · coef '+(x.estime?'≈':'')+x.coef.toFixed(2)+(x.portions!==1?' ('+String(x.portions).replace('.',',')+' portions)':''):(r.total&&!x.portions?' · coef ?':''));
+              }).join('  |  ')
+              +'</span>';
+          }
           var lienManuel=rctLiensCarte&&rctLiensCarte[p.code]===menu.id;
           venteHtml='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px;">'
             +(lienManuel?'<span style="font-size:9px;color:var(--txm);" title="Relié à la main au plat « '+esc((menu.name&&(menu.name.fr||menu.name))||'')+' »">🔗 <a href="#" onclick="event.preventDefault();event.stopPropagation();if(confirm(\'Délier cette fiche du plat de la carte ?\'))lierProduitCarte(\''+p.code+'\',\'\')">délier</a></span>':'')
             +'<label style="display:flex;align-items:center;gap:2px;font-size:10px;cursor:pointer;" title="Disponible sur la carte sur place" onclick="event.stopPropagation()"><input type="checkbox"'+(dispoSP?' checked':'')+' onchange="updateMenuDispo(\''+p.code+'\',\'dispoSurPlace\',this.checked)">🍽️</label>'
-            +'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvSurPlace!=null?pvSurPlace:'')+'" placeholder="non dispo" title="Prix sur place — vide = pas disponible sur place" onchange="updateMenuPrice(\''+p.code+'\',\'price\',this.value)">'
-            +'<span style="font-size:9px;color:var(--txm);">€'+(coefSurPlace?' · coef '+coefSurPlace:(dispoSP?'':' · pas sur place'))+(catMasqueeSP?' (catégorie masquée sur place)':'')+'</span>'
+            +(empInfo.variantes?variantesHtml:
+              '<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvSurPlace!=null?pvSurPlace:'')+'" placeholder="non dispo" title="Prix sur place — vide = pas disponible sur place" onchange="updateMenuPrice(\''+p.code+'\',\'price\',this.value)">'
+             +'<span style="font-size:9px;color:var(--txm);">€'+(coefSurPlace?' · coef '+coefSurPlace:(dispoSP?'':(pvSPMasque?' · masqué ('+String(pvSPMasque).replace('.',',')+' € gardé'+(coefSPMasque?' · coef '+coefSPMasque:'')+')':' · pas sur place')))+(catMasqueeSP?' (catégorie masquée sur place)':'')+'</span>')
             +'<label style="display:flex;align-items:center;gap:2px;font-size:10px;cursor:pointer;" title="Disponible sur la carte à emporter (et livraison)" onclick="event.stopPropagation()"><input type="checkbox"'+(empInfo.dispo?' checked':'')+' onchange="updateMenuDispo(\''+p.code+'\',\'dispoEmporter\',this.checked)">🥡</label>'
             +(empInfo.variantes
-              ?'<span style="font-size:9px;color:var(--txm);">prix multiples (modifiables dans Menu)</span>'
+              ?'<span style="font-size:9px;color:var(--txm);">mêmes prix (modifiables dans Menu)</span>'
               :'<input type="number" class="fi" style="width:56px;font-size:10px;" step="0.01" value="'+(pvEmporterRaw!=null?pvEmporterRaw:'')+'" placeholder="non dispo" title="Prix à emporter — vide = pas disponible à emporter" onchange="updateMenuPrice(\''+p.code+'\',\'priceEmporter\',this.value)">'
-               +'<span style="font-size:9px;color:var(--txm);" title="Coefficient à emporter : coût matière + emballage ('+embCout.toFixed(2)+' €)">€'+(coefEmporter?' · coef '+coefEmporter+(embCout>0?' (emb. '+embCout.toFixed(2)+' €)':' (sans emballage)'):(empInfo.dispo?'':' · pas à emporter'))+(empInfo.catMasquee?' (catégorie masquée à emporter)':'')+'</span>')
+               +'<span style="font-size:9px;color:var(--txm);" title="Coefficient à emporter : coût matière + emballage ('+embCout.toFixed(2)+' €)">€'+(coefEmporter?' · coef '+coefEmporter+(embCout>0?' (emb. '+embCout.toFixed(2)+' €)':' (sans emballage)'):(empInfo.dispo?'':(pvEmpMasque?' · masqué ('+String(pvEmpMasque).replace('.',',')+' € gardé'+(coefEmpMasque?' · coef '+coefEmpMasque:'')+')':' · pas à emporter')))+(empInfo.catMasquee?' (catégorie masquée à emporter)':'')+'</span>')
             +'<span style="font-size:9px;color:var(--txm);">TVA</span>'
             +'<select class="fi" style="font-size:10px;width:auto;padding:1px 3px;" onchange="updateMenuPrice(\''+p.code+'\',\'tva\',this.value)">'
               +'<option value="5.5"'+(tva===5.5?' selected':'')+'>5,5%</option>'
@@ -10733,6 +10752,52 @@ async function rgChoisirFiche(code){
   closeM('mlierfiche');
   await lierProduitCarte(code,plat.id); // enregistre le lien puis prévient l'écran Menu
 }
+// 24/11/2026 : coefficient des plats à PRIX MULTIPLES (Verre/Bouteille, 25cl/50cl, 1/2/3 boules…). La fiche recette
+// décrit UNE portion ; chaque prix correspond à un nombre de portions de cette fiche (v.portions, réglable dans la
+// fiche du plat, onglet Menu). Sans réglage, estimation d'après le libellé : volumes (cl, ml, l ; « verre » = 12,5 cl,
+// « bouteille »/« btl » = 75 cl) rapportés au premier prix qui a un volume, ou quantités (« 2 boules », « 3 parts »)
+// rapportées au premier prix compté. Rien d'estimable (ex. « avec chantilly ») = pas de coefficient pour ce prix.
+var VOLUME_VERRE_ML=125,VOLUME_BOUTEILLE_ML=750;
+function libelleSimple(lib){ // minuscules sans accents, en gardant virgules et points (« 1,5 L »)
+  return (lib||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+function volumeLibelleMl(lib){
+  var t=libelleSimple(lib);
+  var m=t.match(/(\d+(?:[.,]\d+)?)\s*(cl|ml|l)\b/);
+  if(m){var n=parseFloat(m[1].replace(',','.'));return m[2]==='cl'?n*10:(m[2]==='ml'?n:n*1000);}
+  if(/\bverre\b/.test(t))return VOLUME_VERRE_ML;
+  if(/\b(bouteille|btl|bout)\b/.test(t))return VOLUME_BOUTEILLE_ML;
+  return null;
+}
+function nombreLibelle(lib){
+  var m=libelleSimple(lib).match(/^\s*(\d+)\s*(boules?|parts?|pieces?|pcs?|x)?(?![\d.,]*\s*(cl|ml|l)\b)/);
+  return m?parseInt(m[1],10):null;
+}
+// [{portions (nombre ou null), estime (bool)}] dans l'ordre des prix
+function rgPortionsVariantes(variantes){
+  variantes=variantes||[];
+  var vols=variantes.map(function(v){return volumeLibelleMl(v.label);});
+  var nbs=variantes.map(function(v){return nombreLibelle(v.label);});
+  var refVol=vols.find(function(x){return x>0;}),refNb=nbs.find(function(x){return x>0;});
+  return variantes.map(function(v,i){
+    var reg=parseFloat(String(v.portions==null?'':v.portions).replace(',','.'));
+    if(reg>0)return {portions:reg,estime:false};
+    if(refVol&&vols[i]>0)return {portions:Math.round(vols[i]/refVol*100)/100,estime:true};
+    if(refNb&&nbs[i]>0)return {portions:nbs[i]/refNb,estime:true};
+    if(variantes.length===1)return {portions:1,estime:true};
+    if(i===0)return {portions:1,estime:true};
+    return {portions:null,estime:true};
+  });
+}
+// Coefficients d'un plat à prix multiples : [{label, prix, portions, estime, coef}] (coef null si incalculable)
+function rgCoefsVariantes(menu,cout){
+  var tva=menu.tva!=null?menu.tva:10;
+  var por=rgPortionsVariantes(menu.priceVariants);
+  return (menu.priceVariants||[]).map(function(v,i){
+    var pv=parsePrixVente(v.price),p=por[i].portions;
+    return {label:(v.label||'').trim(),prix:v.price||'',portions:p,estime:por[i].estime,coef:(pv&&p&&cout>0)?(pv/(1+tva/100))/(cout*p):null};
+  });
+}
 window.RG_RECETTES={
   // Charge les fiches, recettes et prix d'achat (une seule fois ; Recettes › recharger les remet à jour).
   pret:function(){
@@ -10756,6 +10821,7 @@ window.RG_RECETTES={
     return res;
   },
   coefCible:function(){return COEF_CIBLE;},
+  portionsVariantes:function(variantes){return rgPortionsVariantes(variantes);},
   // Ouvre la recette du plat par-dessus l'écran Menu. prix = {prix, prixEmporter, tva} lus dans l'écran Menu.
   ouvrirRecette:function(itemId,prix){
     var p=rgFichesParPlat()[itemId];
