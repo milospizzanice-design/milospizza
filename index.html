@@ -2223,6 +2223,7 @@ function renderPriceVariantsEditor(it){
       <input class="admin-input" style="flex:1;margin-bottom:0;" value="${v.label||''}" placeholder="Ex: Verre" onchange="updatePriceVariant('${it.id}',${i},'label',this.value)">
       <input class="admin-input" style="width:70px;margin-bottom:0;text-align:right;" value="${(v.price||'').replace('€','')}" placeholder="Prix" inputmode="decimal" onchange="updatePriceVariant('${it.id}',${i},'price',this.value)">
       <span style="font-size:0.85rem;color:var(--vert);font-weight:700;">€</span>
+      ${pontRecettes() ? `<input class="admin-input" style="width:58px;margin-bottom:0;text-align:right;font-size:0.8rem;" value="${v.portions != null ? String(v.portions).replace('.', ',') : ''}" placeholder="${(() => { const e = pontRecettes().portionsVariantes ? pontRecettes().portionsVariantes(variants)[i] : null; return e && e.portions ? '≈' + String(e.portions).replace('.', ',') : '?'; })()}" inputmode="decimal" title="Portions de la fiche recette dans ce prix, pour le coefficient (ex. Verre = 1, Bouteille = 6). Vide = estimé d'après le nom." onchange="updatePriceVariant('${it.id}',${i},'portions',this.value)"><span style="font-size:0.7rem;color:#999;">port.</span>` : ''}
       <button onclick="removePriceVariant('${it.id}',${i})" style="background:none;border:none;color:#c0392b;font-size:0.95rem;cursor:pointer;flex-shrink:0;">✕</button>
     </div>`).join('');
   return rows + `<button class="aic-btn" style="background:var(--vert);color:#fff;width:100%;margin-top:0.2rem;" onclick="addPriceVariant('${it.id}')">+ Ajouter un prix</button>`;
@@ -2252,6 +2253,12 @@ function updatePriceVariant(itemId, idx, field, val){
   if(field==='price'){
     const clean = val.replace('€','').trim();
     it.priceVariants[idx].price = clean ? clean+'€' : '';
+    try { majCoefPlat(itemId); } catch(e){}
+  } else if(field==='portions'){
+    // 24/11/2026 : portions de la fiche recette dans ce prix (coefficient) ; vide = estimation d'après le nom
+    const n = parseFloat(String(val).replace(',', '.'));
+    if (n > 0) it.priceVariants[idx].portions = n; else delete it.priceVariants[idx].portions;
+    try { majCoefPlat(itemId); } catch(e){}
   } else {
     it.priceVariants[idx].label = val;
   }
@@ -2524,16 +2531,28 @@ function coefPlatHTML(it){
   if (info.cout > 0) {
     const tva = it.tva != null ? it.tva : 10;
     if (it.priceVariants && it.priceVariants.length) {
-      h += `<span>prix multiples</span>`;
+      // 24/11/2026 : un coefficient par prix. Portions de la fiche par prix : réglées dans la fiche du plat
+      // (champ « portions »), sinon estimées par l'admin d'après le libellé (≈).
+      const pont = pontRecettes();
+      const por = (pont && pont.portionsVariantes) ? pont.portionsVariantes(it.priceVariants) : it.priceVariants.map((v, i) => ({portions: i === 0 ? 1 : null, estime: true}));
+      h += it.priceVariants.map((v, i) => {
+        const p = por[i] && por[i].portions;
+        const c = p ? coefDe(v.price, tva, info.cout * p) : null;
+        const lib = printEsc((v.label || '').trim() || ('prix ' + (i + 1)));
+        const titre = p ? `${lib} = ${String(p).replace('.', ',')} portion(s) de la fiche${por[i].estime ? ' (estimé d\'après le nom — réglable dans la fiche du plat)' : ''}` : `${lib} : portions inconnues — à régler dans la fiche du plat`;
+        return `<span title="${titre}">${lib} ${c != null ? (por[i].estime ? '≈' : '') + coefHTML(c) : '<span style="color:#bbb">—</span>'}</span>`;
+      }).join('');
     } else {
       const cs = coefDe(it.price, tva, info.cout);
-      h += `<span title="Coefficient sur place = prix HT ÷ coût matière">🍽️ ${cs != null ? coefHTML(cs) : '—'}</span>`;
+      h += `<span title="Coefficient sur place = prix HT ÷ coût matière">🍽️ ${cs != null ? coefHTML(cs) : '—'}${it.dispoSurPlace === false && cs != null ? ' <span style="color:#bbb">masqué</span>' : ''}</span>`;
       // 21/11/2026 : à emporter, l'emballage (boîte à pizza, pot…) réglé dans la fenêtre Recette est compté
-      const pe = prixEmporterAffiche(it);
+      // 24/11/2026 : plat masqué à emporter mais dont le prix est gardé (nouveau plat pas encore lancé) : coef affiché
+      const peMasque = it.dispoEmporter === false && it.priceEmporter ? it.priceEmporter : '';
+      const pe = prixEmporterAffiche(it) || peMasque;
       const emb = info.coutEmballage || 0;
       const ce = pe ? coefDe(pe, tva, info.cout + emb) : null;
       const titreEmb = emb > 0 ? `Coefficient à emporter = prix HT ÷ (coût matière + emballage ${emb.toFixed(2).replace('.', ',')} €)` : 'Coefficient à emporter = prix HT ÷ coût matière — aucun emballage réglé (fenêtre Recette)';
-      h += `<span title="${titreEmb}">🥡 ${ce != null ? coefHTML(ce) + (emb > 0 ? '' : ' <span style="color:#bbb">sans emb.</span>') : '<span style="color:#bbb">pas à emporter</span>'}</span>`;
+      h += `<span title="${titreEmb}">🥡 ${ce != null ? coefHTML(ce) + (emb > 0 ? '' : ' <span style="color:#bbb">sans emb.</span>') + (peMasque ? ' <span style="color:#bbb">masqué</span>' : '') : '<span style="color:#bbb">pas à emporter</span>'}</span>`;
     }
   }
   return h;
