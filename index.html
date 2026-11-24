@@ -136,6 +136,24 @@ nav button.active,nav button:hover{color:#fff;border-bottom-color:#fff;backgroun
 .admin-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:1rem;scrollbar-gutter:stable;}
 .admin-section{display:none;}
 .admin-section.active{display:block;min-height:100%;}
+/* 24/11/2026 : éditeur du menu sur ordinateur — plein écran (plus de panneau « téléphone » à 92 %), colonne de
+   gauche assez large pour lire les noms des catégories, textes plus lisibles, contenu centré. */
+@media (min-width:900px){
+  .admin-overlay.open{align-items:stretch;}
+  .admin-panel{height:auto!important;max-height:none!important;border-radius:0;animation:none;}
+  .admin-header{padding:0.9rem 2rem;}
+  .admin-header h2{font-size:1.3rem;}
+  .admin-sidebar{width:300px;padding:0.8rem 0;}
+  .admin-sidebar-btn{font-size:0.82rem;padding:0.7rem 1.1rem;}
+  .admin-sidebar-section{font-size:0.66rem;padding:0.7rem 1.1rem 0.3rem;}
+  .nav-tree-row{padding:0.25rem 0.6rem;}
+  .nav-tree-lbl{font-size:0.84rem;}
+  .nav-tree-lbl.section-lbl{font-size:0.92rem;}
+  .nav-tree-icon{font-size:0.82rem;}
+  .admin-content{padding:1.5rem 2.5rem;}
+  .admin-section.active{max-width:1150px;margin:0 auto;}
+  .admin-label{font-size:0.74rem;}
+}
 
 /* Admin — plats */
 .admin-search{width:100%;padding:0.7rem 1rem;border:1px solid #ddd;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:1rem;margin-bottom:0.8rem;outline:none;}

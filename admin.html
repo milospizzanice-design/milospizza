@@ -1619,8 +1619,23 @@ function goModule(name){
   if(name==='recettes')loadRecettesModule();
   if(name==='labo')loadLaboModule();
   if(name==='menage')loadMenageModule();
+  if(name==='menu')ajusterCadreMenu(true);
   if(name==='reglages'){renderModeleMessageEditor();renderEnseigneEditor();loadPostes();loadMotifs();loadSeuilParam();loadDelaiBadge();loadRoles();}
 }
+// 24/11/2026 : le cadre de l'éditeur du menu prend exactement la hauteur restante de la fenêtre. Avant, sa hauteur
+// fixe (100vh - 150px) dépassait : la page défilait et le bouton « Revenir au menu » passait sous le bandeau.
+function ajusterCadreMenu(remonter){
+  var f=document.getElementById('menuAdminFrame');
+  if(!f||!f.offsetParent)return; // module Menu pas affiché
+  if(remonter)window.scrollTo(0,0);
+  var haut=f.getBoundingClientRect().top+(window.scrollY||window.pageYOffset||0);
+  var h=Math.max(520,Math.floor(window.innerHeight-haut-12));
+  f.style.height=h+'px';
+  // marges sous le cadre (carte, page) : on retire ce qui dépasse encore pour que la page ne défile pas
+  var depasse=document.documentElement.scrollHeight-window.innerHeight;
+  if(depasse>0)f.style.height=Math.max(520,h-depasse)+'px';
+}
+window.addEventListener('resize',function(){ajusterCadreMenu(false);});
 // ── Message type de commande (Réglages) — stocké dans app_config, lu par la tablette et l'admin via
 // restoglobal-commun.js (RG.chargerModeleMessage / RG.construireMessage). ──
 // ── Enseigne (Réglages) — nom et logo stockés dans app_config, lus par la tablette et l'admin
