@@ -565,30 +565,6 @@
       "isSupplementsCategory": false
     },
     {
-      "id": "cat_1792094792454x1ta",
-      "name": {
-        "fr": "Pizzas Veggies & Fromages",
-        "en": "Veggie & Cheese Pizzas",
-        "it": "Pizze Veggie & Formaggi",
-        "de": "Vegetarische & Käse-Pizzen",
-        "zh": "素食与奶酪披萨",
-        "ru": "Вегетарианские и сырные пиццы",
-        "es": "Pizzas Vegetarianas y de Quesos"
-      },
-      "archived": false,
-      "dispoSurPlace": false,
-      "dispoEmporter": true,
-      "subcats": [],
-      "tradEmp": {
-        "name.en": "ed331c22",
-        "name.it": "ed331c22",
-        "name.de": "ed331c22",
-        "name.es": "ed331c22",
-        "name.zh": "ed331c22",
-        "name.ru": "ed331c22"
-      }
-    },
-    {
       "id": "cat_1792094792454b4h0",
       "name": {
         "fr": "Ajoutez une Touche Gourmande",
@@ -601,7 +577,7 @@
       },
       "archived": false,
       "dispoSurPlace": false,
-      "dispoEmporter": true,
+      "dispoEmporter": false,
       "subcats": [],
       "tradEmp": {
         "name.en": "4b8ef4ab",
@@ -610,55 +586,37 @@
         "name.es": "4b8ef4ab",
         "name.zh": "4b8ef4ab",
         "name.ru": "4b8ef4ab"
-      }
+      },
+      "hideFromMenu": false,
+      "inAllergenList": true,
+      "isSupplementsCategory": false
     },
     {
       "id": "cat_1792094792454wvuw",
       "name": {
-        "fr": "Panuozzos",
-        "en": "Panuozzos",
-        "it": "Panuozzi",
-        "de": "Panuozzi",
-        "zh": "帕努奥佐（披萨面团烤三明治）",
-        "ru": "Пануоццо",
-        "es": "Panuozzos"
+        "fr": "Panuozzos - tous les midis",
+        "en": "Panuozzos - every lunchtime",
+        "it": "Panuozzi - tutti i giorni a pranzo",
+        "de": "Panuozzos - jeden Mittag",
+        "zh": "意式披萨面团三明治 - 每天中午",
+        "ru": "Сэндвичи пануоццо из пицца-теста - каждый день в обед",
+        "es": "Panuozzos - todos los mediodías"
       },
       "archived": false,
       "dispoSurPlace": false,
       "dispoEmporter": true,
       "subcats": [],
       "tradEmp": {
-        "name.en": "725b9cd2",
-        "name.it": "725b9cd2",
-        "name.de": "725b9cd2",
-        "name.es": "725b9cd2",
-        "name.zh": "725b9cd2",
-        "name.ru": "725b9cd2"
-      }
-    },
-    {
-      "id": "cat_179209479245426vj",
-      "name": {
-        "fr": "Desserts",
-        "en": "Desserts",
-        "it": "Dolci",
-        "de": "Desserts",
-        "zh": "甜点",
-        "ru": "Десерты",
-        "es": "Postres"
+        "name.en": "3bbca754",
+        "name.it": "3bbca754",
+        "name.de": "3bbca754",
+        "name.es": "3bbca754",
+        "name.zh": "3bbca754",
+        "name.ru": "3bbca754"
       },
-      "archived": false,
-      "dispoSurPlace": false,
-      "dispoEmporter": true,
-      "subcats": [],
-      "tradEmp": {
-        "name.en": "34ee3ece",
-        "name.it": "34ee3ece",
-        "name.de": "34ee3ece",
-        "name.es": "34ee3ece",
-        "name.zh": "34ee3ece",
-        "name.ru": "34ee3ece"
-      }
+      "hideFromMenu": false,
+      "inAllergenList": true,
+      "isSupplementsCategory": false
     }
   ],
   "items": [
@@ -1469,7 +1427,7 @@
       "photo": "",
       "archived": false,
       "dispoEmporter": true,
-      "priceEmporter": "168,99€",
+      "priceEmporter": "16€",
       "tradEmp": {
         "name.en": "9487430f",
         "name.it": "9487430f",
@@ -1701,7 +1659,7 @@
         "desc.zh": "2d418f68",
         "desc.ru": "2d418f68"
       },
-      "priceEmporter": "17,05€"
+      "priceEmporter": "15€"
     },
     {
       "id": "i4",
@@ -1733,7 +1691,7 @@
         "lait",
         "sulfites"
       ],
-      "dispoEmporter": false,
+      "dispoEmporter": true,
       "tradEmp": {
         "name.en": "b22c8b77",
         "name.it": "b22c8b77",
@@ -1747,7 +1705,8 @@
         "desc.es": "f9672592",
         "desc.zh": "f9672592",
         "desc.ru": "f9672592"
-      }
+      },
+      "priceEmporter": "15€"
     },
     {
       "id": "i24",
@@ -1845,6 +1804,50 @@
       }
     },
     {
+      "id": "i1792094792454pkkd",
+      "cat": "veggie",
+      "subcat": "",
+      "name": {
+        "fr": "Végétarienne",
+        "en": "Vegetarian",
+        "it": "Vegetariana",
+        "de": "Vegetarisch",
+        "zh": "素食披萨",
+        "ru": "Вегетарианская",
+        "es": "Vegetariana"
+      },
+      "desc": {
+        "fr": "Sauce tomate, fior di latte, aubergines cuisinées, artichauts, champignons de Paris, poivrons, olives, origan",
+        "en": "Tomato sauce, fior di latte mozzarella, cooked aubergines, artichokes, button mushrooms, peppers, olives, oregano",
+        "it": "Salsa di pomodoro, fior di latte, melanzane cotte, carciofi, champignon, peperoni, olive, origano",
+        "de": "Tomatensauce, Fior-di-latte-Mozzarella, geschmorte Auberginen, Artischocken, Champignons, Paprika, Oliven, Oregano",
+        "zh": "番茄酱、鲜奶马苏里拉奶酪、烹制茄子、洋蓟、白蘑菇、甜椒、橄榄、牛至",
+        "ru": "Томатный соус, моцарелла фьор-ди-латте, тушёные баклажаны, артишоки, шампиньоны, перец, оливки, орегано",
+        "es": "Salsa de tomate, mozzarella fior di latte, berenjena cocinada, alcachofas, champiñones, pimientos, aceitunas, orégano"
+      },
+      "price": "17€",
+      "photo": "",
+      "archived": false,
+      "dispoSurPlace": true,
+      "dispoEmporter": true,
+      "tradEmp": {
+        "name.en": "2b13144e",
+        "name.it": "2b13144e",
+        "name.de": "2b13144e",
+        "name.es": "2b13144e",
+        "name.zh": "2b13144e",
+        "name.ru": "2b13144e",
+        "desc.en": "6dd22fb8",
+        "desc.it": "6dd22fb8",
+        "desc.de": "6dd22fb8",
+        "desc.es": "6dd22fb8",
+        "desc.zh": "6dd22fb8",
+        "desc.ru": "6dd22fb8"
+      },
+      "priceEmporter": "14,5€",
+      "allergens": []
+    },
+    {
       "id": "i13",
       "cat": "veggie",
       "subcat": null,
@@ -1888,52 +1891,6 @@
         "desc.es": "495c22c3",
         "desc.zh": "495c22c3",
         "desc.ru": "495c22c3"
-      }
-    },
-    {
-      "id": "i14",
-      "cat": "veggie",
-      "subcat": null,
-      "name": {
-        "fr": "Parmigiana",
-        "en": "Parmigiana",
-        "it": "Parmigiana",
-        "de": "Parmigiana",
-        "zh": "茄子帕尔马干酪披萨",
-        "ru": "Пицца с баклажанами и пармезаном",
-        "es": "Parmigiana"
-      },
-      "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, aubergines cuisinées, copeaux de Parmesan, persillade maison, origan, basilic",
-        "en": "Tomato sauce, fior di latte mozzarella, cooked aubergines, Parmesan shavings, homemade persillade (garlic & parsley), oregano, basil",
-        "it": "Salsa di pomodoro, fior di latte, melanzane cotte, scaglie di Parmigiano, trito di aglio e prezzemolo fatto in casa, origano, basilico",
-        "de": "Tomatensauce, Fior-di-latte-Mozzarella, geschmorte Auberginen, Parmesanspäne, hausgemachte Knoblauch-Petersilien-Mischung, Oregano, Basilikum",
-        "zh": "番茄酱、鲜奶马苏里拉奶酪、烹制茄子、帕尔马干酪片、自制蒜香欧芹碎、牛至、罗勒",
-        "ru": "Томатный соус, моцарелла фьор-ди-латте, тушёные баклажаны, стружка пармезана, домашняя заправка из чеснока и петрушки, орегано, базилик",
-        "es": "Salsa de tomate, mozzarella fior di latte, berenjena cocinada, lascas de parmesano, picada casera de ajo y perejil, orégano, albahaca"
-      },
-      "price": "16.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732655/Milo_sPizza2_Parmigiana_qi7i6e.jpg",
-      "archived": false,
-      "allergens": [
-        "gluten",
-        "lait"
-      ],
-      "dispoEmporter": true,
-      "priceEmporter": "14,5€",
-      "tradEmp": {
-        "name.en": "69f7f5dc",
-        "name.it": "69f7f5dc",
-        "name.de": "69f7f5dc",
-        "name.es": "69f7f5dc",
-        "name.zh": "69f7f5dc",
-        "name.ru": "69f7f5dc",
-        "desc.en": "d0d69bca",
-        "desc.it": "d0d69bca",
-        "desc.de": "d0d69bca",
-        "desc.es": "d0d69bca",
-        "desc.zh": "d0d69bca",
-        "desc.ru": "d0d69bca"
       }
     },
     {
@@ -2299,50 +2256,49 @@
       }
     },
     {
-      "id": "i12",
+      "id": "i14",
       "cat": "veggie",
       "subcat": null,
       "name": {
-        "fr": "Chèvre & Miel",
-        "en": "Goat's Cheese & Honey",
-        "it": "Capra & Miele",
-        "de": "Ziegenkäse & Honig",
-        "zh": "山羊奶酪蜂蜜披萨",
-        "ru": "Козий сыр и мёд",
-        "es": "Queso de Cabra y Miel"
+        "fr": "Parmigiana",
+        "en": "Parmigiana",
+        "it": "Parmigiana",
+        "de": "Parmigiana",
+        "zh": "茄子帕尔马干酪披萨",
+        "ru": "Пицца с баклажанами и пармезаном",
+        "es": "Parmigiana"
       },
       "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, fromage de chèvre pur, tomates cerise, miel, éclats de noix",
-        "en": "Tomato sauce, fior di latte mozzarella, pure goat's cheese, cherry tomatoes, honey, crushed walnuts",
-        "it": "Salsa di pomodoro, fior di latte, formaggio di capra, pomodorini, miele, granella di noci",
-        "de": "Tomatensauce, Fior-di-latte-Mozzarella, reiner Ziegenkäse, Kirschtomaten, Honig, gehackte Walnüsse",
-        "zh": "番茄酱、鲜奶马苏里拉奶酪、纯山羊奶酪、樱桃番茄、蜂蜜、核桃碎",
-        "ru": "Томатный соус, моцарелла фьор-ди-латте, козий сыр, помидоры черри, мёд, дроблёные грецкие орехи",
-        "es": "Salsa de tomate, mozzarella fior di latte, queso de cabra puro, tomates cherry, miel, nueces troceadas"
+        "fr": "Sauce tomate, mozzarella Fior di latte, aubergines cuisinées, copeaux de Parmesan, persillade maison, origan, basilic",
+        "en": "Tomato sauce, fior di latte mozzarella, cooked aubergines, Parmesan shavings, homemade persillade (garlic & parsley), oregano, basil",
+        "it": "Salsa di pomodoro, fior di latte, melanzane cotte, scaglie di Parmigiano, trito di aglio e prezzemolo fatto in casa, origano, basilico",
+        "de": "Tomatensauce, Fior-di-latte-Mozzarella, geschmorte Auberginen, Parmesanspäne, hausgemachte Knoblauch-Petersilien-Mischung, Oregano, Basilikum",
+        "zh": "番茄酱、鲜奶马苏里拉奶酪、烹制茄子、帕尔马干酪片、自制蒜香欧芹碎、牛至、罗勒",
+        "ru": "Томатный соус, моцарелла фьор-ди-латте, тушёные баклажаны, стружка пармезана, домашняя заправка из чеснока и петрушки, орегано, базилик",
+        "es": "Salsa de tomate, mozzarella fior di latte, berenjena cocinada, lascas de parmesano, picada casera de ajo y perejil, orégano, albahaca"
       },
-      "price": "15.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732641/Milo_sPizza2_ChevreetMiel_fpxwdm.jpg",
+      "price": "16.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732655/Milo_sPizza2_Parmigiana_qi7i6e.jpg",
       "archived": false,
       "allergens": [
         "gluten",
-        "lait",
-        "noix"
+        "lait"
       ],
       "dispoEmporter": true,
-      "priceEmporter": "13€",
+      "priceEmporter": "14,5€",
       "tradEmp": {
-        "name.en": "6a653afd",
-        "name.it": "6a653afd",
-        "name.de": "6a653afd",
-        "name.es": "6a653afd",
-        "name.zh": "6a653afd",
-        "name.ru": "6a653afd",
-        "desc.en": "60dd7245",
-        "desc.it": "60dd7245",
-        "desc.de": "60dd7245",
-        "desc.es": "60dd7245",
-        "desc.zh": "60dd7245",
-        "desc.ru": "60dd7245"
+        "name.en": "69f7f5dc",
+        "name.it": "69f7f5dc",
+        "name.de": "69f7f5dc",
+        "name.es": "69f7f5dc",
+        "name.zh": "69f7f5dc",
+        "name.ru": "69f7f5dc",
+        "desc.en": "d0d69bca",
+        "desc.it": "d0d69bca",
+        "desc.de": "d0d69bca",
+        "desc.es": "d0d69bca",
+        "desc.zh": "d0d69bca",
+        "desc.ru": "d0d69bca"
       }
     },
     {
@@ -2486,49 +2442,50 @@
       "tva": 10
     },
     {
-      "id": "i11",
+      "id": "i12",
       "cat": "veggie",
       "subcat": null,
       "name": {
-        "fr": "Marguerite",
-        "en": "Margherita",
-        "it": "Margherita",
-        "de": "Margherita",
-        "zh": "玛格丽特披萨",
-        "ru": "Маргарита",
-        "es": "Margarita"
+        "fr": "Chèvre & Miel",
+        "en": "Goat's Cheese & Honey",
+        "it": "Capra & Miele",
+        "de": "Ziegenkäse & Honig",
+        "zh": "山羊奶酪蜂蜜披萨",
+        "ru": "Козий сыр и мёд",
+        "es": "Queso de Cabra y Miel"
       },
       "desc": {
-        "fr": "Sauce tomate, mozzarella Fior di latte, huile d'olive vierge extra, Parmesan, basilic",
-        "en": "Tomato sauce, fior di latte mozzarella, extra virgin olive oil, Parmesan, basil",
-        "it": "Salsa di pomodoro, fior di latte, olio extravergine d'oliva, Parmigiano, basilico",
-        "de": "Tomatensauce, Fior-di-latte-Mozzarella, natives Olivenöl extra, Parmesan, Basilikum",
-        "zh": "番茄酱、鲜奶马苏里拉奶酪、特级初榨橄榄油、帕尔马干酪、罗勒",
-        "ru": "Томатный соус, моцарелла фьор-ди-латте, оливковое масло extra virgin, пармезан, базилик",
-        "es": "Salsa de tomate, mozzarella fior di latte, aceite de oliva virgen extra, parmesano, albahaca"
+        "fr": "Sauce tomate, mozzarella Fior di latte, fromage de chèvre pur, tomates cerise, miel, éclats de noix",
+        "en": "Tomato sauce, fior di latte mozzarella, pure goat's cheese, cherry tomatoes, honey, crushed walnuts",
+        "it": "Salsa di pomodoro, fior di latte, formaggio di capra, pomodorini, miele, granella di noci",
+        "de": "Tomatensauce, Fior-di-latte-Mozzarella, reiner Ziegenkäse, Kirschtomaten, Honig, gehackte Walnüsse",
+        "zh": "番茄酱、鲜奶马苏里拉奶酪、纯山羊奶酪、樱桃番茄、蜂蜜、核桃碎",
+        "ru": "Томатный соус, моцарелла фьор-ди-латте, козий сыр, помидоры черри, мёд, дроблёные грецкие орехи",
+        "es": "Salsa de tomate, mozzarella fior di latte, queso de cabra puro, tomates cherry, miel, nueces troceadas"
       },
-      "price": "13.5€",
-      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732631/Milo_sPizza2_Marguerite_gosgrp.jpg",
+      "price": "15.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732641/Milo_sPizza2_ChevreetMiel_fpxwdm.jpg",
       "archived": false,
       "allergens": [
         "gluten",
-        "lait"
+        "lait",
+        "noix"
       ],
       "dispoEmporter": true,
-      "priceEmporter": "11€",
+      "priceEmporter": "13€",
       "tradEmp": {
-        "name.en": "aea7ad78",
-        "name.it": "aea7ad78",
-        "name.de": "aea7ad78",
-        "name.es": "aea7ad78",
-        "name.zh": "aea7ad78",
-        "name.ru": "aea7ad78",
-        "desc.en": "6278d875",
-        "desc.it": "6278d875",
-        "desc.de": "6278d875",
-        "desc.es": "6278d875",
-        "desc.zh": "6278d875",
-        "desc.ru": "6278d875"
+        "name.en": "6a653afd",
+        "name.it": "6a653afd",
+        "name.de": "6a653afd",
+        "name.es": "6a653afd",
+        "name.zh": "6a653afd",
+        "name.ru": "6a653afd",
+        "desc.en": "60dd7245",
+        "desc.it": "60dd7245",
+        "desc.de": "60dd7245",
+        "desc.es": "60dd7245",
+        "desc.zh": "60dd7245",
+        "desc.ru": "60dd7245"
       }
     },
     {
@@ -3686,7 +3643,7 @@
       "photo": "",
       "archived": false,
       "allergens": [],
-      "dispoEmporter": false,
+      "dispoEmporter": true,
       "tradEmp": {
         "name.en": "cc2da68c",
         "name.it": "cc2da68c",
@@ -3694,7 +3651,8 @@
         "name.es": "cc2da68c",
         "name.zh": "cc2da68c",
         "name.ru": "cc2da68c"
-      }
+      },
+      "priceEmporter": "5€"
     },
     {
       "id": "i56",
@@ -3958,7 +3916,7 @@
       "photo": "",
       "archived": false,
       "allergens": [],
-      "dispoEmporter": false,
+      "dispoEmporter": true,
       "tradEmp": {
         "name.en": "078aa763",
         "name.it": "078aa763",
@@ -3966,7 +3924,8 @@
         "name.es": "078aa763",
         "name.zh": "078aa763",
         "name.ru": "078aa763"
-      }
+      },
+      "priceEmporter": "3€"
     },
     {
       "id": "i81",
@@ -4632,13 +4591,13 @@
       "cat": "vins",
       "subcat": "Vins blancs",
       "name": {
-        "fr": "Estandon",
-        "en": "Estandon",
-        "it": "Estandon",
-        "de": "Estandon",
-        "zh": "Estandon 白葡萄酒",
-        "ru": "Estandon",
-        "es": "Estandon"
+        "fr": "Ecume d'Azur Blanc",
+        "en": "Ecume d'Azur Blanc",
+        "it": "Ecume d'Azur Blanc",
+        "de": "Ecume d'Azur Blanc",
+        "zh": "白葡萄酒",
+        "ru": "Белое вино",
+        "es": "Ecume d'Azur Blanc"
       },
       "desc": {
         "fr": "Vin de pays du Var",
@@ -4655,12 +4614,12 @@
       "allergens": [],
       "dispoEmporter": false,
       "tradEmp": {
-        "name.en": "08e93ad9",
-        "name.it": "08e93ad9",
-        "name.de": "08e93ad9",
-        "name.es": "08e93ad9",
-        "name.zh": "08e93ad9",
-        "name.ru": "08e93ad9",
+        "name.en": "0cbfc1cd",
+        "name.it": "0cbfc1cd",
+        "name.de": "0cbfc1cd",
+        "name.es": "0cbfc1cd",
+        "name.zh": "0cbfc1cd",
+        "name.ru": "0cbfc1cd",
         "desc.en": "8d621f8a",
         "desc.it": "8d621f8a",
         "desc.de": "8d621f8a",
@@ -4746,13 +4705,13 @@
       "cat": "vins",
       "subcat": "Vins Rosé",
       "name": {
-        "fr": "Estandon",
-        "en": "Estandon",
-        "it": "Estandon",
-        "de": "Estandon",
-        "zh": "Estandon 桃红葡萄酒",
-        "ru": "Estandon",
-        "es": "Estandon"
+        "fr": "Ecume d'Azur Rosé",
+        "en": "Ecume d'Azur Rosé",
+        "it": "Ecume d'Azur Rosé",
+        "de": "Ecume d'Azur Rosé",
+        "zh": "桃红葡萄酒",
+        "ru": "Розовое вино",
+        "es": "Ecume d'Azur Rosé"
       },
       "desc": {
         "fr": "Vin de pays du Var",
@@ -4815,12 +4774,12 @@
       ],
       "dispoEmporter": false,
       "tradEmp": {
-        "name.en": "08e93ad9",
-        "name.it": "08e93ad9",
-        "name.de": "08e93ad9",
-        "name.es": "08e93ad9",
-        "name.zh": "08e93ad9",
-        "name.ru": "08e93ad9",
+        "name.en": "3826392b",
+        "name.it": "3826392b",
+        "name.de": "3826392b",
+        "name.es": "3826392b",
+        "name.zh": "3826392b",
+        "name.ru": "3826392b",
         "desc.en": "8d621f8a",
         "desc.it": "8d621f8a",
         "desc.de": "8d621f8a",
@@ -4916,13 +4875,13 @@
       "cat": "vins",
       "subcat": "Vins Rouges",
       "name": {
-        "fr": "Bastide Saint-Antoine Rouge",
-        "en": "Bastide Saint-Antoine Red",
-        "it": "Bastide Saint-Antoine Rosso",
-        "de": "Bastide Saint-Antoine Rot",
-        "zh": "Bastide Saint-Antoine 红葡萄酒",
-        "ru": "Bastide Saint-Antoine, красное",
-        "es": "Bastide Saint-Antoine Tinto"
+        "fr": "Ecume d'azur Rouge",
+        "en": "Ecume d'azur Red",
+        "it": "Ecume d'azur Rosso",
+        "de": "Ecume d'azur Rot",
+        "zh": "红葡萄酒",
+        "ru": "Красное вино",
+        "es": "Ecume d'azur Tinto"
       },
       "desc": {
         "fr": "Vin de pays du Var",
@@ -4939,12 +4898,12 @@
       "allergens": [],
       "dispoEmporter": false,
       "tradEmp": {
-        "name.en": "b7bbe5f7",
-        "name.it": "b7bbe5f7",
-        "name.de": "b7bbe5f7",
-        "name.es": "b7bbe5f7",
-        "name.zh": "b7bbe5f7",
-        "name.ru": "b7bbe5f7",
+        "name.en": "6891c1c9",
+        "name.it": "6891c1c9",
+        "name.de": "6891c1c9",
+        "name.es": "6891c1c9",
+        "name.zh": "6891c1c9",
+        "name.ru": "6891c1c9",
         "desc.en": "8d621f8a",
         "desc.it": "8d621f8a",
         "desc.de": "8d621f8a",
@@ -5249,17 +5208,12 @@
         "ru": "Региональное вино департамента Вар",
         "es": "Vino de la tierra del Var"
       },
-      "price": "15€",
+      "price": "",
       "photo": "",
       "archived": false,
       "dispoSurPlace": false,
       "allergens": [],
-      "priceVariants": [
-        {
-          "label": "",
-          "price": "15€"
-        }
-      ],
+      "priceVariants": [],
       "dispoEmporter": false,
       "tradEmp": {
         "name.en": "a5ed35fe",
@@ -5298,17 +5252,12 @@
         "ru": "Региональное вино департамента Вар",
         "es": "Vino de la tierra del Var"
       },
-      "price": "15€",
+      "price": "",
       "photo": "",
       "archived": false,
       "dispoSurPlace": false,
       "allergens": [],
-      "priceVariants": [
-        {
-          "label": "",
-          "price": "15€"
-        }
-      ],
+      "priceVariants": [],
       "dispoEmporter": false,
       "tradEmp": {
         "name.en": "8eda48c8",
@@ -5396,7 +5345,7 @@
         "ru": "Домашний хлеб с пармезаном",
         "es": "Pan casero con parmesano"
       },
-      "price": "5€",
+      "price": "",
       "photo": "",
       "archived": false,
       "dispoSurPlace": false,
@@ -5415,12 +5364,59 @@
         "desc.zh": "2aa7e6a7",
         "desc.ru": "2aa7e6a7"
       },
-      "allergens": []
+      "allergens": [],
+      "priceEmporter": "5€"
+    },
+    {
+      "id": "i11",
+      "cat": "veggie",
+      "subcat": null,
+      "name": {
+        "fr": "Marguerite",
+        "en": "Margherita",
+        "it": "Margherita",
+        "de": "Margherita",
+        "zh": "玛格丽特披萨",
+        "ru": "Маргарита",
+        "es": "Margarita"
+      },
+      "desc": {
+        "fr": "Sauce tomate, mozzarella Fior di latte, huile d'olive vierge extra, Parmesan, basilic",
+        "en": "Tomato sauce, fior di latte mozzarella, extra virgin olive oil, Parmesan, basil",
+        "it": "Salsa di pomodoro, fior di latte, olio extravergine d'oliva, Parmigiano, basilico",
+        "de": "Tomatensauce, Fior-di-latte-Mozzarella, natives Olivenöl extra, Parmesan, Basilikum",
+        "zh": "番茄酱、鲜奶马苏里拉奶酪、特级初榨橄榄油、帕尔马干酪、罗勒",
+        "ru": "Томатный соус, моцарелла фьор-ди-латте, оливковое масло extra virgin, пармезан, базилик",
+        "es": "Salsa de tomate, mozzarella fior di latte, aceite de oliva virgen extra, parmesano, albahaca"
+      },
+      "price": "13.5€",
+      "photo": "https://res.cloudinary.com/dd2u4qgxj/image/upload/v1780732631/Milo_sPizza2_Marguerite_gosgrp.jpg",
+      "archived": false,
+      "allergens": [
+        "gluten",
+        "lait"
+      ],
+      "dispoEmporter": true,
+      "priceEmporter": "11€",
+      "tradEmp": {
+        "name.en": "aea7ad78",
+        "name.it": "aea7ad78",
+        "name.de": "aea7ad78",
+        "name.es": "aea7ad78",
+        "name.zh": "aea7ad78",
+        "name.ru": "aea7ad78",
+        "desc.en": "6278d875",
+        "desc.it": "6278d875",
+        "desc.de": "6278d875",
+        "desc.es": "6278d875",
+        "desc.zh": "6278d875",
+        "desc.ru": "6278d875"
+      }
     },
     {
       "id": "i17920947924545hhi",
-      "cat": "cat_1792094792454x1ta",
-      "subcat": null,
+      "cat": "veggie",
+      "subcat": "",
       "name": {
         "fr": "Marinara",
         "en": "Marinara",
@@ -5439,7 +5435,7 @@
         "ru": "Томатный соус, чеснок, оливковое масло, орегано, свежий базилик",
         "es": "Salsa de tomate, ajo, aceite de oliva, orégano, albahaca fresca"
       },
-      "price": "9€",
+      "price": "12€",
       "photo": "",
       "archived": false,
       "dispoSurPlace": true,
@@ -5457,50 +5453,9 @@
         "desc.es": "abf38eeb",
         "desc.zh": "abf38eeb",
         "desc.ru": "abf38eeb"
-      }
-    },
-    {
-      "id": "i1792094792454pkkd",
-      "cat": "cat_1792094792454x1ta",
-      "subcat": null,
-      "name": {
-        "fr": "Végétarienne",
-        "en": "Vegetarian",
-        "it": "Vegetariana",
-        "de": "Vegetarisch",
-        "zh": "素食披萨",
-        "ru": "Вегетарианская",
-        "es": "Vegetariana"
       },
-      "desc": {
-        "fr": "Sauce tomate, fior di latte, aubergines cuisinées, artichauts, champignons de Paris, poivrons, olives, origan",
-        "en": "Tomato sauce, fior di latte mozzarella, cooked aubergines, artichokes, button mushrooms, peppers, olives, oregano",
-        "it": "Salsa di pomodoro, fior di latte, melanzane cotte, carciofi, champignon, peperoni, olive, origano",
-        "de": "Tomatensauce, Fior-di-latte-Mozzarella, geschmorte Auberginen, Artischocken, Champignons, Paprika, Oliven, Oregano",
-        "zh": "番茄酱、鲜奶马苏里拉奶酪、烹制茄子、洋蓟、白蘑菇、甜椒、橄榄、牛至",
-        "ru": "Томатный соус, моцарелла фьор-ди-латте, тушёные баклажаны, артишоки, шампиньоны, перец, оливки, орегано",
-        "es": "Salsa de tomate, mozzarella fior di latte, berenjena cocinada, alcachofas, champiñones, pimientos, aceitunas, orégano"
-      },
-      "price": "17€",
-      "photo": "",
-      "archived": false,
-      "dispoSurPlace": true,
-      "dispoEmporter": true,
-      "tradEmp": {
-        "name.en": "2b13144e",
-        "name.it": "2b13144e",
-        "name.de": "2b13144e",
-        "name.es": "2b13144e",
-        "name.zh": "2b13144e",
-        "name.ru": "2b13144e",
-        "desc.en": "6dd22fb8",
-        "desc.it": "6dd22fb8",
-        "desc.de": "6dd22fb8",
-        "desc.es": "6dd22fb8",
-        "desc.zh": "6dd22fb8",
-        "desc.ru": "6dd22fb8"
-      },
-      "priceEmporter": "14,5€"
+      "allergens": [],
+      "priceEmporter": "9€"
     },
     {
       "id": "i17920947924548vdm",
@@ -6416,8 +6371,8 @@
     },
     {
       "id": "i1792094792455dw5a",
-      "cat": "cat_179209479245426vj",
-      "subcat": null,
+      "cat": "desserts",
+      "subcat": "",
       "name": {
         "fr": "Cookie aux 3 chocolats",
         "en": "Triple chocolate cookie",
@@ -6436,7 +6391,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "4€",
+      "price": "",
       "photo": "",
       "archived": false,
       "dispoSurPlace": false,
@@ -6449,12 +6404,13 @@
         "name.zh": "829de860",
         "name.ru": "829de860"
       },
-      "allergens": []
+      "allergens": [],
+      "priceEmporter": "4€"
     },
     {
       "id": "i1792094792455ikh4",
-      "cat": "cat_179209479245426vj",
-      "subcat": null,
+      "cat": "desserts",
+      "subcat": "",
       "name": {
         "fr": "Glace 100 mL",
         "en": "Ice cream 100 mL",
@@ -6473,7 +6429,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "4€",
+      "price": "",
       "photo": "",
       "archived": false,
       "dispoSurPlace": false,
@@ -6485,12 +6441,14 @@
         "name.es": "653b4017",
         "name.zh": "653b4017",
         "name.ru": "653b4017"
-      }
+      },
+      "priceEmporter": "4€",
+      "allergens": []
     },
     {
       "id": "i1792094792455vkl1",
-      "cat": "cat_179209479245426vj",
-      "subcat": null,
+      "cat": "desserts",
+      "subcat": "",
       "name": {
         "fr": "Glace 460 mL",
         "en": "Ice cream 460 mL",
@@ -6509,7 +6467,7 @@
         "ru": "",
         "es": ""
       },
-      "price": "10€",
+      "price": "",
       "photo": "",
       "archived": false,
       "dispoSurPlace": false,
@@ -6521,7 +6479,9 @@
         "name.es": "4069dcdc",
         "name.zh": "4069dcdc",
         "name.ru": "4069dcdc"
-      }
+      },
+      "priceEmporter": "10€",
+      "allergens": []
     },
     {
       "id": "i17920947924550rat",
@@ -6777,8 +6737,8 @@
     },
     {
       "id": "i1792094792455xdhe",
-      "cat": "vins",
-      "subcat": null,
+      "cat": "boissons",
+      "subcat": "Bières",
       "name": {
         "fr": "Heineken blonde",
         "en": "Heineken lager",
@@ -6797,7 +6757,7 @@
         "ru": "25cl",
         "es": "25cl"
       },
-      "price": "2,8€",
+      "price": "",
       "photo": "",
       "archived": false,
       "dispoSurPlace": false,
@@ -6815,12 +6775,14 @@
         "desc.es": "767a198f",
         "desc.zh": "767a198f",
         "desc.ru": "767a198f"
-      }
+      },
+      "allergens": [],
+      "priceEmporter": "2,8€"
     },
     {
       "id": "i1792094792455wb3o",
-      "cat": "vins",
-      "subcat": null,
+      "cat": "boissons",
+      "subcat": "Bières",
       "name": {
         "fr": "Birra Moretti",
         "en": "Birra Moretti",
@@ -6839,7 +6801,7 @@
         "ru": "25cl",
         "es": "25cl"
       },
-      "price": "5€",
+      "price": "",
       "photo": "",
       "archived": false,
       "dispoSurPlace": false,
@@ -6857,7 +6819,9 @@
         "desc.es": "767a198f",
         "desc.zh": "767a198f",
         "desc.ru": "767a198f"
-      }
+      },
+      "allergens": [],
+      "priceEmporter": "5€"
     },
     {
       "id": "i1794663963235",
